@@ -1081,6 +1081,25 @@ lands inside the loot multiplier (`LOOT_MULT_CAP`) or the 0–3 fragment
 count the claim already caps, so `resolve_expedition`'s payout ceiling is
 untouched.
 
+**Trail miles** (`src/lib/expeditions/trail.ts`, migration
+`20261010000001_expedition_trail_miles.sql`): every card that comes home
+alive — home or wounded — is stamped `card.trail = { miles, runs, deepest }`
+by the `expedition_runs_trail_stamp` trigger, which fires when a run's
+`claimed_at` is set and reads the outcome's fates; `expedition_trail_miles(tier)`
+is the SQL twin of `MILES_BY_TIER` (scout 1, rescue 1, gilded 2, raid 2,
+legend 3, legendary 4, exorcism 0) and `trail.test.ts` holds the two equal.
+A trigger rather than a field the app sends, because the miles unlock
+things: `TRAIL_TITLES` at 8 (Trailworn: a badge), 16 (Veteran: the card's
+own role call takes `VETERAN_SHAPE` in `resolveRoute` — scout at ½ risk,
+roam ×1.75, kite at ⅛, ward's lost/dead at ¼, hold `VETERAN_HOLD_LOOT`)
+and 30 (Wayfarer: `card-trail-wayfarer` frame on `PlayerCard3D`, and
+`WAYFARER_SHINE` in `shineOf`). The caller of a role call is the squad's
+member in that role with the most miles. The run also remembers itself
+inside `resolveRoute`: a toll paid at fork *n* waives fork *n+1*'s, and a
+`scout` at fork *n* scales fork *n+1*'s camp risks by `SCOUTED_CAMP_RISK`
+(and `journalFor`, handed the run's `choices`, writes the Jungle's line
+naming the next place at the start of the leg).
+
 The trail — the journal under each run, the encounters on it, the squad's
 line at a fork and the route map — is derived, never stored
 (`src/lib/expeditions/journal.ts`). On a road (`ROAD_RULES`) the pools are

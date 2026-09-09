@@ -27,6 +27,8 @@ import {
 import {
   CACHE_LOOT,
   CURSED_AGAIN_LOST,
+  SCOUTED_CAMP_RISK,
+  VETERAN_HOLD_LOOT,
   DEAD_NEEDS_PUSHES,
   FRAGMENT_CHANCE,
   HOLD_LOOT,
@@ -38,6 +40,7 @@ import {
   TOLL_LOOT,
 } from "@/lib/expeditions/routes";
 import { HUNTER_FRAGMENT_CHANCE, ROAD_ENCOUNTER_CHANCE, STORM_HOURS, STRANDED_BOUNTY } from "@/lib/expeditions/journal";
+import { MILES_BY_TIER, TRAIL_TITLES, WAYFARER_SHINE } from "@/lib/expeditions/trail";
 
 export const RISK_LABEL: Record<RouteRisk, string> = {
   none: "Nothing can be hurt",
@@ -198,6 +201,11 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
               rewards a night held with a mutation. The button says which.
             </li>
             <li>
+              <strong className="text-white">A run remembers itself.</strong> A toll paid at one fork is good for the next gate too. A
+              Jungle&apos;s scout at one fork means the squad knows where not to sleep at the next: its camp risks are rolled at{" "}
+              {pct(SCOUTED_CAMP_RISK)} of their odds, and the journal names the place ahead hours before the squad reaches it.
+            </li>
+            <li>
               Your cards unlock more: a <strong className="text-white">signed card</strong> can call in a favour (push with no
               risk, once a run), a <strong className="text-white">foil</strong> can light a dark fork (push at half the risk), and{" "}
               <strong className="text-white">three from one roster</strong> can rally (double the loot, half again the risk).
@@ -272,6 +280,35 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
           is rolled on two cards. A kite takes half the loot for a quarter of the risk. A ward halves the lost and dead
           rolls and leaves the wound roll alone. None of them works at the Scouting Run&apos;s coin flip. In a convoy a hold
           counts as a camp, and a camp on either side camps the convoy.
+        </p>
+      </div>
+
+      {/* ── Trail miles ──────────────────────────────────────────── */}
+      <div data-testid="rule-miles" className="flex flex-col gap-2 rounded-lg border border-line bg-panel/60 p-3 text-sm text-steel">
+        <h3 className="type-display text-lg text-white">Trail miles — a card remembers the roads it has walked</h3>
+        <p>
+          Every card that comes home alive is stamped with the run&apos;s miles:{" "}
+          {TIER_ORDER.filter((key) => MILES_BY_TIER[key] > 0)
+            .map((key) => `${EXPEDITION_TIERS[key].label} ${MILES_BY_TIER[key]}`)
+            .join(", ")}
+          . An Exorcism is a rite, not a road. Miles survive a wound and a mutation, and a card that dies takes them to the
+          graveyard. Three titles, and a card holds the highest it has reached:
+        </p>
+        <ul className="grid gap-2 sm:grid-cols-3">
+          {TRAIL_TITLES.map((title) => (
+            <li key={title.key} data-testid={`rule-title-${title.key}`} className="flex flex-col gap-1 rounded-md border border-line bg-black/30 p-2.5">
+              <span className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: title.accent }}>
+                {title.miles} miles
+              </span>
+              <span className="text-sm font-semibold text-white">{title.label}</span>
+              <span className="text-xs">{title.does}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-xs">
+          Only the card making the call has to be the Veteran — a Veteran Jungle does not make the Top better — and with
+          two cards in a role the one with more miles makes it. A Veteran Top&apos;s hold pays {pct(VETERAN_HOLD_LOOT)}. A
+          Wayfarer&apos;s {WAYFARER_SHINE} shine is a reason to send it again, never a way past a gate.
         </p>
       </div>
 

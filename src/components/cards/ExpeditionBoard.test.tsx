@@ -270,6 +270,18 @@ describe("ExpeditionBoard — tier cards", () => {
     expect(button.textContent).toBe("Patrons only");
   });
 
+  it("explains trail miles and the three titles in the rules of the road", () => {
+    renderBoard();
+    const rule = screen.getByTestId("rule-miles");
+    expect(rule.textContent).toContain("Scouting Run 1");
+    expect(rule.textContent).toContain("Legendary route 4");
+    expect(rule.textContent).toContain("An Exorcism is a rite, not a road");
+    expect(within(rule).getByTestId("rule-title-trailworn").textContent).toContain("8 miles");
+    expect(within(rule).getByTestId("rule-title-veteran").textContent).toContain("16 miles");
+    expect(within(rule).getByTestId("rule-title-wayfarer").textContent).toContain("30 miles");
+    expect(within(rule).getByTestId("rule-title-wayfarer").textContent).toContain("one more shine");
+  });
+
   it("explains the Gilded Road in the rules of the road", () => {
     renderBoard();
     const rule = screen.getByTestId("rule-gilded");
@@ -961,6 +973,18 @@ describe("ExpeditionBoard — the graveyard and a changed squad", () => {
     const stone = screen.getByTestId("grave-1");
     expect(within(stone).getByText("Hal")).toBeTruthy();
     expect(stone.textContent).toContain("Fell on the Legendary route");
+    // A card that never walked a road has no miles line on its stone.
+    expect(within(stone).queryByTestId("grave-miles-1")).toBeNull();
+  });
+
+  it("carves the miles a fallen card walked into its stone", () => {
+    const grave: Grave = {
+      id: 2, inventoryId: 98, slug: "ivy", playerName: "Ivy", tier: "gold", foil: false, foilType: null, signed: false,
+      card: { ...makeCard("Ivy", "Jungle"), trail: { miles: 17, runs: 7, deepest: "legend" } }, runId: 51, cause: "route", diedAt: "2026-08-21T12:00:00.000Z",
+    };
+    renderBoard({ graves: [grave] });
+
+    expect(screen.getByTestId("grave-miles-2").textContent).toBe("17 miles walked · Veteran");
   });
 
   it("shows every card that came home changed, drawn with what it now wears", async () => {

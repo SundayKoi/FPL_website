@@ -616,3 +616,116 @@ describe("what the road adds to a fork", () => {
     expect(many.fragments).toBe(FRAGMENT_CAP);
   });
 });
+
+// === veterans and the run's memory ==========================================
+
+import { SCOUTED_CAMP_RISK, VETERAN_HOLD_LOOT } from "./routes";
+import { VETERAN_MILES } from "./trail";
+
+describe("a Veteran's call", () => {
+  const veteran = (id: number, role: string) => copy({ id, role, card: { trail: { miles: VETERAN_MILES, runs: 5, deepest: "legend" } } });
+  const base = { insured: false, grade: "solid" as const, target: null, now };
+  /** A road that matches the fixed forks, so the numbers are the old ones. */
+  const fixed = (tier: ExpeditionTierKey) => {
+    for (let id = 1; id < 5000; id += 1) {
+      const r = { runId: id, rules: ROAD_RULES, convoy: null };
+      if (forksFor(tier, r).every((fork, index) => fork.key === FORKS[tier][index].key)) return r;
+    }
+    throw new Error("no fixed road");
+  };
+
+  it("a Veteran Jungle scouts at half risk; a green one at three-quarters", () => {
+    // The brutal fork (wounded 0.3): a veteran scout rolls 0.15, a green
+    // scout 0.225. A 0.2 roll wounds the green Jungle and not the veteran.
+    const green = [copy({ id: 1, role: "Top" }), copy({ id: 2, role: "Jungle" }), copy({ id: 3 })];
+    const vet = [copy({ id: 1, role: "Top" }), veteran(2, "Jungle"), copy({ id: 3 })];
+    const hurt = resolveRoute({ ...base, copies: green, tier: "raid", forks: 2, road: fixed("raid"), choices: [null, "scout"] }, script([0.2, 0, 0.99]));
+    expect(fates(hurt)[2]).toBe("wounded");
+    const fine = resolveRoute({ ...base, copies: vet, tier: "raid", forks: 2, road: fixed("raid"), choices: [null, "scout"] }, script([0.2, 0, 0.99]));
+    expect(Object.values(fates(fine))).toEqual(["home", "home", "home"]);
+  });
+
+  it("a Veteran Top holds for more, and a Veteran Mid roams for more", () => {
+    const tops = [veteran(1, "Top"), copy({ id: 2 }), copy({ id: 3 })];
+    expect(resolveRoute({ ...base, copies: tops, tier: "raid", forks: 2, road: fixed("raid"), choices: ["hold", null] }, always(0.99)).lootMultiplier).toBe(1 + VETERAN_HOLD_LOOT);
+    const mids = [veteran(1, "Mid"), copy({ id: 2 }), copy({ id: 3 })];
+    // Fork 0 roam: two victims, no wounds (0.99s), reward miss.
+    expect(resolveRoute({ ...base, copies: mids, tier: "raid", forks: 2, road: fixed("raid"), choices: ["roam", null] }, always(0.99)).lootMultiplier).toBe(1.44); // 1 + 0.25 × 1.75, rounded to the cent
+  });
+
+  it("only the caller has to be the Veteran, and the one with more miles makes the call", () => {
+    // A Veteran Top does not sharpen the Jungle's scout.
+    const mixed = [veteran(1, "Top"), copy({ id: 2, role: "Jungle" }), copy({ id: 3 })];
+    const hurt = resolveRoute({ ...base, copies: mixed, tier: "raid", forks: 2, road: fixed("raid"), choices: [null, "scout"] }, script([0.2, 0, 0.99]));
+    expect(fates(hurt)[2]).toBe("wounded");
+    // Two Junglers: the veteran goes in first and takes the harm.
+    const two = [copy({ id: 1, role: "Jungle" }), veteran(2, "Jungle"), copy({ id: 3 })];
+    const result = resolveRoute({ ...base, copies: two, tier: "raid", forks: 2, road: fixed("raid"), choices: [null, "scout"] }, script([0.99, 0.1, 0, 0.99]));
+    // With two Junglers the road picks (0.99 → the second, card 2), and
+    // the veteran shape holds: 0.1 < 0.15 wounds them.
+    expect(fates(result)[2]).toBe("wounded");
+  });
+
+  it("tells the button the call is sharper in a Veteran's hands", () => {
+    const vet = [veteran(1, "Support"), copy({ id: 2 }), copy({ id: 3 })];
+    const ward = forkOptions("raid", 0, vet, [], fixed("raid")).find((o) => o.choice === "ward")!;
+    expect(ward.tease).toMatch(/Veteran Support/);
+    const green = forkOptions("raid", 0, squad().map((c, i) => ({ ...c, role: i === 0 ? "Support" : "Mid" })) as CardCopy[], [], fixed("raid")).find((o) => o.choice === "ward")!;
+    expect(green.tease).not.toMatch(/Veteran/);
+  });
+});
+
+describe("the run's memory", () => {
+  const base = { copies: squad(), insured: false, grade: "solid" as const, target: null, now };
+  const roadWith = (tier: ExpeditionTierKey, wanted: string[]) => {
+    for (let id = 1; id < 20000; id += 1) {
+      const r = { runId: id, rules: ROAD_RULES, convoy: null };
+      if (forksFor(tier, r).every((fork, index) => fork.key === wanted[index])) return r;
+    }
+    throw new Error(`no run draws ${wanted.join(">")}`);
+  };
+
+  it("a toll paid at one gate is good for the next", () => {
+    // The moneylender's stair (gilded slot 1, toll 0.3) after the counting
+    // house (no toll): nothing to remember, so the stair charges.
+    const stairs = roadWith("gilded", ["ledgers", "stair"]);
+    const charged = resolveRoute({ ...base, tier: "gilded", forks: 2, road: stairs, choices: ["camp", "camp"] }, always(0.1));
+    expect(charged.lootMultiplier).toBe(1 - TOLL_LOOT);
+    expect(charged.events.filter((e) => /paid it/.test(e.text))).toHaveLength(1);
+    // The toll bridge (slot 0, toll 0.3) then the stair: the bridge's toll
+    // is paid once, and the stair keeper waves them through.
+    const bridged = roadWith("gilded", ["toll", "stair"]);
+    const paid = resolveRoute({ ...base, tier: "gilded", forks: 2, road: bridged, choices: ["camp", "camp"] }, always(0.1));
+    expect(paid.lootMultiplier).toBe(1 - TOLL_LOOT);
+    expect(paid.events.filter((e) => /paid it/.test(e.text))).toHaveLength(1);
+    expect(paid.events.some((e) => /good for this one/.test(e.text))).toBe(true);
+    // Not paid at the bridge (0.5 > 0.3): the stair charges as it always did.
+    const unpaid = resolveRoute({ ...base, tier: "gilded", forks: 2, road: bridged, choices: ["camp", "camp"] }, script([0.5, 0.1]));
+    expect(unpaid.lootMultiplier).toBe(1 - TOLL_LOOT);
+    expect(unpaid.events.some((e) => /good for this one/.test(e.text))).toBe(false);
+    // A push at the bridge pays no toll and remembers none.
+    const waded = resolveRoute({ ...base, tier: "gilded", forks: 2, road: bridged, choices: ["push", "camp"] }, always(0.99));
+    expect(waded.events.some((e) => /good for this one/.test(e.text))).toBe(false);
+  });
+
+  it("a scout at one fork means the squad knows where not to camp at the next", () => {
+    const junglers = [copy({ id: 1, role: "Jungle" }), copy({ id: 2 }), copy({ id: 3 })];
+    // Legend, fixed road: scout the shaft (wounded 0.2 × 0.75 = 0.15; roll
+    // 0.99 misses; reward pick 0, chance 0.99 miss), then camp at the
+    // wrong checkpoint: haunted 0.15 × SCOUTED_CAMP_RISK = 0.075. A 0.1
+    // roll haunts a squad that did not scout and not one that did.
+    const road = (() => {
+      for (let id = 1; id < 5000; id += 1) {
+        const r = { runId: id, rules: ROAD_RULES, convoy: null };
+        if (forksFor("legend", r).every((fork, index) => fork.key === FORKS.legend[index].key)) return r;
+      }
+      throw new Error("no fixed road");
+    })();
+    const knowing = resolveRoute({ ...base, copies: junglers, tier: "legend", forks: 3, road, choices: ["scout", "camp", null] }, script([0.99, 0, 0.99, 0.1, 0]));
+    expect(Object.values(mutations(knowing))).toEqual([null, null, null]);
+    expect(knowing.events.some((e) => /knew where not to sleep/.test(e.text))).toBe(true);
+    const blind = resolveRoute({ ...base, copies: junglers, tier: "legend", forks: 3, road, choices: ["push", "camp", null] }, script([0, 0.99, 0, 0.99, 0.1, 0]));
+    expect(Object.values(mutations(blind))).toContain("haunted");
+    expect(SCOUTED_CAMP_RISK).toBe(0.5);
+  });
+});

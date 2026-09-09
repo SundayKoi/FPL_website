@@ -217,3 +217,21 @@ describe("banter on the road", () => {
     expect([...legacy]).toEqual(["Card 1 wants to camp, light a fire and wait for daylight."]);
   });
 });
+
+describe("the Jungle back from ahead", () => {
+  it("names the next place at the start of the leg after a scout", () => {
+    const run = { ...raid, rules: ROAD_RULES, choices: [{ index: 0, choice: "scout" }] };
+    const entries = journalFor(run, squad, new Date("2026-09-06T00:00:00Z"));
+    const second = forksFor("raid", { runId: run.id, rules: ROAD_RULES, forks: 2 })[1];
+    const early = entries.find((entry) => entry.leg === 1 && entry.text.includes(second.title.toLowerCase()) && /scouting ahead|sketch of the next stop/.test(entry.text));
+    expect(early).toBeDefined();
+    // At the start of the leg — before the leg's first trail line.
+    const firstTrail = entries.find((entry) => entry.leg === 1 && entry.kind === "trail" && entry !== early)!;
+    expect(early!.at.getTime()).toBeLessThan(firstTrail.at.getTime());
+    // And in the Jungle's own name: Card 3 is the squad's Jungle.
+    expect(early!.text).toMatch(/^Card 3/);
+    // Without the scout, no such line.
+    const plain = journalFor({ ...raid, rules: ROAD_RULES, choices: [{ index: 0, choice: "push" }] }, squad, new Date("2026-09-06T00:00:00Z"));
+    expect(plain.some((entry) => /scouting ahead|sketch of the next stop/.test(entry.text))).toBe(false);
+  });
+});

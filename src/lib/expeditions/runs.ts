@@ -804,7 +804,7 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
     // The ping quotes the trail: the latest journal line, so the fork
     // arrives as the next line of a story rather than a bare deadline.
     const squad = await fetchInventoryByIds(service, row.discord_id, row.squad ?? []);
-    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules: Number(row.rules ?? 1), convoy: row.convoy }, squad, now);
+    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules: Number(row.rules ?? 1), convoy: row.convoy, choices: row.choices ?? [] }, squad, now);
     try {
       await postCardsWebhook(
         {

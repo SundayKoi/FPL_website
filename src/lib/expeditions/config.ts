@@ -15,6 +15,7 @@ import { PACK_COST, foilTypeOf, type FoilType } from "@/lib/packs/config";
 // and the number it is measured against should arrive together.
 export { MAXED_DAILY_STREAK } from "@/lib/betting/daily";
 import type { InventoryRow } from "@/lib/packs/queries";
+import { WAYFARER_SHINE, isWayfarer } from "./trail";
 
 /**
  * One owned copy, as an expedition reads it. This is card_inventory's row
@@ -270,6 +271,9 @@ export function shineOf(copy: CardCopy): number {
   if (copy.signed) shine += SIGNED_SHINE;
   if (copy.card?.shiny) shine += SHINY_SHINE;
   if (copy.card?.secret) shine += SECRET_SHINE;
+  // A Wayfarer — thirty miles of road survived — is worth one more. A
+  // title is a reason to send the card again, never a way past a gate.
+  if (isWayfarer(copy)) shine += WAYFARER_SHINE;
   return shine;
 }
 
