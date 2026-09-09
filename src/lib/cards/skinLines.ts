@@ -119,9 +119,6 @@ export interface SeasonSet {
   line: SkinLine["key"];
 }
 
-/** The set the mockup page works through: the live season's own line, so
- *  the "today, then this season" row on that page is what the shop shows. */
-export const EXAMPLE_SEASON_SET: SeasonSet = { season: "S5", line: "battlecast" };
 
 export function skinLineByKey(key: string): SkinLine | undefined {
   return SKIN_LINES.find((line) => line.key === key);
@@ -202,12 +199,40 @@ export function lineTierLabel(line: SkinLine, tier: LineTier): string {
 
 // === The season's line ======================================================
 
+/**
+ * The line both leagues are minting in right now, and the season code each
+ * league is on while they do.
+ *
+ * The two leagues run at the same time on different numbering — Premier on
+ * S, Academy on A (src/lib/league/season.ts) — so "this season's line" is
+ * two season codes, never one. Writing only the Premier half is exactly how
+ * the Academy spent the start of Battlecast on the plain ladder: every
+ * lookup below keys on the copy's own season, and an A1 copy found nothing.
+ * Stating the era once here, and deriving both keys from it, is what stops
+ * that recurring at the next rotation. The test in skinLines.test.ts holds
+ * the two leagues to the same line.
+ *
+ * These are the values in league_settings.current_season and
+ * academy_season. When either league rolls over, add its new code here;
+ * the old code moves into SEASON_LINES below with the line it had.
+ */
+export const CURRENT_LINE: SkinLine["key"] = "battlecast";
+export const CURRENT_LINE_SEASONS = { premier: "S5", academy: "A1" } as const;
+
 /** Which skin line each season's foils are drawn in. A season not listed
  *  draws the ladder as itself (Prisma, Aurora, Refractor, Cracked Ice).
- *  Keyed by league_settings.current_season / academy_season. */
+ *  Keyed by league_settings.current_season / academy_season. A copy's line
+ *  is frozen to the season it was minted in: when the line rotates, the
+ *  seasons before keep the look they were pulled in. */
 export const SEASON_LINES: Record<string, SkinLine["key"]> = {
-  S5: "battlecast",
+  [CURRENT_LINE_SEASONS.premier]: CURRENT_LINE,
+  [CURRENT_LINE_SEASONS.academy]: CURRENT_LINE,
 };
+
+/** The set the mockup page works through: the live Premier season's own
+ *  line, so the "today, then this season" row on that page is what the
+ *  shop shows. The Academy draws the same line under its own code. */
+export const EXAMPLE_SEASON_SET: SeasonSet = { season: CURRENT_LINE_SEASONS.premier, line: CURRENT_LINE };
 
 /** The line a season's foils wear, or null for the plain ladder. */
 export function seasonLineOf(season: string | null | undefined): SkinLine | null {
