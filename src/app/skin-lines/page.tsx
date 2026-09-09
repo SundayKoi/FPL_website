@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 };
 
 /** Two players: enough to judge a look over two different pieces of art,
- *  few enough that six lines at four tiers each is not a slideshow. The
+ *  few enough that seven lines at four tiers each is not a slideshow. The
  *  candidate sections alternate between them. */
 const PLAYERS = 2;
 
@@ -120,7 +120,7 @@ export default async function SkinLinesPreviewPage() {
         <p className="max-w-3xl text-sm text-coral">
           Premier {CURRENT_LINE_SEASONS.premier} and Academy {CURRENT_LINE_SEASONS.academy} are both{" "}
           {exampleLine.label}: every foil either league mints this season draws and names its
-          parallel as a {exampleLine.label} tier, on the shelf, in a trade and on the share picture. The other five lines
+          parallel as a {exampleLine.label} tier, on the shelf, in a trade and on the share picture. The other six lines
           are candidates for seasons to come. Nothing on this page mints, prices or writes anything.
         </p>
       </header>
@@ -184,7 +184,7 @@ export default async function SkinLinesPreviewPage() {
             </li>
           </ul>
           <p className="mt-2 text-xs text-steel">
-            Which line each season gets is the decision. The six candidates are below, each at all four
+            Which line each season gets is the decision. The seven candidates are below, each at all four
             tiers.
           </p>
         </div>
