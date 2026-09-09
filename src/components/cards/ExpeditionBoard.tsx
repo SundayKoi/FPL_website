@@ -74,6 +74,7 @@ import {
 } from "@/lib/expeditions/actions";
 import { hasRoad, hasTrail, roadOf, type ConvoyView, type ExpeditionRun, type Grave, type LostHold } from "@/lib/expeditions/queries";
 import { convoyVerdict, normaliseConvoyCode } from "@/lib/expeditions/convoy";
+import { MILES_BY_TIER, milesOf, trailLine, trailTitleOf } from "@/lib/expeditions/trail";
 import { banterFor, journalFor } from "@/lib/expeditions/journal";
 import { cardTeamKey } from "@/lib/expeditions/matchday";
 import { teamBadgeKey } from "@/lib/cards/build";
@@ -216,7 +217,7 @@ function RunTrail({ run, copies }: { run: ExpeditionRun; copies: CardCopy[] }) {
   const end = Date.parse(run.resolvesAt);
   const progress = now === 0 ? null : Math.max(0, Math.min(1, (now - start) / Math.max(1, end - start)));
   const tier = run.tier as ExpeditionTierKey;
-  const journal = journalFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, claimedAt: run.claimedAt, rules: run.rules }, copies, clock);
+  const journal = journalFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, claimedAt: run.claimedAt, rules: run.rules, convoy: run.convoy, choices: run.choices }, copies, clock);
   const shown = showAll ? journal : journal.slice(-3);
   return (
     <div className="flex w-full flex-col gap-2">
@@ -887,8 +888,8 @@ export default function ExpeditionBoard({
                     onClick={() => toggle(copy.id)}
                     disabled={deployed || lost || sealed || benchedUntil !== null || (!selected && full)}
                     aria-pressed={selected}
-                    aria-label={`${copy.playerName} — ${worth} shine`}
-                    title={status ? `${status[0].toUpperCase()}${status.slice(1)}.` : undefined}
+                    aria-label={`${copy.playerName} — ${worth} shine${trailLine(copy) ? ` — ${trailLine(copy)}` : ""}`}
+                    title={[status ? `${status[0].toUpperCase()}${status.slice(1)}.` : null, trailLine(copy)].filter(Boolean).join(" ") || undefined}
                     className={`relative flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition disabled:cursor-not-allowed ${
                       selected
                         ? "border-coral bg-coral/15"
@@ -902,6 +903,7 @@ export default function ExpeditionBoard({
                         {tierLabel(copy.tier)}
                         {copy.role ? ` · ${copy.role}` : ""}
                         {mutation ? ` · ${mutation.label}` : ""}
+                        {trailTitleOf(copy) ? ` · ${trailTitleOf(copy)!.label}` : milesOf(copy) > 0 ? ` · ${milesOf(copy)} mi` : ""}
                         {wearOf(copy.card) > 0 && !sealed ? ` · ${gradeOf(copy.card).label}` : ""}
                         {status ? ` · ${status}` : ""}
                       </span>
@@ -1254,6 +1256,11 @@ export default function ExpeditionBoard({
                   {grave.cause === "route" ? "Fell on the Legendary route" : "Lost, and nobody came"} ·{" "}
                   {new Date(grave.diedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" })}
                 </span>
+                {milesOf(grave) > 0 ? (
+                  <span data-testid={`grave-miles-${grave.id}`}>
+                    {milesOf(grave)} mile{milesOf(grave) === 1 ? "" : "s"} walked{trailTitleOf(grave) ? ` · ${trailTitleOf(grave)!.label}` : ""}
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -1282,6 +1289,7 @@ function ClaimCeremony({
   onClose: () => void;
 }) {
   const { outcome, route, bearerId, balance, baseDollars, fragments, merchant, stranded, surge, echo, rescueMissed } = ceremony;
+  const tier = ceremony.run.tier as ExpeditionTierKey;
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -1360,6 +1368,21 @@ function ClaimCeremony({
         {surge.length > 0 ? (
           <p data-testid="ceremony-surge" className="text-sm text-mint">
             {surge.join(" and ")} played on launch day — the match-day surge paid +{Math.round(SURGE_BONUS * 100)}%.
+          </p>
+        ) : null}
+        {MILES_BY_TIER[tier] > 0 && route.fates.some((fate) => fate.fate === "home" || fate.fate === "wounded") ? (
+          <p data-testid="ceremony-miles" className="text-sm text-steel">
+            <span className="font-semibold" style={{ color: "#e0b45a" }}>+{MILES_BY_TIER[tier]} mile{MILES_BY_TIER[tier] === 1 ? "" : "s"}</span> for everyone who came home.
+            {route.fates
+              .filter((fate) => fate.fate === "home" || fate.fate === "wounded")
+              .map((fate) => {
+                const copy = copies.get(fate.id);
+                const miles = (copy ? milesOf(copy) : 0) + MILES_BY_TIER[tier];
+                const title = copy ? trailTitleOf({ card: { trail: { miles } } }) : null;
+                const before = copy ? trailTitleOf(copy) : null;
+                return title && title.key !== before?.key ? ` ${copy!.playerName} is ${title.label} now.` : "";
+              })
+              .join("")}
           </p>
         ) : null}
         {outcome.comp ? (

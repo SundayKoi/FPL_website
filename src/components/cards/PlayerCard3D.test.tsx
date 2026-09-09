@@ -855,4 +855,33 @@ describe("provenance stamps", () => {
     render(<PlayerCard3D card={{ ...card, wounded: { until: "2020-01-01T00:00:00.000Z", run: 1 } }} interactive={false} />);
     expect(screen.queryByTestId("wounded")).toBeNull();
   });
+  it("stamps the roads a copy has walked from the first title, and frames a Wayfarer in leather", () => {
+    // Seven miles: the ledger knows, the front says nothing yet.
+    const green = render(<PlayerCard3D card={{ ...card, trail: { miles: 7, runs: 4, deepest: "raid" } } as typeof card} />);
+    expect(green.container.querySelector("[data-testid='trail-stamp']")).toBeNull();
+    expect(green.container.querySelector("[data-testid='wayfarer-frame']")).toBeNull();
+    green.unmount();
+
+    // Twelve: Trailworn, with the distance to the next title on the back.
+    const worn = render(<PlayerCard3D card={{ ...card, trail: { miles: 12, runs: 6, deepest: "legend" } } as typeof card} />);
+    const stamp = worn.container.querySelector("[data-testid='trail-stamp']");
+    expect(stamp?.textContent).toBe("⟟");
+    expect(stamp?.getAttribute("title")).toContain("Trailworn — 12 miles of road survived");
+    expect(worn.container.querySelector("[data-testid='card-stamps-back']")?.textContent).toContain("12 miles · Trailworn · 4 to Veteran");
+    expect(worn.container.querySelector("[data-testid='wayfarer-frame']")).toBeNull();
+    worn.unmount();
+
+    // Thirty: the frame is leather, drawn with nothing in it.
+    const far = render(<PlayerCard3D card={{ ...card, trail: { miles: 30, runs: 11, deepest: "legendary" } } as typeof card} />);
+    expect(far.container.querySelector("[data-testid='trail-stamp']")?.getAttribute("title")).toContain("Wayfarer");
+    const frame = far.container.querySelector("[data-testid='wayfarer-frame']");
+    expect(frame?.className).toContain("card-trail-wayfarer");
+    expect(frame?.textContent).toBe("");
+  });
+
+  it("stamps nothing for a copy that has never been out", () => {
+    const { container } = render(<PlayerCard3D card={card} />);
+    expect(container.querySelector("[data-testid='trail-stamp']")).toBeNull();
+    expect(container.querySelector("[data-testid='wayfarer-frame']")).toBeNull();
+  });
 });

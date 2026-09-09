@@ -39,6 +39,7 @@ import ChampionsCard from "./ChampionsCard";
 import DrawLaurel from "./DrawLaurel";
 import ExpeditionMark from "./ExpeditionMark";
 import { mutationByKey, mutationOverlay, type MutationOverlay } from "@/lib/cards/mutations";
+import { isWayfarer, milesOf, trailLine, trailTitleOf } from "@/lib/expeditions/trail";
 import { dribbLabel, dribbLook } from "@/lib/cards/dribb";
 import type { OverlayMockup } from "@/lib/cards/overlayMockups";
 import { secretSerialLabel, stattrakLabel } from "@/lib/packs/rarities";
@@ -296,6 +297,11 @@ function PlayerCardFace({
     ...(card.shiny ? [{ key: "shiny", testId: "shiny-stamp", glyph: "✦", accent: "#ff9be7", title: "Shiny — the art in the wrong colours. One print in sixty-four.", label: "Shiny", detail: null }] : []),
     ...(card.secret
       ? [{ key: "secret", testId: "secret-stamp", glyph: "#", accent: "#f5b62e", title: `Secret — numbered past the checklist: ${secretSerialLabel(card.secret)}. Never on the list.`, label: "Secret", detail: secretSerialLabel(card.secret) }]
+      : []),
+    // The roads this copy has walked. A stamp from the first title on;
+    // the ledger line on the back carries the miles from the first mile.
+    ...(trailTitleOf(card)
+      ? [{ key: "trail", testId: "trail-stamp", glyph: "⟟", accent: trailTitleOf(card)!.accent, title: `${trailTitleOf(card)!.label} — ${milesOf(card)} miles of road survived. ${trailTitleOf(card)!.does}`, label: trailTitleOf(card)!.label, detail: trailLine(card) }]
       : []),
     ...(card.stattrak
       ? [{ key: "stattrak", testId: "stattrak-stamp", glyph: `▮ ${stattrakLabel(card.stattrak.points)}`, accent: "#ff8a2a", title: `StatTrak™ — ${stattrakLabel(card.stattrak.points)} Fantasy Pts the player has scored while this owner held the card. Resets when traded.`, label: "StatTrak™", detail: `${stattrakLabel(card.stattrak.points)} pts` }]
@@ -927,6 +933,11 @@ function PlayerCardFace({
             ) : null}
             {slabbed ? (
               <div aria-hidden data-testid="slab-frame" className="card-slab pointer-events-none absolute inset-0 rounded-xl" />
+            ) : null}
+            {isWayfarer(card) ? (
+              // Thirty miles: the frame is leather now. Under the mutation
+              // and the overlay, over the foil — it is the card's edge.
+              <div aria-hidden data-testid="wayfarer-frame" className="card-trail-wayfarer" />
             ) : null}
             {mutation ? (
               <div
