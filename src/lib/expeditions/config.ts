@@ -537,6 +537,10 @@ const REWARDS: Record<ExpeditionTierKey, TierRewards> = {
  *  dollars (journal.ts rolls the meeting). Small on purpose: an encounter
  *  is a beat, not a payout. */
 export const MERCHANT_DOLLARS = 75;
+/** Under a Harvest (weather.ts) the merchant pays this many times that.
+ *  Lives here, not in weather.ts, because maxExpeditionPayout below has
+ *  to carry it and weather.ts reads from this file. */
+export const HARVEST_MERCHANT = 2;
 
 /** Match day: a squad with a card whose team plays on the day the run
  *  LAUNCHES brings home this much more. The brief does this by role; this
@@ -595,8 +599,9 @@ export function maxExpeditionPayout(): number {
       );
     }
   }
-  // The merchant's flat is the one thing added after the multipliers.
-  return most + MERCHANT_DOLLARS;
+  // The merchant's flat is the one thing added after the multipliers —
+  // at Harvest prices, the most it can ever be.
+  return most + MERCHANT_DOLLARS * HARVEST_MERCHANT;
 }
 
 /** How much each point of shine ABOVE the tier's gate adds to the payout,

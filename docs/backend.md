@@ -1100,6 +1100,26 @@ inside `resolveRoute`: a toll paid at fork *n* waives fork *n+1*'s, and a
 (and `journalFor`, handed the run's `choices`, writes the Jungle's line
 naming the next place at the start of the leg).
 
+The weather (`src/lib/expeditions/weather.ts`, pure; from `WEATHER_RULES`
+= 5, 20261012000001): one league-wide condition a week, `weatherForWeek`
+drawn from the Eastern Monday's date (Clear a third of the time, Fog,
+Drought, Harvest) and forced to the Watch in a playoff week
+(`watchWeeksOf` over the `fixtures` rows' `stage`, which
+`fetchFixturesSince` now selects). A run keeps the weather it launched
+under — `weatherOfRun` derives it from `startedAt`, nothing is stored —
+and the page attaches it to each run (`ExpeditionRun.weather`) for the
+journal and the fork buttons, the claim and the fork decision derive it
+themselves, and the sweep reads the fixtures once. What it does:
+`underWeather` in routes.ts turns every fork dark under Fog, scales a
+gamble fork's bonus by `DROUGHT_GAMBLE` under a Drought and waives the
+toll under a Harvest; `tollCost` doubles the toll under the Watch
+(`WATCH_TOLL`); `encountersFor` weights the draw (`DROUGHT_CACHES`,
+`WATCH_RIVALS`, `WATCH_GHOSTS`) and the journal opens with the week's
+sky; the claim pays the merchant `HARVEST_MERCHANT` × under a Harvest,
+which is why `maxExpeditionPayout` and `resolve_expedition`'s ceiling
+(16350, redeclared in 20261012000001) both carry it — config.test.ts
+reads the ceiling off the NEWEST migration that declares the function.
+
 Company on the road (`src/lib/expeditions/company.ts`, pure; the reads
 in `companyReads.ts`, service-client only; from `COMPANY_RULES` = 4,
 20261011000001): the trail's **rival squad** is another collector's real

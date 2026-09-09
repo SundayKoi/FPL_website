@@ -74,6 +74,7 @@ import {
 } from "@/lib/expeditions/actions";
 import { hasRoad, hasTrail, roadOf, type ConvoyView, type ExpeditionRun, type Grave, type LostHold } from "@/lib/expeditions/queries";
 import type { Rivalry } from "@/lib/expeditions/company";
+import { WEATHERS, type WeatherKey } from "@/lib/expeditions/weather";
 import { convoyVerdict, normaliseConvoyCode } from "@/lib/expeditions/convoy";
 import { MILES_BY_TIER, milesOf, trailLine, trailTitleOf } from "@/lib/expeditions/trail";
 import { banterFor, journalFor } from "@/lib/expeditions/journal";
@@ -218,7 +219,7 @@ function RunTrail({ run, copies }: { run: ExpeditionRun; copies: CardCopy[] }) {
   const end = Date.parse(run.resolvesAt);
   const progress = now === 0 ? null : Math.max(0, Math.min(1, (now - start) / Math.max(1, end - start)));
   const tier = run.tier as ExpeditionTierKey;
-  const journal = journalFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, claimedAt: run.claimedAt, rules: run.rules, convoy: run.convoy, choices: run.choices, company: run.company ?? null }, copies, clock);
+  const journal = journalFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, claimedAt: run.claimedAt, rules: run.rules, convoy: run.convoy, choices: run.choices, company: run.company ?? null, weather: run.weather ?? null }, copies, clock);
   const shown = showAll ? journal : journal.slice(-3);
   return (
     <div className="flex w-full flex-col gap-2">
@@ -328,7 +329,7 @@ function ForkPrompt({
   const road = roadOf(run);
   const story = forksFor(run.tier as ExpeditionTierKey, road)[fork.index];
   if (!def || !story) return null;
-  const options = forkOptions(run.tier as ExpeditionTierKey, fork.index, copies, choiceSheet(run.forks, run.choices), road);
+  const options = forkOptions(run.tier as ExpeditionTierKey, fork.index, copies, choiceSheet(run.forks, run.choices), road, run.weather ?? null);
   // The role calls the squad can actually make are buttons; the ones it
   // cannot are one quiet line, so a fork is not ten buttons of which six
   // are grey. The prints' options stay listed and locked as they always
@@ -501,9 +502,13 @@ export default function ExpeditionBoard({
   rivals = {},
   convoys = {},
   rivalries = [],
+  weather = null,
 }: {
   /** The convoys the runs in the field ride in, by run id. */
   convoys?: Record<number, ConvoyView>;
+  /** This week's weather (weather.ts), resolved on the server from the
+   *  Eastern Monday and the playoff calendar. Null on a board without one. */
+  weather?: WeatherKey | null;
   /** The collectors this squad has raced for a spot this season (company.ts),
    *  newest first, with the score. */
   rivalries?: Rivalry[];
@@ -767,6 +772,15 @@ export default function ExpeditionBoard({
           Send a {brief.role} with the squad and whatever they find pays {Math.round(BRIEF_BONUS * 100)}% more. The brief is scored
           against the day you LAUNCH, so a run keeps the bonus it left with.
         </span>
+        {weather ? (
+          <span data-testid="expedition-weather" className="basis-full text-xs text-white">
+            <span className="font-bold uppercase tracking-[0.14em] text-sky-300">
+              <span aria-hidden>{WEATHERS[weather].glyph} </span>
+              {WEATHERS[weather].label}
+            </span>{" "}
+            {WEATHERS[weather].sky} {WEATHERS[weather].does.join(" ")} A run keeps the weather it launched under.
+          </span>
+        ) : null}
         {playingToday.length > 0 ? (
           <span data-testid="match-day" className="basis-full text-xs text-white">
             <span className="font-bold uppercase tracking-[0.14em] text-mint">Match day</span>{" "}
@@ -803,6 +817,9 @@ export default function ExpeditionBoard({
                     <span className="label-dash">
                       {run.shine} shine{run.insured ? " · insured" : ""}
                       {run.encounters.some((entry) => entry.key === "storm") ? " · stormed" : ""}
+                      {run.weather && run.weather !== "clear" ? (
+                        <span data-testid={`weather-${run.id}`}> · under {WEATHERS[run.weather].label.toLowerCase()}</span>
+                      ) : null}
                     </span>
                     {convoys[run.id] ? (
                       <span data-testid={`convoy-${run.id}`} className="block text-xs text-gold">

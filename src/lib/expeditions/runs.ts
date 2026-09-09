@@ -11,6 +11,7 @@ import {
   EXPEDITION_TIERS,
   INSURANCE_FEE,
   insurancePerWeek,
+  HARVEST_MERCHANT,
   MERCHANT_DOLLARS,
   SQUAD_SIZE,
   SURGE_BONUS,
@@ -28,6 +29,7 @@ import { isCampChoice } from "./routes";
 import { echoPool, surgeTeams, teamsPlayingOn } from "./matchday";
 import { STORM_HOURS, STRANDED_BOUNTY, encountersFor, latestJournalLine } from "./journal";
 import { fetchCompany } from "./companyReads";
+import { watchWeeksOf, weatherOfRun } from "./weather";
 import {
   forksFor,
   choiceAllowed,
@@ -397,7 +399,10 @@ export async function decideForkFor(
   const copies = await fetchInventoryByIds(service, discordId, run.squad);
   if (copies.length !== run.squad.length) return { ok: false, error: "Couldn't read the squad — try again." };
   const earlier = choiceSheet(run.forks, run.choices);
-  if (!choiceAllowed(run.tier, index, choice, copies, earlier, roadOf(run))) {
+  // The weather the run launched under: under Fog every fork is dark, so
+  // a foil may light any of them. Read the same way the page read it.
+  const weather = weatherOfRun(run, watchWeeksOf(await fetchFixturesSince(service, new Date(Date.parse(run.startedAt) - DAY_MS).toISOString())));
+  if (!choiceAllowed(run.tier, index, choice, copies, earlier, roadOf(run), weather?.key ?? null)) {
     return { ok: false, error: "This squad can't make that choice here." };
   }
 
@@ -519,6 +524,15 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
   // a squad that launched before the trail existed (hasTrail): it pays
   // and comes home exactly as it set out.
   const trail = hasTrail(run);
+  // Match day: the fixtures of the LAUNCH day, on the same Eastern
+  // calendar as the brief — a squad keeps the surge it left with. Read
+  // from a day before the launch so a fixture at midnight UTC (8pm
+  // Eastern the evening before) is in the window. The same read names
+  // the playoff weeks the weather's Watch falls on.
+  const fixtures = trail ? await fetchFixturesSince(service, new Date(Date.parse(run.startedAt) - DAY_MS).toISOString()) : [];
+  // The weather the run launched under (weather.ts): derived from its
+  // launch week, so the page, the ping and this claim agree.
+  const weather = weatherOfRun(run, watchWeeksOf(fixtures));
   // Who else was on the road (company.ts): the real rivals the squad
   // raced and the ghosts it met, read the same way the page read them.
   const company = await fetchCompany(service, season, {
@@ -533,7 +547,7 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
     convoy: run.convoy,
     squadTeams: copies.map((copy) => copy.card?.teamName ?? null).filter((team): team is string => Boolean(team)),
   });
-  const encounters = encountersFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, rules: run.rules, convoy: run.convoy }, company);
+  const encounters = encountersFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, rules: run.rules, convoy: run.convoy }, company, weather?.key ?? null);
   // The route: what the forks made of it and what the squad looks like.
   // The road is the run's own (or the convoy's), so the places it walked
   // are the places the page showed.
@@ -548,21 +562,18 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
       grade: base.grade,
       target: run.target,
       encounters,
+      weather: weather?.key ?? null,
       now: new Date(),
     },
     expeditionRand,
   );
-  const merchant = encounters.some((entry) => entry.key === "merchant") ? MERCHANT_DOLLARS : 0;
+  // The merchant's flat — at Harvest prices under a Harvest.
+  const merchant = encounters.some((entry) => entry.key === "merchant") ? MERCHANT_DOLLARS * (weather?.key === "harvest" ? HARVEST_MERCHANT : 1) : 0;
   let stranded: { holdId: number; bounty: number } | null = null;
   if (encounters.some((entry) => entry.key === "stranded")) {
     const [hold] = await fetchStrangersHolds(service, discordId);
     if (hold) stranded = { holdId: hold.holdId, bounty: STRANDED_BOUNTY };
   }
-  // Match day: the fixtures of the LAUNCH day, on the same Eastern
-  // calendar as the brief — a squad keeps the surge it left with. Read
-  // from a day before the launch so a fixture at midnight UTC (8pm
-  // Eastern the evening before) is in the window.
-  const fixtures = trail ? await fetchFixturesSince(service, new Date(Date.parse(run.startedAt) - DAY_MS).toISOString()) : [];
   const surge = surgeTeams(copies, teamsPlayingOn(fixtures, dateIso));
   const dollars = Math.round(base.dollars * route.lootMultiplier * (surge.length > 0 ? 1 + SURGE_BONUS : 1)) + merchant;
   // A pack found at a fork is a pack: the road's comp joins the finale's.
@@ -782,6 +793,11 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
     return { pinged, buried, storms, errors };
   }
   const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  // The playoff weeks, for the weather each run launched under — one read
+  // for the whole sweep, from a day before the oldest run in the field.
+  const rows = (data as { started_at: string }[]) ?? [];
+  const oldest = rows.reduce((min, row) => Math.min(min, Date.parse(row.started_at)), now.getTime());
+  const watchWeeks = rows.length > 0 ? watchWeeksOf(await fetchFixturesSince(service, new Date(oldest - DAY_MS).toISOString())) : new Set<string>();
   for (const row of (data as {
     id: number;
     discord_id: string;
@@ -837,7 +853,8 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
       convoy: row.convoy,
       squadTeams: squad.map((copy) => copy.card?.teamName ?? null).filter((team): team is string => Boolean(team)),
     });
-    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules: Number(row.rules ?? 1), convoy: row.convoy, choices: row.choices ?? [], company }, squad, now);
+    const weather = weatherOfRun({ startedAt: row.started_at, rules: Number(row.rules ?? 1) }, watchWeeks);
+    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules: Number(row.rules ?? 1), convoy: row.convoy, choices: row.choices ?? [], company, weather: weather?.key ?? null }, squad, now);
     try {
       await postCardsWebhook(
         {

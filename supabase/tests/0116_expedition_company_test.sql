@@ -35,18 +35,20 @@ language sql stable as $$
 $$;
 
 -- === 1-2. the rulebook ======================================================
-select is(
-  (select column_default from information_schema.columns
+-- The default has moved on since (5, 20261012000001); the law here is
+-- that it is never below the company rulebook.
+select cmp_ok(
+  (select column_default::int from information_schema.columns
     where table_schema = 'public' and table_name = 'expedition_runs' and column_name = 'rules'),
-  '4',
+  '>=', 4,
   'a launch from here on has company on the road');
 
 create temporary table co_launch on commit drop as
   select * from public.launch_expedition('company-0116', 'S_TEST_CO', 'raid',
     array[tests.co_card('co-1'), tests.co_card('co-2'), tests.co_card('co-3')], 14, 24, 2, false, 0, 0, null, null, null);
 
-select is((select rules from public.expedition_runs where id = tests.co_run()), 4::smallint,
-  'a fresh run is stamped with the company rulebook');
+select cmp_ok((select rules from public.expedition_runs where id = tests.co_run()), '>=', 4::smallint,
+  'a fresh run is stamped with at least the company rulebook');
 
 -- === 3-5. the rivals met ride inside the outcome ============================
 update public.expedition_runs set resolves_at = now() - interval '1 minute' where id = tests.co_run();
