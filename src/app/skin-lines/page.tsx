@@ -7,6 +7,7 @@ import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchAllCardSeasons, fetchCardEditionWeeks, fetchCurrentWeekCards, fetchEditionCards } from "@/lib/cards/queries";
 import { readViewerDiscordId } from "@/lib/cards/viewer";
 import {
+  CURRENT_LINE_SEASONS,
   EXAMPLE_SEASON_SET,
   LINE_TIERS,
   SKIN_LINES,
@@ -117,7 +118,8 @@ export default async function SkinLinesPreviewPage() {
           patron channel.
         </p>
         <p className="max-w-3xl text-sm text-coral">
-          Season {EXAMPLE_SEASON_SET.season} is {exampleLine.label}: every foil minted that season draws and names its
+          Premier {CURRENT_LINE_SEASONS.premier} and Academy {CURRENT_LINE_SEASONS.academy} are both{" "}
+          {exampleLine.label}: every foil either league mints this season draws and names its
           parallel as a {exampleLine.label} tier, on the shelf, in a trade and on the share picture. The other five lines
           are candidates for seasons to come. Nothing on this page mints, prices or writes anything.
         </p>
