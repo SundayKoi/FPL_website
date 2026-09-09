@@ -22,6 +22,8 @@ import {
   type LostHold,
 } from "@/lib/expeditions/queries";
 import { nextOpponent, rosterTeam, teamsPlayingOn } from "@/lib/expeditions/matchday";
+import { fetchCompanies, fetchRivalries } from "@/lib/expeditions/companyReads";
+import type { Rivalry, RoadCompany } from "@/lib/expeditions/company";
 import { fetchInventory, fetchInventoryByIds, type InventoryRow } from "@/lib/packs/queries";
 import { easternDateOf, mondayOf } from "@/lib/packs/week";
 import { patronActive } from "@/lib/patron/flames";
@@ -177,12 +179,36 @@ export async function ExpeditionsPageView({
   const today = easternDateOf(now);
   const active = runs.filter((run) => run.tier !== "lost" && run.claimedAt === null);
   const oldest = active.reduce((min, run) => Math.min(min, Date.parse(run.startedAt)), now.getTime());
-  const [fixtures, convoys] = await Promise.all([
+  const copyById = new Map(copies.map((copy) => [copy.id, copy]));
+  // Who else is on the road with each squad in the field (company.ts):
+  // the rivals it races, decided by shine, and the graveyard's ghosts.
+  // Read here with the service role — the runs and graves it needs are
+  // other people's — and handed to the journal through the run.
+  const [fixtures, convoys, companies, rivalries] = await Promise.all([
     fetchFixturesSince(service, new Date(oldest - DAY_MS).toISOString()),
     fetchConvoyViews(service, discordId, active),
+    season
+      ? fetchCompanies(
+          service,
+          season,
+          active.map((run) => ({
+            id: run.id,
+            discordId,
+            tier: run.tier,
+            shine: run.shine,
+            startedAt: run.startedAt,
+            resolvesAt: run.resolvesAt,
+            forks: run.forks,
+            rules: run.rules,
+            convoy: run.convoy,
+            squadTeams: run.squad.map((id) => copyById.get(id)?.card?.teamName ?? null).filter((team): team is string => Boolean(team)),
+          })),
+        )
+      : Promise.resolve<Record<number, RoadCompany>>({}),
+    season ? fetchRivalries(service, discordId, season) : Promise.resolve<Rivalry[]>([]),
   ]);
   const playingToday = [...teamsPlayingOn(fixtures, today).values()];
-  const copyById = new Map(copies.map((copy) => [copy.id, copy]));
+  const runsWithCompany = runs.map((run) => (companies[run.id] ? { ...run, company: companies[run.id] } : run));
   const rivals: Record<number, string> = {};
   for (const run of active) {
     if (run.tier !== "legendary") continue;
@@ -213,7 +239,8 @@ export async function ExpeditionsPageView({
 
       <ExpeditionBoard
         copies={copies}
-        runs={runs}
+        runs={runsWithCompany}
+        rivalries={rivalries}
         deployedIds={deployedIds}
         initialPick={parseInventoryId(send)}
         base={base}

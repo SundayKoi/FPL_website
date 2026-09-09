@@ -31,6 +31,8 @@ import {
   VETERAN_HOLD_LOOT,
   DEAD_NEEDS_PUSHES,
   FRAGMENT_CHANCE,
+  GHOST_HAUNT,
+  GHOST_HAUNT_FLOOR,
   HOLD_LOOT,
   RIVAL_LOSS_LOOT,
   RIVAL_WIN_LOOT,
@@ -253,6 +255,30 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
             </li>
           </ul>
         </div>
+      </div>
+
+      {/* ── Company on the road ──────────────────────────────────── */}
+      <div data-testid="rule-company" className="flex flex-col gap-2 rounded-lg border border-line bg-panel/60 p-3 text-sm text-steel">
+        <h3 className="type-display text-lg text-white">Company on the road — the other people in it</h3>
+        <ul className="flex list-disc flex-col gap-1.5 pl-5">
+          <li>
+            <strong className="text-white">A rival squad is a real one.</strong> When the trail puts another squad on your road, it is
+            another collector&apos;s run on the same route — the one that launched closest before yours met it, within a day.
+            The spot goes to the squad with <strong className="text-white">more shine</strong>; a tie is a coin. Win and the bag is{" "}
+            {pct(RIVAL_WIN_LOOT)} heavier, lose and it is {pct(RIVAL_LOSS_LOOT)} lighter, and both journals say who. Nobody else
+            on the road? Then the cairn where they would have stood holds a cache: {pct(CACHE_LOOT)} more.
+          </li>
+          <li>
+            <strong className="text-white">The dead walk.</strong> A card that fell on the Legendary route haunts the Legend Hunt and
+            the Legendary route for everyone, all season, by name. Camp at the next fork and the haunting is rolled at{" "}
+            {GHOST_HAUNT}× the fork&apos;s odds and never under {pct(GHOST_HAUNT_FLOOR)}; push through and it cannot follow. Carry a card in
+            the dead card&apos;s old team colours and the ghost stands aside — and leaves a cache: {pct(CACHE_LOOT)} more.
+          </li>
+          <li>
+            <strong className="text-white">Rivalries</strong> are kept on this page for the season: who your squads have beaten to a
+            spot, and who has beaten yours.
+          </li>
+        </ul>
       </div>
 
       {/* ── Role calls ───────────────────────────────────────────── */}

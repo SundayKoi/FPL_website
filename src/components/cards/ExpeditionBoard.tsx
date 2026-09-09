@@ -73,6 +73,7 @@ import {
   ransomLostCardAction,
 } from "@/lib/expeditions/actions";
 import { hasRoad, hasTrail, roadOf, type ConvoyView, type ExpeditionRun, type Grave, type LostHold } from "@/lib/expeditions/queries";
+import type { Rivalry } from "@/lib/expeditions/company";
 import { convoyVerdict, normaliseConvoyCode } from "@/lib/expeditions/convoy";
 import { MILES_BY_TIER, milesOf, trailLine, trailTitleOf } from "@/lib/expeditions/trail";
 import { banterFor, journalFor } from "@/lib/expeditions/journal";
@@ -217,7 +218,7 @@ function RunTrail({ run, copies }: { run: ExpeditionRun; copies: CardCopy[] }) {
   const end = Date.parse(run.resolvesAt);
   const progress = now === 0 ? null : Math.max(0, Math.min(1, (now - start) / Math.max(1, end - start)));
   const tier = run.tier as ExpeditionTierKey;
-  const journal = journalFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, claimedAt: run.claimedAt, rules: run.rules, convoy: run.convoy, choices: run.choices }, copies, clock);
+  const journal = journalFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, claimedAt: run.claimedAt, rules: run.rules, convoy: run.convoy, choices: run.choices, company: run.company ?? null }, copies, clock);
   const shown = showAll ? journal : journal.slice(-3);
   return (
     <div className="flex w-full flex-col gap-2">
@@ -499,9 +500,13 @@ export default function ExpeditionBoard({
   playingToday = [],
   rivals = {},
   convoys = {},
+  rivalries = [],
 }: {
   /** The convoys the runs in the field ride in, by run id. */
   convoys?: Record<number, ConvoyView>;
+  /** The collectors this squad has raced for a spot this season (company.ts),
+   *  newest first, with the score. */
+  rivalries?: Rivalry[];
   /** The teams with a fixture today (Eastern), as the schedule spells
    *  them — a squad carrying one of their cards surges. Presentation:
    *  the claim reads the calendar itself. */
@@ -1226,6 +1231,33 @@ export default function ExpeditionBoard({
                 ) : (
                   <span className="text-steel">claimed</span>
                 )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* ── Rivalries ─────────────────────────────────────────────────── */}
+      {rivalries.length > 0 ? (
+        <section aria-label="Rivalries" data-testid="rivalries" className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-baseline gap-3">
+            <h2 className="type-display text-2xl sm:text-3xl">Rivalries</h2>
+            <span className="text-xs text-steel">Squads yours has raced for a spot this season. More shine gets there first.</span>
+          </div>
+          <ul className="flex flex-wrap gap-2">
+            {rivalries.map((rivalry) => (
+              <li
+                key={rivalry.who}
+                data-testid={`rivalry-${rivalry.who}`}
+                className="flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-1.5 text-xs"
+              >
+                <span className="font-semibold text-white">{rivalry.name}</span>
+                <span className={`font-mono font-bold ${rivalry.beaten > rivalry.beatenBy ? "text-mint" : rivalry.beaten < rivalry.beatenBy ? "text-coral" : "text-steel"}`}>
+                  {rivalry.beaten}–{rivalry.beatenBy}
+                </span>
+                <span className="text-steel">
+                  {rivalry.beaten === rivalry.beatenBy ? "level" : rivalry.beaten > rivalry.beatenBy ? "yours ahead" : "theirs ahead"}
+                </span>
               </li>
             ))}
           </ul>
