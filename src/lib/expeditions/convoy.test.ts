@@ -33,3 +33,16 @@ describe("normaliseConvoyCode", () => {
     expect(normaliseConvoyCode("abcdefgh")).toBe("ABCDEF");
   });
 });
+
+describe("a Top's hold in a convoy", () => {
+  it("is a camp: it camps the convoy, and survives as a hold on my own sheet", () => {
+    expect(convoySheet(2, [{ index: 0, choice: "hold", at }], [{ index: 0, choice: "push", at }])).toEqual(["hold", null]);
+    expect(convoySheet(2, [{ index: 0, choice: "push", at }], [{ index: 0, choice: "hold", at }])).toEqual(["camp", null]);
+    expect(convoySheet(1, [{ index: 0, choice: "hold", at }], [])).toEqual(["hold"]);
+    expect(convoyVerdict("hold", "push")).toBe("camping");
+    expect(convoyVerdict("push", "hold")).toBe("camping");
+    // The other role calls are pushes.
+    expect(convoyVerdict("scout", "ward")).toBe("pushing");
+    expect(convoySheet(1, [{ index: 0, choice: "kite", at }], [{ index: 0, choice: "roam", at }])).toEqual(["kite"]);
+  });
+});

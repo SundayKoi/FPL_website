@@ -24,8 +24,20 @@ import {
   type ExpeditionTierDef,
   type RouteRisk,
 } from "@/lib/expeditions/config";
-import { CURSED_AGAIN_LOST, DEAD_NEEDS_PUSHES, FORKS, FRAGMENT_CHANCE } from "@/lib/expeditions/routes";
-import { ENCOUNTER_CHANCE, STORM_HOURS, STRANDED_BOUNTY } from "@/lib/expeditions/journal";
+import {
+  CACHE_LOOT,
+  CURSED_AGAIN_LOST,
+  DEAD_NEEDS_PUSHES,
+  FRAGMENT_CHANCE,
+  HOLD_LOOT,
+  RIVAL_LOSS_LOOT,
+  RIVAL_WIN_LOOT,
+  ROADS,
+  ROLE_CALLS,
+  SHRINE_RISK,
+  TOLL_LOOT,
+} from "@/lib/expeditions/routes";
+import { HUNTER_FRAGMENT_CHANCE, ROAD_ENCOUNTER_CHANCE, STORM_HOURS, STRANDED_BOUNTY } from "@/lib/expeditions/journal";
 
 export const RISK_LABEL: Record<RouteRisk, string> = {
   none: "Nothing can be hurt",
@@ -55,8 +67,32 @@ export function requirementLine(def: ExpeditionTierDef): string {
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
+/** How many distinct places a route can stop at, across its checkpoints
+ *  — the number that says "no two runs walk the same road". */
+function placesOn(tier: keyof typeof ROADS): number {
+  return ROADS[tier].reduce((sum, slot) => sum + slot.length, 0);
+}
+
+/** Where a mutation can come from on the road, read off the tables so
+ *  the sentence cannot drift from the odds. */
+function mutationSources(): string {
+  const found: string[] = [];
+  for (const tier of TIER_ORDER) {
+    for (const slot of ROADS[tier]) {
+      for (const fork of slot) {
+        if (fork.pushReward) found.push(`${fork.pushReward.mutation} by pushing ${fork.title.toLowerCase()} (${EXPEDITION_TIERS[tier].label}, ${pct(fork.pushReward.chance)})`);
+        if (fork.campReward) found.push(`${fork.campReward.mutation} by camping at ${fork.title.toLowerCase()} (${EXPEDITION_TIERS[tier].label}, ${pct(fork.campReward.chance)})`);
+        if (fork.campRisk.haunted > 0) found.push(`haunted by camping at ${fork.title.toLowerCase()} (${EXPEDITION_TIERS[tier].label}, ${pct(fork.campRisk.haunted)})`);
+      }
+    }
+  }
+  return found.join("; ");
+}
+
 export default function ExpeditionRules({ id = "expedition-rules" }: { id?: string }) {
   const woundedDays = WOUNDED_HOURS / 24;
+  const raidPlaces = placesOn("raid");
+  const legendaryPlaces = placesOn("legendary");
   return (
     <section
       id={id}
@@ -141,6 +177,12 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
               and 16h; each fork waits for an answer until the next checkpoint, then the run moves on.
             </li>
             <li>
+              <strong className="text-white">The road is drawn when you launch.</strong> Each checkpoint is one of several places
+              — a Deep Raid can stop at {raidPlaces} of them across its two forks, the Legendary route at {legendaryPlaces} across its
+              four — so two runs on the same route rarely walk the same road. The places at one checkpoint carry the same
+              odds as each other; what changes is what is there and what pushing means.
+            </li>
+            <li>
               <strong className="text-white">Silence is safe.</strong> If you do not answer, the squad camps. Nobody
               loses a card because they were asleep. You get a ping in Discord and a badge on the Play tab when a
               fork opens.
@@ -148,6 +190,12 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
             <li>
               <strong className="text-white">Push</strong> adds to the loot and rolls a harm on one card. <strong className="text-white">Camp</strong> keeps what you have.
               Every fork prints its own odds on the button before you press it.
+            </li>
+            <li>
+              A push can turn up more than loot: some forks carry a chance of a <strong className="text-white">map fragment</strong> or a{" "}
+              <strong className="text-white">free pack</strong> in the haul. And the careful way is not always the free way — a{" "}
+              <strong className="text-white">toll</strong> fork can cost {pct(TOLL_LOOT)} of the loot for camping, and one checkpoint
+              rewards a night held with a mutation. The button says which.
             </li>
             <li>
               Your cards unlock more: a <strong className="text-white">signed card</strong> can call in a favour (push with no
@@ -199,6 +247,34 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
         </div>
       </div>
 
+      {/* ── Role calls ───────────────────────────────────────────── */}
+      <div data-testid="rule-roles" className="flex flex-col gap-2 rounded-lg border border-gold/40 bg-gold/5 p-3 text-sm text-steel">
+        <h3 className="type-display text-lg text-white">The role calls — what each position can do at a fork</h3>
+        <p>
+          Beyond camp and push, every role the league prints has a call of its own, <strong className="text-white">once a run</strong>,
+          shaped like the job that role does in the actual game. A squad with a Top, a Jungle and a Support has three of
+          these to spend across its forks; a squad of three Mids has one. The button only appears when the role is there —
+          the fork says which calls you are missing.
+        </p>
+        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          {ROLE_CALLS.map((call) => (
+            <li key={call.choice} data-testid={`rule-call-${call.choice}`} className="flex flex-col gap-1 rounded-md border border-line bg-panel/60 p-2.5">
+              <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-gold">{call.role}</span>
+              <span className="text-sm font-semibold text-white">{call.label}</span>
+              <span className="text-xs">{call.tease}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-xs">
+          A hold is a camp — it keeps what you have, plus {pct(HOLD_LOOT)}, and none of the things that can happen to a
+          camper (a wound, a haunting, a toll) happen to a Top on the checkpoint. The other four are pushes: they add the
+          fork&apos;s loot and roll its harm, in the shape the role gives it. A scout&apos;s harm lands on the Jungle. A roam&apos;s
+          is rolled on two cards. A kite takes half the loot for a quarter of the risk. A ward halves the lost and dead
+          rolls and leaves the wound roll alone. None of them works at the Scouting Run&apos;s coin flip. In a convoy a hold
+          counts as a camp, and a camp on either side camps the convoy.
+        </p>
+      </div>
+
       {/* ── Mutations ─────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3">
         <div>
@@ -217,8 +293,9 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
           <p>
             You cannot buy one. A fragment comes home with a Legend Hunt: <strong className="text-white">every</strong> Legend
             Hunt jackpot carries one, and {pct(FRAGMENT_CHANCE.legend?.solid ?? 0)} of solid Legend Hunts do. A Deep Raid
-            jackpot carries one {pct(FRAGMENT_CHANCE.raid?.jackpot ?? 0)} of the time. They stack in your supplies (the
-            purple counter above the brief) and never expire. <strong className="text-white">{EXPEDITION_TIERS.legendary.fragments} fragments</strong> are
+            jackpot carries one {pct(FRAGMENT_CHANCE.raid?.jackpot ?? 0)} of the time. A few forks can turn one up on a push,
+            and a relic hunter met on the trail has one to trade {pct(HUNTER_FRAGMENT_CHANCE)} of the time. They stack in your
+            supplies (the purple counter above the brief) and never expire. <strong className="text-white">{EXPEDITION_TIERS.legendary.fragments} fragments</strong> are
             spent to open one Legendary route; the route itself never drops one.
           </p>
         </div>
@@ -226,8 +303,9 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
           <h4 className="text-sm font-bold text-white">On the trail — what happens between the forks</h4>
           <p>
             Every run draws its route as a map with the squad moving along it, and keeps a journal that fills in as
-            the hours pass. Between checkpoints, each leg has a {pct(ENCOUNTER_CHANCE)} chance of an encounter. None
-            of them asks you anything:
+            the hours pass — the route&apos;s own lines, and one from each card in the voice of the role it plays, none of
+            them repeated inside a run. Between checkpoints, each leg has a {pct(ROAD_ENCOUNTER_CHANCE)} chance of an
+            encounter. None of them asks you anything:
           </p>
           <ul className="flex flex-col gap-1 pl-4 [list-style:disc]">
             <li>
@@ -239,6 +317,21 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
               it, and so does every fork after it.
             </li>
             <li>
+              <strong className="text-white">A cache</strong> left by an earlier expedition: {pct(CACHE_LOOT)} more loot.
+            </li>
+            <li>
+              <strong className="text-white">A rival squad</strong> on the same trail. Beat them to the spot and it is {pct(RIVAL_WIN_LOOT)} more
+              loot; lose the race and it is {pct(RIVAL_LOSS_LOOT)} less. The journal says which, the moment it happens.
+            </li>
+            <li>
+              <strong className="text-white">A shrine</strong> at the roadside: the next fork&apos;s harm is rolled at{" "}
+              {pct(SHRINE_RISK)} of its odds if you push there.
+            </li>
+            <li>
+              <strong className="text-white">A relic hunter</strong> trading maps — {pct(HUNTER_FRAGMENT_CHANCE)} of the time they have a
+              fragment.
+            </li>
+            <li>
               <strong className="text-white">A stranded card</strong> — only on a route that can lose one. The squad finds another
               collector&apos;s lost card and carries it home: they get it back wounded, you are paid a{" "}
               {fmtPoints(STRANDED_BOUNTY)} bounty by the house. Your own lost cards never come home this way.
@@ -246,7 +339,7 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
           </ul>
           <p>
             At each fork one of the squad has a word to say — a teammate vouching, a signed card offering the
-            favour, a foil at a dark fork. It is colour, not a hint: the odds on the buttons are the truth.{" "}
+            favour, a foil at a dark fork, a Jungle wanting to scout it. It is colour, not a hint: the odds on the buttons are the truth.{" "}
             <strong className="text-white">A squad already in the field when a rule changes keeps the rules it left with.</strong>
           </p>
         </div>
@@ -255,8 +348,9 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
           <p>
             Start a convoy at launch and you get a code. A partner joins the <strong className="text-white">same route</strong> with it
             before your first fork opens, and their squad rides your clock: every fork opens and closes for both of you at
-            once. You each answer your own forks, and a fork <strong className="text-white">pushes only if you both push</strong> — a
-            camp, or silence, on either side camps the convoy. Each squad still rolls its own loot and its own harm, so
+            once, and both squads walk the <strong className="text-white">same road</strong> — the places are drawn for the convoy, not
+            for each run. You each answer your own forks, and a fork <strong className="text-white">pushes only if you both push</strong> — a
+            camp, a hold, or silence, on either side camps the convoy. Each squad still rolls its own loot and its own harm, so
             your partner&apos;s bad night is theirs. The channel hears every answer, with a mention for whoever still has to
             decide. A convoy nobody joins is just your run. Convoys meet everything on the trail but storms.
           </p>
@@ -307,9 +401,8 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
           ))}
         </div>
         <p className="text-xs text-steel">
-          Where each comes from: {FORKS.raid[0].pushReward?.mutation} at the Deep Raid&apos;s reactor ({pct(FORKS.raid[0].pushReward?.chance ?? 0)} on a push),{" "}
-          {FORKS.raid[1].pushReward?.mutation} at its brutal fork ({pct(FORKS.raid[1].pushReward?.chance ?? 0)}), haunted by camping at the Legend Hunt&apos;s wrong
-          checkpoint ({pct(FORKS.legend[1].campRisk.haunted)}), cursed by pushing a warned fork and having it go wrong, voidtouched by coming home from the Legendary route at all.
+          Where each comes from: {mutationSources()}; cursed by pushing a warned fork and having it go wrong; voidtouched by
+          coming home from the Legendary route at all.
         </p>
       </div>
     </section>

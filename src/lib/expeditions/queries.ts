@@ -11,7 +11,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { easternDateOf } from "@/lib/packs/week";
 import type { ExpeditionMark, ExpeditionOutcome, ExpeditionTierKey, OutcomeGrade } from "./config";
-import type { CardFate, RecordedChoice, RouteEvent } from "./routes";
+import { ROAD_RULES, type CardFate, type RecordedChoice, type RoadRef, type RouteEvent } from "./routes";
 
 /**
  * The outcome as the ROW stores it, which is not quite what rollOutcome
@@ -84,6 +84,17 @@ export const TRAIL_RULES = 2;
 /** Whether this run launched under the trail rules. */
 export function hasTrail(run: Pick<ExpeditionRun, "rules">): boolean {
   return run.rules >= TRAIL_RULES;
+}
+
+/** Whether this run walks a drawn road (ROAD_RULES in routes.ts): forks
+ *  picked per run, the wider trail, the role calls. */
+export function hasRoad(run: Pick<ExpeditionRun, "rules">): boolean {
+  return run.rules >= ROAD_RULES;
+}
+
+/** The handle the road-drawing functions take, off a run row. */
+export function roadOf(run: Pick<ExpeditionRun, "id" | "rules" | "convoy" | "forks">): RoadRef {
+  return { runId: run.id, rules: run.rules, convoy: run.convoy, forks: run.forks };
 }
 
 /** Every column mapRun reads. runs.ts selects the same list, so a run
