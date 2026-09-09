@@ -7,7 +7,7 @@
 // what makes "back in 14h" a squad somewhere on it.
 
 import { EXPEDITION_TIERS, type ExpeditionTierKey } from "@/lib/expeditions/config";
-import { FORKS, type ForkStatus } from "@/lib/expeditions/routes";
+import { forksFor, type ForkStatus, type RoadRef } from "@/lib/expeditions/routes";
 
 /** Each route's path in a 200×60 box, and where along it the checkpoints
  *  sit. Drawn by hand so each route has its own silhouette: a scout's
@@ -44,6 +44,7 @@ export default function RouteMap({
   forks,
   progress,
   label,
+  road = null,
 }: {
   tier: ExpeditionTierKey;
   /** Each fork's status and, for a decided one, whether it was a push. */
@@ -51,9 +52,12 @@ export default function RouteMap({
   /** How far along the run the squad is, 0..1. Null before the clock is up. */
   progress: number | null;
   label?: string;
+  /** The run's road, so each dot is titled with the place this run
+   *  actually stops at. Without it the fixed road's names are used. */
+  road?: RoadRef | null;
 }) {
   const def = EXPEDITION_TIERS[tier];
-  const stories = FORKS[tier];
+  const stories = forksFor(tier, road);
   const legs = def.forks + 1;
   // Checkpoint i sits at the end of leg i+1; the geometry is a straight
   // walk along the path's length, which is what getPointAtLength gives a

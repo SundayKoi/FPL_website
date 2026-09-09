@@ -15,14 +15,21 @@
 //   2. Pushing adds to the loot multiplier and rolls one harm on one card.
 //      Camping is safe on the ladder — except where the story says it is
 //      not (the Legend Hunt's second checkpoint haunts; every Legendary
-//      fork bites even a camper).
+//      fork bites even a camper; a toll fork charges the careful).
 //   3. A card can die only on the Legendary route and only once the squad
 //      has pushed twice. Insurance turns lost into wounded and dead into
 //      lost. One-of-ones never board a route that can lose them.
 //   4. Mutations are one per copy and permanent. A roll that lands on an
 //      already-mutated card does nothing.
+//   5. The road is drawn per run (ROAD_RULES). Each checkpoint is one of
+//      several places, picked from the run's own seed, so two Deep Raids
+//      do not walk the same valley — and a convoy walks the host's draw,
+//      because two squads on one clock must stand at one fork.
+//   6. The squad's roles each have a call of their own, once a run: a Top
+//      holds, a Jungle scouts, a Mid roams, a Bot kites, a Support wards.
 
 import type { MutationKey } from "@/lib/cards/mutations";
+import { mulberry32 } from "@/lib/gauntlet/sim";
 import {
   EXPEDITION_TIERS,
   LOOT_MULT_CAP,
@@ -35,12 +42,35 @@ import {
 } from "./config";
 
 /** What a player can say at a fork. `camp` and `push` are always there;
- *  the other three are what the squad's own cards unlock. */
-export type ForkChoice = "camp" | "push" | "favour" | "light" | "rally";
+ *  favour, light and rally are what the squad's prints unlock; the five
+ *  after them are the role calls — what the squad's POSITIONS unlock. */
+export type ForkChoice = "camp" | "push" | "favour" | "light" | "rally" | "hold" | "scout" | "roam" | "kite" | "ward";
 
-export const FORK_CHOICES: ForkChoice[] = ["camp", "push", "favour", "light", "rally"];
+export const FORK_CHOICES: ForkChoice[] = ["camp", "push", "favour", "light", "rally", "hold", "scout", "roam", "kite", "ward"];
+
+/** The rulebook version from which a run walks a drawn road, meets the
+ *  wider trail and can make a role call. queries.ts's TRAIL_RULES (2) is
+ *  the version before it; a run stamped below this walks the fixed forks
+ *  in FORKS and knows five words at a checkpoint. Lives here, not in
+ *  queries.ts, because the resolver is pure and queries.ts is not. */
+export const ROAD_RULES = 3;
+
+/** What a run needs to hand the road-drawing functions: its seed, its
+ *  rulebook, and the convoy it rides in (a convoy's two runs must draw the
+ *  same road, so the convoy id seeds both). */
+export interface RoadRef {
+  runId: number;
+  rules: number;
+  convoy?: number | null;
+  /** How many forks the RUN has, when it differs from the tier's count
+   *  (a run from before forks existed has none). */
+  forks?: number;
+}
 
 export interface ForkDef {
+  /** A stable name for the place — what the rival fork keys on, and what
+   *  the tests name. Titles are prose and can be reworded; keys cannot. */
+  key: string;
   title: string;
   story: string;
   /** The button labels — what pushing and camping mean HERE. */
@@ -63,205 +93,744 @@ export interface ForkDef {
   /** The scouting run's fork is a coin flip on the bag, not a hazard:
    *  push and it either grows or shrinks. */
   gamble: { lose: number; down: number } | null;
+  /** What a push can turn up besides loot: a map fragment, a free pack.
+   *  Rolled after the harm, on any kind of push. */
+  pushFind?: { fragment?: number; comp?: number };
+  /** A mutation CAMPING can bring home — a night held at the right spot
+   *  hardens a card the way forcing a ridge does. */
+  campReward?: { mutation: MutationKey; chance: number } | null;
+  /** The careful way has a price here: this chance that camping costs
+   *  TOLL_LOOT off the multiplier. A fork where "safe" is not "free". */
+  toll?: number;
 }
 
 const NO_PUSH_RISK = { wounded: 0, lost: 0, dead: 0 };
 const NO_CAMP_RISK = { wounded: 0, haunted: 0 };
 
 /**
- * Every fork on every route. The numbers are the balance of the feature:
- * a Deep Raid pushed twice is a 40% chance of a mutation against a 30%
- * chance of a three-day bench; a Legendary route pushed at every fork is
- * a coin flip on a funeral.
+ * Every place a route can pause, by checkpoint. ROADS[tier][i] is the
+ * pool for fork i: each entry sits in the same risk envelope as the others
+ * in its slot (a Deep Raid's second fork is a coin flip on a wound
+ * whichever ridge it is), so the balance holds however the road is drawn.
+ * The first entry of every slot is the fork the tier had before the road
+ * was drawn per run — FORKS, below, is exactly those — which is what a run
+ * stamped before ROAD_RULES still walks.
+ *
+ * The numbers are the balance of the feature: a Deep Raid pushed twice is
+ * a 40% chance of a mutation against a 30% chance of a three-day bench; a
+ * Legendary route pushed at every fork is a coin flip on a funeral.
  */
-export const FORKS: Record<ExpeditionTierKey, ForkDef[]> = {
+export const ROADS: Record<ExpeditionTierKey, ForkDef[][]> = {
   scout: [
-    {
-      title: "The dry riverbed",
-      story: "The trail forks at a dry riverbed. Downstream is the road home with what you have. Upstream, the scouts think they saw a camp.",
-      pushLabel: "Follow the riverbed up",
-      campLabel: "Head home with the bag",
-      lootBonus: 0.4,
-      pushRisk: NO_PUSH_RISK,
-      campRisk: NO_CAMP_RISK,
-      pushReward: null,
-      warned: false,
-      dark: false,
-      gamble: { lose: 0.45, down: 0.3 },
-    },
+    [
+      {
+        key: "riverbed",
+        title: "The dry riverbed",
+        story: "The trail forks at a dry riverbed. Downstream is the road home with what you have. Upstream, the scouts think they saw a camp.",
+        pushLabel: "Follow the riverbed up",
+        campLabel: "Head home with the bag",
+        lootBonus: 0.4,
+        pushRisk: NO_PUSH_RISK,
+        campRisk: NO_CAMP_RISK,
+        pushReward: null,
+        warned: false,
+        dark: false,
+        gamble: { lose: 0.45, down: 0.3 },
+      },
+      {
+        key: "orchard",
+        title: "The orchard wall",
+        story: "A wall with fruit trees on the far side and a gap the scouts could fit through. The farmer is either away or asleep, and nobody can say which.",
+        pushLabel: "Go over the wall",
+        campLabel: "Keep to the road",
+        lootBonus: 0.35,
+        pushRisk: NO_PUSH_RISK,
+        campRisk: NO_CAMP_RISK,
+        pushReward: null,
+        warned: false,
+        dark: false,
+        gamble: { lose: 0.4, down: 0.25 },
+      },
+      {
+        key: "ferry",
+        title: "The ferry",
+        story: "A ferry with nobody at the rope. Across the water there is a village that might pay for news; behind the squad, the road home.",
+        pushLabel: "Pull yourselves across",
+        campLabel: "Walk the bank home",
+        lootBonus: 0.5,
+        pushRisk: NO_PUSH_RISK,
+        campRisk: NO_CAMP_RISK,
+        pushReward: null,
+        warned: false,
+        dark: false,
+        gamble: { lose: 0.5, down: 0.3 },
+      },
+      {
+        key: "fair",
+        title: "The fair",
+        story: "A travelling fair on the common, half packed up. Somebody is still running a game of chance at the last stall, and they are smiling.",
+        pushLabel: "Play the last stall",
+        campLabel: "Buy a pie and go",
+        lootBonus: 0.4,
+        pushRisk: NO_PUSH_RISK,
+        campRisk: NO_CAMP_RISK,
+        pushReward: null,
+        warned: false,
+        dark: false,
+        gamble: { lose: 0.45, down: 0.3 },
+      },
+    ],
   ],
   gilded: [
-    {
-      title: "The toll bridge",
-      story: "A bridge with a keeper who wants paying in stories, not coin. The squad can cross by the toll or wade the ford beneath it, where the footing is bad and the water runs gold.",
-      pushLabel: "Wade the ford",
-      campLabel: "Pay the toll and cross",
-      lootBonus: 0.3,
-      pushRisk: { wounded: 0.1, lost: 0, dead: 0 },
-      campRisk: NO_CAMP_RISK,
-      pushReward: { mutation: "hardened", chance: 0.15 },
-      warned: false,
-      dark: false,
-      gamble: null,
-    },
-    {
-      title: "The lantern market",
-      story: "A night market under paper lanterns, and the stalls at the dark end sell what the bright end will not. The squad can browse the dark end or buy what is lit and go.",
-      pushLabel: "Browse the dark end",
-      campLabel: "Buy what is lit and go",
-      lootBonus: 0.35,
-      pushRisk: { wounded: 0.15, lost: 0, dead: 0 },
-      campRisk: NO_CAMP_RISK,
-      pushReward: null,
-      warned: false,
-      dark: true,
-      gamble: null,
-    },
+    [
+      {
+        key: "toll",
+        title: "The toll bridge",
+        story: "A bridge with a keeper who wants paying in stories, not coin. The squad can cross by the toll or wade the ford beneath it, where the footing is bad and the water runs gold.",
+        pushLabel: "Wade the ford",
+        campLabel: "Pay the toll and cross",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.1, lost: 0, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: { mutation: "hardened", chance: 0.15 },
+        warned: false,
+        dark: false,
+        gamble: null,
+      },
+      {
+        key: "gate",
+        title: "The gilded gate",
+        story: "A gate of real gold, shut, and a gatehouse that will open it for a story. Or the wall can be climbed, and the spikes along the top are gold too.",
+        pushLabel: "Climb the wall",
+        campLabel: "Talk the gate open",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.1, lost: 0, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: { mutation: "hardened", chance: 0.15 },
+        warned: false,
+        dark: false,
+        gamble: null,
+      },
+      {
+        key: "ledgers",
+        title: "The counting house",
+        story: "A counting house with the ledgers open and the clerk asleep on them. Everything in the back room is owed to somebody, and the door to it is ajar.",
+        pushLabel: "Read the ledgers",
+        campLabel: "Let the clerk sleep",
+        lootBonus: 0.35,
+        pushRisk: { wounded: 0.1, lost: 0, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: null,
+        warned: false,
+        dark: false,
+        gamble: null,
+        pushFind: { comp: 0.2 },
+      },
+    ],
+    [
+      {
+        key: "lanterns",
+        title: "The lantern market",
+        story: "A night market under paper lanterns, and the stalls at the dark end sell what the bright end will not. The squad can browse the dark end or buy what is lit and go.",
+        pushLabel: "Browse the dark end",
+        campLabel: "Buy what is lit and go",
+        lootBonus: 0.35,
+        pushRisk: { wounded: 0.15, lost: 0, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: null,
+        warned: false,
+        dark: true,
+        gamble: null,
+      },
+      {
+        key: "ball",
+        title: "The masked ball",
+        story: "An invitation nobody sent, to a ball where every guest is masked and the dancing is in the dark rooms. The bright hall has wine and music and nothing worth taking.",
+        pushLabel: "Go through to the dark rooms",
+        campLabel: "Stay in the bright hall",
+        lootBonus: 0.35,
+        pushRisk: { wounded: 0.15, lost: 0, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: null,
+        warned: false,
+        dark: true,
+        gamble: null,
+        pushFind: { comp: 0.15 },
+      },
+      {
+        key: "stair",
+        title: "The moneylender's stair",
+        story: "A stair down under a moneylender's, lit by one candle. Somebody is owed a fortune down there. Settling up at the counter instead is possible, and it is not free.",
+        pushLabel: "Go down the stair",
+        campLabel: "Settle up at the counter",
+        lootBonus: 0.4,
+        pushRisk: { wounded: 0.2, lost: 0, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: null,
+        warned: false,
+        dark: true,
+        gamble: null,
+        toll: 0.3,
+      },
+    ],
   ],
   raid: [
-    {
-      title: "The reactor",
-      story: "A cooling tower leans over the valley and something inside it is still humming. The salvage in there is worth a fortune and glows faintly.",
-      pushLabel: "Go into the reactor",
-      campLabel: "Skirt the valley",
-      lootBonus: 0.25,
-      pushRisk: { wounded: 0.15, lost: 0, dead: 0 },
-      campRisk: NO_CAMP_RISK,
-      pushReward: { mutation: "irradiated", chance: 0.2 },
-      warned: false,
-      dark: false,
-      gamble: null,
-    },
-    {
-      title: "The brutal fork",
-      story: "The ridge road is held. The squad can force it, and the ones who force it come back harder, or they come back carried.",
-      pushLabel: "Force the ridge",
-      campLabel: "Take the long way round",
-      lootBonus: 0.25,
-      pushRisk: { wounded: 0.3, lost: 0, dead: 0 },
-      campRisk: NO_CAMP_RISK,
-      pushReward: { mutation: "hardened", chance: 0.2 },
-      warned: false,
-      dark: true,
-      gamble: null,
-    },
+    [
+      {
+        key: "reactor",
+        title: "The reactor",
+        story: "A cooling tower leans over the valley and something inside it is still humming. The salvage in there is worth a fortune and glows faintly.",
+        pushLabel: "Go into the reactor",
+        campLabel: "Skirt the valley",
+        lootBonus: 0.25,
+        pushRisk: { wounded: 0.15, lost: 0, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: { mutation: "irradiated", chance: 0.2 },
+        warned: false,
+        dark: false,
+        gamble: null,
+      },
+      {
+        key: "waterworks",
+        title: "The flooded works",
+        story: "The waterworks under the valley are half drowned and still running. The pumps glow faintly through the water, and so does whatever is on the shelves.",
+        pushLabel: "Wade the works",
+        campLabel: "Follow the pipe overland",
+        lootBonus: 0.25,
+        pushRisk: { wounded: 0.15, lost: 0, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: { mutation: "irradiated", chance: 0.2 },
+        warned: false,
+        dark: false,
+        gamble: null,
+      },
+      {
+        key: "mast",
+        title: "The signal mast",
+        story: "A mast on the hill, still broadcasting to nobody. There is a locked hut at its foot and the salvage in it never left.",
+        pushLabel: "Climb to the hut",
+        campLabel: "Take the road below the hill",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.2, lost: 0, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: { mutation: "hardened", chance: 0.1 },
+        warned: false,
+        dark: false,
+        gamble: null,
+        pushFind: { fragment: 0.1 },
+      },
+    ],
+    [
+      {
+        key: "ridge",
+        title: "The brutal fork",
+        story: "The ridge road is held. The squad can force it, and the ones who force it come back harder, or they come back carried.",
+        pushLabel: "Force the ridge",
+        campLabel: "Take the long way round",
+        lootBonus: 0.25,
+        pushRisk: { wounded: 0.3, lost: 0, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: { mutation: "hardened", chance: 0.2 },
+        warned: false,
+        dark: true,
+        gamble: null,
+      },
+      {
+        key: "barricade",
+        title: "The barricade",
+        story: "A barricade across the only road, and the people behind it want a share of everything the squad is carrying. It could be run, in the dark.",
+        pushLabel: "Run the barricade",
+        campLabel: "Give up a share and pass",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.3, lost: 0, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: { mutation: "hardened", chance: 0.2 },
+        warned: false,
+        dark: true,
+        gamble: null,
+        toll: 0.5,
+      },
+      {
+        key: "pits",
+        title: "The dog pits",
+        story: "The pits are quiet at this hour and the handlers are counting money in the back. What they are guarding is in the far kennel.",
+        pushLabel: "Cross the pits",
+        campLabel: "Circle wide of them",
+        lootBonus: 0.25,
+        pushRisk: { wounded: 0.3, lost: 0, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: { mutation: "hardened", chance: 0.15 },
+        warned: false,
+        dark: true,
+        gamble: null,
+      },
+    ],
   ],
   legend: [
-    {
-      title: "The glowing shaft",
-      story: "An old mine shaft breathes warm green air. The map says the seam runs deep.",
-      pushLabel: "Descend the shaft",
-      campLabel: "Stay on the surface",
-      lootBonus: 0.3,
-      pushRisk: { wounded: 0.2, lost: 0, dead: 0 },
-      campRisk: NO_CAMP_RISK,
-      pushReward: { mutation: "irradiated", chance: 0.15 },
-      warned: false,
-      dark: true,
-      gamble: null,
-    },
-    {
-      title: "The wrong checkpoint",
-      story: "Night falls at a checkpoint nobody built. Push on through the dark, or camp here — the squad says the place feels watched.",
-      pushLabel: "March through the night",
-      campLabel: "Camp at the checkpoint",
-      lootBonus: 0.3,
-      pushRisk: { wounded: 0.25, lost: 0, dead: 0 },
-      campRisk: { wounded: 0, haunted: 0.15 },
-      pushReward: null,
-      warned: false,
-      dark: true,
-      gamble: null,
-    },
-    {
-      title: "The vault door",
-      story: "The legend's vault, and the squad's every instinct says walk away. Whatever is behind it is worth the run twice over.",
-      pushLabel: "Open the vault",
-      campLabel: "Walk away with the haul",
-      lootBonus: 0.4,
-      pushRisk: { wounded: 0.3, lost: 0.15, dead: 0 },
-      campRisk: NO_CAMP_RISK,
-      pushReward: null,
-      warned: true,
-      dark: false,
-      gamble: null,
-    },
+    [
+      {
+        key: "shaft",
+        title: "The glowing shaft",
+        story: "An old mine shaft breathes warm green air. The map says the seam runs deep.",
+        pushLabel: "Descend the shaft",
+        campLabel: "Stay on the surface",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.2, lost: 0, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: { mutation: "irradiated", chance: 0.15 },
+        warned: false,
+        dark: true,
+        gamble: null,
+      },
+      {
+        key: "chapel",
+        title: "The drowned chapel",
+        story: "A chapel below the waterline, the windows still whole and something lit inside. The map's seam runs under it.",
+        pushLabel: "Dive for the door",
+        campLabel: "Stay on the bank",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.2, lost: 0, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: { mutation: "irradiated", chance: 0.15 },
+        warned: false,
+        dark: true,
+        gamble: null,
+      },
+      {
+        key: "furnaces",
+        title: "The furnace hall",
+        story: "A hall of cold furnaces, and one of them is not cold. The heat is coming from somewhere below it.",
+        pushLabel: "Go down past the live one",
+        campLabel: "Keep to the cold side",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.2, lost: 0, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: { mutation: "hardened", chance: 0.15 },
+        warned: false,
+        dark: true,
+        gamble: null,
+      },
+    ],
+    [
+      {
+        key: "checkpoint",
+        title: "The wrong checkpoint",
+        story: "Night falls at a checkpoint nobody built. Push on through the dark, or camp here — the squad says the place feels watched.",
+        pushLabel: "March through the night",
+        campLabel: "Camp at the checkpoint",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.25, lost: 0, dead: 0 },
+        campRisk: { wounded: 0, haunted: 0.15 },
+        pushReward: null,
+        warned: false,
+        dark: true,
+        gamble: null,
+      },
+      {
+        key: "village",
+        title: "The empty village",
+        story: "A village with the doors open and the fires lit and nobody in it. Push on, or sleep in a bed for once. The squad says the beds are warm.",
+        pushLabel: "March past it",
+        campLabel: "Sleep in the village",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.25, lost: 0, dead: 0 },
+        campRisk: { wounded: 0, haunted: 0.15 },
+        pushReward: null,
+        warned: false,
+        dark: true,
+        gamble: null,
+      },
+      {
+        key: "belltower",
+        title: "The bell tower",
+        story: "A bell tower ringing the hour when nobody is pulling the rope. The road on runs under it; the squad could wait the night out at its foot.",
+        pushLabel: "Go on under the bell",
+        campLabel: "Wait out the night here",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.25, lost: 0, dead: 0 },
+        campRisk: { wounded: 0, haunted: 0.2 },
+        pushReward: null,
+        warned: false,
+        dark: true,
+        gamble: null,
+        campReward: { mutation: "hardened", chance: 0.1 },
+      },
+    ],
+    [
+      {
+        key: "vault",
+        title: "The vault door",
+        story: "The legend's vault, and the squad's every instinct says walk away. Whatever is behind it is worth the run twice over.",
+        pushLabel: "Open the vault",
+        campLabel: "Walk away with the haul",
+        lootBonus: 0.4,
+        pushRisk: { wounded: 0.3, lost: 0.15, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: null,
+        warned: true,
+        dark: false,
+        gamble: null,
+      },
+      {
+        key: "throne",
+        title: "The throne room",
+        story: "A throne room with the throne still warm. The legend's whole hoard is stacked behind it, and the squad is whispering that they should not be here.",
+        pushLabel: "Take the hoard",
+        campLabel: "Back out quietly",
+        lootBonus: 0.4,
+        pushRisk: { wounded: 0.3, lost: 0.15, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: null,
+        warned: true,
+        dark: false,
+        gamble: null,
+        pushFind: { fragment: 0.25 },
+      },
+      {
+        key: "sleeper",
+        title: "The sleeper",
+        story: "Something enormous asleep across the last passage, and the only way past is over it. Every instinct in the squad says turn around.",
+        pushLabel: "Climb over it",
+        campLabel: "Turn around with what you have",
+        lootBonus: 0.4,
+        pushRisk: { wounded: 0.3, lost: 0.15, dead: 0 },
+        campRisk: NO_CAMP_RISK,
+        pushReward: null,
+        warned: true,
+        dark: false,
+        gamble: null,
+        pushFind: { comp: 0.2 },
+      },
+    ],
   ],
   rescue: [
-    {
-      title: "The holding camp",
-      story: "The lost card is in there. Go in loud and fast, or wait for dark and slip in.",
-      pushLabel: "Go in loud",
-      campLabel: "Wait for dark",
-      lootBonus: 0,
-      pushRisk: { wounded: 0.35, lost: 0, dead: 0 },
-      campRisk: { wounded: 0.15, haunted: 0 },
-      pushReward: null,
-      warned: false,
-      dark: true,
-      gamble: null,
-    },
+    [
+      {
+        key: "camp",
+        title: "The holding camp",
+        story: "The lost card is in there. Go in loud and fast, or wait for dark and slip in.",
+        pushLabel: "Go in loud",
+        campLabel: "Wait for dark",
+        lootBonus: 0,
+        pushRisk: { wounded: 0.35, lost: 0, dead: 0 },
+        campRisk: { wounded: 0.15, haunted: 0 },
+        pushReward: null,
+        warned: false,
+        dark: true,
+        gamble: null,
+      },
+      {
+        key: "crossing",
+        title: "The river crossing",
+        story: "They are moving the lost card downriver at first light. Rush the boats now, or wait on the far bank and take them at the crossing.",
+        pushLabel: "Rush the boats",
+        campLabel: "Wait at the crossing",
+        lootBonus: 0,
+        pushRisk: { wounded: 0.3, lost: 0, dead: 0 },
+        campRisk: { wounded: 0.15, haunted: 0 },
+        pushReward: null,
+        warned: false,
+        dark: true,
+        gamble: null,
+      },
+      {
+        key: "auction",
+        title: "The auction",
+        story: "The lost card is up for sale tonight, in a barn with one door. Kick it in, or bid with what the squad is carrying and walk out.",
+        pushLabel: "Kick the door in",
+        campLabel: "Bid and walk out",
+        lootBonus: 0,
+        pushRisk: { wounded: 0.35, lost: 0, dead: 0 },
+        campRisk: { wounded: 0.1, haunted: 0 },
+        pushReward: null,
+        warned: false,
+        dark: true,
+        gamble: null,
+        toll: 0.5,
+      },
+    ],
   ],
   exorcism: [],
   legendary: [
-    {
-      title: "The threshold",
-      story: "The fragments fit together and the map shows a door where there is no door. Past it the ground is wrong.",
-      pushLabel: "Cross the threshold running",
-      campLabel: "Cross it slowly",
-      lootBonus: 0.3,
-      pushRisk: { wounded: 0.25, lost: 0.1, dead: 0 },
-      campRisk: { wounded: 0.1, haunted: 0 },
-      pushReward: { mutation: "hardened", chance: 0.15 },
-      warned: false,
-      dark: true,
-      gamble: null,
-    },
-    {
-      title: "The singing dark",
-      story: "Something is singing under the floor and the squad wants to leave. There is light ahead, and the singing gets louder toward it.",
-      pushLabel: "Follow the light",
-      campLabel: "Hold position",
-      lootBonus: 0.3,
-      pushRisk: { wounded: 0.25, lost: 0.15, dead: 0.2 },
-      campRisk: { wounded: 0.1, haunted: 0 },
-      pushReward: null,
-      warned: true,
-      dark: true,
-      gamble: null,
-    },
-    {
-      title: "The rift",
-      story: "A tear in the air, and stars on the other side that are not ours. The map fragments are pulling toward it.",
-      pushLabel: "Go through the rift",
-      campLabel: "Edge around it",
-      lootBonus: 0.3,
-      pushRisk: { wounded: 0.25, lost: 0.15, dead: 0.3 },
-      campRisk: { wounded: 0.15, haunted: 0 },
-      pushReward: null,
-      warned: false,
-      dark: false,
-      gamble: null,
-    },
-    {
-      title: "The way home",
-      story: "The door is behind you and closing. Everything the route promised is in the last chamber, and the squad is begging to go.",
-      pushLabel: "Take the last chamber",
-      campLabel: "Go home now",
-      lootBonus: 0.4,
-      pushRisk: { wounded: 0.25, lost: 0.2, dead: 0.4 },
-      campRisk: { wounded: 0.1, haunted: 0 },
-      pushReward: null,
-      warned: true,
-      dark: false,
-      gamble: null,
-    },
+    [
+      {
+        key: "threshold",
+        title: "The threshold",
+        story: "The fragments fit together and the map shows a door where there is no door. Past it the ground is wrong.",
+        pushLabel: "Cross the threshold running",
+        campLabel: "Cross it slowly",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.25, lost: 0.1, dead: 0 },
+        campRisk: { wounded: 0.1, haunted: 0 },
+        pushReward: { mutation: "hardened", chance: 0.15 },
+        warned: false,
+        dark: true,
+        gamble: null,
+      },
+      {
+        key: "stairs",
+        title: "The stair that goes both ways",
+        story: "A stair the map insists is one step. It goes up and down at once, and the squad's footing is not to be trusted on it.",
+        pushLabel: "Run the stair",
+        campLabel: "Feel your way",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.25, lost: 0.1, dead: 0 },
+        campRisk: { wounded: 0.1, haunted: 0 },
+        pushReward: { mutation: "hardened", chance: 0.15 },
+        warned: false,
+        dark: true,
+        gamble: null,
+      },
+      {
+        key: "doors",
+        title: "The gallery of doors",
+        story: "A gallery of doors, all of them open on the same room. The fragments point at the one that is not.",
+        pushLabel: "Take the wrong door",
+        campLabel: "Try them one by one",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.25, lost: 0.1, dead: 0 },
+        campRisk: { wounded: 0.1, haunted: 0 },
+        pushReward: null,
+        warned: false,
+        dark: true,
+        gamble: null,
+        pushFind: { comp: 0.2 },
+      },
+    ],
+    [
+      {
+        key: "singing",
+        title: "The singing dark",
+        story: "Something is singing under the floor and the squad wants to leave. There is light ahead, and the singing gets louder toward it.",
+        pushLabel: "Follow the light",
+        campLabel: "Hold position",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.25, lost: 0.15, dead: 0.2 },
+        campRisk: { wounded: 0.1, haunted: 0 },
+        pushReward: null,
+        warned: true,
+        dark: true,
+        gamble: null,
+      },
+      {
+        key: "choir",
+        title: "The choir",
+        story: "Voices in the walls, singing one note each, and the note changes when the squad moves. Ahead the singing stops, which is worse.",
+        pushLabel: "Walk into the silence",
+        campLabel: "Hold where the singing is",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.25, lost: 0.15, dead: 0.2 },
+        campRisk: { wounded: 0.1, haunted: 0 },
+        pushReward: null,
+        warned: true,
+        dark: true,
+        gamble: null,
+      },
+      {
+        key: "mirrors",
+        title: "The mirror hall",
+        story: "A hall of mirrors that show the squad a step behind where they are. One of the reflections is not keeping up.",
+        pushLabel: "Go through the glass",
+        campLabel: "Back along the wall",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.25, lost: 0.15, dead: 0.2 },
+        campRisk: { wounded: 0.1, haunted: 0 },
+        pushReward: null,
+        warned: true,
+        dark: true,
+        gamble: null,
+      },
+    ],
+    [
+      {
+        key: "rift",
+        title: "The rift",
+        story: "A tear in the air, and stars on the other side that are not ours. The map fragments are pulling toward it.",
+        pushLabel: "Go through the rift",
+        campLabel: "Edge around it",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.25, lost: 0.15, dead: 0.3 },
+        campRisk: { wounded: 0.15, haunted: 0 },
+        pushReward: null,
+        warned: false,
+        dark: false,
+        gamble: null,
+      },
+      {
+        key: "sky",
+        title: "The falling sky",
+        story: "The ceiling is sky, and the sky is falling upward. The map fragments are lighter in the hand than they were.",
+        pushLabel: "Go up with it",
+        campLabel: "Crawl along the floor",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.25, lost: 0.15, dead: 0.3 },
+        campRisk: { wounded: 0.15, haunted: 0 },
+        pushReward: null,
+        warned: false,
+        dark: false,
+        gamble: null,
+      },
+      {
+        key: "tide",
+        title: "The tide",
+        story: "A tide coming in across a floor with no sea. It is warm, and it is pulling toward the far wall.",
+        pushLabel: "Swim with it",
+        campLabel: "Climb above the line",
+        lootBonus: 0.3,
+        pushRisk: { wounded: 0.25, lost: 0.15, dead: 0.3 },
+        campRisk: { wounded: 0.15, haunted: 0 },
+        pushReward: null,
+        warned: false,
+        dark: false,
+        gamble: null,
+      },
+    ],
+    [
+      {
+        key: "home",
+        title: "The way home",
+        story: "The door is behind you and closing. Everything the route promised is in the last chamber, and the squad is begging to go.",
+        pushLabel: "Take the last chamber",
+        campLabel: "Go home now",
+        lootBonus: 0.4,
+        pushRisk: { wounded: 0.25, lost: 0.2, dead: 0.4 },
+        campRisk: { wounded: 0.1, haunted: 0 },
+        pushReward: null,
+        warned: true,
+        dark: false,
+        gamble: null,
+      },
+      {
+        key: "table",
+        title: "The last table",
+        story: "A table laid for the squad, by name, in the last chamber. Everything the route promised is under the cloth. The door home is behind you, and it is not waiting.",
+        pushLabel: "Sit down to it",
+        campLabel: "Leave the table",
+        lootBonus: 0.4,
+        pushRisk: { wounded: 0.25, lost: 0.2, dead: 0.4 },
+        campRisk: { wounded: 0.1, haunted: 0 },
+        pushReward: null,
+        warned: true,
+        dark: false,
+        gamble: null,
+      },
+      {
+        key: "keeper",
+        title: "The keeper",
+        story: "Something is keeping the last chamber and it has learned the squad's names. It offers a trade: what it has for what you are carrying. The door home is narrowing.",
+        pushLabel: "Take the trade",
+        campLabel: "Take the door",
+        lootBonus: 0.4,
+        pushRisk: { wounded: 0.25, lost: 0.2, dead: 0.4 },
+        campRisk: { wounded: 0.1, haunted: 0 },
+        pushReward: null,
+        warned: true,
+        dark: false,
+        gamble: null,
+        pushFind: { comp: 0.3 },
+      },
+    ],
   ],
 };
+
+/** The fixed road: the first place in every slot. Exactly the forks every
+ *  tier had before ROAD_RULES, and what a run stamped below it walks. */
+export const FORKS: Record<ExpeditionTierKey, ForkDef[]> = Object.fromEntries(
+  (Object.keys(ROADS) as ExpeditionTierKey[]).map((tier) => [tier, ROADS[tier].map((slot) => slot[0])]),
+) as Record<ExpeditionTierKey, ForkDef[]>;
+
+/** A road's seed: the convoy's id where there is one (both squads must
+ *  draw one road), else the run's. Salted apart so convoy 5 and run 5 do
+ *  not walk the same valley by coincidence of numbering. */
+function roadSeed(road: RoadRef): number {
+  return road.convoy ? (road.convoy * 7919 + 11) >>> 0 : (road.runId * 7919 + 5) >>> 0;
+}
+
+/**
+ * The forks a run actually walks: one place per checkpoint, drawn from
+ * ROADS by the run's own seed — or the fixed road (FORKS) for a run from
+ * before roads were drawn. Pure and deterministic, so the page, the ping,
+ * the convoy announcement and the claim all see the same road without a
+ * write; a run launched before forks existed has none and walks none.
+ */
+export function forksFor(tier: ExpeditionTierKey, road?: RoadRef | null): ForkDef[] {
+  const count = road?.forks ?? EXPEDITION_TIERS[tier].forks;
+  if (!road || road.rules < ROAD_RULES) return FORKS[tier].slice(0, count);
+  const rand = mulberry32(roadSeed(road));
+  return ROADS[tier].slice(0, count).map((slot) => slot[Math.min(slot.length - 1, Math.floor(rand() * slot.length))]);
+}
 
 /** Death needs this many pushes on the run, counting the one being
  *  rolled. "Only after two reckless forks." */
 export const DEAD_NEEDS_PUSHES = 2;
+
+/** What holding a checkpoint is worth: a Top's call camps with none of
+ *  the camp's risks and this much more loot. */
+export const HOLD_LOOT = 0.1;
+/** What a toll fork takes off the multiplier when the squad pays it. */
+export const TOLL_LOOT = 0.15;
+/** Map fragments a single run can bring home, however it finds them.
+ *  resolve_expedition refuses more. */
+export const FRAGMENT_CAP = 3;
+
+// === role calls ===============================================================
+
+export type RoleCall = Extract<ForkChoice, "hold" | "scout" | "roam" | "kite" | "ward">;
+
+export interface RoleCallDef {
+  choice: RoleCall;
+  /** The role word as printed on cards (ROLE_LABELS in cards/build.ts). */
+  role: string;
+  label: string;
+  /** What it does, in the button's words. */
+  tease: string;
+  /** Whether it is a kind of push (rolls the fork's harm) or a kind of
+   *  camp (the safe way, made safer). */
+  kind: "push" | "camp";
+}
+
+/**
+ * The five role calls — one per position the league prints, each once a
+ * run, each the shape of the role's job in the actual game:
+ *
+ *   Top holds: a camp with none of the camp's risks (no wound, no haunt,
+ *     no toll) and a little more loot. A Top spends the night on an island
+ *     and is fine.
+ *   Jungle scouts: a push at three-quarter risk, and whatever goes wrong
+ *     goes wrong for the Jungle, who went in first.
+ *   Mid roams: a push for half again the loot, with the harm rolled on two
+ *     cards instead of one. Tempo, at a price.
+ *   Bot kites: a push for half the loot at a quarter of the risk. Take
+ *     what you can from range and never get close.
+ *   Support wards: a push where the wound roll is what it was but the
+ *     lost and dead rolls are halved. You see the danger coming.
+ */
+export const ROLE_CALLS: RoleCallDef[] = [
+  { choice: "hold", role: "Top", label: "Hold the checkpoint", tease: `Camp, and nothing that can happen to a camper happens. +${Math.round(HOLD_LOOT * 100)}% loot. A Top's call, once a run.`, kind: "camp" },
+  { choice: "scout", role: "Jungle", label: "Scout it first", tease: "Push at three-quarter risk, and whatever goes wrong lands on the Jungle. Once a run.", kind: "push" },
+  { choice: "roam", role: "Mid", label: "Roam for it", tease: "Push for half again the loot; the harm is rolled on two cards, not one. A Mid's call, once a run.", kind: "push" },
+  { choice: "kite", role: "Bot", label: "Kite it", tease: "Push for half the loot at a quarter of the risk. A Bot's call, once a run.", kind: "push" },
+  { choice: "ward", role: "Support", label: "Ward the approach", tease: "Push with the lost and dead rolls halved. A Support's call, once a run.", kind: "push" },
+];
+
+export const ROLE_CALL_BY_CHOICE: Record<RoleCall, RoleCallDef> = Object.fromEntries(ROLE_CALLS.map((call) => [call.choice, call])) as Record<RoleCall, RoleCallDef>;
+
+export function isRoleCall(choice: ForkChoice | null): choice is RoleCall {
+  return choice !== null && choice in ROLE_CALL_BY_CHOICE;
+}
+
+/** Whether a choice keeps the squad where it is. `hold` is a camp with a
+ *  Top's name on it; everything else that is not `camp` moves. */
+export function isCampChoice(choice: ForkChoice | null): boolean {
+  return choice === "camp" || choice === "hold";
+}
+
+const roleOf = (copy: Pick<CardCopy, "role">): string => (copy.role ?? "").trim().toLowerCase();
+
+/** The squad's members in a role, as printed on the card. */
+function inRole(copies: Pick<CardCopy, "role">[], role: string): Pick<CardCopy, "role">[] {
+  return copies.filter((copy) => roleOf(copy) === role.toLowerCase());
+}
 
 /** What the squad's own cards unlock at a fork. */
 export interface SquadAbilities {
@@ -291,35 +860,45 @@ export interface ForkOption {
   tease: string;
   /** Why it is not available, when it is not. */
   locked: string | null;
+  /** The role a call needs, for the five that need one. */
+  role?: string;
 }
 
 /**
  * The choices at one fork, for this squad, given what has already been
  * spent. Everything is listed — locked options say why — so the page
- * teaches what a signed card or a full roster would have bought.
+ * teaches what a signed card or a full roster would have bought. The role
+ * calls are listed too, and only under a road (ROAD_RULES): a run that
+ * left before they existed never hears of them.
  */
 export function forkOptions(
   tier: ExpeditionTierKey,
   index: number,
-  copies: Pick<CardCopy, "signed" | "foil" | "card">[],
+  copies: Pick<CardCopy, "signed" | "foil" | "card" | "role">[],
   earlier: (ForkChoice | null)[],
+  road?: RoadRef | null,
 ): ForkOption[] {
-  const fork = FORKS[tier][index];
+  const fork = forksFor(tier, road)[index];
   if (!fork) return [];
   const abilities = squadAbilities(copies);
   const favourSpent = earlier.includes("favour");
   const pct = (n: number) => `${Math.round(n * 100)}%`;
   const risk = worstRisk(fork);
   const bonus = fork.gamble ? `${pct(fork.lootBonus)} more or ${pct(fork.gamble.down)} less` : `+${pct(fork.lootBonus)} loot`;
-  return [
+  const finds = [
+    fork.pushFind?.fragment ? `${pct(fork.pushFind.fragment)} a map fragment` : null,
+    fork.pushFind?.comp ? `${pct(fork.pushFind.comp)} a free pack` : null,
+  ].filter(Boolean);
+  const campTease = fork.campRisk.haunted > 0
+    ? `Keep what you have. ${pct(fork.campRisk.haunted)} chance a card comes home Haunted.`
+    : fork.campRisk.wounded > 0
+      ? `The careful way. Still ${pct(fork.campRisk.wounded)} to wound a card here.`
+      : "Keep what you have. Nothing is risked.";
+  const options: ForkOption[] = [
     {
       choice: "camp",
       label: fork.campLabel,
-      tease: fork.campRisk.haunted > 0
-        ? `Keep what you have. ${pct(fork.campRisk.haunted)} chance a card comes home Haunted.`
-        : fork.campRisk.wounded > 0
-          ? `The careful way. Still ${pct(fork.campRisk.wounded)} to wound a card here.`
-          : "Keep what you have. Nothing is risked.",
+      tease: `${campTease}${fork.toll ? ` ${pct(fork.toll)} it costs ${pct(TOLL_LOOT)} of the loot.` : ""}${fork.campReward ? ` ${pct(fork.campReward.chance)} to come home ${fork.campReward.mutation}.` : ""}`,
       locked: null,
     },
     {
@@ -327,7 +906,7 @@ export function forkOptions(
       label: fork.pushLabel,
       tease: fork.gamble
         ? `${bonus}. Nothing can hurt a card on this run.`
-        : `${bonus}. ${risk}${fork.pushReward ? ` ${pct(fork.pushReward.chance)} to bring home ${fork.pushReward.mutation}.` : ""}${fork.warned ? " The squad warns against it: go wrong here and the card comes home Cursed." : ""}`,
+        : `${bonus}. ${risk}${fork.pushReward ? ` ${pct(fork.pushReward.chance)} to bring home ${fork.pushReward.mutation}.` : ""}${finds.length ? ` ${finds.join(", ")}.` : ""}${fork.warned ? " The squad warns against it: go wrong here and the card comes home Cursed." : ""}`,
       locked: null,
     },
     {
@@ -349,6 +928,27 @@ export function forkOptions(
       locked: !abilities.rally ? "Needs three cards from one roster." : null,
     },
   ];
+  if (road && road.rules >= ROAD_RULES) {
+    for (const call of ROLE_CALLS) {
+      // A gamble fork has no harm to shape and no camp worth holding: the
+      // scouting run's fork is a coin flip, and a role call is not a coin.
+      const present = inRole(copies, call.role).length > 0;
+      options.push({
+        choice: call.choice,
+        label: call.label,
+        tease: call.tease,
+        role: call.role,
+        locked: fork.gamble
+          ? "Not on a coin flip."
+          : !present
+            ? `Needs a ${call.role} in the squad.`
+            : earlier.includes(call.choice)
+              ? "Already spent on this run."
+              : null,
+      });
+    }
+  }
+  return options;
 }
 
 function worstRisk(fork: ForkDef): string {
@@ -361,15 +961,16 @@ function worstRisk(fork: ForkDef): string {
 }
 
 /** Whether a choice is one the squad can actually make here. The server
- *  checks this before the RPC writes it; the RPC only knows the five words. */
+ *  checks this before the RPC writes it; the RPC only knows the words. */
 export function choiceAllowed(
   tier: ExpeditionTierKey,
   index: number,
   choice: ForkChoice,
-  copies: Pick<CardCopy, "signed" | "foil" | "card">[],
+  copies: Pick<CardCopy, "signed" | "foil" | "card" | "role">[],
   earlier: (ForkChoice | null)[],
+  road?: RoadRef | null,
 ): boolean {
-  return forkOptions(tier, index, copies, earlier).some((option) => option.choice === choice && option.locked === null);
+  return forkOptions(tier, index, copies, earlier, road).some((option) => option.choice === choice && option.locked === null);
 }
 
 // === timing ==================================================================
@@ -475,6 +1076,27 @@ export interface RouteEvent {
   text: string;
 }
 
+/** An encounter as the resolver reads it: journal.ts decides where they
+ *  fall and how a coin landed; this only applies them. `won` is the
+ *  rival's verdict, `found` the hunter's — settled at derivation so the
+ *  journal can say so hours before the claim. */
+export interface RouteEncounter {
+  leg: number;
+  key: string;
+  won?: boolean;
+  found?: boolean;
+}
+
+/** What the trail's beats do to the multiplier, for the ones that touch
+ *  it. A cache is found; a rival is beaten or not; a shrine keeps its
+ *  hand on the next fork's harm. */
+export const CACHE_LOOT = 0.15;
+export const RIVAL_WIN_LOOT = 0.2;
+export const RIVAL_LOSS_LOOT = 0.1;
+/** A shrine on leg i halves the push risk at fork i — the one the squad
+ *  reaches next. */
+export const SHRINE_RISK = 0.5;
+
 export interface RouteResult {
   /** What the base payout is multiplied by, capped at LOOT_MULT_CAP. */
   lootMultiplier: number;
@@ -482,8 +1104,10 @@ export interface RouteResult {
   /** Forks the squad answered with silence. */
   silences: number;
   fates: CardFate[];
-  /** Map fragments found. */
+  /** Map fragments found, on the finale and on the road, capped. */
   fragments: number;
+  /** A free pack found on the road (the finale's comp is config.ts's). */
+  comp: boolean;
   /** A Rescue's verdict; null on every other route. */
   rescued: boolean | null;
   /** The Exorcism's cleansed card; null elsewhere. */
@@ -497,6 +1121,10 @@ export interface RouteInput {
    *  none, and walks none — its squad never saw a checkpoint. Defaults to
    *  the tier's count. */
   forks?: number;
+  /** The run's road: which places it walked and whether it may make a
+   *  role call. Omitted, the fixed road is walked (a run from before
+   *  ROAD_RULES, or a test that names the forks by their old numbers). */
+  road?: RoadRef | null;
   copies: CardCopy[];
   /** One per fork, null for silence. */
   choices: (ForkChoice | null)[];
@@ -504,6 +1132,9 @@ export interface RouteInput {
   grade: OutcomeGrade;
   /** The Rescue's lost card or the Exorcism's afflicted one. */
   target: number | null;
+  /** The trail's beats that touch the resolution. Optional: a run from
+   *  before the road met none of these. */
+  encounters?: RouteEncounter[];
   /** The clock, for the wounded bench's end. */
   now: Date;
 }
@@ -554,19 +1185,48 @@ export function rescueChance(copies: CardCopy[], pushed: boolean): number {
   return Math.min(RESCUE_CAP, RESCUE_BASE + RESCUE_PER_SHINE * shine + (pushed ? RESCUE_PUSH_BONUS : 0));
 }
 
+/** How each kind of push shapes the fork's numbers: what it multiplies
+ *  the loot bonus by, what it scales the wound roll by, what it scales the
+ *  lost and dead rolls by, and whose head the harm lands on. */
+const PUSH_SHAPE: Record<Exclude<ForkChoice, "camp" | "hold">, { bonus: number; risk: number; deepRisk: number; victims: "one" | "two" | "jungle" }> = {
+  push: { bonus: 1, risk: 1, deepRisk: 1, victims: "one" },
+  favour: { bonus: 1, risk: 0, deepRisk: 0, victims: "one" },
+  light: { bonus: 1, risk: 0.5, deepRisk: 0.5, victims: "one" },
+  rally: { bonus: 2, risk: 1.5, deepRisk: 1.5, victims: "one" },
+  scout: { bonus: 1, risk: 0.75, deepRisk: 0.75, victims: "jungle" },
+  roam: { bonus: 1.5, risk: 1, deepRisk: 1, victims: "two" },
+  kite: { bonus: 0.5, risk: 0.25, deepRisk: 0.25, victims: "one" },
+  ward: { bonus: 1, risk: 1, deepRisk: 0.5, victims: "one" },
+};
+
+const PUSH_VERB: Record<Exclude<ForkChoice, "camp" | "hold">, string> = {
+  push: "they pushed through",
+  favour: "a favour got them through clean",
+  light: "a foil lit the way through",
+  rally: "the roster rallied and took it",
+  scout: "the Jungle went in first and the rest followed",
+  roam: "the Mid roamed for it and the squad came out ahead",
+  kite: "the Bot kited it from range and never got close",
+  ward: "the Support warded the approach and they saw it coming",
+};
+
 /**
  * Walks the route and settles every card.
  *
  * Rand consumption, fork by fork in order: [gamble] → [push: the card it
  * lands on, then wounded, lost, dead in that order] → [push reward: the
- * card, then the chance] → [camp: wounded, then haunted]. Then the
- * finale: the Legend wipe (no rand), the Legendary's Voidtouched picks,
- * the Rescue roll, fragments. Every roll whose chance is 0 or 1 is settled
- * without drawing, so a scripted queue in a test reads left to right.
+ * card, then the chance] → [push find: fragment, then pack] → [camp:
+ * wounded, then haunted, then the toll, then the camp reward's card and
+ * chance]. Then the finale: the Legend wipe (no rand), the Legendary's
+ * Voidtouched picks, the Rescue roll, fragments. Every roll whose chance is
+ * 0 or 1 is settled without drawing, and every draw the road added comes
+ * AFTER the ones the fixed road made, so a scripted queue in a test reads
+ * left to right and a run from before the road rolls exactly what it did.
  */
 export function resolveRoute(input: RouteInput, rand: () => number): RouteResult {
-  const forks = FORKS[input.tier].slice(0, input.forks ?? EXPEDITION_TIERS[input.tier].forks);
+  const forks = forksFor(input.tier, { ...(input.road ?? { runId: 0, rules: 0 }), forks: input.forks ?? input.road?.forks ?? EXPEDITION_TIERS[input.tier].forks });
   const abilities = squadAbilities(input.copies);
+  const roleCalls = Boolean(input.road && input.road.rules >= ROAD_RULES);
   const events: RouteEvent[] = [];
   const woundedUntil = new Date(input.now.getTime() + WOUNDED_HOURS * 3_600_000).toISOString();
 
@@ -598,6 +1258,28 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
   let pushes = 0;
   let silences = 0;
   let favourSpent = false;
+  let fragments = 0;
+  let comp = false;
+  const callsSpent = new Set<RoleCall>();
+
+  // The trail's beats, first: none of them draws, all of them were settled
+  // when the journal was written. A shrine is remembered for the fork it
+  // guards; the rest move the multiplier or the bag.
+  const shrines = new Set<number>();
+  for (const encounter of input.encounters ?? []) {
+    if (encounter.key === "cache") {
+      lootMultiplier += CACHE_LOOT;
+      events.push({ fork: null, tone: "good", text: "An old expedition's cache on the trail: what they left was worth carrying." });
+    } else if (encounter.key === "rival") {
+      lootMultiplier += encounter.won ? RIVAL_WIN_LOOT : -RIVAL_LOSS_LOOT;
+      events.push({ fork: null, tone: encounter.won ? "good" : "bad", text: encounter.won ? "A rival squad on the same trail, and yours got there first." : "A rival squad on the same trail got there first, and left less." });
+    } else if (encounter.key === "hunter" && encounter.found) {
+      fragments += 1;
+      events.push({ fork: null, tone: "good", text: "A relic hunter on the road traded a piece of a map that shows a place the map does not." });
+    } else if (encounter.key === "shrine") {
+      shrines.add(encounter.leg);
+    }
+  }
 
   forks.forEach((fork, index) => {
     const answer = input.choices[index] ?? null;
@@ -609,7 +1291,22 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
     if (choice === "favour" && (!abilities.favour || favourSpent)) choice = "camp";
     if (choice === "light" && (!abilities.light || !fork.dark)) choice = "camp";
     if (choice === "rally" && !abilities.rally) choice = "camp";
+    if (isRoleCall(choice)) {
+      const call = ROLE_CALL_BY_CHOICE[choice];
+      if (!roleCalls || fork.gamble || callsSpent.has(choice) || inRole(alive(), call.role).length === 0) choice = "camp";
+      else callsSpent.add(choice);
+    }
     if (choice === "favour") favourSpent = true;
+
+    if (choice === "hold") {
+      // A Top on the checkpoint: the safe way with nothing that makes the
+      // safe way unsafe — no wound, no haunting, no toll — and a little
+      // more in the bag for the night's work.
+      lootMultiplier += HOLD_LOOT;
+      const top = inRole(alive(), "Top")[0] as CardCopy | undefined;
+      events.push({ fork: index, tone: "good", text: `${fork.title}: ${top ? nameOf(top.id) : "the Top"} held the checkpoint alone all night, and the squad kept everything.` });
+      return;
+    }
 
     if (choice === "camp") {
       if (decide(fork.campRisk.wounded, rand)) {
@@ -625,7 +1322,19 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
           events.push({ fork: index, tone: "bad", text: `${fork.title}: ${nameOf(victim.id)} sat up all night listening, and brought something back.` });
         }
       }
-      if (fork.campRisk.wounded === 0 && fork.campRisk.haunted === 0) {
+      let tolled = false;
+      if (fork.toll && decide(fork.toll, rand)) {
+        lootMultiplier -= TOLL_LOOT;
+        tolled = true;
+        events.push({ fork: index, tone: "bad", text: `${fork.title}: the safe way had a price, and the squad paid it.` });
+      }
+      if (fork.campReward) {
+        const bearer = pick(unmutated(), rand);
+        if (bearer && decide(fork.campReward.chance, rand) && mutate(bearer.id, fork.campReward.mutation)) {
+          events.push({ fork: index, tone: "good", text: `${fork.title}: ${nameOf(bearer.id)} waited it out and came away ${fork.campReward.mutation}.` });
+        }
+      }
+      if (fork.campRisk.wounded === 0 && fork.campRisk.haunted === 0 && !tolled) {
         events.push({ fork: index, tone: "neutral", text: `${fork.title}: ${answer === null ? "no word came, so the squad" : "the squad"} took the safe way.` });
       }
       return;
@@ -633,8 +1342,12 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
 
     // Every other choice is a push of some kind.
     pushes += 1;
-    const bonus = choice === "rally" ? fork.lootBonus * 2 : fork.lootBonus;
-    const riskScale = choice === "favour" ? 0 : choice === "light" ? 0.5 : choice === "rally" ? 1.5 : 1;
+    const shape = PUSH_SHAPE[choice];
+    const bonus = fork.lootBonus * shape.bonus;
+    // A shrine on the leg before this fork keeps its hand on the harm.
+    const guard = shrines.has(index) ? SHRINE_RISK : 1;
+    const riskScale = shape.risk * guard;
+    const deepScale = shape.deepRisk * guard;
 
     if (fork.gamble) {
       if (decide(fork.gamble.lose, rand)) {
@@ -648,14 +1361,32 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
     }
 
     lootMultiplier += bonus;
-    const victim = riskScale > 0 ? pick(alive(), rand) : undefined;
-    let worst: CardFateKind = "home";
-    if (victim) {
-      if (decide(Math.min(1, fork.pushRisk.wounded * riskScale), rand)) worst = "wounded";
-      if (decide(Math.min(1, fork.pushRisk.lost * riskScale), rand)) worst = "lost";
-      if (pushes >= DEAD_NEEDS_PUSHES && decide(Math.min(1, fork.pushRisk.dead * riskScale), rand)) worst = "dead";
+    // Whose head it lands on. One card for most pushes; the Jungle for a
+    // scout (they went in first — no draw when there is one of them); two
+    // cards for a roam.
+    const victims: CardCopy[] = [];
+    if (riskScale > 0 || deepScale > 0) {
+      if (shape.victims === "jungle") {
+        const junglers = inRole(alive(), "Jungle") as CardCopy[];
+        const first = pick(junglers.length > 0 ? junglers : alive(), rand);
+        if (first) victims.push(first);
+      } else {
+        const first = pick(alive(), rand);
+        if (first) victims.push(first);
+        if (shape.victims === "two" && first) {
+          const second = pick(alive().filter((copy) => copy.id !== first.id), rand);
+          if (second) victims.push(second);
+        }
+      }
     }
-    if (victim && worst !== "home") {
+    let anyHarm = false;
+    for (const victim of victims) {
+      let worst: CardFateKind = "home";
+      if (decide(Math.min(1, fork.pushRisk.wounded * riskScale), rand)) worst = "wounded";
+      if (decide(Math.min(1, fork.pushRisk.lost * deepScale), rand)) worst = "lost";
+      if (pushes >= DEAD_NEEDS_PUSHES && decide(Math.min(1, fork.pushRisk.dead * deepScale), rand)) worst = "dead";
+      if (worst === "home") continue;
+      anyHarm = true;
       // The warned fork's price: go wrong here and the card is Cursed. A
       // wound becomes the curse; a loss or a death carries it too.
       if (fork.warned) {
@@ -668,18 +1399,23 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
         const verb = worst === "dead" ? "did not survive it" : worst === "lost" ? "did not come out" : "was carried out";
         events.push({ fork: index, tone: "bad", text: `${fork.title}: they pushed, and ${nameOf(victim.id)} ${verb}.` });
       }
-    } else {
-      events.push({
-        fork: index,
-        tone: "good",
-        text: `${fork.title}: ${choice === "favour" ? "a favour got them through clean" : choice === "light" ? "a foil lit the way through" : choice === "rally" ? "the roster rallied and took it" : "they pushed through"}.`,
-      });
+    }
+    if (!anyHarm) {
+      events.push({ fork: index, tone: "good", text: `${fork.title}: ${PUSH_VERB[choice]}.` });
     }
     if (fork.pushReward) {
       const bearer = pick(unmutated(), rand);
       if (bearer && decide(fork.pushReward.chance, rand) && mutate(bearer.id, fork.pushReward.mutation)) {
         events.push({ fork: index, tone: "good", text: `${fork.title}: ${nameOf(bearer.id)} came out of it ${fork.pushReward.mutation}.` });
       }
+    }
+    if (fork.pushFind?.fragment && decide(fork.pushFind.fragment, rand)) {
+      fragments += 1;
+      events.push({ fork: index, tone: "good", text: `${fork.title}: in the haul, a fragment of a map that shows a place the map does not.` });
+    }
+    if (fork.pushFind?.comp && decide(fork.pushFind.comp, rand)) {
+      comp = true;
+      events.push({ fork: index, tone: "good", text: `${fork.title}: a sealed pack, unopened, in with the rest. It is yours.` });
     }
   });
 
@@ -725,7 +1461,7 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
   }
 
   if (input.tier === "rescue") {
-    const pushed = (input.choices[0] ?? "camp") !== "camp";
+    const pushed = !isCampChoice(input.choices[0] ?? "camp");
     rescued = decide(rescueChance(input.copies, pushed), rand);
     if (rescued) {
       events.push({ fork: null, tone: "good", text: "They found the lost card and brought it home. It is wounded, and it is home." });
@@ -762,10 +1498,9 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
     }
   }
 
-  let fragments = 0;
   const fragmentChance = FRAGMENT_CHANCE[input.tier]?.[input.grade] ?? 0;
   if (decide(fragmentChance, rand)) {
-    fragments = 1;
+    fragments += 1;
     events.push({ fork: null, tone: "good", text: "Among the haul: a fragment of a map that shows a place the map does not." });
   }
 
@@ -779,7 +1514,8 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
     pushes,
     silences,
     fates: input.copies.map((copy) => fates.get(copy.id)!),
-    fragments,
+    fragments: Math.min(FRAGMENT_CAP, fragments),
+    comp,
     rescued,
     cleansed,
     events,

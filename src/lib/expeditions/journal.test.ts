@@ -101,3 +101,119 @@ describe("squad banter", () => {
     expect(bright.some((line) => /light the way/.test(line ?? ""))).toBe(false);
   });
 });
+
+// === the road's journal =======================================================
+
+import { ROAD_RULES, forksFor } from "./routes";
+import { ENCOUNTER_CHANCE, ROAD_ENCOUNTER_CHANCE } from "./journal";
+
+describe("the road's journal", () => {
+  const onRoad = { ...raid, rules: ROAD_RULES };
+  const legendary = { id: 77, tier: "legendary" as const, startedAt: "2026-09-04T00:00:00Z", resolvesAt: "2026-09-07T00:00:00Z", forks: 4, rules: ROAD_RULES };
+  const whole = (run: typeof onRoad | typeof legendary, members = squad) => journalFor(run, members, new Date("2026-09-10T00:00:00Z"));
+
+  it("keeps a run stamped before the road on the journal it set out with", () => {
+    // Same run, same squad: the legacy voice, word for word, whatever
+    // the pools above it now say.
+    const before = journalFor(raid, squad, new Date("2026-09-06T00:00:00Z"));
+    expect(before.some((entry) => /reached the reactor/.test(entry.text))).toBe(true);
+    expect(journalFor({ ...raid, rules: 2 }, squad, new Date("2026-09-06T00:00:00Z"))).toEqual(before);
+  });
+
+  it("is the same journal every time it is read, and names the run's own road", () => {
+    expect(whole(onRoad)).toEqual(whole(onRoad));
+    const first = forksFor("raid", { runId: onRoad.id, rules: ROAD_RULES, forks: 2 })[0];
+    expect(whole(onRoad).some((entry) => entry.kind === "arrive" && entry.text.includes(first.title.toLowerCase()))).toBe(true);
+  });
+
+  it("never repeats a trail line inside one run, even on the longest route", () => {
+    const lines = whole(legendary).filter((entry) => entry.kind === "trail").map((entry) => entry.text);
+    expect(lines.length).toBe(10);
+    expect(new Set(lines).size).toBe(lines.length);
+  });
+
+  it("speaks in each role's own voice, and only for roles the squad fielded", () => {
+    const entries = whole(legendary);
+    const text = entries.map((entry) => entry.text).join("\n");
+    // Card 1 is the Top, 2 the Support, 3 the Jungle: their lines are the
+    // role's, not a generic member's.
+    expect(text).toMatch(/Card 1 .*(island|heaviest pack|wall lost|hold the rear|fallen tree|way home|weather|back to it)/);
+    expect(text).toMatch(/Card 3 .*(route nobody else|timer|perimeter|camp before|far side|next three stops|crossing|wind)/);
+    expect(text).toMatch(/Card 2 .*(fire lit|marker|limping|stop for the night|watch all night|counted heads|lantern|talking)/);
+    // No Mid or Bot on the squad, so nobody wants to push on for the fourth time.
+    expect(text).not.toMatch(/said so four times/);
+    for (const entry of entries) expect(entry.text).not.toMatch(/\{name\}|\{role\}|\{title\}/);
+  });
+
+  it("a different squad on the same road hears different voices", () => {
+    const bots = [copy(4, { role: "Bot" }), copy(5, { role: "Mid" }), copy(6, { role: "Bot" })];
+    const a = whole(legendary).filter((entry) => entry.kind === "trail").map((entry) => entry.text);
+    const b = whole(legendary, bots).filter((entry) => entry.kind === "trail").map((entry) => entry.text);
+    expect(a).not.toEqual(b);
+    expect(b.join("\n")).toMatch(/Card [456]/);
+  });
+
+  it("meets the road's encounters, and tosses the rival's and the hunter's coins once", () => {
+    const runs = Array.from({ length: 400 }, (_, index) => ({ ...legendary, id: index + 1 }));
+    const all = runs.flatMap((run) => encountersFor(run));
+    const keys = new Set<string>(all.map((entry) => entry.key));
+    for (const key of ["merchant", "storm", "cache", "rival", "shrine", "hunter", "stranded"]) expect(keys.has(key)).toBe(true);
+    expect(all.filter((entry) => entry.key === "rival").every((entry) => typeof entry.won === "boolean")).toBe(true);
+    expect(all.filter((entry) => entry.key === "hunter").every((entry) => typeof entry.found === "boolean")).toBe(true);
+    expect(all.some((entry) => entry.key === "rival" && entry.won)).toBe(true);
+    expect(all.some((entry) => entry.key === "rival" && !entry.won)).toBe(true);
+    // More often than before, because there is more to meet.
+    const rate = all.length / (runs.length * 5);
+    expect(rate).toBeGreaterThan(ENCOUNTER_CHANCE);
+    expect(rate).toBeLessThan(ROAD_ENCOUNTER_CHANCE + 0.05);
+    // And the legacy set is untouched: a run at rules 2 never meets a cache.
+    const legacy = new Set<string>(runs.flatMap((run) => encountersFor({ ...run, rules: 2 }).map((entry) => entry.key)));
+    expect(legacy.has("cache")).toBe(false);
+    expect(legacy.has("shrine")).toBe(false);
+  });
+
+  it("writes the rival's and the hunter's lines the way the coin fell", () => {
+    const runs = Array.from({ length: 400 }, (_, index) => ({ ...legendary, id: index + 1 }));
+    // A run can meet two rivals on two legs and lose one; read the line
+    // on the leg whose coin is being checked.
+    const lineOn = (run: typeof legendary, key: string, want: (entry: ReturnType<typeof encountersFor>[number]) => boolean) => {
+      const encounter = encountersFor(run).find((entry) => entry.key === key && want(entry))!;
+      return whole(run).find((entry) => entry.encounter === key && entry.leg === encounter.leg)?.text ?? "";
+    };
+    const won = runs.find((run) => encountersFor(run).some((entry) => entry.key === "rival" && entry.won))!;
+    const lost = runs.find((run) => encountersFor(run).some((entry) => entry.key === "rival" && !entry.won))!;
+    expect(lineOn(won, "rival", (entry) => entry.won === true)).toMatch(/more/);
+    expect(lineOn(lost, "rival", (entry) => entry.won === false)).toMatch(/less/);
+    const found = runs.find((run) => encountersFor(run).some((entry) => entry.key === "hunter" && entry.found))!;
+    expect(lineOn(found, "hunter", (entry) => entry.found === true)).toMatch(/fragment|piece of a map/);
+    const empty = runs.find((run) => encountersFor(run).some((entry) => entry.key === "hunter" && !entry.found))!;
+    expect(lineOn(empty, "hunter", (entry) => entry.found === false)).toMatch(/empty pack|last fragment/);
+  });
+});
+
+describe("banter on the road", () => {
+  const road = (runId: number) => ({ runId, rules: ROAD_RULES, forks: 3 });
+
+  it("gives each role more than one thing to say", () => {
+    const tops = [copy(1, { role: "Top" })];
+    const lines = new Set(Array.from({ length: 40 }, (_, index) => banterFor("legend", 0, tops, index, road(index))));
+    expect(lines.size).toBeGreaterThan(2);
+    for (const line of lines) expect(line).toMatch(/Card 1/);
+  });
+
+  it("dreads a warned fork out loud, sometimes", () => {
+    const mids = [copy(1, { role: "Mid" })];
+    const vault = Array.from({ length: 60 }, (_, index) => banterFor("legend", 2, mids, index, { ...road(index), runId: index }));
+    // Only on a run whose third fork is actually warned — every legend
+    // slot-2 place is — and never at the kind first fork.
+    expect(vault.some((line) => /warned about|polite about it/.test(line ?? ""))).toBe(true);
+    const shaft = Array.from({ length: 60 }, (_, index) => banterFor("legend", 0, mids, index, road(index)));
+    expect(shaft.some((line) => /warned about|polite about it/.test(line ?? ""))).toBe(false);
+  });
+
+  it("keeps the legacy line for a run before the road", () => {
+    const supports = [copy(1, { role: "Support" })];
+    const legacy = new Set(Array.from({ length: 30 }, (_, index) => banterFor("raid", 0, supports, index)));
+    expect([...legacy]).toEqual(["Card 1 wants to camp, light a fire and wait for daylight."]);
+  });
+});

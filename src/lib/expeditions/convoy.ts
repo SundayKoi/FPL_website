@@ -2,14 +2,15 @@
 // pushes only when BOTH said so. Pure — the claim, the page and the tests
 // read the same verdict.
 
-import type { ForkChoice, RecordedChoice } from "./routes";
+import { isCampChoice, type ForkChoice, type RecordedChoice } from "./routes";
 
 /** A join code is six characters from an alphabet with no 0/O or 1/I. */
 export const CONVOY_CODE_LENGTH = 6;
 
-/** Whether a choice moves the squad forward (anything but camping). */
+/** Whether a choice moves the squad forward (anything but camping — and
+ *  a Top's hold is a camp with a name on it). */
 export function isPush(choice: ForkChoice | null): boolean {
-  return choice !== null && choice !== "camp";
+  return choice !== null && !isCampChoice(choice);
 }
 
 /**
@@ -26,7 +27,10 @@ export function convoySheet(forks: number, mine: RecordedChoice[], theirs: Recor
     const other = their.get(index) ?? null;
     if (isPush(own) && isPush(other)) return own;
     // A camp is a camp whoever said it; silence reads as camp downstream.
-    return own === null && other === null ? null : "camp";
+    // My own hold survives it: a Top on the checkpoint is still on the
+    // checkpoint when the other squad decides to stay too.
+    if (own === null && other === null) return null;
+    return own === "hold" ? "hold" : "camp";
   });
 }
 
@@ -34,7 +38,7 @@ export function convoySheet(forks: number, mine: RecordedChoice[], theirs: Recor
 export type ConvoyVerdict = "pushing" | "camping" | "waiting";
 
 export function convoyVerdict(mine: ForkChoice | null, theirs: ForkChoice | null): ConvoyVerdict {
-  if (mine === "camp" || theirs === "camp") return "camping";
+  if (isCampChoice(mine) || isCampChoice(theirs)) return "camping";
   if (isPush(mine) && isPush(theirs)) return "pushing";
   return "waiting";
 }

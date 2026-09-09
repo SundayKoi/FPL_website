@@ -41,7 +41,10 @@ language sql stable as $$ select id from public.expedition_runs where discord_id
 
 -- === the rulebook version ===================================================
 select has_column('public', 'expedition_runs', 'rules', 'a run records the rulebook it launched under');
-select is((select rules from public.expedition_runs where id = tests.echo_run()), 2::smallint,
+-- At least 2: this release stamped 2, and 20261009000001 (the road) moved
+-- the default on to 3. 0114 pins the current number; this asserts only
+-- that a fresh launch is never below the trail.
+select cmp_ok((select rules from public.expedition_runs where id = tests.echo_run()), '>=', 2::smallint,
   'a launch from here on is under the trail rules');
 
 -- === the ceiling ============================================================

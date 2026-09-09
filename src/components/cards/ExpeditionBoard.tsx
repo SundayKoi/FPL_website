@@ -55,12 +55,12 @@ import {
   type OutcomeGrade,
 } from "@/lib/expeditions/config";
 import {
-  FORKS,
   FRAGMENT_CHANCE,
   choiceSheet,
   consentLine,
   forkOptions,
   forkViews,
+  forksFor,
   type CardFate,
   type ForkChoice,
   type ForkView,
@@ -72,7 +72,7 @@ import {
   launchExpeditionAction,
   ransomLostCardAction,
 } from "@/lib/expeditions/actions";
-import { hasTrail, type ConvoyView, type ExpeditionRun, type Grave, type LostHold } from "@/lib/expeditions/queries";
+import { hasRoad, hasTrail, roadOf, type ConvoyView, type ExpeditionRun, type Grave, type LostHold } from "@/lib/expeditions/queries";
 import { convoyVerdict, normaliseConvoyCode } from "@/lib/expeditions/convoy";
 import { banterFor, journalFor } from "@/lib/expeditions/journal";
 import { cardTeamKey } from "@/lib/expeditions/matchday";
@@ -222,8 +222,9 @@ function RunTrail({ run, copies }: { run: ExpeditionRun; copies: CardCopy[] }) {
     <div className="flex w-full flex-col gap-2">
       <RouteMap
         tier={tier}
+        road={roadOf(run)}
         progress={progress}
-        forks={views.map((fork) => ({ status: fork.status, pushed: fork.choice !== null && fork.choice !== "camp" }))}
+        forks={views.map((fork) => ({ status: fork.status, pushed: fork.choice !== null && fork.choice !== "camp" && fork.choice !== "hold" }))}
       />
       {journal.length > 0 ? (
         <div data-testid={`journal-${run.id}`} className="flex flex-col gap-1">
@@ -291,9 +292,11 @@ function SquadThumb({ copy, id }: { copy: CardCopy | undefined; id: number }) {
  * A fork the squad is standing at. The story, the options with their odds,
  * and how long until the squad decides for you.
  */
-/** The Legendary route's second fork, when a one-roster squad's real next
- *  opponent is known: what is singing under the floor has a name. */
-export const RIVAL_FORK: { tier: ExpeditionTierKey; index: number } = { tier: "legendary", index: 1 };
+/** The Legendary route's singing dark, when a one-roster squad's real
+ *  next opponent is known: what is singing under the floor has a name.
+ *  Keyed on the PLACE, not the slot — on a drawn road the second fork is
+ *  one of three, and only one of them sings. */
+export const RIVAL_FORK: { tier: ExpeditionTierKey; key: string } = { tier: "legendary", key: "singing" };
 
 export function rivalStory(rival: string): string {
   return `Something is singing under the floor and the squad knows the song — it is ${rival}'s, and they are playing them next. There is light ahead, and the singing gets louder toward it.`;
@@ -320,10 +323,17 @@ function ForkPrompt({
 }) {
   const now = useSyncExternalStore(subscribeClock, readClock, readServerClock);
   const def = EXPEDITION_TIERS[run.tier as ExpeditionTierKey];
-  const story = FORKS[run.tier as ExpeditionTierKey]?.[fork.index];
+  const road = roadOf(run);
+  const story = forksFor(run.tier as ExpeditionTierKey, road)[fork.index];
   if (!def || !story) return null;
-  const options = forkOptions(run.tier as ExpeditionTierKey, fork.index, copies, choiceSheet(run.forks, run.choices));
-  const banter = banterFor(run.tier as ExpeditionTierKey, fork.index, copies, run.id);
+  const options = forkOptions(run.tier as ExpeditionTierKey, fork.index, copies, choiceSheet(run.forks, run.choices), road);
+  // The role calls the squad can actually make are buttons; the ones it
+  // cannot are one quiet line, so a fork is not ten buttons of which six
+  // are grey. The prints' options stay listed and locked as they always
+  // were — that is where the page teaches what a signature buys.
+  const shown = options.filter((option) => !option.role || option.locked === null);
+  const missing = options.filter((option) => option.role && option.locked !== null && option.locked !== "Already spent on this run." && option.locked !== "Not on a coin flip.");
+  const banter = banterFor(run.tier as ExpeditionTierKey, fork.index, copies, run.id, road);
   const left = fork.closesAt.getTime() - now;
   return (
     <li data-testid={`fork-${run.id}-${fork.index}`} className="card-brand flex flex-col gap-3 border-gold/60 p-5">
@@ -339,7 +349,7 @@ function ForkPrompt({
         </span>
       </div>
       <p className="max-w-3xl text-sm text-white">
-        {rival && hasTrail(run) && run.tier === RIVAL_FORK.tier && fork.index === RIVAL_FORK.index ? (
+        {rival && hasTrail(run) && run.tier === RIVAL_FORK.tier && story.key === RIVAL_FORK.key ? (
           <span data-testid="rival-story">{rivalStory(rival)}</span>
         ) : (
           story.story
@@ -353,7 +363,7 @@ function ForkPrompt({
             ? (() => {
                 const theirs = convoy.partner.choices.find((entry) => entry.index === fork.index)?.choice ?? null;
                 const verdict = convoyVerdict(null, theirs);
-                return `${convoy.partner.username} ${theirs === null ? "hasn't answered yet" : theirs === "camp" ? "says camp" : `says push (${theirs})`}. ${
+                return `${convoy.partner.username} ${theirs === null ? "hasn't answered yet" : theirs === "camp" ? "says camp" : theirs === "hold" ? "says hold" : `says push (${theirs})`}. ${
                   verdict === "camping" ? "The convoy camps here whatever you say." : "It pushes only if you both push — a camp on either side camps it."
                 }`;
               })()
@@ -361,7 +371,7 @@ function ForkPrompt({
         </p>
       ) : null}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {options.map((option) => (
+        {shown.map((option) => (
           <button
             key={option.choice}
             type="button"
@@ -372,16 +382,27 @@ function ForkPrompt({
             className={`flex flex-col items-start gap-1 rounded-lg border px-3 py-2 text-left transition disabled:cursor-not-allowed ${
               option.locked
                 ? "border-line/60 opacity-40"
-                : option.choice === "camp"
+                : option.choice === "camp" || option.choice === "hold"
                   ? "border-mint/50 hover:bg-mint/10"
-                  : "border-coral/60 hover:bg-coral/10"
+                  : option.role
+                    ? "border-gold/60 hover:bg-gold/10"
+                    : "border-coral/60 hover:bg-coral/10"
             }`}
           >
-            <span className="text-sm font-semibold text-white">{option.label}</span>
+            <span className="text-sm font-semibold text-white">
+              {option.label}
+              {option.role ? <span className="ml-1.5 rounded-full border border-gold/50 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-gold">{option.role}</span> : null}
+            </span>
             <span className="text-xs text-steel">{option.locked ?? option.tease}</span>
           </button>
         ))}
       </div>
+      {hasRoad(run) && missing.length > 0 ? (
+        <p data-testid="role-calls-missing" className="text-[11px] text-steel">
+          Roles unlock a call of their own, once a run:{" "}
+          {missing.map((option) => `a ${option.role} could ${option.label.toLowerCase()}`).join(", ")}.
+        </p>
+      ) : null}
     </li>
   );
 }

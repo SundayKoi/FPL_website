@@ -22,12 +22,13 @@ import {
   type ExpeditionOutcome,
   type ExpeditionTierKey,
 } from "./config";
-import { RUN_COLUMNS, fetchFixturesSince, fetchInsuredThisWeek, fetchPolicyUsed, fetchStrangersHolds, hasTrail, mapRun, type ExpeditionRun } from "./queries";
+import { RUN_COLUMNS, fetchFixturesSince, fetchInsuredThisWeek, fetchPolicyUsed, fetchStrangersHolds, hasTrail, mapRun, roadOf, type ExpeditionRun } from "./queries";
 import { convoySheet, normaliseConvoyCode } from "./convoy";
+import { isCampChoice } from "./routes";
 import { echoPool, surgeTeams, teamsPlayingOn } from "./matchday";
 import { STORM_HOURS, STRANDED_BOUNTY, encountersFor, latestJournalLine } from "./journal";
 import {
-  FORKS,
+  forksFor,
   choiceAllowed,
   choiceSheet,
   forkViews,
@@ -395,7 +396,7 @@ export async function decideForkFor(
   const copies = await fetchInventoryByIds(service, discordId, run.squad);
   if (copies.length !== run.squad.length) return { ok: false, error: "Couldn't read the squad — try again." };
   const earlier = choiceSheet(run.forks, run.choices);
-  if (!choiceAllowed(run.tier, index, choice, copies, earlier)) {
+  if (!choiceAllowed(run.tier, index, choice, copies, earlier, roadOf(run))) {
     return { ok: false, error: "This squad can't make that choice here." };
   }
 
@@ -417,18 +418,19 @@ export async function decideForkFor(
       const partner = await convoyPartner(service, discordId, run.convoy);
       if (partner) {
         const theirs = partner.choices.find((entry) => entry.index === index)?.choice ?? null;
-        const story = FORKS[run.tier as ExpeditionTierKey]?.[index];
+        // The convoy's road, which both squads walk: seeded by the convoy.
+        const story = forksFor(run.tier as ExpeditionTierKey, roadOf(run))[index];
         const by = new Date(closesAt).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
         const verdict =
           theirs === null
             ? `<@${partner.discordId}>, your call — the fork closes ${by} ET, and silence camps.`
-            : theirs === "camp" || choice === "camp"
+            : isCampChoice(theirs) || isCampChoice(choice)
               ? "One of you is camping, so the convoy camps here."
               : "You both pushed — the convoy pushes.";
         await postCardsWebhook(
           {
             title: `Convoy — ${story?.title ?? `fork ${index + 1}`}`,
-            description: `<@${discordId}> says ${choice === "camp" ? "camp" : `push (${choice})`} at ${story?.title.toLowerCase() ?? "the fork"} on the ${EXPEDITION_TIERS[run.tier as ExpeditionTierKey].label}. ${verdict}`,
+            description: `<@${discordId}> says ${isCampChoice(choice) ? (choice === "hold" ? "hold" : "camp") : `push (${choice})`} at ${story?.title.toLowerCase() ?? "the fork"} on the ${EXPEDITION_TIERS[run.tier as ExpeditionTierKey].label}. ${verdict}`,
             color: GOLD,
           },
           theirs === null ? `<@${partner.discordId}>` : undefined,
@@ -507,27 +509,34 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
   const sheet = partner ? convoySheet(run.forks, run.choices, partner.choices) : choiceSheet(run.forks, run.choices);
 
   // The route: what the forks made of it and what the squad looks like.
+  // The trail's beats, decided when the journal was written. The merchant
+  // is a flat on top of the multiplied dollars; the stranded card is
+  // another collector's open hold, the oldest one, released by the RPC
+  // with a bounty — and only if one exists when the squad gets home, or
+  // the journal's line stays a story. The road's beats (a cache, a rival,
+  // a shrine, a hunter) are the route's to apply. Nothing here applies to
+  // a squad that launched before the trail existed (hasTrail): it pays
+  // and comes home exactly as it set out.
+  const trail = hasTrail(run);
+  const encounters = encountersFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, rules: run.rules, convoy: run.convoy });
+  // The route: what the forks made of it and what the squad looks like.
+  // The road is the run's own (or the convoy's), so the places it walked
+  // are the places the page showed.
   const route = resolveRoute(
     {
       tier,
       forks: run.forks,
+      road: roadOf(run),
       copies,
       choices: sheet,
       insured: run.insured,
       grade: base.grade,
       target: run.target,
+      encounters,
       now: new Date(),
     },
     expeditionRand,
   );
-  // The trail's beats. The merchant is a flat on top of the multiplied
-  // dollars; the stranded card is another collector's open hold, the
-  // oldest one, released by the RPC with a bounty — and only if one exists
-  // when the squad gets home, or the journal's line stays a story.
-  // Nothing below applies to a squad that launched before the trail
-  // existed (hasTrail): it pays and comes home exactly as it set out.
-  const trail = hasTrail(run);
-  const encounters = encountersFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, rules: run.rules, convoy: run.convoy });
   const merchant = encounters.some((entry) => entry.key === "merchant") ? MERCHANT_DOLLARS : 0;
   let stranded: { holdId: number; bounty: number } | null = null;
   if (encounters.some((entry) => entry.key === "stranded")) {
@@ -541,7 +550,8 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
   const fixtures = trail ? await fetchFixturesSince(service, new Date(Date.parse(run.startedAt) - DAY_MS).toISOString()) : [];
   const surge = surgeTeams(copies, teamsPlayingOn(fixtures, dateIso));
   const dollars = Math.round(base.dollars * route.lootMultiplier * (surge.length > 0 ? 1 + SURGE_BONUS : 1)) + merchant;
-  const outcome: ExpeditionOutcome = { ...base, dollars };
+  // A pack found at a fork is a pack: the road's comp joins the finale's.
+  const outcome: ExpeditionOutcome = { ...base, dollars, comp: base.comp || route.comp };
   // The echo: each moment on the squad rolls once, after everything else
   // so the scripted draws above are undisturbed on a squad without one.
   // The copy comes from the archived edition of the moment's week; a week

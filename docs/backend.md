@@ -1021,9 +1021,44 @@ a deployed, lost or wounded card at entry, which it never checked before.
 The copy on the page and on `/admin/mutations` derives its numbers from
 the same table.
 
+**The road is drawn per run** (`ROADS` / `forksFor` in
+`src/lib/expeditions/routes.ts`, rulebook 3 — `ROAD_RULES`; migration
+`20261009000001_expedition_roads.sql` moves the `rules` default to 3). Each
+checkpoint is a pool of two to four places in the same risk envelope;
+`forksFor(tier, road)` picks one per slot from the run id (or the CONVOY
+id, so both squads of a convoy stand at one fork), deterministically, and
+the page, the ping, the convoy announcement and the claim all call it —
+nothing about the road is stored. `FORKS` is the first place in every slot,
+which is exactly what every tier had before, and what a run stamped below
+`ROAD_RULES` still walks. A place can carry a `pushFind` (a fragment or a
+free pack on a push, after the harm and the reward), a `toll` (camping
+costs `TOLL_LOOT` off the multiplier, with that chance) and a `campReward`
+(a mutation for a night held). The five **role calls** — `hold` (Top: a
+camp with none of a camp's risks, `+HOLD_LOOT`), `scout` (Jungle: push at
+¾ risk, harm on the Jungle), `roam` (Mid: ×1.5 bonus, harm rolled on two
+cards), `kite` (Bot: ×0.5 bonus at ¼ risk) and `ward` (Support: lost and
+dead rolls halved) — are five more words `decide_expedition_fork` accepts;
+whether THIS squad may make one (the role present, unspent this run, not
+the scouting run's coin flip) is `choiceAllowed`'s check before the write,
+as favour/light/rally always were, and `resolveRoute` reads an ineligible
+one as camp. `convoySheet` treats `hold` as a camp. Every road-side gain
+lands inside the loot multiplier (`LOOT_MULT_CAP`) or the 0–3 fragment
+count the claim already caps, so `resolve_expedition`'s payout ceiling is
+untouched.
+
 The trail — the journal under each run, the encounters on it, the squad's
 line at a fork and the route map — is derived, never stored
-(`src/lib/expeditions/journal.ts`). Everything is seeded from the run id
+(`src/lib/expeditions/journal.ts`). On a road (`ROAD_RULES`) the pools are
+wider and drawn without repeats inside a run, each leg carries one line
+from the route and one in the voice of a squad member's actual role
+(`ROLE_TRAIL`), and `encountersFor` also places a **cache** (`+CACHE_LOOT`),
+a **rival squad** (a coin tossed at derivation — `won` — worth
+`+RIVAL_WIN_LOOT` or `-RIVAL_LOSS_LOOT`), a **shrine** (the next fork's push
+risk × `SHRINE_RISK`) and a **relic hunter** (`found` at
+`HUNTER_FRAGMENT_CHANCE`: a fragment), at `ROAD_ENCOUNTER_CHANCE` a leg; the
+claim hands them to `resolveRoute` as `encounters`. A run stamped below
+`ROAD_RULES` keeps the legacy pools (`LEGACY_*`) word for word, because its
+journal is half-written and half-quoted in Discord. Everything is seeded from the run id
 and the leg (`mulberry32`, the Gauntlet's generator), so the server, the
 page and the sweep agree on what happened without a table for it:
 `encountersFor` places at most one encounter per leg at 35%, and only on a
