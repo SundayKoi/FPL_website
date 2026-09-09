@@ -67,11 +67,15 @@ import {
   type RouteResult,
 } from "@/lib/expeditions/routes";
 import {
+  abandonCampaignAction,
   claimExpeditionAction,
   decideForkAction,
   launchExpeditionAction,
   ransomLostCardAction,
+  startCampaignAction,
 } from "@/lib/expeditions/actions";
+import CampaignPanel from "./CampaignPanel";
+import { CAMPAIGNS, canBind, type CampaignState } from "@/lib/expeditions/campaigns";
 import { hasRoad, hasTrail, roadOf, type ConvoyView, type ExpeditionRun, type Grave, type LostHold } from "@/lib/expeditions/queries";
 import type { Rivalry } from "@/lib/expeditions/company";
 import { WEATHERS, type WeatherKey } from "@/lib/expeditions/weather";
@@ -484,6 +488,8 @@ interface Ceremony {
    *  was out. The run still resolves; the ceremony must say so rather than
    *  announcing a rescue that returned nothing. */
   rescueMissed: boolean;
+  /** The campaign this run walked for, advanced by the claim. */
+  campaign: { key: CampaignState["key"]; stage: number; finished: boolean; relicName: string | null } | null;
 }
 
 export default function ExpeditionBoard({
@@ -507,7 +513,13 @@ export default function ExpeditionBoard({
   standings = [],
   accolades = [],
   viewerId = null,
+  campaign = null,
+  season = "",
 }: {
+  /** The viewer's open campaign this season (campaigns.ts), or null. */
+  campaign?: CampaignState | null;
+  /** The season being browsed, for opening a campaign in it. */
+  season?: string;
   /** The season's standings (standings.ts), every collector with a
    *  claimed run; the board ranks and trims them. */
   standings?: StandingRow[];
@@ -623,7 +635,15 @@ export default function ExpeditionBoard({
     const target = def.target === "lost" ? rescueTarget : def.target === "afflicted" ? (cleanseTarget ?? afflictedInSquad[0]?.id ?? null) : null;
     startTransition(async () => {
       const convoy = convoyMode === "new" ? "new" : convoyMode === "join" ? normaliseConvoyCode(joinCode) : null;
-      const result = await launchExpeditionAction(tier, squadIds, { insured: insured && insuranceLeft > 0 && def.risk !== "none", target, convoy });
+      // A campaign stage: bound automatically when this route is the open
+      // campaign's next stage and nothing is out for it.
+      const forCampaign = campaign && canBind(campaign, tier) && convoy === null ? campaign.id : null;
+      const result = await launchExpeditionAction(tier, squadIds, {
+        insured: insured && insuranceLeft > 0 && def.risk !== "none",
+        target,
+        convoy,
+        ...(forCampaign !== null ? { campaign: forCampaign } : {}),
+      });
       setBusyTier(null);
       if (!result.ok) {
         setLaunchError(result.error);
@@ -687,6 +707,7 @@ export default function ExpeditionBoard({
         balance: result.balance,
         fragments: result.fragments,
         rescueMissed: result.rescueMissed,
+        campaign: result.campaign,
       });
       setClaimed((current) => new Set(current).add(run.id));
       router.refresh();
@@ -869,6 +890,21 @@ export default function ExpeditionBoard({
           ) : null}
         </section>
       ) : null}
+
+      {/* ── Campaigns ─────────────────────────────────────────────────── */}
+      <CampaignPanel
+        campaign={campaign}
+        onStart={async (key) => {
+          const result = await startCampaignAction(key, season);
+          if (result.ok) router.refresh();
+          return result.ok ? null : result.error;
+        }}
+        onAbandon={async (id) => {
+          const result = await abandonCampaignAction(id);
+          if (result.ok) router.refresh();
+          return result.ok ? null : result.error;
+        }}
+      />
 
       {/* ── The squad picker ──────────────────────────────────────────── */}
       <section aria-label="Your squad" className="flex flex-col gap-3">
@@ -1150,6 +1186,11 @@ export default function ExpeditionBoard({
                 <p data-testid={`consent-${key}`} className={`text-xs ${def.risk === "none" ? "text-steel" : def.risk === "dead" ? "text-red-300" : "text-gold"}`}>
                   {consentLine(key, squad, insured && def.risk !== "none")}
                 </p>
+                {campaign && canBind(campaign, key) ? (
+                  <p data-testid={`tier-${key}-campaign`} className="text-xs font-semibold" style={{ color: CAMPAIGNS[campaign.key].accent }}>
+                    Stage {campaign.stage + 1} of {CAMPAIGNS[campaign.key].label} — this launch walks it{campaign.road ? ", on the road the last stage set" : ""}. Not in a convoy.
+                  </p>
+                ) : null}
                 {isOut ? (
                   <p data-testid={`tier-${key}-out`} className="text-xs text-gold">
                     Already in the field. One {def.label} at a time — bring this one home first.
@@ -1521,6 +1562,13 @@ function ClaimCeremony({
         ) : null}
         {outcome.comp ? (
           <p className="text-sm text-gold">They came back with a free pack — it&apos;s waiting in the shop.</p>
+        ) : null}
+        {ceremony.campaign ? (
+          <p data-testid="ceremony-campaign" className="text-sm" style={{ color: CAMPAIGNS[ceremony.campaign.key].accent }}>
+            {ceremony.campaign.finished
+              ? `${CAMPAIGNS[ceremony.campaign.key].label} is finished. ${ceremony.campaign.relicName ? `A relic of ${ceremony.campaign.relicName} was printed in the campaign's frame — it's on your shelf.` : "Nobody came home from the finale to carry the relic."}`
+              : `Stage ${ceremony.campaign.stage} of 3 of ${CAMPAIGNS[ceremony.campaign.key].label} is done. The road ahead is set.`}
+          </p>
         ) : null}
         {echo ? (
           <p data-testid="ceremony-echo" className="text-sm text-gold">

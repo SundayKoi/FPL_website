@@ -168,6 +168,7 @@ export function isProtected(copy: CardCopy): boolean {
     Boolean(copy.card?.moment) ||
     Boolean(copy.card?.champWin) ||
     Boolean(copy.card?.team) ||
+    Boolean(copy.card?.campaign) ||
     Boolean(copy.card?.dribb)
   );
 }
@@ -262,7 +263,7 @@ export function shineOf(copy: CardCopy): number {
   if (copy.card?.dribb) return DRIBB_SHINE;
   // Relics and moments price flat, exactly as they dust flat — see
   // dustValueOf in packs/config.ts for the same branch.
-  if (copy.card?.champWin || copy.card?.moment || copy.card?.team) return RELIC_SHINE;
+  if (copy.card?.champWin || copy.card?.moment || copy.card?.team || copy.card?.campaign) return RELIC_SHINE;
   const index = TIER_LADDER.indexOf(copy.tier as (typeof TIER_LADDER)[number]);
   let shine = (index < 0 ? 0 : index) + 1;
   // foilTypeOf() rather than a raw read: foil_type is plain text and every

@@ -846,3 +846,16 @@ describe("the weather on the road", () => {
     expect(forkOptions("gilded", 0, squad(), [], road, "harvest").find((o) => o.choice === "camp")!.tease).not.toContain("costs");
   });
 });
+
+describe("a road handed down", () => {
+  it("walks the places a campaign names, and draws the rest", () => {
+    expect(forksFor("raid", { runId: 5, rules: ROAD_RULES, places: ["waterworks", "pits"] }).map((fork) => fork.key)).toEqual(["waterworks", "pits"]);
+    const drawn = forksFor("raid", { runId: 5, rules: ROAD_RULES });
+    const half = forksFor("raid", { runId: 5, rules: ROAD_RULES, places: ["nowhere", "pits"] });
+    expect(half[0].key).toBe(drawn[0].key);
+    expect(half[1].key).toBe("pits");
+    expect(forksFor("legendary", { runId: 5, rules: ROAD_RULES, places: ["doors", "choir", "tide", "table"] }).map((fork) => fork.key)).toEqual(["doors", "choir", "tide", "table"]);
+    // Below the road rulebook the fixed forks stand, whatever is asked.
+    expect(forksFor("raid", { runId: 5, rules: 2, places: ["pits", "pits"] }).map((fork) => fork.key)).toEqual(FORKS.raid.map((fork) => fork.key));
+  });
+});

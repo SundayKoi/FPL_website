@@ -1100,6 +1100,29 @@ inside `resolveRoute`: a toll paid at fork *n* waives fork *n+1*'s, and a
 (and `journalFor`, handed the run's `choices`, writes the Jungle's line
 naming the next place at the start of the leg).
 
+Campaigns (`src/lib/expeditions/campaigns.ts`, pure; the table and four
+RPCs in 20261014000001): `expedition_campaigns` holds one row per
+campaign with a partial unique index keeping one OPEN per (collector,
+season). `start_expedition_campaign` opens one, `bind_expedition_campaign`
+ties a fresh unclaimed run to the campaign's current stage (the tier
+must be `expedition_campaign_tier(key, stage)`, the stage must have no
+run out) and copies the campaign's `road` onto `expedition_runs.road`,
+`advance_expedition_campaign` (called by the claim once the stage's run
+is claimed) bumps the stage, stores the next road and the stage's log,
+and at stage 3 finishes the campaign and mints the relic — a copy of
+`p_relic_from` (a card of the finale's squad) with `card.campaign`
+stamped and the original's stamps stripped — and
+`abandon_expedition_campaign` closes one unfinished. All four are
+service-role only; the app checks the caller and computes the road, the
+RPCs check ownership, stage, tier and claim under lock. The road is
+`RoadRef.places`: `forksFor` walks the named place at each checkpoint
+and falls back to the draw for a slot it does not know (consuming the
+draw either way, so the other slots match). `nextRoad` maps a stage's
+grade, pushes and survivors to the next tier's places, `relicBearer`
+picks the survivor with the most miles, and `canBind` is the app-side
+check the launch makes before the RPC. A campaign relic counts
+`RELIC_SHINE` and is `isProtected`; it dusts as its tier.
+
 Season standings (`src/lib/expeditions/standings.ts`, pure; the
 `expedition_standings` view and `expedition_accolades` table,
 20261013000001): the view scores every claimed run per (season,

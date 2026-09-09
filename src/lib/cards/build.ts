@@ -160,6 +160,11 @@ export interface PlayerCardData {
    *  src/lib/expeditions/trail.ts for the titles it earns. Never read by
    *  pricing; a Wayfarer's one extra shine is the whole mechanical effect. */
   trail?: { miles: number; runs: number; deepest: string } | null;
+  /** Set only on a campaign relic (src/lib/expeditions/campaigns.ts): a
+   *  one-off print of a finale survivor in the campaign's frame, minted
+   *  by advance_expedition_campaign. Worth a relic's shine and kept off
+   *  the routes that can lose a card; dusts as its tier. */
+  campaign?: { key: "broken_map" | "lost_print"; date: string; campaign: number; runs: number[]; from: number } | null;
   /** Set only on a champions-drop card (the Dealer's Hand) — see
    *  src/lib/cards/champions.ts. Like `moment`, the renderer branches on
    *  this before reading any rating field. */

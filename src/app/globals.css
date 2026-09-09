@@ -1786,6 +1786,33 @@ body {
   background-repeat: repeat-x, repeat-y, no-repeat, no-repeat;
 }
 
+/* A campaign relic's frame: the campaign's ink in a double rule, a soft
+   glow off it, and a fine sunburst of the same ink through the corners —
+   one of one, printed at the end of a road. No motion. */
+@utility card-campaign-frame {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  --campaign-ink: #c9a46b;
+  box-shadow:
+    inset 0 0 0 3px var(--campaign-ink),
+    inset 0 0 0 5px rgb(8 6 4 / 0.7),
+    inset 0 0 0 6px color-mix(in srgb, var(--campaign-ink) 60%, transparent),
+    inset 0 0 20px 6px color-mix(in srgb, var(--campaign-ink) 35%, transparent);
+  background-image:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--campaign-ink) 45%, transparent), transparent 18%),
+    radial-gradient(circle at 100% 0, color-mix(in srgb, var(--campaign-ink) 45%, transparent), transparent 18%),
+    radial-gradient(circle at 0 100%, color-mix(in srgb, var(--campaign-ink) 45%, transparent), transparent 18%),
+    radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--campaign-ink) 45%, transparent), transparent 18%);
+}
+@utility card-campaign-broken-map {
+  --campaign-ink: #c9a46b;
+}
+@utility card-campaign-lost-print {
+  --campaign-ink: #c9b4ff;
+}
+
 /* The TIERS inside a season's line. A season is one skin line, and a
    season's foils cannot all look the same — but a tier that lays a new
    pattern over the line is a different foil, not a rarer one. So a tier
