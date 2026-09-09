@@ -1724,6 +1724,43 @@ body {
   animation: lineBattlecastLock 1.8s ease-in-out infinite;
 }
 
+/* K/DA — the stage: two spotlight cones crossing over the face in magenta
+   and violet, an anamorphic lens flare drawn across the eyes with a
+   white-hot core, a lipstick-gloss highlight down the left edge, and the
+   frame lit hot pink. The beams breathe and the flare drifts a little, the
+   way a rig does between songs. Chroma: the gold-and-electric-blue ALL OUT
+   set. Owns the spotlight and the flare; no other line sweeps a cone. */
+@keyframes lineKdaStage {
+  0%   { background-position: -6% 0, 106% 0, 0 0, 0 0, 0 0; opacity: 0.9; }
+  50%  { background-position: 0 0, 100% 0, 3% 0, 0 0, 0 0; opacity: 1; }
+  100% { background-position: -6% 0, 106% 0, 0 0, 0 0, 0 0; opacity: 0.9; }
+}
+@utility card-foil-line-kda {
+  --m1: 255 46 170;
+  --m2: 120 60 255;
+  --m3: 255 240 250;
+  --c1: 255 200 60;
+  --c2: 40 120 255;
+  --c3: 255 250 230;
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background-image:
+    conic-gradient(from 155deg at 18% -8%, transparent 0deg, rgb(var(--m1) / 0.55) 6deg, rgb(var(--m1) / 0.7) 14deg, rgb(var(--m1) / 0.5) 22deg, transparent 30deg),
+    conic-gradient(from 175deg at 82% -8%, transparent 0deg, rgb(var(--m2) / 0.55) 6deg, rgb(var(--m2) / 0.7) 14deg, rgb(var(--m2) / 0.5) 22deg, transparent 30deg),
+    linear-gradient(90deg, transparent 0 6%, rgb(var(--m1) / 0.35) 22%, rgb(var(--m3) / 0.95) 46% 54%, rgb(var(--m2) / 0.35) 78%, transparent 94% 100%),
+    linear-gradient(100deg, rgb(var(--m3) / 0.55) 0 3%, rgb(var(--m3) / 0.18) 6%, transparent 12% 100%),
+    radial-gradient(ellipse at 50% 30%, rgb(var(--m1) / 0.18), rgb(var(--m2) / 0.22) 60%, rgb(20 0 30 / 0.35) 100%);
+  background-size: 140% 140%, 140% 140%, 100% 3.5%, 100% 100%, 100% 100%;
+  background-position: -6% 0, 106% 0, 0 36%, 0 0, 0 0;
+  background-repeat: no-repeat;
+  box-shadow:
+    inset 0 0 0 2px rgb(var(--m1) / 0.85),
+    inset 0 0 26px 4px rgb(var(--m1) / 0.45),
+    inset 0 0 10px 1px rgb(var(--m2) / 0.4);
+  animation: lineKdaStage 6s ease-in-out infinite;
+}
+
 /* The TIERS inside a season's line. A season is one skin line, and a
    season's foils cannot all look the same — but a tier that lays a new
    pattern over the line is a different foil, not a rarer one. So a tier
@@ -1813,7 +1850,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .card-foil-line-project, .card-foil-line-harrowing, .card-foil-line-arcade, .card-foil-line-arcana, .card-foil-line-battlecast,
+  .card-foil-line-project, .card-foil-line-harrowing, .card-foil-line-arcade, .card-foil-line-arcana, .card-foil-line-battlecast, .card-foil-line-kda,
   .card-foil-tier-chroma-sheen, .card-foil-tier-prestige-frame, .card-foil-tier-ultimate-embers { animation: none; }
   .card-foil-tier-prestige-frame { box-shadow: inset 0 0 0 3px rgb(255 244 214 / 0.4), inset 0 0 16px rgb(240 196 90 / 0.6); }
   .card-foil-tier-ultimate-embers { box-shadow: inset 0 0 0 2px var(--line-accent), inset 0 0 20px color-mix(in srgb, var(--line-accent) 60%, transparent); }
@@ -2392,6 +2429,7 @@ body {
 [data-motion="rest"] .card-foil-line-arcade,
 [data-motion="rest"] .card-foil-line-arcana,
 [data-motion="rest"] .card-foil-line-battlecast,
+[data-motion="rest"] .card-foil-line-kda,
 [data-motion="rest"] .card-foil-tier-chroma-sheen,
 [data-motion="rest"] .card-foil-tier-prestige-frame,
 [data-motion="rest"] .card-foil-tier-ultimate-embers,

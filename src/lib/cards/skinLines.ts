@@ -52,7 +52,8 @@ export interface SkinLine {
   className: string;
 }
 
-/** The six candidates the patron named, drawn. */
+/** The six candidates the patron named, drawn — and K/DA, the seventh,
+ *  asked for as the glam line: the stage, not the bedroom. */
 export const SKIN_LINES: SkinLine[] = [
   {
     key: "project",
@@ -97,6 +98,15 @@ export const SKIN_LINES: SkinLine[] = [
     skinLine: "Arcana",
     look: "A gold sunburst turning slowly inside a fixed ring on indigo night — a tarot card that moves.",
     accent: "#e5c26b",
+    blend: "screen",
+  },
+  {
+    key: "kda",
+    className: "card-foil-line-kda",
+    label: "K/DA",
+    skinLine: "K/DA",
+    look: "Two stage spotlights crossing over the face in magenta and violet, an anamorphic lens flare across the eyes, a lipstick-gloss highlight down one edge, and the frame lit hot pink. Chroma: the gold-and-electric-blue ALL OUT set.",
+    accent: "#ff2eaa",
     blend: "screen",
   },
   {
