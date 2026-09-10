@@ -217,7 +217,7 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
             <li>
               Your cards unlock more: a <strong className="text-white">signed card</strong> can call in a favour (push with no
               risk, once a run), a <strong className="text-white">foil</strong> can light a dark fork (push at half the risk), and{" "}
-              <strong className="text-white">three from one roster</strong> can rally (double the loot, half again the risk).
+              <strong className="text-white">three from one roster</strong> can rally (double the loot, 50% more risk).
             </li>
             <li>
               Some forks are <strong className="text-white">warned</strong>: the squad tells you not to. Push anyway and have it go
