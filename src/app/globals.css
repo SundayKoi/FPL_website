@@ -1511,6 +1511,41 @@ body {
 }
 
 /* The chip the mutation wears, bottom-left of the art. */
+/* Voidborn: the Voidtouched bleed gone white-gold. The star field burns
+   instead of drifting, the rift has opened the whole way and stands
+   behind the player like a door, and a thin corona rides the frame — the
+   expedition's own frame, printed for good. */
+@utility card-mut-voidborn {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  backdrop-filter: saturate(1.1) contrast(1.12);
+  -webkit-backdrop-filter: saturate(1.1) contrast(1.12);
+  background-image:
+    radial-gradient(circle, rgb(255 241 196 / 0.98) 0 1.2px, transparent 2px),
+    radial-gradient(circle, rgb(255 225 150 / 0.8) 0 0.9px, transparent 1.6px),
+    radial-gradient(ellipse 30% 60% at 50% 50%, rgb(255 245 210 / 0.35) 0 30%, rgb(255 200 90 / 0.18) 55%, transparent 74%),
+    radial-gradient(ellipse 38% 16% at 60% 0%, rgb(0 0 0 / 0.96) 0 25%, transparent 72%),
+    radial-gradient(ellipse 26% 28% at 100% 24%, rgb(0 0 0 / 0.96) 0 25%, transparent 72%),
+    radial-gradient(ellipse 32% 14% at 56% 100%, rgb(0 0 0 / 0.96) 0 25%, transparent 72%),
+    radial-gradient(ellipse 18% 32% at 0% 52%, rgb(0 0 0 / 0.94) 0 20%, transparent 70%),
+    radial-gradient(ellipse 125% 110% at 50% 50%, transparent 52%, rgb(40 20 4 / 0.7) 78%, rgb(0 0 0 / 0.96) 100%);
+  background-size: 120px 120px, 180px 180px, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  animation: mutVoidStars 12s linear infinite;
+  box-shadow:
+    inset 0 0 44px 10px rgb(0 0 0 / 0.9),
+    inset 0 0 0 2px rgb(255 241 196 / 0.9),
+    inset 0 0 0 4px rgb(255 200 90 / 0.35),
+    inset 0 0 18px 3px rgb(255 190 80 / 0.55);
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-mut-voidborn { animation: none; }
+}
+[data-motion="rest"] .card-mut-voidborn {
+  animation-play-state: paused;
+}
+
 @utility card-mut-chip {
   position: absolute;
   left: 10px;

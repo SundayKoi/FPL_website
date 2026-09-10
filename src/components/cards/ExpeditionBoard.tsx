@@ -515,7 +515,11 @@ export default function ExpeditionBoard({
   viewerId = null,
   campaign = null,
   season = "",
+  legendMark = false,
 }: {
+  /** Whether the shelf holds a Legend mark — the Mythic route's gate.
+   *  Presentation: the action and launch_expedition check it themselves. */
+  legendMark?: boolean;
   /** The viewer's open campaign this season (campaigns.ts), or null. */
   campaign?: CampaignState | null;
   /** The season being browsed, for opening a campaign in it. */
@@ -1125,7 +1129,7 @@ export default function ExpeditionBoard({
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {TIER_ORDER.map((key) => {
             const def = EXPEDITION_TIERS[key];
-            const gate = squadMeets(key, squad, now);
+            const gate = squadMeets(key, squad, now, { legendMark });
             const isOut = tiersOut.has(key);
             const needsHold = def.target === "lost" && holds.length === 0;
             const needsAfflicted = def.target === "afflicted" && full && afflictedInSquad.length === 0;

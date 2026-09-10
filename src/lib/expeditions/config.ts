@@ -29,7 +29,7 @@ export type CardCopy = InventoryRow;
  *  anyone climbs; the Gilded Road is the patrons' own run; Rescue and
  *  Exorcism exist to undo what the ladder can do to a card; the Legendary
  *  route is the only place a card can die. */
-export type ExpeditionTierKey = "scout" | "gilded" | "raid" | "legend" | "rescue" | "exorcism" | "legendary";
+export type ExpeditionTierKey = "scout" | "gilded" | "raid" | "legend" | "rescue" | "exorcism" | "legendary" | "mythic";
 
 /** The worst a route can do to a card. Presentation reads it for the
  *  consent line on the launch card; `squadMeets` reads it to keep one-of-
@@ -118,10 +118,25 @@ export const EXPEDITION_TIERS: Record<ExpeditionTierKey, ExpeditionTierDef> = {
     forks: 4, risk: "dead", fee: 0, fragments: 3, target: "none", patron: false,
     what: "Three map fragments open it. Every fork is dangerous, a card can die for good, and whoever comes home comes home Voidtouched.",
   },
+  // Above the Legendary route. Four days, five forks, every one of them
+  // warned, and the only route where the pushes carry: each consecutive
+  // push raises the next bonus and the next death roll (MOMENTUM_BONUS,
+  // MOMENTUM_DEATH in routes.ts). Three fragments, a Voidtouched card in
+  // the squad and a Legend mark on the shelf open it; a Voidtouched
+  // survivor comes home Voidborn. A season sees a handful.
+  mythic: {
+    key: "mythic", label: "Mythic route", durationHours: 96, minShine: 30, minFoils: 2, minSigned: 1,
+    forks: 5, risk: "dead", fee: 0, fragments: 3, target: "none", patron: false,
+    what: "Past the Legendary route. Four days, five forks, every one warned — and the pushes carry: each one raises the next bonus and the next death roll. Takes a Voidtouched card and a Legend mark to open. A Voidtouched card that comes home comes home Voidborn.",
+  },
 };
 
+/** What the Mythic route asks for beyond the ladder's gates, in the
+ *  requirement line's words. */
+export const MYTHIC_NEEDS = ["a Voidtouched card", "a Legend mark"] as const;
+
 /** The ladder in the order the board prints it. */
-export const TIER_ORDER: ExpeditionTierKey[] = ["scout", "gilded", "raid", "legend", "rescue", "exorcism", "legendary"];
+export const TIER_ORDER: ExpeditionTierKey[] = ["scout", "gilded", "raid", "legend", "rescue", "exorcism", "legendary", "mythic"];
 
 /** Risk, worst last — what "a route past wounded" means. */
 export const RISK_RANK: Record<RouteRisk, number> = { none: 0, wounded: 1, lost: 2, dead: 3 };
@@ -297,9 +312,24 @@ export function squadMeets(
   /** The clock, for the wounded bench. Omit it and benched cards pass —
    *  the server always passes it; a preview may not care. */
   now?: Date,
+  /** What the shelf holds beyond the squad: the Mythic route needs a
+   *  Legend mark on one of the collector's cards. Omitted, the mark is
+   *  taken as held — a preview that does not know should not refuse. */
+  shelf?: { legendMark: boolean },
 ): { ok: boolean; reasons: string[] } {
   const def = EXPEDITION_TIERS[tier];
   const reasons: string[] = [];
+
+  // The Mythic route's own gates: something Voidtouched in the squad, and
+  // a Legend mark on the shelf. launch_expedition checks both again.
+  if (tier === "mythic") {
+    if (!copies.some((copy) => copy.card?.mutation?.key === "voidtouched")) {
+      reasons.push("The Mythic route needs a Voidtouched card in the squad — one that came home from the Legendary route.");
+    }
+    if (shelf && !shelf.legendMark) {
+      reasons.push("The Mythic route needs a Legend mark on your shelf — a card that came home marked from a Legend Hunt or the Legendary route.");
+    }
+  }
 
   // Consent, always: nothing one of one goes where it can be lost. Named
   // per card so the launcher says WHICH card is the problem.
@@ -531,6 +561,16 @@ const REWARDS: Record<ExpeditionTierKey, TierRewards> = {
     dollars: { poor: 600, solid: 1400, jackpot: 2500 },
     comp: { poor: 0.25, solid: 0.5, jackpot: 1 },
     mark: { kind: "legend", chance: { poor: 0, solid: 0.5, jackpot: 1 } },
+  },
+  // Four days past the Legendary route, for a squad that already survived
+  // it once. The biggest jackpot on the board — the ceiling in
+  // resolve_expedition follows it through maxExpeditionPayout — and the
+  // momentum is where the rest of the money is.
+  mythic: {
+    weights: { poor: 0.25, solid: 0.5, jackpot: 0.25 },
+    dollars: { poor: 800, solid: 1900, jackpot: 3500 },
+    comp: { poor: 0.25, solid: 0.5, jackpot: 1 },
+    mark: { kind: "legend", chance: { poor: 0.5, solid: 1, jackpot: 1 } },
   },
 };
 

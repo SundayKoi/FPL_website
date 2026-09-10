@@ -14,6 +14,7 @@ import {
   INSURANCE_PER_WEEK,
   PATRON_INSURANCE_PER_WEEK,
   MERCHANT_DOLLARS,
+  MYTHIC_NEEDS,
   SURGE_BONUS,
   LOST_DAYS,
   RANSOM_BASE,
@@ -32,6 +33,8 @@ import {
   DEAD_NEEDS_PUSHES,
   FRAGMENT_CHANCE,
   GHOST_HAUNT,
+  MOMENTUM_BONUS,
+  MOMENTUM_DEATH,
   GHOST_HAUNT_FLOOR,
   HOLD_LOOT,
   RIVAL_LOSS_LOOT,
@@ -69,6 +72,7 @@ export function requirementLine(def: ExpeditionTierDef): string {
   if (def.minFoils > 0) parts.push(`${def.minFoils} foil${def.minFoils === 1 ? "" : "s"}`);
   if (def.minSigned > 0) parts.push(`${def.minSigned} signed`);
   if (def.fragments > 0) parts.push(`${def.fragments} map fragments`);
+  if (def.key === "mythic") parts.push(...MYTHIC_NEEDS);
   if (def.fee > 0) parts.push(`${fmtPoints(def.fee)} fee`);
   return parts.length === 0 ? "Anyone can run it" : parts.join(" · ");
 }
@@ -234,10 +238,10 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
               <strong className="text-coral">Lost.</strong> The card does not come home. It stays in your collection, locked,
               for {LOST_DAYS} days: mount a <strong className="text-white">Rescue</strong> with another squad, or pay a{" "}
               <strong className="text-white">ransom</strong> ({fmtPoints(RANSOM_BASE)} plus {RANSOM_PER_SHINE} per point of the card&apos;s
-              shine). Do neither and it is gone for good. Only a Legend Hunt, a Rescue or the Legendary route can lose a card.
+              shine). Do neither and it is gone for good. Only a Legend Hunt, a Rescue, the Legendary route or the Mythic route can lose a card.
             </li>
             <li>
-              <strong className="text-red-300">Dead.</strong> Only on the Legendary route, and only once the squad has pushed{" "}
+              <strong className="text-red-300">Dead.</strong> Only on the Legendary and Mythic routes, and only once the squad has pushed{" "}
               {DEAD_NEEDS_PUSHES} forks. There is no rescue from dead. The card goes to the graveyard on this page.
             </li>
             <li>
@@ -278,6 +282,30 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
               <span className="text-xs">{sky.does.join(" ")}</span>
             </li>
           ))}
+        </ul>
+      </div>
+
+      {/* ── The Mythic route ─────────────────────────────────────── */}
+      <div data-testid="rule-mythic" className="flex flex-col gap-2 rounded-lg border border-purple-300/40 bg-purple-500/5 p-3 text-sm text-steel">
+        <h3 className="type-display text-lg text-white">The Mythic route — past the rift</h3>
+        <ul className="flex list-disc flex-col gap-1.5 pl-5">
+          <li>
+            <strong className="text-white">The gates.</strong> {EXPEDITION_TIERS.mythic.minShine} shine, {EXPEDITION_TIERS.mythic.minFoils} foils, {EXPEDITION_TIERS.mythic.minSigned} signed,{" "}
+            {EXPEDITION_TIERS.mythic.fragments} map fragments — and {MYTHIC_NEEDS[0]} in the squad, and {MYTHIC_NEEDS[1]} on your shelf. A route for a squad
+            that has already survived the Legendary route once.
+          </li>
+          <li>
+            <strong className="text-white">Five forks, every one warned</strong>, every one dark, and none with a safe camp: the careful way haunts.{" "}
+            {EXPEDITION_TIERS.mythic.durationHours / 24} days out.
+          </li>
+          <li>
+            <strong className="text-white">Momentum.</strong> The only route where the pushes carry: each consecutive push raises the next push&apos;s bonus by{" "}
+            {pct(MOMENTUM_BONUS)} and its death roll by {pct(MOMENTUM_DEATH)}. A camp or a hold lets it go.
+          </li>
+          <li>
+            <strong className="text-white">Voidborn.</strong> A Voidtouched card that comes home comes home Voidborn — the second stage, the one mutation that
+            replaces another, with its own look: the expedition&apos;s frame, printed for good. The rest of the survivors come home Voidtouched.
+          </li>
         </ul>
       </div>
 

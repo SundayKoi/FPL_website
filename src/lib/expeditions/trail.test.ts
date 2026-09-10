@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { TIER_ORDER, shineOf, type CardCopy } from "./config";
@@ -24,7 +24,11 @@ describe("trail miles", () => {
     // The trigger that stamps miles (20261010000001) carries its own
     // table; a threshold moved in one place and not the other would
     // title cards the database never paid for.
-    const sql = readFileSync(join(process.cwd(), "supabase/migrations/20261010000001_expedition_trail_miles.sql"), "utf8");
+    // The newest migration that declares the function is the live one.
+    const dir = join(process.cwd(), "supabase/migrations");
+    const latest = readdirSync(dir).filter((name) => name.endsWith(".sql")).sort().reverse()
+      .find((name) => readFileSync(join(dir, name), "utf8").includes("create or replace function public.expedition_trail_miles"));
+    const sql = readFileSync(join(dir, latest!), "utf8");
     for (const tier of TIER_ORDER) {
       const match = sql.match(new RegExp(`when '${tier}' then (\\d+)`));
       const inSql = match ? Number(match[1]) : 0;

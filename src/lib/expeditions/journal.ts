@@ -151,6 +151,11 @@ const LEGACY_TRAIL: Record<ExpeditionTierKey, string[]> = {
     "The door behind them is closing an inch an hour. {name} measured it.",
     "{name} looked into the last chamber and came back with nothing to say.",
   ],
+  // Never drawn: a Mythic run is always on a road. Here so the table is total.
+  mythic: [
+    "The road past the rift. {name} has been here before, and it remembers.",
+    "Nothing here casts a shadow but the squad.",
+  ],
 };
 
 const LEGACY_ENCOUNTER_LINES: Record<EncounterKey, string> = {
@@ -276,6 +281,22 @@ const TRAIL: Record<ExpeditionTierKey, string[]> = {
     "Something said {name}'s name in {name}'s own voice. They kept walking.",
     "The floor remembers footsteps. The squad walked on the ones already there.",
     "{name} found a coin from their own pocket lying on the path ahead of them.",
+  ],
+  mythic: [
+    "The road past the rift. {name} has been here before, and it remembers them.",
+    "Nothing here casts a shadow but the squad. {name} checked twice.",
+    "The Voidtouched one is walking ahead without being asked. The road bends to follow.",
+    "Stairs going down that arrive higher up. {name} stopped counting the turns.",
+    "A sky made of one star, close enough to touch. Nobody tried.",
+    "The squad's own voices, a few seconds ahead of them, saying what they were about to say.",
+    "{name} found the last camp's fire still warm. The last camp was theirs.",
+    "The map fragments are singing now. {name} put them away and the singing did not stop.",
+    "Every door here opens onto the road they just left. {name} stopped opening them.",
+    "The Voidtouched one is not blinking. {name} is not sure they ever did.",
+    "Light with no source, warm as a hand. The squad walked in it for an hour and came out cold.",
+    "Something very large is asleep under the road. The squad walked softly.",
+    "{name} wrote their own name on a wall and it was already there.",
+    "The way home is behind them and ahead of them at once. They chose ahead.",
   ],
 };
 
@@ -609,7 +630,7 @@ export function encountersFor(
     if (EXPEDITION_TIERS[run.tier].risk === "lost" || EXPEDITION_TIERS[run.tier].risk === "dead") keys.push("stranded");
     // The dead walk the Legend and Legendary roads — from COMPANY_RULES,
     // so a run already out keeps the beats its journal has shown.
-    if (withCompany && (run.tier === "legend" || run.tier === "legendary")) keys.push("ghost");
+    if (withCompany && (run.tier === "legend" || run.tier === "legendary" || run.tier === "mythic")) keys.push("ghost");
     if (sky === "drought" && road) for (let extra = 1; extra < DROUGHT_CACHES; extra += 1) keys.push("cache");
     if (sky === "watch" && road) {
       for (let extra = 1; extra < WATCH_RIVALS; extra += 1) keys.push("rival");

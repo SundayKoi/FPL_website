@@ -23,7 +23,7 @@ import {
 } from "@/lib/expeditions/queries";
 import { nextOpponent, rosterTeam, teamsPlayingOn } from "@/lib/expeditions/matchday";
 import { fetchCompanies, fetchRivalries } from "@/lib/expeditions/companyReads";
-import { fetchAccolades, fetchOpenCampaign, fetchStandings } from "@/lib/expeditions/queries";
+import { fetchAccolades, fetchOpenCampaign, fetchStandings, hasLegendMark } from "@/lib/expeditions/queries";
 import type { Rivalry, RoadCompany } from "@/lib/expeditions/company";
 import { watchWeeksOf, weatherNow, weatherOfRun } from "@/lib/expeditions/weather";
 import { fetchInventory, fetchInventoryByIds, type InventoryRow } from "@/lib/packs/queries";
@@ -186,7 +186,7 @@ export async function ExpeditionsPageView({
   // the rivals it races, decided by shine, and the graveyard's ghosts.
   // Read here with the service role — the runs and graves it needs are
   // other people's — and handed to the journal through the run.
-  const [fixtures, convoys, companies, rivalries, standings, accolades, campaign] = await Promise.all([
+  const [fixtures, convoys, companies, rivalries, standings, accolades, campaign, legendMark] = await Promise.all([
     fetchFixturesSince(service, new Date(oldest - DAY_MS).toISOString()),
     fetchConvoyViews(service, discordId, active),
     season
@@ -211,6 +211,7 @@ export async function ExpeditionsPageView({
     season ? fetchStandings(service, season) : Promise.resolve([]),
     season ? fetchAccolades(service, season) : Promise.resolve([]),
     season ? fetchOpenCampaign(service, discordId, season) : Promise.resolve(null),
+    hasLegendMark(service, discordId),
   ]);
   const playingToday = [...teamsPlayingOn(fixtures, today).values()];
   // The weather (weather.ts): this week's for the banner, and each run's
@@ -260,6 +261,7 @@ export async function ExpeditionsPageView({
         viewerId={discordId}
         campaign={campaign}
         season={season ?? ""}
+        legendMark={legendMark}
         deployedIds={deployedIds}
         initialPick={parseInventoryId(send)}
         base={base}

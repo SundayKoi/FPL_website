@@ -53,8 +53,8 @@ update public.expedition_runs set resolves_at = now() - interval '1 minute' wher
 
 select throws_ok($$
   select * from public.resolve_expedition('weather-0117', tests.wx_run(), jsonb_build_object(
-    'grade', 'jackpot', 'dollars', 16351, 'comp', false, 'fates', '[]'::jsonb)) $$,
-  'P0001', 'payout out of range', 'the ceiling stops one dollar above the Harvest maximum');
+    'grade', 'jackpot', 'dollars', 19051, 'comp', false, 'fates', '[]'::jsonb)) $$,
+  'P0001', 'payout out of range', 'the ceiling stops one dollar above the maximum (the Mythic jackpot''s, since 20261015000001)');
 
 select lives_ok($$
   select * from public.resolve_expedition('weather-0117', tests.wx_run(), jsonb_build_object(
