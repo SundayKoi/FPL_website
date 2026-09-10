@@ -123,23 +123,23 @@ export const SIGNED_ALT_SKIN_CHANCE = 0.1;
  * (card_art_prefs.signature) can roll one, so the per-copy roll on a
  * signable card is this divided by the share of the pool that has signed
  * (signedChance in signatures.ts) — with a fifth of the league inked, each
- * of their cards rolls at 3.3% so the pack still sees 1 in 150.
+ * of their cards rolls at 5% so the pack still sees 1 in 100.
  * Before 2026-09-10 the per-copy roll WAS this number, which made the true
  * pack odds this times the signed share: rarer than a Secret with a
  * 60-card pool and a dozen signers. (It was 1% until 2026-09-08, then
  * 0.5% until 2026-09-10 when the roll was normalised and the promise
- * lifted to 1 in 150.) One card in 150 — a shade over 3% of packs — and
- * an order of magnitude below FOIL_CHANCE: a foil is a nice pull, a
- * signed card is the story you tell about the pack you opened.
+ * lifted to 1 in 150, then to 1 in 100 later that night.) One card in
+ * 100 — about 5% of packs — and well below FOIL_CHANCE: a foil is a nice
+ * pull, a signed card is the story you tell about the pack you opened.
  */
-export const SIGNED_CHANCE = 1 / 150;
+export const SIGNED_CHANCE = 1 / 100;
 
 /**
  * Ceiling on the per-copy autograph roll once it has been scaled up for a
  * thin signing book. One signer in a 60-card pool would otherwise roll at
- * 40% — nearly every other copy of that player signed — which is no
+ * 60% — most copies of that player signed — which is no
  * longer an autograph, it is a print run. At 5% the pack-level rate is
- * fully honest once an eighth of the pool has signed (8 of 60), and
+ * fully honest once a fifth of the pool has signed (12 of 60), and
  * tapers below SIGNED_CHANCE before that.
  */
 export const SIGNED_CHANCE_CAP = 0.05;
@@ -271,7 +271,7 @@ export const DEFAULT_FOIL_TYPE: MintableFoilType = "prisma";
 /** Relative weights within a foil pull. Multiply by FOIL_CHANCE for the
  *  real per-card odds: Prisma 2.8%, Aurora 0.8%, Refractor 0.32%, Cracked
  *  Ice 0.08% — roughly one Cracked Ice per 250 packs, which keeps it well
- *  past a signature (SIGNED_CHANCE, 1 in 150) as the hardest cosmetic to hit.
+ *  past a signature (SIGNED_CHANCE, 1 in 100) as the hardest cosmetic to hit.
  *  Steepened on 2026-09-08 from 60/25/12/3, so the top of the ladder got
  *  rarer both from the smaller foil gate and from its own weight. */
 export const FOIL_TYPE_WEIGHTS: Record<MintableFoilType, number> = {
@@ -448,7 +448,7 @@ export const DRIBB_TIER = "dribb";
 /** What a Secret does to dust: doubles it, over the parallel. On any
  *  ordinary tier the whole stack (Cracked Ice, Shiny, Secret) still prices
  *  under what a signature adds; only a Secret Cracked Ice challenger beats
- *  the autograph, and that is a 1-in-1,000 on a 1-in-1,250 on a 1-in-150 —
+ *  the autograph, and that is a 1-in-1,000 on a 1-in-1,250 on a 1-in-100 —
  *  a card the league will never see. The guardrail (SIGNED_DUST_BASE)
  *  holds: at these gates the finishes add under a dollar to a pack's
  *  expected dust. */
