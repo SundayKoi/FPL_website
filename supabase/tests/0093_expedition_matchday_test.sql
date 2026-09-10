@@ -50,8 +50,8 @@ select cmp_ok((select rules from public.expedition_runs where id = tests.echo_ru
 -- === the ceiling ============================================================
 select throws_ok($$
   select * from public.resolve_expedition('echo-0093', tests.echo_run(), jsonb_build_object(
-    'grade', 'jackpot', 'dollars', 16351, 'comp', false, 'fates', '[]'::jsonb)) $$,
-  'P0001', 'payout out of range', 'the ceiling stops one dollar above the maximum (the Harvest merchant''s, since 20261012000001)');
+    'grade', 'jackpot', 'dollars', 19051, 'comp', false, 'fates', '[]'::jsonb)) $$,
+  'P0001', 'payout out of range', 'the ceiling stops one dollar above the maximum (the Mythic jackpot''s, since 20261015000001)');
 select throws_ok($$
   select * from public.resolve_expedition('echo-0093', tests.echo_run(), jsonb_build_object(
     'grade', 'solid', 'dollars', 100, 'comp', false, 'surge', 'Rivals', 'fates', '[]'::jsonb)) $$,

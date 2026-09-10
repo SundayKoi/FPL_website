@@ -146,7 +146,7 @@ export interface PlayerCardData {
    *  copy, permanent until an Exorcism, and READ by Fantasy scoring, the
    *  Gauntlet sim and dust pricing (src/lib/cards/mutations.ts). `run` is
    *  the expedition_runs id that did it. */
-  mutation?: { key: "irradiated" | "hardened" | "haunted" | "cursed" | "voidtouched"; date: string; run: number } | null;
+  mutation?: { key: "irradiated" | "hardened" | "haunted" | "cursed" | "voidtouched" | "voidborn"; date: string; run: number } | null;
   /** Set on a copy an expedition found rather than a pack: a moment on
    *  the squad echoed, and the route dropped this card from the moment's
    *  game. Cosmetic provenance only; nothing prices it. */

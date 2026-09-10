@@ -41,16 +41,17 @@ const now = new Date("2026-09-04T12:00:00Z");
 
 describe("the ladder", () => {
   it("has seven runs, in the order the board prints them", () => {
-    expect(TIER_ORDER).toEqual(["scout", "gilded", "raid", "legend", "rescue", "exorcism", "legendary"]);
+    expect(TIER_ORDER).toEqual(["scout", "gilded", "raid", "legend", "rescue", "exorcism", "legendary", "mythic"]);
     for (const tier of TIER_ORDER) expect(FORKS[tier]).toHaveLength(EXPEDITION_TIERS[tier].forks);
   });
-  it("only lets a card die on the Legendary route, and only after two pushes", () => {
+  it("only lets a card die on the Legendary and Mythic routes, and only after two pushes", () => {
     for (const tier of TIER_ORDER) {
       for (const fork of FORKS[tier]) {
-        if (tier !== "legendary") expect(fork.pushRisk.dead).toBe(0);
+        if (tier !== "legendary" && tier !== "mythic") expect(fork.pushRisk.dead).toBe(0);
       }
     }
     expect(FORKS.legendary.some((fork) => fork.pushRisk.dead > 0)).toBe(true);
+    expect(FORKS.mythic.every((fork) => fork.pushRisk.dead > 0)).toBe(true);
     expect(DEAD_NEEDS_PUSHES).toBe(2);
   });
   it("keeps the Gilded Road a patron route behind three signatures, and pays for it", () => {
@@ -402,10 +403,10 @@ describe("the road", () => {
       for (const slot of ROADS[tier]) {
         const risk = EXPEDITION_TIERS[tier].risk;
         for (const fork of slot) {
-          expect(fork.pushRisk.dead > 0).toBe(tier === "legendary" && fork.pushRisk.dead > 0);
+          expect(fork.pushRisk.dead > 0).toBe((tier === "legendary" || tier === "mythic") && fork.pushRisk.dead > 0);
           if (risk === "none") expect(fork.pushRisk).toEqual({ wounded: 0, lost: 0, dead: 0 });
           if (risk === "wounded") expect(fork.pushRisk.lost + fork.pushRisk.dead).toBe(0);
-          if (tier !== "legendary") expect(fork.pushRisk.dead).toBe(0);
+          if (tier !== "legendary" && tier !== "mythic") expect(fork.pushRisk.dead).toBe(0);
           // The Legendary route never drops a fragment, on any of its places.
           if (tier === "legendary") expect(fork.pushFind?.fragment ?? 0).toBe(0);
           expect(fork.key).toMatch(/^[a-z]+$/);
@@ -857,5 +858,95 @@ describe("a road handed down", () => {
     expect(forksFor("legendary", { runId: 5, rules: ROAD_RULES, places: ["doors", "choir", "tide", "table"] }).map((fork) => fork.key)).toEqual(["doors", "choir", "tide", "table"]);
     // Below the road rulebook the fixed forks stand, whatever is asked.
     expect(forksFor("raid", { runId: 5, rules: 2, places: ["pits", "pits"] }).map((fork) => fork.key)).toEqual(FORKS.raid.map((fork) => fork.key));
+  });
+});
+
+import { MOMENTUM_BONUS, MOMENTUM_DEATH } from "./routes";
+import { LOOT_MULT_CAP } from "./config";
+
+describe("the Mythic route", () => {
+  const base = { insured: false, grade: "solid" as const, target: null, now };
+  const fixedRoad = (tier: ExpeditionTierKey) => {
+    for (let id = 1; id < 20000; id += 1) {
+      const r = { runId: id, rules: ROAD_RULES, convoy: null };
+      if (forksFor(tier, r).every((fork, slot) => fork.key === FORKS[tier][slot].key)) return r;
+    }
+    throw new Error(`no run draws the fixed road on ${tier}`);
+  };
+  const touched = () => [copy({ id: 1, card: { mutation: { key: "voidtouched", date: "2026-09-01", run: 1 } } }), copy({ id: 2 }), copy({ id: 3 })];
+
+  it("has five forks, every one warned, dark, and with a haunting camp", () => {
+    expect(EXPEDITION_TIERS.mythic.forks).toBe(5);
+    expect(ROADS.mythic).toHaveLength(5);
+    for (const slot of ROADS.mythic) {
+      expect(slot.length).toBeGreaterThanOrEqual(2);
+      for (const fork of slot) {
+        expect(fork.warned, fork.key).toBe(true);
+        expect(fork.dark, fork.key).toBe(true);
+        expect(fork.pushRisk.dead, fork.key).toBeGreaterThan(0);
+        expect(fork.campRisk.haunted, fork.key).toBeGreaterThan(0);
+      }
+    }
+    // Keys are unique across the road, as the campaigns and rival fork need.
+    const keys = ROADS.mythic.flat().map((fork) => fork.key);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("the pushes carry: each consecutive push raises the next bonus and its death roll, and a camp lets it go", () => {
+    const road = fixedRoad("mythic");
+    const forks = forksFor("mythic", road);
+    // Five pushes, nothing landing (0.99): the bag grows by every bonus
+    // plus 0+1+2+3+4 momentum steps.
+    const all = resolveRoute({ ...base, copies: touched(), tier: "mythic", forks: 5, road, choices: ["push", "push", "push", "push", "push"] }, always(0.99));
+    const bonuses = forks.reduce((sum, fork) => sum + fork.lootBonus, 0);
+    expect(all.lootMultiplier).toBe(Math.min(LOOT_MULT_CAP, Math.round((1 + bonuses + MOMENTUM_BONUS * (0 + 1 + 2 + 3 + 4)) * 100) / 100));
+    expect(all.events.filter((e) => /momentum carried/.test(e.text))).toHaveLength(4);
+    expect(all.events.some((e) => /4 pushes behind them/.test(e.text) && new RegExp(`\\+${Math.round(MOMENTUM_DEATH * 4 * 100)}% to the death roll`).test(e.text))).toBe(true);
+    // Push, camp, push: the second push carries nothing.
+    const broken = resolveRoute({ ...base, copies: touched(), tier: "mythic", forks: 5, road, choices: ["push", "camp", "push", "camp", "camp"] }, always(0.99));
+    expect(broken.events.some((e) => /momentum carried/.test(e.text))).toBe(false);
+    // Off the Mythic route the streak is never counted.
+    const legendary = resolveRoute({ ...base, copies: touched(), tier: "legendary", forks: 4, road: fixedRoad("legendary"), choices: ["push", "push", "push", "push"] }, always(0.99));
+    expect(legendary.events.some((e) => /momentum carried/.test(e.text))).toBe(false);
+  });
+
+  it("the death roll climbs with the momentum", () => {
+    const road = fixedRoad("mythic");
+    // Every roll lands at one number, just above the third fork's own death
+    // risk and just under it with two pushes carried. Push, push, push dies
+    // at the third fork; push, camp, push (the streak let go) does not.
+    const third = forksFor("mythic", road)[2];
+    const roll = third.pushRisk.dead + MOMENTUM_DEATH;
+    expect(roll).toBeGreaterThan(Math.max(third.pushRisk.wounded, third.pushRisk.lost));
+    const carried = resolveRoute({ ...base, copies: touched(), tier: "mythic", forks: 5, road, choices: ["push", "push", "push", "camp", "camp"] }, always(roll));
+    expect(Object.values(fates(carried))).toContain("dead");
+    const dropped = resolveRoute({ ...base, copies: touched(), tier: "mythic", forks: 5, road, choices: ["push", "camp", "push", "camp", "camp"] }, always(roll));
+    expect(Object.values(fates(dropped))).not.toContain("dead");
+  });
+
+  it("a Voidtouched survivor comes home Voidborn, and the rest Voidtouched", () => {
+    const road = fixedRoad("mythic");
+    const home = resolveRoute({ ...base, copies: touched(), tier: "mythic", forks: 5, road, choices: ["camp", "camp", "camp", "camp", "camp"] }, always(0.99));
+    const got = mutations(home);
+    expect(got[1]).toBe("voidborn");
+    expect(Object.values(got).filter((m) => m === "voidtouched")).toHaveLength(1);
+    expect(home.events.some((e) => /came home Voidborn/.test(e.text))).toBe(true);
+    // Voidborn never lands on a card that was not Voidtouched.
+    const green = resolveRoute({ ...base, copies: squad(), tier: "mythic", forks: 5, road, choices: ["camp", "camp", "camp", "camp", "camp"] }, always(0.99));
+    expect(Object.values(mutations(green))).not.toContain("voidborn");
+  });
+
+  it("is gated on a Voidtouched card and a Legend mark, and the requirement line says so", () => {
+    const fine = squadMeets("mythic", [copy({ id: 1, foil: true, signed: true, card: { mutation: { key: "voidtouched", date: "2026-09-01", run: 1 } } }), copy({ id: 2, foil: true }), copy({ id: 3 })], undefined, { legendMark: true });
+    expect(fine.reasons.filter((r) => /Voidtouched|Legend mark/.test(r))).toEqual([]);
+    const bare = squadMeets("mythic", [copy({ id: 1, foil: true, signed: true }), copy({ id: 2, foil: true }), copy({ id: 3 })], undefined, { legendMark: false });
+    expect(bare.reasons.some((r) => /needs a Voidtouched card/.test(r))).toBe(true);
+    expect(bare.reasons.some((r) => /Legend mark/.test(r))).toBe(true);
+    // Without a shelf the mark is taken as held (a preview), the card is not.
+    const noShelf = squadMeets("mythic", [copy({ id: 1 }), copy({ id: 2 }), copy({ id: 3 })]);
+    expect(noShelf.reasons.some((r) => /Legend mark/.test(r))).toBe(false);
+    expect(noShelf.reasons.some((r) => /Voidtouched/.test(r))).toBe(true);
+    // The Legendary route asks for neither.
+    expect(squadMeets("legendary", squad(), undefined, { legendMark: false }).reasons.some((r) => /Legend mark|Voidtouched/.test(r))).toBe(false);
   });
 });

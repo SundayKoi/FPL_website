@@ -179,6 +179,7 @@ function renderBoard(
     accolades?: Accolade[];
     viewerId?: string | null;
     campaign?: CampaignState | null;
+    legendMark?: boolean;
   } = {},
 ) {
   return render(
@@ -191,6 +192,7 @@ function renderBoard(
       viewerId={over.viewerId ?? null}
       campaign={over.campaign ?? null}
       season="S_TEST"
+      legendMark={over.legendMark ?? true}
       playingToday={over.playingToday}
       rivals={over.rivals}
       copies={over.copies ?? COPIES}
@@ -982,6 +984,20 @@ describe("ExpeditionBoard — missing cards", () => {
 
     expect(within(screen.getByTestId("tier-rescue")).getByText(/Nothing is lost/)).toBeTruthy();
     expect((screen.getByRole("button", { name: "Launch Rescue" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("ExpeditionBoard — the Mythic route", () => {
+  it("prints the route past the rift with its own gates, and explains it in the rules", () => {
+    renderBoard({ legendMark: false });
+    const card = screen.getByTestId("tier-mythic");
+    expect(card.textContent).toContain("Mythic route");
+    expect(card.textContent).toContain("a Voidtouched card");
+    expect(card.textContent).toContain("a Legend mark");
+    expect(card.textContent).toContain("3 map fragments");
+    const rule = screen.getByTestId("rule-mythic");
+    expect(rule.textContent).toContain("Momentum");
+    expect(rule.textContent).toContain("Voidborn");
   });
 });
 

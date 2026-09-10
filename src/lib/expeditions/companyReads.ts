@@ -82,7 +82,7 @@ export async function fetchCompanies(supabase: SupabaseClient, season: string, r
       .gte("started_at", new Date(lo).toISOString())
       .lte("started_at", new Date(hi).toISOString())
       .limit(500),
-    tiers.includes("legend") || tiers.includes("legendary")
+    tiers.includes("legend") || tiers.includes("legendary") || tiers.includes("mythic")
       ? supabase.from("expedition_graveyard").select("id, discord_id, player_name, card, died_at").eq("season", season).eq("cause", "route").limit(500)
       : Promise.resolve({ data: [], error: null }),
   ]);
