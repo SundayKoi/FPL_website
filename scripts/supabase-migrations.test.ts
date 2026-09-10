@@ -23,6 +23,15 @@ test('combines the known collision in original order without changing source fil
   expect(readFileSync(join(destination, '20260915000001_expedition_encounters.sql'), 'utf8')).toBe('select 1;\n\nselect 2;');
   for (const [name, sql] of Object.entries(files)) expect(readFileSync(join(source, name), 'utf8')).toBe(sql);
 });
+test.each([
+  ['20261005000001_academy_card_claim_roster_sync.sql', '20261005000001_analytics_overview.sql'],
+  ['20261009000001_expedition_roads.sql', '20261009000001_migration_audit_repairs.sql'],
+])('combines the later known collision %s + %s the same way', (first, second) => {
+  const { source, destination } = fixture({ [second]: 'select 2;', [first]: 'select 1;' });
+  stageMigrations(source, destination);
+  expect(readdirSync(destination)).toEqual([first]);
+  expect(readFileSync(join(destination, first), 'utf8')).toBe('select 1;\n\nselect 2;');
+});
 test('refuses new collisions instead of hiding them', () => {
   const { source, destination } = fixture({ '20261004000001_a.sql': 'select 1;', '20261004000001_b.sql': 'select 2;' });
   expect(() => stageMigrations(source, destination)).toThrow('Unreviewed duplicate');
