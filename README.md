@@ -228,6 +228,22 @@ This check uses Git history, not the production database: it cannot detect
 remote-only migrations or prove that production RPCs exist. Database migration
 and verification must still precede deployment of dependent application code.
 
+For this repository's linked database, use the migration wrapper:
+
+```sh
+node scripts/supabase-migrations.mjs list
+node scripts/supabase-migrations.mjs push --dry-run
+node scripts/supabase-migrations.mjs push
+```
+
+The immutable history contains two files at version `20260915000001`. The
+wrapper stages their SQL in filename order as one migration for the CLI,
+without editing either source file, and rejects any other duplicate version.
+A raw `supabase db push` still sees the duplicate and can incorrectly offer
+to replay God Packs. Do not use `--include-all` to get past that warning.
+The wrapper does not repair history or mark missing SQL applied.
+
+
 `.github/workflows/ci.yml` runs the type-check, ESLint and the Vitest suite
 on every pull request and every push to `main`. Make it a required check on
 `main`; once it is, `typescript.ignoreBuildErrors: true` in `next.config.ts`

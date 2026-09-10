@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_betting_fixtures.sql.inc
-select plan(26);
+select plan(29);
 
 select has_table('public', 'card_pack_openings', 'the durable opening table exists');
 select has_column('public', 'card_pack_openings', 'opening_id', 'the server owns an opening id');
@@ -71,6 +71,23 @@ select throws_ok(
   format($q$update public.card_inventory set opening_id = null where opening_id = %L::uuid$q$, (select opening_id from begun)),
   'P0001', 'pack provenance is immutable', 'a caller cannot rewrite a copy''s opening identity'
 );
+
+-- Later print metadata definitions must preserve opening identity through
+-- both ownership changes and retirement, as well as on the initial mint.
+select test_profile(0) as recipient \gset
+update public.card_inventory set discord_id = :'recipient'
+where opening_id = (select opening_id from begun);
+select is((select count(*)::int from public.card_provenance
+  where opening_id = (select opening_id from begun) and event = 'transferred'),
+  5, 'transfers retain the durable opening identity');
+delete from public.card_inventory where opening_id = (select opening_id from begun);
+select is((select count(*)::int from public.card_provenance
+  where opening_id = (select opening_id from begun) and event = 'dusted'),
+  5, 'retirement retains the durable opening identity');
+select ok((select bool_and(season = 'S_TEST_GOD' and print ? 'dribb')
+  from public.card_provenance
+  where opening_id = (select opening_id from begun) and event = 'minted'),
+  'opening provenance preserves the later season and print metadata');
 
 select * from finish();
 rollback;
