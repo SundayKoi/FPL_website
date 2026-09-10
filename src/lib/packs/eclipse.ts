@@ -40,9 +40,9 @@ export function isEclipseEligible(card: PlayerCardData): boolean {
  * something.
  *
  * Auto-signing is not generosity. The Eclipse gate and the autograph roll
- * compound to roughly 1 in a million packs since the 2026-09-08 pass (it
- * was ~1 in 91,000), so left to chance no signed Eclipse would ever exist
- * — while an ORDINARY copy of the same player can roll signed at 1 in 150.
+ * compound to somewhere in the hundreds of thousands of packs, so left to
+ * chance no signed Eclipse would ever exist — while an ORDINARY copy of
+ * the same player can roll signed at 1 in 100.
  * That inverts the hierarchy: the rarest card in the game would be the
  * plain version of a player whose commons are autographed.
  *

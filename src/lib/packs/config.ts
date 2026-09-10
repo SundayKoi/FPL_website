@@ -123,23 +123,23 @@ export const SIGNED_ALT_SKIN_CHANCE = 0.1;
  * (card_art_prefs.signature) can roll one, so the per-copy roll on a
  * signable card is this divided by the share of the pool that has signed
  * (signedChance in signatures.ts) — with a fifth of the league inked, each
- * of their cards rolls at 3.3% so the pack still sees 1 in 150.
+ * of their cards rolls at 5% so the pack still sees 1 in 100.
  * Before 2026-09-10 the per-copy roll WAS this number, which made the true
  * pack odds this times the signed share: rarer than a Secret with a
  * 60-card pool and a dozen signers. (It was 1% until 2026-09-08, then
  * 0.5% until 2026-09-10 when the roll was normalised and the promise
- * lifted to 1 in 150.) One card in 150 — a shade over 3% of packs — and
- * an order of magnitude below FOIL_CHANCE: a foil is a nice pull, a
- * signed card is the story you tell about the pack you opened.
+ * lifted to 1 in 150, then to 1 in 100 later that night.) One card in
+ * 100 — about 5% of packs — and well below FOIL_CHANCE: a foil is a nice
+ * pull, a signed card is the story you tell about the pack you opened.
  */
-export const SIGNED_CHANCE = 1 / 150;
+export const SIGNED_CHANCE = 1 / 100;
 
 /**
  * Ceiling on the per-copy autograph roll once it has been scaled up for a
  * thin signing book. One signer in a 60-card pool would otherwise roll at
- * 40% — nearly every other copy of that player signed — which is no
+ * 60% — most copies of that player signed — which is no
  * longer an autograph, it is a print run. At 5% the pack-level rate is
- * fully honest once an eighth of the pool has signed (8 of 60), and
+ * fully honest once a fifth of the pool has signed (12 of 60), and
  * tapers below SIGNED_CHANCE before that.
  */
 export const SIGNED_CHANCE_CAP = 0.05;
@@ -227,8 +227,8 @@ export type MintableFoilType = (typeof FOIL_TYPES)[number];
 /**
  * Chance an Eclipse falls on a Card-of-the-Week pull.
  *
- * One in five hundred, and the number only means anything through the gate
- * in front of it. A Card of the Week is the top-rated card in each ROLE —
+ * One in two hundred and fifty, and the number only means anything through
+ * the gate in front of it. A Card of the Week is the top-rated card in each ROLE —
  * five per week — and because the roller picks uniformly inside a rarity
  * class, one lands in roughly 1.2-2.4% of pack SLOTS depending on how
  * top-heavy the league is (a thin league is the HIGHER figure: fewer
@@ -238,15 +238,17 @@ export type MintableFoilType = (typeof FOIL_TYPES)[number];
  * Eclipse got rarer twice over, once at its own gate and once at the gate
  * in front of it. Multiplying through:
  *
- *     ~0.2% of Card-of-the-Week pulls
+ *     ~0.4% of Card-of-the-Week pulls
  *   × ~1.2-2.4% of slots being one
  *   × 5 slots
- *   = roughly 1 Eclipse per 4,000-8,000 packs
+ *   = roughly 1 Eclipse per 2,000-4,000 packs
  *
  * At the league's volume (call it 1,500 packs a season) that is one every
- * three to five seasons — rare enough that most people never see one,
- * common enough that they exist. (It was 0.5% until 20260907 and 0.4%
- * until 2026-09-08; the league found them a little too often, twice.)
+ * season or two — rare enough that most people never see one, common
+ * enough that they exist. (It was 0.5% until 20260907 and 0.4% until
+ * 2026-09-08, when the whole economy tightened and it went to 0.2%; with
+ * the weights already thinning the gate in front of it that proved one
+ * squeeze too many, so on 2026-09-10 it went back to 0.4%.)
  *
  * It is deliberately NOT tuned so that each week reliably produces one. It
  * does not have to: an unclaimed Eclipse stays claimable forever through
@@ -258,7 +260,7 @@ export type MintableFoilType = (typeof FOIL_TYPES)[number];
  * pool, the real odds drift with the league's shape: as more players reach
  * the top tiers, Eclipses quietly get rarer on their own.
  */
-export const ECLIPSE_CHANCE = 1 / 500;
+export const ECLIPSE_CHANCE = 1 / 250;
 
 /** The parallel a Card of the Week wears when the Eclipse gate opens. */
 export const ECLIPSE_FOIL_TYPE: FoilType = "eclipse";
@@ -271,7 +273,7 @@ export const DEFAULT_FOIL_TYPE: MintableFoilType = "prisma";
 /** Relative weights within a foil pull. Multiply by FOIL_CHANCE for the
  *  real per-card odds: Prisma 2.8%, Aurora 0.8%, Refractor 0.32%, Cracked
  *  Ice 0.08% — roughly one Cracked Ice per 250 packs, which keeps it well
- *  past a signature (SIGNED_CHANCE, 1 in 150) as the hardest cosmetic to hit.
+ *  past a signature (SIGNED_CHANCE, 1 in 100) as the hardest cosmetic to hit.
  *  Steepened on 2026-09-08 from 60/25/12/3, so the top of the ladder got
  *  rarer both from the smaller foil gate and from its own weight. */
 export const FOIL_TYPE_WEIGHTS: Record<MintableFoilType, number> = {
@@ -410,12 +412,11 @@ export const STATTRAK_CHANCE = 0.01;
  * Secret — a print numbered past the checklist. Numbered from the top of
  * the collection: in a season of 120 cards, the first Secret found is
  * #121/120, the next #122/120. One in a thousand per card, so about one
- * pack in two hundred carries one — half the Eclipse gate's rate
- * (ECLIPSE_CHANCE, 0.2%) but on ANY player card rather than the Card of
+ * pack in two hundred carries one — a quarter of the Eclipse gate's rate
+ * (ECLIPSE_CHANCE, 0.4%) but on ANY player card rather than the Card of
  * the Week, so it is the rarest thing an ordinary pull can be. Announced
  * to the channel when it lands, like an Eclipse. At most one per pack.
- * (It was 1 in 500 until 2026-09-08; the halved gate keeps it exactly half
- * the Eclipse rate, which is the relation that matters here.)
+ * (It was 1 in 500 until 2026-09-08.)
  */
 export const SECRET_CHANCE = 0.001;
 
@@ -448,7 +449,7 @@ export const DRIBB_TIER = "dribb";
 /** What a Secret does to dust: doubles it, over the parallel. On any
  *  ordinary tier the whole stack (Cracked Ice, Shiny, Secret) still prices
  *  under what a signature adds; only a Secret Cracked Ice challenger beats
- *  the autograph, and that is a 1-in-1,000 on a 1-in-1,250 on a 1-in-150 —
+ *  the autograph, and that is a 1-in-1,000 on a 1-in-1,250 on a 1-in-100 —
  *  a card the league will never see. The guardrail (SIGNED_DUST_BASE)
  *  holds: at these gates the finishes add under a dollar to a pack's
  *  expected dust. */
