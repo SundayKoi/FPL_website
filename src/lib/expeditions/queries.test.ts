@@ -92,6 +92,8 @@ describe("fetchRuns", () => {
         encounters: [],
         rules: 1,
         convoy: null,
+        campaign: null,
+        road: null,
       },
       {
         id: 3,
@@ -114,6 +116,8 @@ describe("fetchRuns", () => {
         encounters: [],
         rules: 1,
         convoy: null,
+        campaign: null,
+        road: null,
       },
     ]);
     expect(service.calls[0]).toMatchObject({

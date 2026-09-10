@@ -80,6 +80,10 @@ export interface ExpeditionRun {
   rules: number;
   /** The convoy this run rides in, if any. */
   convoy: number | null;
+  /** The campaign this run walks for (campaigns.ts), if any, and the road
+   *  the campaign handed it — one place key per checkpoint. */
+  campaign: number | null;
+  road: string[] | null;
   /** Who else was on the road (company.ts), read by the page for a run in
    *  the field so the journal can name them. Not a column. */
   company?: RoadCompany | null;
@@ -105,13 +109,13 @@ export function hasRoad(run: Pick<ExpeditionRun, "rules">): boolean {
 }
 
 /** The handle the road-drawing functions take, off a run row. */
-export function roadOf(run: Pick<ExpeditionRun, "id" | "rules" | "convoy" | "forks">): RoadRef {
-  return { runId: run.id, rules: run.rules, convoy: run.convoy, forks: run.forks };
+export function roadOf(run: Pick<ExpeditionRun, "id" | "rules" | "convoy" | "forks"> & { road?: string[] | null }): RoadRef {
+  return { runId: run.id, rules: run.rules, convoy: run.convoy, forks: run.forks, places: run.road ?? null };
 }
 
 /** Every column mapRun reads. runs.ts selects the same list, so a run
  *  read for a claim carries the rulebook and the convoy the page saw. */
-export const RUN_COLUMNS = "id, tier, squad, shine, started_at, resolves_at, outcome, claimed_at, forks, choices, insured, target, fee, encounters, rules, convoy";
+export const RUN_COLUMNS = "id, tier, squad, shine, started_at, resolves_at, outcome, claimed_at, forks, choices, insured, target, fee, encounters, rules, convoy, campaign, road";
 
 interface RunDbRow {
   id: number;
@@ -146,6 +150,8 @@ interface RunDbRow {
   encounters?: { key: string; leg: number }[] | null;
   rules?: number | null;
   convoy?: number | null;
+  campaign?: number | null;
+  road?: unknown;
 }
 
 export function mapRun(row: RunDbRow): ExpeditionRun {
@@ -196,6 +202,8 @@ export function mapRun(row: RunDbRow): ExpeditionRun {
     // new ever applies to a run that predates the column that says it may.
     rules: Number(row.rules ?? 1),
     convoy: row.convoy === null || row.convoy === undefined ? null : Number(row.convoy),
+    campaign: row.campaign === null || row.campaign === undefined ? null : Number(row.campaign),
+    road: Array.isArray(row.road) && row.road.every((place) => typeof place === "string") ? (row.road as string[]) : null,
   };
 }
 
@@ -693,4 +701,58 @@ export async function fetchAccolades(supabase: SupabaseClient, season: string): 
     value: Number(row.value ?? 0),
     awardedAt: row.awarded_at,
   }));
+}
+
+// === campaigns ===============================================================
+
+import type { CampaignKey, CampaignState, StageLog } from "./campaigns";
+
+interface CampaignDbRow {
+  id: number;
+  key: string;
+  stage: number | null;
+  runs: number[] | null;
+  road: unknown;
+  log: unknown;
+  started_at: string;
+  finished_at: string | null;
+  abandoned: boolean | null;
+  relic: number | null;
+}
+
+export function mapCampaign(row: CampaignDbRow): CampaignState {
+  return {
+    id: Number(row.id),
+    key: row.key as CampaignKey,
+    stage: Number(row.stage ?? 0),
+    runs: (row.runs ?? []).map(Number),
+    road: Array.isArray(row.road) && row.road.every((place) => typeof place === "string") ? (row.road as string[]) : null,
+    log: Array.isArray(row.log) ? (row.log as StageLog[]) : [],
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    abandoned: row.abandoned === true,
+    relic: row.relic === null || row.relic === undefined ? null : Number(row.relic),
+  };
+}
+
+const CAMPAIGN_COLUMNS = "id, key, stage, runs, road, log, started_at, finished_at, abandoned, relic";
+
+/** The collector's open campaign this season, or null. */
+export async function fetchOpenCampaign(supabase: SupabaseClient, discordId: string, season: string): Promise<CampaignState | null> {
+  const { data, error } = await supabase
+    .from("expedition_campaigns")
+    .select(CAMPAIGN_COLUMNS)
+    .eq("discord_id", discordId)
+    .eq("season", season)
+    .is("finished_at", null)
+    .maybeSingle();
+  if (error || !data) return null;
+  return mapCampaign(data as CampaignDbRow);
+}
+
+/** One campaign by id, the collector's own. */
+export async function fetchCampaign(supabase: SupabaseClient, discordId: string, id: number): Promise<CampaignState | null> {
+  const { data, error } = await supabase.from("expedition_campaigns").select(CAMPAIGN_COLUMNS).eq("discord_id", discordId).eq("id", id).maybeSingle();
+  if (error || !data) return null;
+  return mapCampaign(data as CampaignDbRow);
 }
