@@ -227,8 +227,8 @@ export type MintableFoilType = (typeof FOIL_TYPES)[number];
 /**
  * Chance an Eclipse falls on a Card-of-the-Week pull.
  *
- * One in five hundred, and the number only means anything through the gate
- * in front of it. A Card of the Week is the top-rated card in each ROLE —
+ * One in two hundred and fifty, and the number only means anything through
+ * the gate in front of it. A Card of the Week is the top-rated card in each ROLE —
  * five per week — and because the roller picks uniformly inside a rarity
  * class, one lands in roughly 1.2-2.4% of pack SLOTS depending on how
  * top-heavy the league is (a thin league is the HIGHER figure: fewer
@@ -238,15 +238,17 @@ export type MintableFoilType = (typeof FOIL_TYPES)[number];
  * Eclipse got rarer twice over, once at its own gate and once at the gate
  * in front of it. Multiplying through:
  *
- *     ~0.2% of Card-of-the-Week pulls
+ *     ~0.4% of Card-of-the-Week pulls
  *   × ~1.2-2.4% of slots being one
  *   × 5 slots
- *   = roughly 1 Eclipse per 4,000-8,000 packs
+ *   = roughly 1 Eclipse per 2,000-4,000 packs
  *
  * At the league's volume (call it 1,500 packs a season) that is one every
- * three to five seasons — rare enough that most people never see one,
- * common enough that they exist. (It was 0.5% until 20260907 and 0.4%
- * until 2026-09-08; the league found them a little too often, twice.)
+ * season or two — rare enough that most people never see one, common
+ * enough that they exist. (It was 0.5% until 20260907 and 0.4% until
+ * 2026-09-08, when the whole economy tightened and it went to 0.2%; with
+ * the weights already thinning the gate in front of it that proved one
+ * squeeze too many, so on 2026-09-10 it went back to 0.4%.)
  *
  * It is deliberately NOT tuned so that each week reliably produces one. It
  * does not have to: an unclaimed Eclipse stays claimable forever through
@@ -258,7 +260,7 @@ export type MintableFoilType = (typeof FOIL_TYPES)[number];
  * pool, the real odds drift with the league's shape: as more players reach
  * the top tiers, Eclipses quietly get rarer on their own.
  */
-export const ECLIPSE_CHANCE = 1 / 500;
+export const ECLIPSE_CHANCE = 1 / 250;
 
 /** The parallel a Card of the Week wears when the Eclipse gate opens. */
 export const ECLIPSE_FOIL_TYPE: FoilType = "eclipse";
@@ -410,12 +412,11 @@ export const STATTRAK_CHANCE = 0.01;
  * Secret — a print numbered past the checklist. Numbered from the top of
  * the collection: in a season of 120 cards, the first Secret found is
  * #121/120, the next #122/120. One in a thousand per card, so about one
- * pack in two hundred carries one — half the Eclipse gate's rate
- * (ECLIPSE_CHANCE, 0.2%) but on ANY player card rather than the Card of
+ * pack in two hundred carries one — a quarter of the Eclipse gate's rate
+ * (ECLIPSE_CHANCE, 0.4%) but on ANY player card rather than the Card of
  * the Week, so it is the rarest thing an ordinary pull can be. Announced
  * to the channel when it lands, like an Eclipse. At most one per pack.
- * (It was 1 in 500 until 2026-09-08; the halved gate keeps it exactly half
- * the Eclipse rate, which is the relation that matters here.)
+ * (It was 1 in 500 until 2026-09-08.)
  */
 export const SECRET_CHANCE = 0.001;
 

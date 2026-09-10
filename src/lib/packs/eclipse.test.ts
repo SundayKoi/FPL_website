@@ -36,8 +36,8 @@ describe("Eclipse is outside the foil ladder", () => {
 });
 
 describe("the drop rate is the one that was agreed", () => {
-  it("is one in five hundred Card-of-the-Week pulls", () => {
-    expect(ECLIPSE_CHANCE).toBe(1 / 500);
+  it("is one in two hundred and fifty Card-of-the-Week pulls", () => {
+    expect(ECLIPSE_CHANCE).toBe(1 / 250);
   });
 
   it("works out at roughly one Eclipse per several thousand packs", () => {
@@ -51,20 +51,20 @@ describe("the drop rate is the one that was agreed", () => {
     const perPack = (gate: number) => 1 - (1 - gate * ECLIPSE_CHANCE) ** 5;
     const thin = 1 / perPack(0.024);
     const typical = 1 / perPack(0.012);
-    expect(Math.round(thin)).toBeGreaterThan(3000);
-    expect(Math.round(typical)).toBeLessThan(12_000);
+    expect(Math.round(thin)).toBeGreaterThan(1500);
+    expect(Math.round(typical)).toBeLessThan(6000);
     // And the headline claim: a chase measured in seasons, not in decades.
-    expect(Math.round(thin)).toBeLessThan(6000);
-    expect(Math.round(typical)).toBeGreaterThan(6000);
+    expect(Math.round(thin)).toBeLessThan(3000);
+    expect(Math.round(typical)).toBeGreaterThan(3000);
   });
 
   it("is rare enough that a season of packs usually yields at most one", () => {
     // 150 packs a week for ten weeks, at the more generous gate.
     const perPack = 1 - (1 - 0.024 * ECLIPSE_CHANCE) ** 5;
     expect(1500 * perPack).toBeLessThan(3);
-    // ...but not so rare that it probably never happens at all: about a
-    // third of an Eclipse a season, so one every three seasons or so.
-    expect(1500 * perPack).toBeGreaterThan(0.25);
+    // ...but not so rare that it probably never happens at all: about
+    // two-thirds of an Eclipse a season, so one every season or two.
+    expect(1500 * perPack).toBeGreaterThan(0.5);
   });
 });
 
