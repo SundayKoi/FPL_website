@@ -5,7 +5,7 @@ begin;
 set local search_path = public, extensions;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_betting_fixtures.sql.inc
-select plan(30);
+select plan(32);
 
 -- === fixtures ================================================================
 create or replace function mk_card(p_owner text, p_overall int) returns bigint
