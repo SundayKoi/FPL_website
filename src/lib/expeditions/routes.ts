@@ -90,6 +90,11 @@ export interface RoadRef {
   /** How many forks the RUN has, when it differs from the tier's count
    *  (a run from before forks existed has none). */
   forks?: number;
+  /** A road handed down rather than drawn (campaigns.ts): one place key
+   *  per checkpoint. A slot whose key is unknown falls back to the draw,
+   *  and the draw's stream is consumed either way so the other slots
+   *  match the seeded road. */
+  places?: string[] | null;
 }
 
 export interface ForkDef {
@@ -786,7 +791,11 @@ export function forksFor(tier: ExpeditionTierKey, road?: RoadRef | null): ForkDe
   const count = road?.forks ?? EXPEDITION_TIERS[tier].forks;
   if (!road || road.rules < ROAD_RULES) return FORKS[tier].slice(0, count);
   const rand = mulberry32(roadSeed(road));
-  return ROADS[tier].slice(0, count).map((slot) => slot[Math.min(slot.length - 1, Math.floor(rand() * slot.length))]);
+  return ROADS[tier].slice(0, count).map((slot, index) => {
+    const drawn = slot[Math.min(slot.length - 1, Math.floor(rand() * slot.length))];
+    const wanted = road.places?.[index];
+    return (wanted && slot.find((fork) => fork.key === wanted)) || drawn;
+  });
 }
 
 /** Death needs this many pushes on the run, counting the one being

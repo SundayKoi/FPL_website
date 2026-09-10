@@ -45,6 +45,7 @@ import { HUNTER_FRAGMENT_CHANCE, ROAD_ENCOUNTER_CHANCE, STORM_HOURS, STRANDED_BO
 import { MILES_BY_TIER, TRAIL_TITLES, WAYFARER_SHINE } from "@/lib/expeditions/trail";
 import { WEATHERS } from "@/lib/expeditions/weather";
 import { ACCOLADES, ACCOLADE_ORDER } from "@/lib/expeditions/standings";
+import { CAMPAIGNS, CAMPAIGN_ORDER } from "@/lib/expeditions/campaigns";
 
 export const RISK_LABEL: Record<RouteRisk, string> = {
   none: "Nothing can be hurt",
@@ -278,6 +279,34 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
             </li>
           ))}
         </ul>
+      </div>
+
+      {/* ── Campaigns ────────────────────────────────────────────── */}
+      <div data-testid="rule-campaigns" className="flex flex-col gap-2 rounded-lg border border-line bg-panel/60 p-3 text-sm text-steel">
+        <h3 className="type-display text-lg text-white">Campaigns — three runs that tell one story</h3>
+        <p>
+          Open one from the board and walk its three stages in order, one open campaign at a time. Each stage&apos;s grade and
+          pushes set the <strong className="text-white">next stage&apos;s road</strong>: the places at its checkpoints are handed
+          down instead of drawn, so a poor scout opens the raid in the flooded works and a jackpot hunt goes into the Legendary
+          route by the gallery of doors. A stage is walked alone (no convoy), and a stage&apos;s run keeps every other rule.
+        </p>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {CAMPAIGN_ORDER.map((key) => (
+            <li key={key} data-testid={`rule-campaign-${key}`} className="flex flex-col gap-1 rounded-md border border-line bg-black/30 p-2.5">
+              <span className="text-sm font-semibold" style={{ color: CAMPAIGNS[key].accent }}>
+                {CAMPAIGNS[key].label}
+              </span>
+              <span className="text-xs text-white">{CAMPAIGNS[key].stages.map((tier) => EXPEDITION_TIERS[tier].label).join(" → ")}</span>
+              <span className="text-xs">{CAMPAIGNS[key].blurb}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-xs">
+          Finish all three and the finale prints a <strong className="text-white">campaign relic</strong>: a one-off copy of the
+          survivor with the most miles, in the campaign&apos;s own frame. It is worth a relic&apos;s shine on an expedition and never boards
+          a route that can lose it. Nobody home from the finale, no relic. Abandon a campaign and it is over; a run already out
+          for it walks on.
+        </p>
       </div>
 
       {/* ── Season standings ─────────────────────────────────────── */}

@@ -15,6 +15,7 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import {
   claimExpeditionFor,
   decideForkFor,
+  friendlyExpeditionError,
   launchExpeditionFor,
   ransomLostCardFor,
   type ClaimResult,
@@ -25,6 +26,8 @@ import {
 } from "./runs";
 import type { ExpeditionTierKey } from "./config";
 import type { ForkChoice } from "./routes";
+import { createBettingServiceClient } from "@/lib/betting/service-client";
+import { CAMPAIGNS, type CampaignKey } from "./campaigns";
 
 /** Every expedition surface — the board itself, the shelves whose melt
  *  buttons the deploy lock disables, and the Play tab's status line. */
@@ -53,6 +56,7 @@ export async function launchExpeditionAction(
     insured: options.insured === true,
     target: typeof options.target === "number" ? options.target : null,
     convoy: typeof options.convoy === "string" && options.convoy.length > 0 ? options.convoy.slice(0, 12) : null,
+    campaign: typeof options.campaign === "number" && Number.isInteger(options.campaign) ? options.campaign : null,
   });
   // Only on success: a refused launch changed nothing, and busting the
   // page cache on every rejected click would make a mis-picked squad cost
@@ -89,4 +93,32 @@ export async function ransomLostCardAction(holdId: number): Promise<RansomResult
   const result = await ransomLostCardFor(user.discordId, holdId);
   if (result.ok) revalidateExpeditionSurfaces();
   return result;
+}
+
+export type CampaignActionResult = { ok: true } | { ok: false; error: string };
+
+/** Opens a campaign for the season being browsed. One open at a time. */
+export async function startCampaignAction(key: CampaignKey, season: string): Promise<CampaignActionResult> {
+  const user = await getBettingUser();
+  if (!user) return { ok: false, error: SIGN_IN };
+  if (!user.allowed) return { ok: false, error: MEMBERS };
+  if (!(key in CAMPAIGNS)) return { ok: false, error: "No such campaign." };
+  const service = createBettingServiceClient();
+  const { error } = await service.rpc("start_expedition_campaign", { p_user: user.discordId, p_season: season.slice(0, 40), p_key: key });
+  if (error) return { ok: false, error: error.message.includes("already open") ? "A campaign is already open — finish or abandon it first." : friendlyExpeditionError(error.message) };
+  revalidateExpeditionSurfaces();
+  return { ok: true };
+}
+
+/** Closes an unfinished campaign. A run already out for it walks on. */
+export async function abandonCampaignAction(id: number): Promise<CampaignActionResult> {
+  const user = await getBettingUser();
+  if (!user) return { ok: false, error: SIGN_IN };
+  if (!user.allowed) return { ok: false, error: MEMBERS };
+  if (!Number.isInteger(id)) return { ok: false, error: "No such campaign." };
+  const service = createBettingServiceClient();
+  const { error } = await service.rpc("abandon_expedition_campaign", { p_user: user.discordId, p_campaign: id });
+  if (error) return { ok: false, error: friendlyExpeditionError(error.message) };
+  revalidateExpeditionSurfaces();
+  return { ok: true };
 }

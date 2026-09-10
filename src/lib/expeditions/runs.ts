@@ -29,6 +29,8 @@ import { isCampChoice } from "./routes";
 import { echoPool, surgeTeams, teamsPlayingOn } from "./matchday";
 import { STORM_HOURS, STRANDED_BOUNTY, encountersFor, latestJournalLine } from "./journal";
 import { fetchCompany } from "./companyReads";
+import { fetchCampaign } from "./queries";
+import { CAMPAIGNS, canBind, nextRoad, relicBearer, type CampaignState, type StageLog } from "./campaigns";
 import { watchWeeksOf, weatherOfRun } from "./weather";
 import {
   forksFor,
@@ -69,6 +71,9 @@ export interface LaunchOptions {
   target?: number | null;
   /** "new" opens a convoy and hands back its code; a code joins one. */
   convoy?: "new" | string | null;
+  /** The open campaign to walk this run for (campaigns.ts): the tier must
+   *  be the campaign's next stage. */
+  campaign?: number | null;
 }
 
 export type ClaimResult =
@@ -95,6 +100,10 @@ export type ClaimResult =
        *  home, so the run resolves; the page must not celebrate a card
        *  that is not on the shelf. */
       rescueMissed: boolean;
+      /** The campaign this run walked for, advanced: the stage now done,
+       *  whether the campaign finished, and the relic's bearer if one was
+       *  printed. Null off a campaign. */
+      campaign: { key: CampaignState["key"]; stage: number; finished: boolean; relicName: string | null } | null;
     }
   | { ok: false; error: string };
 
@@ -283,6 +292,15 @@ export async function launchExpeditionFor(
   const convoy = options.convoy === "new" ? "new" : options.convoy ? normaliseConvoyCode(options.convoy) : null;
   if (convoy !== null && def.forks === 0) return { ok: false, error: "A convoy needs a route with forks to share." };
   if (convoy !== null && convoy !== "new" && convoy.length !== 6) return { ok: false, error: "That convoy code isn't right — it's six letters and numbers." };
+  // A campaign stage: the campaign must be open, this tier its next
+  // stage, and nothing already out for it. Checked here so a refused bind
+  // never strands a launched run; the RPC checks it all again under lock.
+  let campaign: CampaignState | null = null;
+  if (options.campaign) {
+    campaign = await fetchCampaign(service, discordId, options.campaign);
+    if (!campaign || !canBind(campaign, tier)) return { ok: false, error: "That campaign isn't waiting on this route." };
+    if (convoy !== null) return { ok: false, error: "A campaign stage is walked alone — no convoy." };
+  }
 
   const { data, error } = await service.rpc("launch_expedition", {
     p_user: discordId,
@@ -305,6 +323,13 @@ export async function launchExpeditionFor(
   if (!row) return { ok: false, error: GENERIC_EXPEDITION_ERROR };
   const code = row.convoy_code ?? null;
   if (convoy !== null && convoy !== "new" && code) await announceConvoyJoin(service, discordId, code, tier);
+  if (campaign) {
+    const { error: bindError } = await service.rpc("bind_expedition_campaign", { p_user: discordId, p_run: Number(row.run_id), p_campaign: campaign.id });
+    // The run is out either way; a bind refused under lock means the
+    // stage was taken between the check and the launch, and the run
+    // simply walks on its own.
+    if (bindError) console.error("expeditions: campaign bind refused", { discordId, runId: row.run_id, message: bindError.message });
+  }
   return { ok: true, runId: Number(row.run_id), resolvesAt: row.resolves_at, fee, freePolicy, convoyCode: code };
 }
 
@@ -658,6 +683,53 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
   // are already committed, and a Discord outage must never fail a claim
   // that paid.
   await announceClaim(discordId, tier, outcome, route, copies);
+
+  // The campaign, advanced: the stage's log, the road it sets for the
+  // next stage, and on the finale the relic off the survivor with the
+  // most miles. The RPC checks the stage and the claim under lock.
+  let campaign: { key: CampaignState["key"]; stage: number; finished: boolean; relicName: string | null } | null = null;
+  if (run.campaign !== null) {
+    const open = await fetchCampaign(service, discordId, run.campaign);
+    if (open && open.finishedAt === null && open.runs[open.runs.length - 1] === run.id) {
+      const log: StageLog = {
+        tier,
+        grade: outcome.grade,
+        pushes: route.pushes,
+        survivors: route.fates.filter((fate) => fate.fate === "home" || fate.fate === "wounded").length,
+        places: run.road ?? [],
+        claimedAt: new Date().toISOString(),
+      };
+      const road = nextRoad(open.key, log);
+      const finishing = road === null;
+      const relicFrom = finishing ? relicBearer(route.fates, copies) : null;
+      const { data: advanced, error: advanceError } = await service.rpc("advance_expedition_campaign", {
+        p_user: discordId,
+        p_campaign: open.id,
+        p_road: road,
+        p_log: log,
+        p_relic_from: relicFrom,
+      });
+      if (advanceError) {
+        console.error("expeditions: campaign advance refused", { discordId, runId, message: advanceError.message });
+      } else {
+        const rowAfter = (Array.isArray(advanced) ? advanced[0] : advanced) as { stage?: number; finished_at?: string | null; relic?: number | null } | null;
+        const finished = Boolean(rowAfter?.finished_at);
+        const relicName = finished && rowAfter?.relic && relicFrom ? (copies.find((copy) => copy.id === relicFrom)?.playerName ?? null) : null;
+        campaign = { key: open.key, stage: Number(rowAfter?.stage ?? open.stage + 1), finished, relicName };
+        if (finished) {
+          try {
+            await postCardsWebhook({
+              title: `${CAMPAIGNS[open.key].label} — finished`,
+              description: `<@${discordId}> walked all three stages of ${CAMPAIGNS[open.key].label}.${relicName ? ` The finale printed a relic of ${relicName} in the campaign's frame.` : " Nobody came home from the finale to carry the relic."}`,
+              color: GOLD,
+            });
+          } catch (announceError) {
+            console.error("expeditions: campaign announcement failed", announceError);
+          }
+        }
+      }
+    }
+  }
   if (stranded) {
     // The channel hears a stranger's card is home — from a run that was
     // not theirs; the owner finds it on their shelf.
@@ -697,6 +769,7 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
     merchant,
     stranded,
     rescueMissed,
+    campaign,
   };
 }
 

@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { InventoryRow } from "@/lib/packs/queries";
@@ -7,6 +7,7 @@ import type { ConvoyView, ExpeditionRun, Grave, LostHold } from "@/lib/expeditio
 import type { Rivalry } from "@/lib/expeditions/company";
 import type { WeatherKey } from "@/lib/expeditions/weather";
 import type { Accolade, StandingRow } from "@/lib/expeditions/standings";
+import type { CampaignState } from "@/lib/expeditions/campaigns";
 import ExpeditionBoard from "./ExpeditionBoard";
 import { forksFor } from "@/lib/expeditions/routes";
 
@@ -27,17 +28,21 @@ const QUIET_ROUTE = (ids: number[]) => ({
 // The two server actions. "use server" modules pull in server-only
 // transitively (runs.ts), so jsdom can't load the real one at all — and the
 // board's whole job here is what it does with the results.
-const { launchExpeditionAction, claimExpeditionAction, decideForkAction, ransomLostCardAction } = vi.hoisted(() => ({
+const { launchExpeditionAction, claimExpeditionAction, decideForkAction, ransomLostCardAction, startCampaignAction, abandonCampaignAction } = vi.hoisted(() => ({
   launchExpeditionAction: vi.fn(),
   claimExpeditionAction: vi.fn(),
   decideForkAction: vi.fn(),
   ransomLostCardAction: vi.fn(),
+  startCampaignAction: vi.fn(),
+  abandonCampaignAction: vi.fn(),
 }));
 vi.mock("@/lib/expeditions/actions", () => ({
   launchExpeditionAction,
   claimExpeditionAction,
   decideForkAction,
   ransomLostCardAction,
+  startCampaignAction,
+  abandonCampaignAction,
 }));
 
 const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }));
@@ -148,6 +153,8 @@ function makeRun(over: Partial<ExpeditionRun> & { id: number }): ExpeditionRun {
     encounters: [],
     rules: 2,
     convoy: null,
+    campaign: null,
+    road: null,
     ...over,
   };
 }
@@ -171,6 +178,7 @@ function renderBoard(
     standings?: StandingRow[];
     accolades?: Accolade[];
     viewerId?: string | null;
+    campaign?: CampaignState | null;
   } = {},
 ) {
   return render(
@@ -181,6 +189,8 @@ function renderBoard(
       standings={over.standings}
       accolades={over.accolades}
       viewerId={over.viewerId ?? null}
+      campaign={over.campaign ?? null}
+      season="S_TEST"
       playingToday={over.playingToday}
       rivals={over.rivals}
       copies={over.copies ?? COPIES}
@@ -972,6 +982,32 @@ describe("ExpeditionBoard — missing cards", () => {
 
     expect(within(screen.getByTestId("tier-rescue")).getByText(/Nothing is lost/)).toBeTruthy();
     expect((screen.getByRole("button", { name: "Launch Rescue" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("ExpeditionBoard — campaigns", () => {
+  const open: CampaignState = {
+    id: 7, key: "broken_map", stage: 1, runs: [40], road: ["waterworks", "pits"],
+    log: [{ tier: "scout", grade: "poor", pushes: 0, survivors: 3, places: [], claimedAt: "2026-09-09T00:00:00Z" }],
+    startedAt: "2026-09-08T00:00:00Z", finishedAt: null, abandoned: false, relic: null,
+  };
+
+  it("follows the open campaign and marks the route its next stage walks", () => {
+    renderBoard({ campaign: open });
+    expect(screen.getByTestId("campaigns").textContent).toContain("The Broken Map");
+    expect(screen.getByTestId("campaign-stage").textContent).toContain("Stage 2 of 3");
+    expect(screen.getByTestId("tier-raid-campaign").textContent).toContain("Stage 2 of The Broken Map");
+    expect(screen.queryByTestId("tier-scout-campaign")).toBeNull();
+    expect(screen.queryByTestId("tier-legend-campaign")).toBeNull();
+  });
+
+  it("offers both campaigns when none is open, and opens one through the action", async () => {
+    startCampaignAction.mockResolvedValue({ ok: true });
+    renderBoard();
+    expect(screen.getByTestId("campaign-broken_map")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Begin The Lost Print/ }));
+    await waitFor(() => expect(startCampaignAction).toHaveBeenCalledWith("lost_print", "S_TEST"));
+    expect(screen.getByTestId("rule-campaigns").textContent).toContain("campaign relic");
   });
 });
 

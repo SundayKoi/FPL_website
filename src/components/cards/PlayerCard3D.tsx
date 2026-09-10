@@ -40,6 +40,7 @@ import DrawLaurel from "./DrawLaurel";
 import ExpeditionMark from "./ExpeditionMark";
 import { mutationByKey, mutationOverlay, type MutationOverlay } from "@/lib/cards/mutations";
 import { isWayfarer, milesOf, trailLine, trailTitleOf } from "@/lib/expeditions/trail";
+import { CAMPAIGNS } from "@/lib/expeditions/campaigns";
 import { dribbLabel, dribbLook } from "@/lib/cards/dribb";
 import type { OverlayMockup } from "@/lib/cards/overlayMockups";
 import { secretSerialLabel, stattrakLabel } from "@/lib/packs/rarities";
@@ -297,6 +298,10 @@ function PlayerCardFace({
     ...(card.shiny ? [{ key: "shiny", testId: "shiny-stamp", glyph: "✦", accent: "#ff9be7", title: "Shiny — the art in the wrong colours. One print in sixty-four.", label: "Shiny", detail: null }] : []),
     ...(card.secret
       ? [{ key: "secret", testId: "secret-stamp", glyph: "#", accent: "#f5b62e", title: `Secret — numbered past the checklist: ${secretSerialLabel(card.secret)}. Never on the list.`, label: "Secret", detail: secretSerialLabel(card.secret) }]
+      : []),
+    // A campaign relic: printed at the end of a campaign, in its frame.
+    ...(card.campaign
+      ? [{ key: "campaign", testId: "campaign-stamp", glyph: "⚑", accent: CAMPAIGNS[card.campaign.key]?.accent ?? "#c9a46b", title: `Campaign relic — printed at the end of ${CAMPAIGNS[card.campaign.key]?.label ?? "a campaign"} on ${card.campaign.date}. Worth a relic's shine on an expedition, and never boards a route that can lose it.`, label: "Campaign relic", detail: CAMPAIGNS[card.campaign.key]?.label ?? null }]
       : []),
     // The roads this copy has walked. A stamp from the first title on;
     // the ledger line on the back carries the miles from the first mile.
@@ -933,6 +938,11 @@ function PlayerCardFace({
             ) : null}
             {slabbed ? (
               <div aria-hidden data-testid="slab-frame" className="card-slab pointer-events-none absolute inset-0 rounded-xl" />
+            ) : null}
+            {card.campaign ? (
+              // The campaign's frame: the relic's whole identity is the
+              // road it closed, so the frame is the campaign's ink.
+              <div aria-hidden data-testid="campaign-frame" className={`card-campaign-frame card-campaign-${card.campaign.key.replace("_", "-")}`} />
             ) : null}
             {isWayfarer(card) ? (
               // Thirty miles: the frame is leather now. Under the mutation
