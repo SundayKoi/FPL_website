@@ -2,8 +2,8 @@
 
 // Sign your card. The player draws once, with a pointer or a finger, and the
 // stroke is saved to card_art_prefs as a small transparent PNG — from then
-// on a tiny fraction of that player's pack pulls come out with the ink on
-// them (SIGNED_CHANCE, src/lib/packs/config.ts).
+// on a small fraction of that player's pack pulls come out with the ink on
+// them (SIGNED_CHANCE scaled by signedChance, src/lib/packs/signatures.ts).
 //
 // Transparent background on purpose: the autograph is laid over whatever
 // splash the card wears, so only the ink itself may survive the export. The

@@ -96,7 +96,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
 
       {stats && stats.pulled.cards > 0 ? (
         // The true rates. Every figure here is a MINT, read from provenance,
-        // which the melt cannot reach — so "1 in 200 signed" stays 1 in 200
+        // which the melt cannot reach — so "1 in 150 signed" stays 1 in 150
         // however many commons were dusted around it. Beside each, the gate
         // the shop rolls at, so the league can see the dice against the
         // book. Player cards only: moments, plates and relics are not pack
@@ -111,7 +111,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Figure value={stats.pulled.cards.toLocaleString()} label="Player cards pulled" note="Moments, plates and relics not counted" />
-            <Figure value={stats.pulled.signed.toLocaleString()} label="Signed" note={gate(stats.pulled.signed, stats.pulled.cards, SIGNED_CHANCE, "of signable cards")} />
+            <Figure value={stats.pulled.signed.toLocaleString()} label="Signed" note={gate(stats.pulled.signed, stats.pulled.cards, SIGNED_CHANCE)} />
             <Figure value={stats.pulled.foils.toLocaleString()} label="Foils" note={gate(stats.pulled.foils, stats.pulled.cards, FOIL_CHANCE)} />
             <Figure value={stats.pulled.altArts.toLocaleString()} label="Alternate prints" note={rate(stats.pulled.altArts, stats.pulled.cards)} />
           </div>

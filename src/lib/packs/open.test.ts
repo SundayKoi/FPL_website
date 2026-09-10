@@ -37,6 +37,7 @@ vi.mock("./rng", () => ({
 }));
 vi.mock("./signatures", () => ({
   applyAutographs: vi.fn((pulls: unknown[]) => pulls.map((pull) => ({ ...(pull as object), autograph: null }))),
+  signedChance: vi.fn(() => 0),
 }));
 vi.mock("./godGate", () => ({ rollGodPackGate: vi.fn(() => false) }));
 vi.mock("./skins", () => ({

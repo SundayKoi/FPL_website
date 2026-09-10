@@ -86,7 +86,7 @@ export const CHAMPION_FOIL_CHANCE = 0.08;
 /** Autograph odds — rolled ONLY for champions whose real drawn ink is on
  *  file. Two of the five can't currently sign, and a printed script
  *  signature for someone who never held the pen isn't an autograph. Held
- *  well above the everyday ink gate (SIGNED_CHANCE, 0.5%) because a
+ *  well above the everyday ink gate (SIGNED_CHANCE, 1 in 150) because a
  *  Faceless Pack is one card and there is no second slot to get lucky on.
  *  (5% until 2026-09-08.) */
 export const CHAMPION_SIGNED_CHANCE = 0.03;
