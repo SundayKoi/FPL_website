@@ -222,8 +222,11 @@ merge result) or the previous branch tip for pushes. It rejects new duplicate SQ
 migration versions, malformed filenames, edits/deletions/renames of existing
 migrations, and additions whose versions do not sort after the base's highest
 version. Duplicates already present in the base are reported as warnings;
-this guard does not rewrite existing migration history. Run it locally with
-`node scripts/check-migrations.mjs <base-commit> [head-commit]`.
+this guard does not rewrite existing migration history. A migration that is
+already on `origin/main` byte for byte counts as history too, so a hotfix that
+went straight to `main` can be merged down to `develop` without re-versioning
+it (`MIGRATION_RELEASED` names the release ref; empty turns that off). Run it
+locally with `node scripts/check-migrations.mjs <base-commit> [head-commit]`.
 This check uses Git history, not the production database: it cannot detect
 remote-only migrations or prove that production RPCs exist. Database migration
 and verification must still precede deployment of dependent application code.
@@ -236,9 +239,10 @@ node scripts/supabase-migrations.mjs push --dry-run
 node scripts/supabase-migrations.mjs push
 ```
 
-The immutable history contains two files at version `20260915000001`. The
-wrapper stages their SQL in filename order as one migration for the CLI,
-without editing either source file, and rejects any other duplicate version.
+The immutable history contains two files at each of the versions
+`20260915000001`, `20261005000001` and `20261009000001`. The wrapper stages
+each pair's SQL in filename order as one migration for the CLI, without
+editing either source file, and rejects any other duplicate version.
 A raw `supabase db push` still sees the duplicate and can incorrectly offer
 to replay God Packs. Do not use `--include-all` to get past that warning.
 The wrapper does not repair history or mark missing SQL applied.

@@ -57,6 +57,7 @@ vi.mock("./signatures", () => ({
       autograph: signed ? "data:image/png;base64,signature" : null,
     };
   })),
+  signedChance: vi.fn(() => 0),
 }));
 vi.mock("./godGate", () => ({ rollGodPackGate: vi.fn(() => false) }));
 vi.mock("./skins", () => ({

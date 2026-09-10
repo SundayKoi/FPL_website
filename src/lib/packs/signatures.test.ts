@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
-import { SIGNED_CHANCE } from "./config";
+import { SIGNED_CHANCE, SIGNED_CHANCE_CAP } from "./config";
 import type { PackPull } from "./rng";
-import { applyAutographs } from "./signatures";
+import { applyAutographs, signedChance } from "./signatures";
 
 /** Minimal pull — only the card's slug matters to the autograph pass. */
 const pull = (slug: string): PackPull => ({
@@ -84,5 +84,57 @@ describe("applyAutographs", () => {
 
     expect(signed[0].foil).toBe(true);
     expect(signed[0].card).toBe(foilPull.card);
+  });
+});
+
+describe("signedChance", () => {
+  const book = (slugs: string[]) => new Map(slugs.map((slug) => [slug, INK]));
+  const pool = (n: number) => Array.from({ length: n }, (_, i) => ({ slug: `p${i}-na1` }));
+
+  it("is zero with nobody signed, or an empty pool", () => {
+    expect(signedChance(pool(60), new Map())).toBe(0);
+    expect(signedChance([], book(["p0-na1"]))).toBe(0);
+  });
+
+  it("scales the per-copy roll so the pack as a whole lands on SIGNED_CHANCE", () => {
+    // 38 of 60 signed: their copies roll at 0.5% × 60/38, so over the pool
+    // the expected signed rate is back to 0.5% a card.
+    const cards = pool(60);
+    const chance = signedChance(cards, book(cards.slice(0, 38).map((c) => c.slug)));
+    expect(chance).toBeCloseTo(SIGNED_CHANCE * (60 / 38), 10);
+    expect((chance * 38) / 60).toBeCloseTo(SIGNED_CHANCE, 10);
+  });
+
+  it("is exactly SIGNED_CHANCE when the whole pool has signed", () => {
+    const cards = pool(12);
+    expect(signedChance(cards, book(cards.map((c) => c.slug)))).toBe(SIGNED_CHANCE);
+  });
+
+  it("caps a thin signing book at SIGNED_CHANCE_CAP", () => {
+    const cards = pool(60);
+    expect(signedChance(cards, book(["p0-na1"]))).toBe(SIGNED_CHANCE_CAP);
+    // An eighth of the pool signed is where the cap stops biting.
+    expect(signedChance(cards, book(cards.slice(0, 8).map((c) => c.slug)))).toBeCloseTo(SIGNED_CHANCE_CAP, 10);
+  });
+
+  it("ignores signatures for players outside the pool", () => {
+    const cards = pool(10);
+    const chance = signedChance(cards, book(["p0-na1", "stranger-na1", "another-na1"]));
+    expect(chance).toBe(SIGNED_CHANCE_CAP);
+  });
+});
+
+describe("applyAutographs with a scaled chance", () => {
+  it("rolls each signable pull against the chance it is given", () => {
+    const book = new Map([["7gen-na1", INK]]);
+    const chance = 0.02;
+    const signed = applyAutographs([pull("7gen-na1"), pull("7gen-na1")], book, scripted([chance - 0.001, chance]), chance);
+    expect(signed.map((entry) => entry.signed)).toEqual([true, false]);
+  });
+
+  it("rolls nothing when the chance is zero, still consuming one rand per signable pull", () => {
+    const book = new Map([["7gen-na1", INK]]);
+    const signed = applyAutographs([pull("7gen-na1")], book, scripted([0]), 0);
+    expect(signed[0].signed).toBe(false);
   });
 });

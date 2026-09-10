@@ -191,7 +191,7 @@ export function rarityGuide(season: string | null, league: "premier" | "academy"
       key: "signed",
       name: "Autograph",
       look: "The player's own drawn signature inked across the front, with a ✍ SIGNED pill.",
-      how: `Rolled on every card whose player has drawn a signature. Gold or crimson ink on a patron's card.`,
+      how: `Only a card whose player has drawn a signature can roll one, so their copies roll at a rate scaled up for however few have signed — the pack as a whole still sees these odds. Gold or crimson ink on a patron's card.`,
       odds: `${oneIn(SIGNED_CHANCE)} cards`,
       perPack: perPackPct(SIGNED_CHANCE),
       value: `+$${SIGNED_DUST_BASE.toLocaleString("en-US")} to dust, on any tier.`,

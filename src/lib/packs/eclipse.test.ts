@@ -98,7 +98,7 @@ describe("only a Card of the Week can become one", () => {
 });
 
 describe("an Eclipse takes the player's ink automatically", () => {
-  // Left to the ordinary 0.5% roll, the two gates compound to ~1 in a
+  // Left to the ordinary 1-in-150 roll, the two gates compound to ~1 in a
   // million packs — no signed Eclipse in the league's lifetime.
   // Meanwhile a COMMON copy of the same player can roll signed, so chance
   // would make the rarest card in the game the plain version of a player

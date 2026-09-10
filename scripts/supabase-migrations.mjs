@@ -1,15 +1,27 @@
 #!/usr/bin/env node
 // Preserve immutable historical SQL while presenting one file per version
-// to Supabase. Both migrations at the legacy duplicate version run in order.
+// to Supabase. Both migrations at a known duplicate version run in order.
 import { mkdtempSync, mkdirSync, readdirSync, readFileSync, writeFileSync, cpSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
-const legacyDuplicate = [
-  '20260915000001_expedition_encounters.sql',
-  '20260915000001_god_packs.sql',
+// Version collisions the history already carries, each pair applied to the
+// linked database before anyone noticed. Both files of a pair are immutable
+// (one side would have to be re-versioned after it was applied), so the
+// wrapper presents each pair as one staged file. Filename order within a
+// pair; the two halves of each pair touch unrelated objects.
+const knownDuplicates = [
+  ['20260915000001_expedition_encounters.sql', '20260915000001_god_packs.sql'],
+  // 20261005000001: the academy roster sync reached develop under this
+  // version while the analytics overview took the same one. (Its
+  // 20261005000002 twin went straight to main with identical SQL; the
+  // migration is idempotent, so the repeat is a no-op.)
+  ['20261005000001_academy_card_claim_roster_sync.sql', '20261005000001_analytics_overview.sql'],
+  // 20261009000001: the expeditions road migration landed on develop the
+  // same day the migration-audit repairs went straight to main.
+  ['20261009000001_expedition_roads.sql', '20261009000001_migration_audit_repairs.sql'],
 ];
 
 export function stageMigrations(source, destination) {
@@ -20,7 +32,7 @@ export function stageMigrations(source, destination) {
     groups.set(version, [...(groups.get(version) ?? []), name]);
   }
   for (const names of groups.values()) {
-    if (names.length > 1 && JSON.stringify(names) !== JSON.stringify(legacyDuplicate)) {
+    if (names.length > 1 && !knownDuplicates.some(pair => JSON.stringify(names) === JSON.stringify(pair))) {
       throw new Error(`Unreviewed duplicate migration version: ${names.join(', ')}`);
     }
   }

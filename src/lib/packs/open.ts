@@ -27,31 +27,41 @@ import { rollGodPackGate } from "./godGate";
 import { applyEclipse, rollEclipseCandidates, type EclipsePrint } from "./eclipse";
 import { rollPackFinishes, secretSerialLabel, stampFinishes } from "./rarities";
 import { DRIBB_COPIES, DRIBB_TIER, dribbCard, dribbLabel, rollDribb } from "@/lib/cards/dribb";
-import { applyAutographs } from "./signatures";
+import { applyAutographs, signedChance } from "./signatures";
 import { fetchChampionSkinNums, printArtExists, rollPrint, splashArtExists } from "./skins";
 import { editionLabel, mondayOf } from "./week";
 
-/** slug -> that player's inked signature, for everyone in `season` who has
- *  drawn one. Read through the service client (card_art_prefs is publicly
- *  readable, but this action already holds one). A failure — the signature
- *  migration not applied to this environment — yields an empty map: nobody
- *  rolls an autograph, and the pack opens normally. */
+/** slug -> that player's inked signature, for everyone who has drawn one.
+ *
+ *  Cross-season on purpose: a signature is the person's, not the season's,
+ *  and the champions desk mints its signing links under CHAMPIONS_SEASON
+ *  while packs open on league_settings.current_season — filtering to the
+ *  pack's season stranded that ink. Where an account has signed in more
+ *  than one season the most recently saved row wins, which is the row the
+ *  admin desk shows as "ink on file".
+ *
+ *  Read on the service client: card_art_prefs is public-readable so the
+ *  anon client would do, but this action already holds one. A failure —
+ *  the signature migration not applied to this environment — yields an
+ *  empty map: nobody rolls an autograph, and the pack opens normally. */
 async function fetchSignatures(
   service: ReturnType<typeof createBettingServiceClient>,
-  season: string,
 ): Promise<Map<string, string>> {
   const { data, error } = await service
     .from("card_art_prefs")
-    .select("summoner_name, tag, signature")
-    .eq("season", season)
-    .not("signature", "is", null);
+    .select("summoner_name, tag, signature, updated_at")
+    .not("signature", "is", null)
+    .order("updated_at", { ascending: false })
+    .order("season", { ascending: false });
   if (error) return new Map();
   const rows = (data as { summoner_name: string; tag: string; signature: string | null }[]) ?? [];
-  return new Map(
-    rows
-      .filter((row): row is { summoner_name: string; tag: string; signature: string } => Boolean(row.signature))
-      .map((row) => [cardSlug(row.summoner_name, row.tag), row.signature]),
-  );
+  const book = new Map<string, string>();
+  for (const row of rows) {
+    if (!row.signature) continue;
+    const slug = cardSlug(row.summoner_name, row.tag);
+    if (!book.has(slug)) book.set(slug, row.signature);
+  }
+  return book;
 }
 
 /** `open_card_pack`'s raw `raise exception` text → friendly copy. Same
@@ -327,7 +337,7 @@ export async function openPackFor(
   const [weeks, liveRowResult, signatures] = await Promise.all([
     fetchCardEditionWeeks(service, season),
     service.from("league_settings").select("live_until, live_label").eq("id", 1).maybeSingle(),
-    fetchSignatures(service, season),
+    fetchSignatures(service),
   ]);
   const editionWeek = requestedWeek && weeks.includes(requestedWeek) ? requestedWeek : weeks[0] ?? null;
   if (requestedWeek && !weeks.includes(requestedWeek)) {
@@ -415,6 +425,7 @@ export async function openPackFor(
         rollPack(cards, rand, liveNow ? LIVE_FOIL_CHANCE : FOIL_CHANCE),
         signatures,
         rand,
+        signedChance(cards, signatures),
       );
 
   // A moment can only come out of the week it happened in — that is what

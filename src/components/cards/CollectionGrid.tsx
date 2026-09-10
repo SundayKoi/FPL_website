@@ -112,7 +112,7 @@ const FILTERS: { key: VariantFilter; label: string }[] = [
  *  number on the shelf. */
 const EMPTY_COPY: Record<Exclude<VariantFilter, "all">, string> = {
   foil: `No foils yet — they're a ${Math.round(FOIL_CHANCE * 100)}% pull.`,
-  signed: `No signed cards yet — 1-in-${Math.round(1 / SIGNED_CHANCE)} pulls of players who signed.`,
+  signed: `No signed cards yet — 1-in-${Math.round(1 / SIGNED_CHANCE)} pulls.`,
   alt: `No alternate prints yet — ${Math.round(ALT_SKIN_CHANCE * 100)}% of pulls come in an alternate skin.`,
 };
 
