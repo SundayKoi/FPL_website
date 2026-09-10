@@ -20,7 +20,7 @@ export type SignedPull = PackPull & { signed: boolean; autograph: string | null 
 
 /**
  * The per-copy roll a signable card faces, given who in the pool has
- * signed. SIGNED_CHANCE is the pack-level promise ("1 in 200 cards"); a
+ * signed. SIGNED_CHANCE is the pack-level promise ("1 in 150 cards"); a
  * card whose player never signed cannot roll at all, so the ones that can
  * roll at SIGNED_CHANCE divided by the signed share of the pool — and the
  * pack as a whole lands back on SIGNED_CHANCE. Capped at SIGNED_CHANCE_CAP

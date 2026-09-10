@@ -129,7 +129,7 @@ export default function SkinPicker({
           <div className="flex w-full flex-col items-center gap-2">
             <span className="label-dash">Signature</span>
             <p className="text-center text-xs text-muted">
-              Sign your card — roughly 1 in {Math.round(1 / SIGNED_CHANCE)} of your pulls comes out autographed.
+              Sign your card — at least 1 in {Math.round(1 / SIGNED_CHANCE)} of your pulls comes out autographed, more while few have signed.
             </p>
             <SignaturePad season={season} summonerName={summonerName} tag={tag} currentSignature={currentSignature} patronInks={patronInks} />
           </div>

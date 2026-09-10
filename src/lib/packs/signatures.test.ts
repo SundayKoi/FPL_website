@@ -113,8 +113,8 @@ describe("signedChance", () => {
   it("caps a thin signing book at SIGNED_CHANCE_CAP", () => {
     const cards = pool(60);
     expect(signedChance(cards, book(["p0-na1"]))).toBe(SIGNED_CHANCE_CAP);
-    // A tenth of the pool signed is where the cap stops biting.
-    expect(signedChance(cards, book(cards.slice(0, 6).map((c) => c.slug)))).toBeCloseTo(SIGNED_CHANCE_CAP, 10);
+    // An eighth of the pool signed is where the cap stops biting.
+    expect(signedChance(cards, book(cards.slice(0, 8).map((c) => c.slug)))).toBeCloseTo(SIGNED_CHANCE_CAP, 10);
   });
 
   it("ignores signatures for players outside the pool", () => {
