@@ -14,7 +14,7 @@
 // quote are MUTATION_EFFECTS below, which the scorers read — a sentence
 // and a number that disagree is worse than either alone.
 
-export type MutationKey = "irradiated" | "hardened" | "haunted" | "cursed" | "voidtouched";
+export type MutationKey = "irradiated" | "hardened" | "haunted" | "cursed" | "voidtouched" | "voidborn";
 
 /** What each mutation DOES — the numbers the scorers read. */
 export interface MutationEffects {
@@ -78,6 +78,18 @@ export const MUTATION_EFFECTS: Record<MutationKey, MutationEffects> = {
     gauntletStat: 4,
     gauntletEffects: { fightFlat: 2 },
     dustMult: 2,
+    untradeableDays: 0,
+    autoDustImmune: true,
+  },
+  // The second stage: a Voidtouched card that came home from the Mythic
+  // route. The only mutation that replaces another, and the only one a
+  // route above the Legendary can give.
+  voidborn: {
+    fantasyMult: 1.3,
+    flareChance: 0,
+    gauntletStat: 6,
+    gauntletEffects: { fightFlat: 3, objectivesFlat: 1 },
+    dustMult: 3,
     untradeableDays: 0,
     autoDustImmune: true,
   },
@@ -173,6 +185,19 @@ export const MUTATIONS: Mutation[] = [
     economy: "Dust value doubled. Never auto-dusted. Announced in Discord when it comes home, like an Eclipse.",
     accent: "#e8dcff",
     className: "card-mut-voidtouched",
+    tone: "boon",
+  },
+  {
+    key: "voidborn",
+    label: "Voidborn",
+    tagline: "It went back, and the void kept it.",
+    source: "The only way home from the Mythic route, for a card that was already Voidtouched. Three fragments, a Voidtouched card and a Legend mark open the route; five warned forks; the pushes carry.",
+    look: "The Voidtouched bleed, gone white-gold: the star field burns instead of drifting, the rift has opened the whole way and stands behind the player like a door, and a thin corona of light rides the frame — the expedition's own frame, printed for good.",
+    fantasy: `Scores +${pct(MUTATION_EFFECTS.voidborn.fantasyMult)}.`,
+    gauntlet: `${signed(MUTATION_EFFECTS.voidborn.gauntletStat)} on every bar, +${MUTATION_EFFECTS.voidborn.gauntletEffects.fightFlat} to both teamfights and +${MUTATION_EFFECTS.voidborn.gauntletEffects.objectivesFlat} to objectives while it is fielded.`,
+    economy: "Dust value tripled. Never auto-dusted. Announced in Discord when it comes home. It replaces Voidtouched — the one mutation that stacks on another.",
+    accent: "#fff1c4",
+    className: "card-mut-voidborn",
     tone: "boon",
   },
 ];

@@ -21,6 +21,8 @@ const PATHS: Record<ExpeditionTierKey, string> = {
   rescue: "M6 40 C 60 40, 90 20, 120 26 S 170 40, 194 22",
   exorcism: "M6 30 C 60 10, 140 50, 194 30",
   legendary: "M6 50 C 40 48, 44 12, 80 16 S 120 44, 140 30 S 150 8, 170 20 S 200 40, 194 46",
+  // The road past the rift: a tighter spiral that crosses itself once.
+  mythic: "M6 30 C 30 10, 50 52, 76 30 S 100 6, 118 30 S 140 54, 156 28 S 176 6, 194 34",
 };
 
 function pointAt(path: SVGPathElement | null, fraction: number): { x: number; y: number } | null {

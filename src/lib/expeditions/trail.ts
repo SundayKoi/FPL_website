@@ -27,6 +27,7 @@ export const MILES_BY_TIER: Record<ExpeditionTierKey, number> = {
   rescue: 1,
   exorcism: 0,
   legendary: 4,
+  mythic: 5,
 };
 
 export type TrailTitleKey = "trailworn" | "veteran" | "wayfarer";

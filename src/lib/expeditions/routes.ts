@@ -585,6 +585,162 @@ export const ROADS: Record<ExpeditionTierKey, ForkDef[][]> = {
     ],
   ],
   exorcism: [],
+  // Past the rift. Five checkpoints, two places each, every one of them
+  // warned and dark: there is no safe way on this road, only the careful
+  // one, and the careful one still haunts.
+  mythic: [
+    [
+      {
+        key: "unmade",
+        title: "The unmade road",
+        story: "The road stops being a road. Past here the ground is an idea the squad has to keep having. The Voidtouched one walks ahead as if it were paved.",
+        pushLabel: "Follow the Voidtouched one",
+        campLabel: "Wait for the road to come back",
+        lootBonus: 0.4,
+        pushRisk: { wounded: 0.15, lost: 0.1, dead: 0.1 },
+        campRisk: { wounded: 0, haunted: 0.2 },
+        pushReward: null,
+        warned: true,
+        dark: true,
+        gamble: null,
+      },
+      {
+        key: "stairwell",
+        title: "The stairwell of hours",
+        story: "A stair that goes down for a day and comes out an hour before the squad started climbing. Take it, or wait at the top until the hours catch up.",
+        pushLabel: "Take the stair",
+        campLabel: "Wait at the top",
+        lootBonus: 0.45,
+        pushRisk: { wounded: 0.2, lost: 0.1, dead: 0.1 },
+        campRisk: { wounded: 0, haunted: 0.2 },
+        pushReward: null,
+        warned: true,
+        dark: true,
+        gamble: null,
+      },
+    ],
+    [
+      {
+        key: "blackwater",
+        title: "The blackwater",
+        story: "A lake with no far shore and something patient in it. The squad can swim for the light on the water or walk the edge, which is longer than it looks and not always there.",
+        pushLabel: "Swim for the light",
+        campLabel: "Walk the edge",
+        lootBonus: 0.45,
+        pushRisk: { wounded: 0.15, lost: 0.15, dead: 0.15 },
+        campRisk: { wounded: 0.1, haunted: 0.2 },
+        pushReward: null,
+        warned: true,
+        dark: true,
+        gamble: null,
+      },
+      {
+        key: "orrery",
+        title: "The orrery",
+        story: "A room of turning spheres the size of houses. One of them is home. The squad can climb through the works while they turn, or wait for the gap.",
+        pushLabel: "Climb through the works",
+        campLabel: "Wait for the gap",
+        lootBonus: 0.5,
+        pushRisk: { wounded: 0.2, lost: 0.1, dead: 0.15 },
+        campRisk: { wounded: 0.1, haunted: 0.2 },
+        pushReward: null,
+        warned: true,
+        dark: true,
+        gamble: null,
+      },
+    ],
+    [
+      {
+        key: "hollow",
+        title: "The hollow",
+        story: "Where the singing comes from. A hollow in the world with a floor of eyes, all closed. Cross it while they are, or go round through the dark that is not dark.",
+        pushLabel: "Cross while they sleep",
+        campLabel: "Go round",
+        lootBonus: 0.5,
+        pushRisk: { wounded: 0.2, lost: 0.15, dead: 0.2 },
+        campRisk: { wounded: 0, haunted: 0.3 },
+        pushReward: null,
+        warned: true,
+        dark: true,
+        gamble: null,
+      },
+      {
+        key: "cathedral",
+        title: "The cathedral of teeth",
+        story: "A nave that is a mouth, and it is open. The altar is at the back. The squad can walk the length of it, or wait in the porch and pray it does not close.",
+        pushLabel: "Walk the nave",
+        campLabel: "Wait in the porch",
+        lootBonus: 0.55,
+        pushRisk: { wounded: 0.2, lost: 0.15, dead: 0.2 },
+        campRisk: { wounded: 0.1, haunted: 0.25 },
+        pushReward: null,
+        warned: true,
+        dark: true,
+        gamble: null,
+      },
+    ],
+    [
+      {
+        key: "eclipse",
+        title: "The eclipse",
+        story: "The one star goes out. In the dark something asks each of the squad a question, and the Voidtouched one answers for them or does not. Push, and go and see what asked.",
+        pushLabel: "Go and see what asked",
+        campLabel: "Let the Voidtouched one answer",
+        lootBonus: 0.55,
+        pushRisk: { wounded: 0.2, lost: 0.2, dead: 0.2 },
+        campRisk: { wounded: 0, haunted: 0.3 },
+        pushReward: null,
+        warned: true,
+        dark: true,
+        gamble: null,
+      },
+      {
+        key: "glassthrone",
+        title: "The throne of glass",
+        story: "An empty throne, and it is warm. Whoever sits in it sees the way home and something else. The squad can put someone on it, or leave it empty and take the long way.",
+        pushLabel: "Put someone on the throne",
+        campLabel: "Leave it empty",
+        lootBonus: 0.6,
+        pushRisk: { wounded: 0.2, lost: 0.15, dead: 0.25 },
+        campRisk: { wounded: 0.1, haunted: 0.25 },
+        pushReward: null,
+        warned: true,
+        dark: true,
+        gamble: null,
+      },
+    ],
+    [
+      {
+        key: "farshore",
+        title: "The far shore",
+        story: "The way back, and it is a shore, and the sea between is the same blackwater. The squad can swim it with everything they carry, or leave half of it on the sand and wade.",
+        pushLabel: "Swim with everything",
+        campLabel: "Wade with half",
+        lootBonus: 0.6,
+        pushRisk: { wounded: 0.2, lost: 0.2, dead: 0.3 },
+        campRisk: { wounded: 0.1, haunted: 0.2 },
+        pushReward: null,
+        warned: true,
+        dark: true,
+        gamble: null,
+        toll: 0.5,
+      },
+      {
+        key: "lastdoor",
+        title: "The last door",
+        story: "A door with the squad's own camp painted on it, badly. Open it, and it is either home or a painting of home. Or wait beside it until it opens on its own, which it will, once.",
+        pushLabel: "Open it",
+        campLabel: "Wait for it to open",
+        lootBonus: 0.65,
+        pushRisk: { wounded: 0.2, lost: 0.2, dead: 0.3 },
+        campRisk: { wounded: 0, haunted: 0.3 },
+        pushReward: null,
+        warned: true,
+        dark: true,
+        gamble: null,
+      },
+    ],
+  ],
   legendary: [
     [
       {
@@ -1252,6 +1408,12 @@ export const FRAGMENT_CHANCE: Partial<Record<ExpeditionTierKey, Partial<Record<O
 /** A second survivor comes home Voidtouched this often; the first always. */
 export const VOIDTOUCHED_SECOND_CHANCE = 0.25;
 
+/** Momentum, the Mythic route's own rule: each consecutive push raises the
+ *  NEXT push's bonus by this much and its death roll by this much. A camp
+ *  or a hold lets the momentum go. */
+export const MOMENTUM_BONUS = 0.1;
+export const MOMENTUM_DEATH = 0.05;
+
 /** A Cursed card sent out again on a route that can lose it has this
  *  chance of not coming back. A curse you ignore compounds. */
 export const CURSED_AGAIN_LOST = 0.15;
@@ -1361,9 +1523,20 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
     fate.mutation = key;
     return true;
   }
+  /** The second stage: a Voidtouched card that comes home from the Mythic
+   *  route is Voidborn — the one mutation that replaces another. */
+  function ascend(id: number): boolean {
+    const fate = fates.get(id)!;
+    const copy = input.copies.find((c) => c.id === id);
+    if (fate.fate === "dead" || fate.mutation || copy?.card?.mutation?.key !== "voidtouched") return false;
+    fate.mutation = "voidborn";
+    return true;
+  }
 
   let lootMultiplier = 1;
   let pushes = 0;
+  // Momentum (the Mythic route): consecutive pushes so far.
+  let streak = 0;
   let silences = 0;
   let favourSpent = false;
   let fragments = 0;
@@ -1428,6 +1601,7 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
     scouted = false;
 
     if (choice === "hold") {
+      streak = 0;
       // A Top on the checkpoint: the safe way with nothing that makes the
       // safe way unsafe — no wound, no haunting, no toll — and a little
       // more in the bag for the night's work. A Veteran Top holds for more.
@@ -1438,6 +1612,7 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
     }
 
     if (choice === "camp") {
+      streak = 0;
       // A scout at the last fork means the squad knows where not to camp
       // at this one: both camp risks are halved.
       const campScale = knowing ? SCOUTED_CAMP_RISK : 1;
@@ -1507,7 +1682,13 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
       return;
     }
 
-    lootMultiplier += bonus;
+    // Momentum: on the Mythic route every consecutive push before this one
+    // raises the bonus and the death roll.
+    const carried = input.tier === "mythic" ? streak : 0;
+    lootMultiplier += bonus + MOMENTUM_BONUS * carried;
+    const deadRisk = fork.pushRisk.dead + MOMENTUM_DEATH * carried;
+    if (carried > 0) events.push({ fork: index, tone: "neutral", text: `${fork.title}: the momentum carried — ${carried} push${carried === 1 ? "" : "es"} behind them, +${Math.round(MOMENTUM_BONUS * carried * 100)}% to the bag and +${Math.round(MOMENTUM_DEATH * carried * 100)}% to the death roll.` });
+    streak += 1;
     // Whose head it lands on. One card for most pushes; the Jungle for a
     // scout (they went in first — no draw when there is one of them); two
     // cards for a roam.
@@ -1533,7 +1714,7 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
       let worst: CardFateKind = "home";
       if (decide(Math.min(1, fork.pushRisk.wounded * riskScale), rand)) worst = "wounded";
       if (decide(Math.min(1, fork.pushRisk.lost * deepScale), rand)) worst = "lost";
-      if (pushes >= DEAD_NEEDS_PUSHES && decide(Math.min(1, fork.pushRisk.dead * deepScale), rand)) worst = "dead";
+      if (pushes >= DEAD_NEEDS_PUSHES && decide(Math.min(1, deadRisk * deepScale), rand)) worst = "dead";
       if (worst === "home") continue;
       anyHarm = true;
       // The warned fork's price: go wrong here and the card is Cursed. A
@@ -1605,6 +1786,23 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
         if (second && mutate(second.id, "voidtouched")) {
           events.push({ fork: null, tone: "good", text: `${nameOf(second.id)} came back Voidtouched too.` });
         }
+      }
+    }
+  }
+
+  if (input.tier === "mythic") {
+    const survivors = alive();
+    if (survivors.length === 0) {
+      events.push({ fork: null, tone: "bad", text: "Nobody came home from past the rift." });
+    } else {
+      // The Voidtouched come home Voidborn; the rest come home Voidtouched,
+      // the way the Legendary route sends them.
+      for (const copy of survivors) {
+        if (ascend(copy.id)) events.push({ fork: null, tone: "good", text: `${nameOf(copy.id)} went back through the rift and came home Voidborn.` });
+      }
+      const first = pick(unmutated(), rand);
+      if (first && mutate(first.id, "voidtouched")) {
+        events.push({ fork: null, tone: "good", text: `${nameOf(first.id)} came back through the rift Voidtouched.` });
       }
     }
   }

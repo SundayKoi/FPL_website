@@ -1100,6 +1100,26 @@ inside `resolveRoute`: a toll paid at fork *n* waives fork *n+1*'s, and a
 (and `journalFor`, handed the run's `choices`, writes the Jungle's line
 naming the next place at the start of the leg).
 
+The Mythic route (`mythic` in `EXPEDITION_TIERS`; 20261015000001): above
+the Legendary route — 96 hours, five forks, every place in `ROADS.mythic`
+warned and dark with a haunting camp, three fragments, and two gates of
+its own: a Voidtouched card in the squad (`squadMeets`) and a Legend
+mark on the shelf (`hasLegendMark`, passed to `squadMeets` as `shelf`);
+`launch_expedition` checks both again under lock. Momentum is the
+route's rule in `resolveRoute`: `streak` counts consecutive pushes, a
+camp or a hold resets it, and each push adds `MOMENTUM_BONUS × streak`
+to the bonus and `MOMENTUM_DEATH × streak` to the death roll. At the end
+`ascend` turns every Voidtouched survivor Voidborn — the one mutation
+that replaces another (`MUTATION_EFFECTS.voidborn`, `card-mut-voidborn`)
+— and the rest come home Voidtouched. The migration adds `voidborn` to
+the `card_inventory.mutation` check, `mythic` to `expedition_trail_miles`
+(5), redeclares `launch_expedition`'s 12-argument body (the 13-argument
+convoy wrapper delegates to it) with the tier in every list and the two
+gates, and redeclares `resolve_expedition` with the tier in the fate and
+mutation checks, Voidborn allowed only on the Mythic route and only over
+Voidtouched (the stamp's `where` lets it replace), and the ceiling at
+`maxExpeditionPayout()` again.
+
 Campaigns (`src/lib/expeditions/campaigns.ts`, pure; the table and four
 RPCs in 20261014000001): `expedition_campaigns` holds one row per
 campaign with a partial unique index keeping one OPEN per (collector,

@@ -756,3 +756,17 @@ export async function fetchCampaign(supabase: SupabaseClient, discordId: string,
   if (error || !data) return null;
   return mapCampaign(data as CampaignDbRow);
 }
+
+/** Whether the collector holds a card marked Legend — the Mythic route's
+ *  gate on the shelf. Season-blind: a mark is the collector's, not the
+ *  season's. */
+export async function hasLegendMark(supabase: SupabaseClient, discordId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("card_inventory")
+    .select("id")
+    .eq("discord_id", discordId)
+    .eq("card->expedition->>mark", "legend")
+    .limit(1);
+  if (error) return false;
+  return ((data as { id: number }[] | null) ?? []).length > 0;
+}

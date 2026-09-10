@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { HARVEST_MERCHANT, MERCHANT_DOLLARS, maxExpeditionPayout } from "./config";
@@ -66,11 +66,14 @@ describe("the week's weather", () => {
   });
 
   it("the Harvest merchant is inside the claim's ceiling", () => {
-    // The ceiling in 20261012000001 is maxExpeditionPayout(), which now
-    // carries the doubled merchant; config.test.ts holds the newest
-    // declaration to it, this holds the migration that introduced it.
-    const sql = readFileSync(join(process.cwd(), "supabase/migrations/20261012000001_expedition_weather.sql"), "utf8");
+    // The live ceiling is the NEWEST declaration of resolve_expedition's,
+    // and it is maxExpeditionPayout(), which carries the doubled merchant.
+    const dir = join(process.cwd(), "supabase/migrations");
+    const latest = readdirSync(dir).filter((name) => name.endsWith(".sql")).sort().reverse()
+      .find((name) => readFileSync(join(dir, name), "utf8").includes("create or replace function public.resolve_expedition"));
+    const sql = readFileSync(join(dir, latest!), "utf8");
     expect(Number(sql.match(/v_dollars not between 0 and (\d+)/)![1])).toBe(maxExpeditionPayout());
+    expect(maxExpeditionPayout() - MERCHANT_DOLLARS * HARVEST_MERCHANT).toBe(maxExpeditionPayout() - 150);
     expect(HARVEST_MERCHANT).toBe(2);
   });
 });

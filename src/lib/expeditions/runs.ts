@@ -29,7 +29,7 @@ import { isCampChoice } from "./routes";
 import { echoPool, surgeTeams, teamsPlayingOn } from "./matchday";
 import { STORM_HOURS, STRANDED_BOUNTY, encountersFor, latestJournalLine } from "./journal";
 import { fetchCompany } from "./companyReads";
-import { fetchCampaign } from "./queries";
+import { fetchCampaign, hasLegendMark } from "./queries";
 import { CAMPAIGNS, canBind, nextRoad, relicBearer, type CampaignState, type StageLog } from "./campaigns";
 import { watchWeeksOf, weatherOfRun } from "./weather";
 import {
@@ -238,7 +238,7 @@ export async function launchExpeditionFor(
   if (seasons.size !== 1) return { ok: false, error: "Squad cards must come from one league." };
   const season = [...seasons][0];
 
-  const gate = squadMeets(tier, copies, new Date());
+  const gate = squadMeets(tier, copies, new Date(), tier === "mythic" ? { legendMark: await hasLegendMark(service, discordId) } : undefined);
   // Every reason at once, the way squadMeets reports them: a squad short
   // of two things should hear both rather than being sent back twice.
   if (!gate.ok) return { ok: false, error: gate.reasons.join(" ") };
@@ -794,6 +794,14 @@ async function announceClaim(
     embeds.push({
       title: "Back from the Legendary route — Voidtouched",
       description: `<@${discordId}>'s ${voidtouched.map((fate) => nameOf(fate.id)).join(" and ")} went somewhere the map does not show, and came home Voidtouched.`,
+      color: GOLD,
+    });
+  }
+  const voidborn = route.fates.filter((fate) => fate.mutation === "voidborn");
+  if (voidborn.length > 0) {
+    embeds.push({
+      title: "Back from the Mythic route — Voidborn",
+      description: `<@${discordId}>'s ${voidborn.map((fate) => nameOf(fate.id)).join(" and ")} went back through the rift, and the void kept ${voidborn.length === 1 ? "it" : "them"}. Voidborn — the second stage.`,
       color: GOLD,
     });
   }
