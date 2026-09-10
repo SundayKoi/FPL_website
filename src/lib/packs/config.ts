@@ -117,15 +117,31 @@ export const SIGNED_ALT_SKIN_CHANCE = 0.1;
 
 /**
  * Chance a pulled card comes out autographed — the pen mark of the player
- * themselves, inked onto that copy forever. Only rolls for players who have
- * actually drawn a signature (card_art_prefs.signature), so the real odds
- * are this times however much of the league has signed. Half a percent a
- * card — 2.5% of packs with the whole league inked — and the best part of
- * an order of magnitude below FOIL_CHANCE: a foil is a nice pull, a signed
- * card is the story you tell about the pack you opened. (It was 1% until
- * 2026-09-08.)
+ * themselves, inked onto that copy forever. This is the PACK-LEVEL rate:
+ * the odds of any given card in any given pack, which is what the rarity
+ * page promises. Only players who have actually drawn a signature
+ * (card_art_prefs.signature) can roll one, so the per-copy roll on a
+ * signable card is this divided by the share of the pool that has signed
+ * (signedChance in signatures.ts) — with a fifth of the league inked, each
+ * of their cards rolls at 2.5% so the pack still sees half a percent.
+ * Before 2026-09-10 the per-copy roll WAS this number, which made the true
+ * pack odds this times the signed share: rarer than a Secret with a
+ * 60-card pool and a dozen signers. (It was 1% until 2026-09-08.) Half a
+ * percent a card — 2.5% of packs — and the best part of an order of
+ * magnitude below FOIL_CHANCE: a foil is a nice pull, a signed card is the
+ * story you tell about the pack you opened.
  */
 export const SIGNED_CHANCE = 0.005;
+
+/**
+ * Ceiling on the per-copy autograph roll once it has been scaled up for a
+ * thin signing book. One signer in a 60-card pool would otherwise roll at
+ * 30% — every third copy of that player signed — which is no longer an
+ * autograph, it is a print run. At 5% the pack-level rate is fully honest
+ * once a tenth of the pool has signed, and tapers below SIGNED_CHANCE
+ * before that.
+ */
+export const SIGNED_CHANCE_CAP = 0.05;
 
 /**
  * Every pack contains at least one card of this class or better. Without it

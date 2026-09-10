@@ -214,6 +214,10 @@ export function pullRates(pulls: PullWeek[], packs: PackWeek[]): RateRow[] {
   const opens = sum(packs, (week) => week.opens);
   return [
     rateRow("foil", "Foil", sum(pulls, (w) => w.foil), copies, FOIL_CHANCE),
+    // Per card over EVERY copy: since the autograph roll was normalised
+    // (signedChance, 2026-09-10) SIGNED_CHANCE is the pack-level promise,
+    // so all copies is the right denominator. Weeks before that read low
+    // here by design — the old roll was SIGNED_CHANCE times the signed share.
     rateRow("signed", "Signed", sum(pulls, (w) => w.signed_copies), copies, SIGNED_CHANCE),
     rateRow("shiny", "Shiny", sum(pulls, (w) => w.shiny), copies, SHINY_CHANCE),
     rateRow("stattrak", "StatTrak", sum(pulls, (w) => w.stattrak), copies, STATTRAK_CHANCE),
