@@ -7,6 +7,7 @@
 // Exporting it from this file would let any browser open packs as anyone.
 
 import { revalidatePath } from "next/cache";
+import { randomUUID } from "node:crypto";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { flameUnlocked, PATRON_FLAME_KEYS, PATRON_FLAMES, type PatronFlameKey } from "@/lib/patron/flames";
@@ -17,6 +18,7 @@ import { PACK_COST } from "./config";
 import { openChampionsPack, openPackFor, type OpenPackResult } from "./open";
 import { autoDustPulls } from "@/lib/cards/autoDustServer";
 import { describePull } from "@/lib/cards/autoDust";
+import { PackOpenTiming } from "./timing";
 
 export async function openPackAction(
   league: CardLeague,
@@ -26,14 +28,14 @@ export async function openPackAction(
   requestedWeek?: string,
   requestId?: string,
 ): Promise<OpenPackResult> {
-  const user = await getBettingUser();
-  if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
-  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
-  return withAutoDust(
-    user.discordId,
-    league,
-    await openPackFor(user.discordId, league, { requestedWeek, requestId, fallbackBalance: user.balance - PACK_COST }),
-  );
+  const openingRequestId = requestId ?? randomUUID();
+  return timedPackAction(openingRequestId, async (timing) => {
+    const user = await timing.measure("authentication_access", getBettingUser);
+    if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
+    if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+    const opened = await openPackFor(user.discordId, league, { requestedWeek, requestId: openingRequestId, fallbackBalance: user.balance - PACK_COST });
+    return timing.measure("auto_dust", () => withAutoDust(user.discordId, league, opened));
+  });
 }
 
 /**
@@ -78,14 +80,14 @@ async function withAutoDust(discordId: string, league: CardLeague, result: OpenP
  * rippable, defaulting to the newest.
  */
 export async function openDailyRipAction(league: CardLeague, requestedWeek?: string, requestId?: string): Promise<OpenPackResult> {
-  const user = await getBettingUser();
-  if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
-  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
-  return withAutoDust(
-    user.discordId,
-    league,
-    await openPackFor(user.discordId, league, { daily: true, requestedWeek, requestId, fallbackBalance: user.balance }),
-  );
+  const openingRequestId = requestId ?? randomUUID();
+  return timedPackAction(openingRequestId, async (timing) => {
+    const user = await timing.measure("authentication_access", getBettingUser);
+    if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
+    if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+    const opened = await openPackFor(user.discordId, league, { daily: true, requestedWeek, requestId: openingRequestId, fallbackBalance: user.balance });
+    return timing.measure("auto_dust", () => withAutoDust(user.discordId, league, opened));
+  });
 }
 
 /**
@@ -93,11 +95,29 @@ export async function openDailyRipAction(league: CardLeague, requestedWeek?: str
  * check lives in the core (the shop button disappearing is presentation;
  * the timestamp is the gate).
  */
-export async function openChampionsPackAction(): Promise<OpenPackResult> {
-  const user = await getBettingUser();
-  if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
-  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
-  return openChampionsPack(user.discordId, { fallbackBalance: user.balance - CHAMPIONS_PACK_COST });
+export async function openChampionsPackAction(requestId?: string): Promise<OpenPackResult> {
+  const openingRequestId = requestId ?? randomUUID();
+  return timedPackAction(openingRequestId, async (timing) => {
+    const user = await timing.measure("authentication_access", getBettingUser);
+    if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
+    if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+    return openChampionsPack(user.discordId, { fallbackBalance: user.balance - CHAMPIONS_PACK_COST, requestId: openingRequestId });
+  });
+}
+
+async function timedPackAction(
+  openingId: string,
+  task: (timing: PackOpenTiming) => Promise<OpenPackResult>,
+): Promise<OpenPackResult> {
+  const timing = new PackOpenTiming(openingId, "action");
+  let outcome: "ok" | "error" = "error";
+  try {
+    const result = await task(timing);
+    outcome = result.ok ? "ok" : "error";
+    return result;
+  } finally {
+    timing.log(outcome);
+  }
 }
 
 /**

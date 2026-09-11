@@ -6,7 +6,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // one Next.js's bundler uses. Stub it so the module can load, same as
 // wallet.test.ts.
 vi.mock("server-only", () => ({}));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+const { revalidatePath } = vi.hoisted(() => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath }));
+const { afterMock, scheduledAfterCallbacks } = vi.hoisted(() => ({
+  afterMock: vi.fn(),
+  scheduledAfterCallbacks: [] as Array<() => void | Promise<void>>,
+}));
+vi.mock("next/server", () => ({
+  after: (callback: () => void | Promise<void>) => {
+    scheduledAfterCallbacks.push(callback);
+    afterMock(callback);
+  },
+}));
 vi.mock("node:crypto", async (importOriginal) => ({
   ...(await importOriginal<typeof import("node:crypto")>()),
   // Deterministic zeroes make the specialty-pack signed branch testable
@@ -84,6 +95,10 @@ const { rollDribb } = vi.hoisted(() => ({ rollDribb: vi.fn(() => false) }));
 vi.mock("@/lib/cards/dribb", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/cards/dribb")>()), rollDribb }));
 
 const { openChampionsPack, openPackFor, refundPackComp, spendPackComp } = await import("./open");
+
+async function drainAfterCallbacks(): Promise<void> {
+  await Promise.all(scheduledAfterCallbacks.splice(0).map((callback) => callback()));
+}
 
 /** One PostgREST call, flattened: which table, which verb, the filters it
  *  pinned and the payload it wrote. The fakes below answer off this. */
@@ -357,6 +372,9 @@ function insertedCards(calls: QueryCall[]): Record<string, unknown>[] {
 }
 
 beforeEach(() => {
+  scheduledAfterCallbacks.splice(0);
+  afterMock.mockClear();
+  revalidatePath.mockClear();
   createBettingServiceClient.mockReset();
   postCardsWebhook.mockClear();
   postCardsWebhook.mockResolvedValue(undefined);
@@ -382,6 +400,7 @@ describe("openPackFor finishes", () => {
     // No Secret, no count read: the only card_inventory call is the insert.
     expect(shop.calls.filter((call) => call.table === "card_inventory")).toHaveLength(1);
     expect(postCardsWebhook).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it("freezes a Shiny and a zeroed StatTrak into the copy", async () => {
@@ -414,6 +433,8 @@ describe("openPackFor finishes", () => {
     // The stubbed roll carries no collectionSize, so the checklist is 0 and
     // the third Secret of the season is #3 past it.
     expect(card.secret).toEqual({ number: 3, of: 0 });
+    expect(postCardsWebhook).not.toHaveBeenCalled();
+    await drainAfterCallbacks();
     expect(postCardsWebhook).toHaveBeenCalledTimes(1);
     expect(postCardsWebhook.mock.calls[0][0]).toMatchObject({ title: expect.stringContaining("SECRET") });
   });
@@ -433,6 +454,7 @@ describe("openPackFor finishes", () => {
     expect(last.player_name).toBe("Dribb");
     expect(last.overall).toBe(99);
     expect(last.card.dribb).toEqual({ number: 3, of: 5 });
+    await drainAfterCallbacks();
     expect(postCardsWebhook).toHaveBeenCalledTimes(1);
     expect(postCardsWebhook.mock.calls[0][0]).toMatchObject({ title: expect.stringContaining("DRIBB") });
   });
@@ -463,6 +485,8 @@ describe("signature announcements", () => {
 
     expect(result.ok).toBe(true);
     expect(result.ok && result.cards.filter((pull) => pull.signed)).toHaveLength(2);
+    expect(postCardsWebhook).not.toHaveBeenCalled();
+    await drainAfterCallbacks();
     expect(postCardsWebhook).toHaveBeenCalledTimes(2);
     for (const [embed] of postCardsWebhook.mock.calls) {
       expect(embed).toMatchObject({ title: "✍️ A SIGNATURE HAS BEEN PULLED" });
@@ -487,6 +511,7 @@ describe("signature announcements", () => {
 
     await openPackFor("42", "premier");
 
+    await drainAfterCallbacks();
     expect(postCardsWebhook).toHaveBeenCalledTimes(1);
     expect(postCardsWebhook.mock.calls[0][0]).toMatchObject({ title: expect.stringContaining("SECRET") });
   });
@@ -499,6 +524,7 @@ describe("signature announcements", () => {
 
     await openPackFor("42", "premier");
 
+    await drainAfterCallbacks();
     expect(postCardsWebhook).toHaveBeenCalledTimes(1);
     expect(postCardsWebhook.mock.calls[0][0]).toMatchObject({ title: expect.stringContaining("ECLIPSE") });
   });
@@ -510,6 +536,7 @@ describe("signature announcements", () => {
 
     expect((await openPackFor("42", "premier")).ok).toBe(false);
     expect(postCardsWebhook).not.toHaveBeenCalled();
+    expect(afterMock).not.toHaveBeenCalled();
   });
 
   it("does not announce a recovered/replayed opening", async () => {
@@ -519,6 +546,7 @@ describe("signature announcements", () => {
 
     expect((await openPackFor("42", "premier")).ok).toBe(true);
     expect(postCardsWebhook).not.toHaveBeenCalled();
+    expect(afterMock).not.toHaveBeenCalled();
   });
 
   it("falls back safely when the collector profile is unavailable", async () => {
@@ -527,6 +555,7 @@ describe("signature announcements", () => {
     createShop({ signatures: [playerSignature], profileError: { message: "profile unavailable" } });
 
     expect((await openPackFor("42", "academy")).ok).toBe(true);
+    await drainAfterCallbacks();
     expect(postCardsWebhook).toHaveBeenCalledTimes(1);
     expect(postCardsWebhook.mock.calls[0][0].description).toContain("Someone");
     expect(postCardsWebhook.mock.calls[0][0].description).toContain("Doug");
@@ -539,6 +568,18 @@ describe("signature announcements", () => {
     postCardsWebhook.mockRejectedValue(new Error("discord is down"));
 
     expect((await openPackFor("42", "premier")).ok).toBe(true);
+    await drainAfterCallbacks();
+  });
+
+  it("returns the committed opening before a stalled announcement is drained", async () => {
+    signedSlugs.add("doug-na1");
+    signedPullIndexes.add(0);
+    createShop({ signatures: [playerSignature] });
+    postCardsWebhook.mockImplementation(() => new Promise<void>(() => {}));
+
+    expect((await openPackFor("42", "premier")).ok).toBe(true);
+    expect(afterMock).toHaveBeenCalledTimes(1);
+    expect(postCardsWebhook).not.toHaveBeenCalled();
   });
 });
 
@@ -553,6 +594,8 @@ describe("Champions signature announcements", () => {
 
     expect(result.ok).toBe(true);
     expect(result.ok && result.cards[0].signed).toBe(true);
+    expect(postCardsWebhook).not.toHaveBeenCalled();
+    await drainAfterCallbacks();
     expect(postCardsWebhook).toHaveBeenCalledTimes(1);
     const embed = postCardsWebhook.mock.calls[0][0] as { title: string; description: string };
     expect(embed.title).toBe("✍️ A SIGNATURE HAS BEEN PULLED");

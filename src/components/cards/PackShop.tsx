@@ -34,6 +34,22 @@ function openingRequestId(): string {
   return `pack-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+const CLIENT_TIMING_ENABLED = process.env.NEXT_PUBLIC_PACK_OPEN_TIMING === "1";
+
+/** Local-only browser timing. It reports to DevTools, never product UI. */
+async function measureOpen<T>(kind: "standard" | "daily" | "champions", task: () => Promise<T>): Promise<{ result: T; startedAt: number }> {
+  const startedAt = performance.now();
+  const result = await task();
+  if (CLIENT_TIMING_ENABLED) {
+    console.info("packs: browser timing", {
+      kind,
+      stage: "click_to_action_result",
+      durationMs: Math.round((performance.now() - startedAt) * 10) / 10,
+    });
+  }
+  return { result, startedAt };
+}
+
 /** "Week 3 · Sep 8" — the week number counts up from the season's first
  *  archived edition, which is how players talk about them. */
 function editionLabel(week: string, number: number): string {
@@ -100,6 +116,7 @@ export default function PackShop({
   const [packVariant, setPackVariant] = useState<"standard" | "god">("standard");
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [revealOrder, setRevealOrder] = useState<number[]>([]);
+  const [openingStartedAt, setOpeningStartedAt] = useState<number | null>(null);
   const [ripsLeft, setRipsLeft] = useState(dailyRipsLeft);
   const [ripStreak, setRipStreak] = useState<number | null>(null);
   // Optimistic: the swatch recolours instantly and the server action
@@ -146,7 +163,7 @@ export default function PackShop({
   function handleOpen() {
     setError(null);
     startTransition(async () => {
-      const result = await openPackAction(league, week || undefined, openingRequestId());
+      const { result, startedAt } = await measureOpen("standard", () => openPackAction(league, week || undefined, openingRequestId()));
       if (!result.ok) {
         setError(result.error);
         return;
@@ -159,6 +176,7 @@ export default function PackShop({
       setPackVariant(result.variant);
       setOpeningId(result.openingId);
       setRevealOrder(result.revealOrder);
+      setOpeningStartedAt(startedAt);
       banked(result.balance);
     });
   }
@@ -166,7 +184,7 @@ export default function PackShop({
   function handleChampionsPack() {
     setError(null);
     startTransition(async () => {
-      const result = await openChampionsPackAction();
+      const { result, startedAt } = await measureOpen("champions", () => openChampionsPackAction(openingRequestId()));
       if (!result.ok) {
         setError(result.error);
         return;
@@ -179,6 +197,7 @@ export default function PackShop({
       setPackVariant(result.variant);
       setOpeningId(result.openingId);
       setRevealOrder(result.revealOrder);
+      setOpeningStartedAt(startedAt);
       banked(result.balance);
     });
   }
@@ -188,7 +207,7 @@ export default function PackShop({
     startTransition(async () => {
       // The rip honours the same week picker as a bought pack — a vintage
       // rip mints that week's prints exactly.
-      const result = await openDailyRipAction(league, week || undefined, openingRequestId());
+      const { result, startedAt } = await measureOpen("daily", () => openDailyRipAction(league, week || undefined, openingRequestId()));
       if (!result.ok) {
         setError(result.error);
         // The server refused, so trust its count over ours — a rip claimed
@@ -205,6 +224,7 @@ export default function PackShop({
       setPackVariant(result.variant);
       setOpeningId(result.openingId);
       setRevealOrder(result.revealOrder);
+      setOpeningStartedAt(startedAt);
       banked(result.balance);
     });
   }
@@ -217,10 +237,10 @@ export default function PackShop({
   // `packKind` the same: "Open another" after a Faceless Pack must deal
   // another Faceless Pack, not quietly fall back to a normal one.
   const openAnother = useCallback(async (): Promise<OpenResult> => {
-    const result =
+    const { result, startedAt } =
       packKind === "champions"
-        ? await openChampionsPackAction()
-        : await openPackAction(league, week || undefined, openingRequestId());
+        ? await measureOpen("champions", () => openChampionsPackAction(openingRequestId()))
+        : await measureOpen("standard", () => openPackAction(league, week || undefined, openingRequestId()));
     if (result.ok && result.compsLeft !== undefined) {
       // Each shelf banks its own count. A normal pack reports compsLeft too
       // (the Weekly Draw pays out standard comps), and banking that on the
@@ -235,6 +255,7 @@ export default function PackShop({
       setPackVariant(result.variant);
       setOpeningId(result.openingId);
       setRevealOrder(result.revealOrder);
+      setOpeningStartedAt(startedAt);
     }
     return result;
   }, [league, week, banked, packKind]);
@@ -246,6 +267,7 @@ export default function PackShop({
     setPackVariant("standard");
     setOpeningId(null);
     setRevealOrder([]);
+    setOpeningStartedAt(null);
     router.refresh();
   }, [router]);
 
@@ -412,6 +434,7 @@ export default function PackShop({
           muted={muted}
           autoDusted={autoDusted}
           autoDustProtected={autoDustProtected}
+          diagnosticStartedAt={openingStartedAt}
           variant={packVariant}
           openingId={openingId}
           revealOrder={revealOrder}

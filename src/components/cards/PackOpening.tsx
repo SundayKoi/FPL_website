@@ -80,6 +80,7 @@ type Phase = "drop" | "rip" | "line" | "summary";
 
 /** How long the pack takes to fall and settle — matches packDropIn. */
 const DROP_MS = 900;
+const CLIENT_TIMING_ENABLED = process.env.NEXT_PUBLIC_PACK_OPEN_TIMING === "1";
 /** Where in that fall the pack meets the table (the 58% keyframe). */
 const THUD_MS = 520;
 /** Length of the screen shake, matching packShake. */
@@ -274,6 +275,7 @@ export default function PackOpening({
   openingId: initialOpeningId = null,
   revealOrder: initialRevealOrder = [],
   autoDustProtected: initialAutoDustProtected = false,
+  diagnosticStartedAt = null,
   preview = false,
 }: {
   /** The pack that's just been paid for. God Packs use the persisted order. */
@@ -307,6 +309,8 @@ export default function PackOpening({
   openingId?: string | null;
   revealOrder?: number[];
   autoDustProtected?: boolean;
+  /** Local diagnostic timestamp from the click that bought this pack. */
+  diagnosticStartedAt?: number | null;
   /** Admin fixture mode: no wallet controls or production actions. */
   preview?: boolean;
 }) {
@@ -458,6 +462,14 @@ export default function PackOpening({
     const timer = setTimeout(() => setPhase((current) => (current === "drop" ? "rip" : current)), DROP_MS);
     return () => clearTimeout(timer);
   }, [phase]);
+
+  useEffect(() => {
+    if (!CLIENT_TIMING_ENABLED || phase !== "rip" || diagnosticStartedAt === null) return;
+    console.info("packs: browser timing", {
+      stage: "click_to_rip_ready",
+      durationMs: Math.round((performance.now() - diagnosticStartedAt) * 10) / 10,
+    });
+  }, [diagnosticStartedAt, phase]);
 
   useEffect(() => {
     if (phase !== "drop" || reducedRef.current || mutedRef.current) return;

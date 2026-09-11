@@ -19,6 +19,8 @@ export interface CardsEmbed {
 
 export const GOLD = 0xe8c14b;
 export const LIVE_RED = 0xff5063;
+/** A cards-channel post is garnish, never a reason to hold an opening. */
+export const CARDS_WEBHOOK_TIMEOUT_MS = 5_000;
 
 /** The league's cards channel (#cards in the FPL server). A constant
  *  rather than config because there is exactly one league; the env var
@@ -36,7 +38,7 @@ export async function postCardsWebhook(embed: CardsEmbed, content?: string): Pro
   const channelId = process.env.DISCORD_CARDS_CHANNEL_ID ?? CARDS_CHANNEL_ID;
   try {
     if (webhook) {
-      await fetch(webhook, {
+      await postCardsMessage(webhook, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ embeds: [embed], ...(content ? { content } : {}) }),
@@ -47,7 +49,7 @@ export async function postCardsWebhook(embed: CardsEmbed, content?: string): Pro
     // already authenticates for command registration. Same bot the /rip
     // command answers as, so the channel reads one voice.
     if (botToken) {
-      await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+      await postCardsMessage(`https://discord.com/api/v10/channels/${channelId}/messages`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -56,7 +58,26 @@ export async function postCardsWebhook(embed: CardsEmbed, content?: string): Pro
         body: JSON.stringify({ embeds: [embed], ...(content ? { content } : {}) }),
       });
     }
-  } catch {
-    // Garnish, by contract.
+  } catch (error) {
+    // Do not include a webhook URL, token, or embed/card payload in logs.
+    console.error("packs: cards announcement delivery failed", {
+      category: timeoutCategory(error),
+    });
   }
+}
+
+async function postCardsMessage(url: string, init: RequestInit): Promise<void> {
+  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(CARDS_WEBHOOK_TIMEOUT_MS) });
+  if (!response.ok) {
+    console.error("packs: cards announcement delivery failed", {
+      category: "http",
+      status: response.status,
+    });
+  }
+}
+
+function timeoutCategory(error: unknown): "timeout" | "network" {
+  return error instanceof DOMException && (error.name === "TimeoutError" || error.name === "AbortError")
+    ? "timeout"
+    : "network";
 }

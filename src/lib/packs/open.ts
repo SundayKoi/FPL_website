@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import "server-only";
-import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardEditionWeeks, fetchCardSeason, fetchCurrentWeekCards, fetchEditionCards, fetchTeamIdentity, fetchWeekMoments, type CardLeague } from "@/lib/cards/queries";
@@ -30,6 +30,7 @@ import { DRIBB_COPIES, DRIBB_TIER, dribbCard, dribbLabel, rollDribb } from "@/li
 import { applyAutographs, signedChance } from "./signatures";
 import { fetchChampionSkinNums, printArtExists, rollPrint, splashArtExists } from "./skins";
 import { editionLabel, mondayOf } from "./week";
+import { PackOpenTiming } from "./timing";
 
 /** slug -> that player's inked signature, for everyone who has drawn one.
  *
@@ -312,11 +313,16 @@ export async function openPackFor(
 ): Promise<OpenPackResult> {
   const { requestedWeek, daily = false } = opts;
   const service = createBettingServiceClient();
+  // This value is supplied by browser actions when possible, otherwise it is
+  // generated once for this opening. It is opaque and intentionally excludes
+  // the caller identity from timing logs.
+  const requestId = opts.requestId ?? randomUUID();
+  const timing = new PackOpenTiming(requestId, "core");
 
   // Resolve the pool BEFORE charging: a season with no cards has to be an
   // error the user never pays for (same reasoning as handleBuy fetching the
   // store item before start_purchase).
-  const season = await fetchCardSeason(service, league);
+  const season = await timing.measure("pool_loading", () => fetchCardSeason(service, league));
   if (!season) return { ok: false, error: "No season is set up for packs yet." };
 
   // Which edition this pack mints. An archived week is drawn from the
@@ -334,11 +340,11 @@ export async function openPackFor(
   // earlier changes nothing about the honest answer (a window closing
   // mid-pack keeps whichever side of the boundary the read landed on), and
   // it is read before the charge either way.
-  const [weeks, liveRowResult, signatures] = await Promise.all([
+  const [weeks, liveRowResult, signatures] = await timing.measure("pool_loading", () => Promise.all([
     fetchCardEditionWeeks(service, season),
     service.from("league_settings").select("live_until, live_label").eq("id", 1).maybeSingle(),
     fetchSignatures(service),
-  ]);
+  ]));
   const editionWeek = requestedWeek && weeks.includes(requestedWeek) ? requestedWeek : weeks[0] ?? null;
   if (requestedWeek && !weeks.includes(requestedWeek)) {
     return { ok: false, error: "That week isn't available yet." };
@@ -347,21 +353,20 @@ export async function openPackFor(
   // The archive is what an edition pack mints from — that is what makes a
   // week's pack that week's cards, and it is untouched here. The fallback
   // is for a season with nothing archived yet, and it follows the hub.
-  const cards = editionWeek
-    ? await fetchEditionCards(service, season, editionWeek)
-    : await fetchCurrentWeekCards(service, season);
+  const cards = await timing.measure("pool_loading", () => editionWeek
+    ? fetchEditionCards(service, season, editionWeek)
+    : fetchCurrentWeekCards(service, season));
   if (cards.length === 0) return { ok: false, error: "No cards to open yet — check back once games are played." };
 
   // One transaction owns the daily claim/comp/charge and the durable opening
   // row. The request key makes a network retry return the same opening.
-  const requestId = opts.requestId ?? randomUUID();
-  const { data: beginData, error: beginError } = await service.rpc("begin_card_pack_opening", {
+  const { data: beginData, error: beginError } = await timing.measure("begin_rpc", () => service.rpc("begin_card_pack_opening", {
     p_request_id: requestId,
     p_user: discordId,
     p_season: season,
     p_source: daily ? "daily" : "standard",
     p_cost: PACK_COST,
-  });
+  }));
   if (beginError) {
     return chargeFailed("begin_card_pack_opening", beginError, { discordId, season, league, requestId, daily });
   }
@@ -391,10 +396,10 @@ export async function openPackFor(
     variant = opening.variant;
   } else {
     const candidate: PackVariant = rollGodPackGate() ? "god" : "standard";
-    const { data: resolved, error: resolveError } = await service.rpc("set_card_pack_variant", {
+    const { data: resolved, error: resolveError } = await timing.measure("variant_rpc", () => service.rpc("set_card_pack_variant", {
       p_opening: opening.opening_id,
       p_variant: candidate,
-    });
+    }));
     const returned = Array.isArray(resolved) ? resolved[0] : resolved;
     if (resolveError || (returned !== "standard" && returned !== "god")) {
       const { error: refundError } = await service.rpc("refund_card_pack_opening", { p_opening: opening.opening_id });
@@ -508,7 +513,7 @@ export async function openPackFor(
     ),
   ];
   const skinNums = new Map(
-    await Promise.all(champions.map(async (champion) => [champion, await fetchChampionSkinNums(champion)] as const)),
+    await timing.measure("artwork_catalog", () => Promise.all(champions.map(async (champion) => [champion, await fetchChampionSkinNums(champion)] as const))),
   );
   // rollPrint (not rollSkinNum): the catalog lists nums whose centered art
   // was never uploaded, and a print frozen against a 403 renders as base —
@@ -532,13 +537,13 @@ export async function openPackFor(
     }
     // Signed copies roll alternate art on their own, rarer gate — the
     // signed + foil + alt print is the chase.
-    const artSkin = await rollPrint(
+    const artSkin = await timing.measure("artwork_validation", () => rollPrint(
       champion,
       skinNums.get(champion) ?? [0],
       rand,
       printArtExists,
       variant === "god" ? 1 : pull.signed ? SIGNED_ALT_SKIN_CHANCE : ALT_SKIN_CHANCE,
-    );
+    ));
     prints.push({ ...pull, card: { ...card, artSkin } });
   }
 
@@ -614,7 +619,7 @@ export async function openPackFor(
     }
   }
 
-  const { data: inserted, error: insertError } = await service.rpc("fulfill_card_pack_opening", {
+  const { data: inserted, error: insertError } = await timing.measure("fulfillment", () => service.rpc("fulfill_card_pack_opening", {
     p_opening: opening.opening_id,
     p_variant: variant,
     p_cards: prints.map((print) => ({
@@ -637,7 +642,7 @@ export async function openPackFor(
       // card payload.
       card_json: print.card,
     })),
-  });
+  }));
 
   if (insertError || !inserted) {
     const { error: refundError } = await service.rpc("refund_card_pack_opening", { p_opening: opening.opening_id });
@@ -680,33 +685,6 @@ export async function openPackFor(
     );
   }
 
-  // An Eclipse landing is league news, and it can never happen twice for
-  // the same print — announce it. AFTER the insert, same reasoning as the
-  // chase below: the copy provably exists, and the unique index has already
-  // ruled on any race, so this can never trumpet a card that was refused.
-  const eclipsePrint = prints.find((print) => print.foilType === ECLIPSE_FOIL_TYPE);
-  if (eclipsePrint) {
-    await announceEclipseClaim(service, discordId, eclipsePrint, stampedWeek, league);
-  }
-  // A Secret is the rarest thing an ordinary pull can be — same news,
-  // same door, same reasoning about ordering.
-  const secretPrint = prints.find((print) => print.card.secret);
-  if (secretPrint) {
-    await announceSecretClaim(service, discordId, secretPrint, stampedWeek, league);
-  }
-  // Signed Secrets and Eclipses already carry their autograph in the
-  // announcement above. Every other signed print gets its own line so a pack
-  // with multiple signatures tells the whole story without duplicate news.
-  for (const print of prints) {
-    if (print.signed !== true || print.card.secret || print.foilType === ECLIPSE_FOIL_TYPE) continue;
-    await announceSignatureClaim(service, discordId, print, stampedWeek, league);
-  }
-  // The Dribb card: the rarest thing the site will ever print. Same door.
-  const dribbPrint = prints.find((print) => print.card.dribb);
-  if (dribbPrint?.card.dribb) {
-    await announceDribbClaim(service, discordId, dribbPrint.card.dribb, league);
-  }
-
   // The Weekly Chase. Checked AFTER the insert on purpose: the claim pays a
   // bounty, and claiming before the cards exist would need un-claiming on
   // an insert failure — a compensation path with money in it. This order's
@@ -716,6 +694,7 @@ export async function openPackFor(
   // The database's atomic update decides who was first; this only asks
   // "does one of these prints qualify". The loser of a same-second race
   // keeps an unstamped card, which is exactly what second place is.
+  let chaseAnnouncement: { title: string; bounty: number } | null = null;
   if (editionWeek) {
     // By week alone — the chase is league-wide. An academy pull matching
     // the criteria wins the same bounty a premier pull would; the atomic
@@ -734,7 +713,7 @@ export async function openPackFor(
         matchesChase({ card: print.card, foil: print.foil, foilType: print.foilType, signed: print.signed }, chase.criteria ?? {}),
       );
       if (hitIndex !== -1) {
-        const { data: won } = await service.rpc("claim_card_chase", { p_chase: chase.id, p_user: discordId });
+          const { data: won } = await timing.measure("chase_settlement", () => service.rpc("claim_card_chase", { p_chase: chase.id, p_user: discordId }));
         if (won === true) {
           const stamped: PlayerCardData = { ...prints[hitIndex].card, chase: { title: chase.title } };
           prints[hitIndex] = { ...prints[hitIndex], card: stamped };
@@ -748,7 +727,7 @@ export async function openPackFor(
             .from("card_chases")
             .update({ claimed_inventory_id: ids[hitIndex] })
             .eq("id", chase.id);
-          await announceChaseClaim(service, discordId, chase.title, prints[hitIndex], chase.bounty, editionWeek);
+          chaseAnnouncement = { title: chase.title, bounty: chase.bounty };
         }
       }
     }
@@ -756,14 +735,17 @@ export async function openPackFor(
 
   // Read the balance back rather than subtracting locally: the wallet may
   // have moved for other reasons (a bet settling) while this ran.
-  const { data: profile } = await service
+  if (hasPackAnnouncement(prints, chaseAnnouncement)) {
+    schedulePackAnnouncements({ service, discordId, prints, stampedWeek, league, editionWeek, openingId: opening.opening_id, chase: chaseAnnouncement });
+  }
+
+  const { data: profile } = await timing.measure("final_balance", () => service
     .from("betting_profiles")
     .select("balance")
     .eq("discord_id", discordId)
-    .single();
+    .single());
 
-  revalidatePath("/cards/packs");
-  revalidatePath("/academy/cards/packs");
+  timing.log("ok");
 
   return {
     ok: true,
@@ -789,6 +771,101 @@ export async function openPackFor(
     variant,
     revealOrder: ids,
   };
+}
+
+/**
+ * Register committed pack news after all mint/chase writes complete. The
+ * callback owns its profile reads and network work, so neither can extend the
+ * Server Action response. Snapshotting prevents a later print mutation from
+ * altering a message that has already been queued. `after()` may be nested,
+ * which keeps this safe for the Discord /rip handler's existing callback.
+ */
+function schedulePackAnnouncements({
+  service,
+  discordId,
+  prints,
+  stampedWeek,
+  league,
+  editionWeek,
+  openingId,
+  chase,
+}: {
+  service: ReturnType<typeof createBettingServiceClient>;
+  discordId: string;
+  prints: EclipsePrint[];
+  stampedWeek: string;
+  league: CardLeague;
+  editionWeek: string | null;
+  openingId: string;
+  chase: { title: string; bounty: number } | null;
+}): void {
+  const queuedPrints = structuredClone(prints);
+  after(async () => {
+    const timing = new PackOpenTiming(openingId, "announcement");
+    try {
+      await timing.measure("delivery", async () => {
+        const eclipsePrint = queuedPrints.find((print) => print.foilType === ECLIPSE_FOIL_TYPE);
+        if (eclipsePrint) await announceEclipseClaim(service, discordId, eclipsePrint, stampedWeek, league);
+
+        const secretPrint = queuedPrints.find((print) => print.card.secret);
+        if (secretPrint) await announceSecretClaim(service, discordId, secretPrint, stampedWeek, league);
+
+        // Signed Secrets and Eclipses already carry their autograph in the
+        // message above. Every other signed copy gets its own line.
+        for (const print of queuedPrints) {
+          if (print.signed !== true || print.card.secret || print.foilType === ECLIPSE_FOIL_TYPE) continue;
+          await announceSignatureClaim(service, discordId, print, stampedWeek, league);
+        }
+
+        const dribbPrint = queuedPrints.find((print) => print.card.dribb);
+        if (dribbPrint?.card.dribb) await announceDribbClaim(service, discordId, dribbPrint.card.dribb, league);
+
+        if (editionWeek && chase) {
+          const chasePrint = queuedPrints.find((print) => print.card.chase?.title === chase.title);
+          if (chasePrint) {
+            await announceChaseClaim(service, discordId, chase.title, chasePrint, chase.bounty, editionWeek);
+          }
+        }
+      });
+      timing.log("ok");
+    } catch {
+      // Announcements are best effort. A runtime failure here must not affect
+      // a committed pack; avoid logging the account, payload, or destination.
+      console.error("packs: deferred announcement failed", { openingId });
+      timing.log("error");
+    }
+  });
+}
+
+function hasPackAnnouncement(prints: EclipsePrint[], chase: { title: string; bounty: number } | null): boolean {
+  return chase !== null || prints.some((print) =>
+    print.signed === true || print.card.secret || print.card.dribb || print.foilType === ECLIPSE_FOIL_TYPE,
+  );
+}
+
+function scheduleChampionSignatureAnnouncement({
+  service,
+  discordId,
+  print,
+  inventoryId,
+  openingId,
+}: {
+  service: ReturnType<typeof createBettingServiceClient>;
+  discordId: string;
+  print: { card: PlayerCardData; foil: boolean; foilType: string | null; signed: boolean };
+  inventoryId: number;
+  openingId: string;
+}): void {
+  after(async () => {
+    const timing = new PackOpenTiming(openingId, "announcement");
+    try {
+      await timing.measure("delivery", () => announceChampionSignatureClaim(service, discordId, print, inventoryId, "premier"));
+      timing.log("ok");
+    } catch {
+      console.error("packs: deferred announcement failed", { openingId });
+      timing.log("error");
+    }
+  });
 }
 
 /**
@@ -1006,23 +1083,25 @@ async function announceChampionSignatureClaim(
  */
 export async function openChampionsPack(
   discordId: string,
-  opts: { fallbackBalance?: number } = {},
+  opts: { fallbackBalance?: number; requestId?: string } = {},
 ): Promise<OpenPackResult> {
   const service = createBettingServiceClient();
+  const requestId = opts.requestId ?? randomUUID();
+  const timing = new PackOpenTiming(requestId, "champions");
 
   // select("*") for deploy-before-migration tolerance, same as the shop's
   // settings reads.
-  const { data: settingsRow } = await service
+  const { data: settingsRow } = await timing.measure("pool_loading", () => service
     .from("league_settings")
     .select("*")
     .eq("id", 1)
-    .maybeSingle();
+    .maybeSingle());
   const until = (settingsRow as { champions_until?: string | null } | null)?.champions_until ?? null;
   if (!until || new Date(until).getTime() <= Date.now()) {
     return { ok: false, error: "The Faceless Drop isn't open." };
   }
 
-  const season = await fetchCardSeason(service, "premier");
+  const season = await timing.measure("pool_loading", () => fetchCardSeason(service, "premier"));
   if (!season) return { ok: false, error: "No season is set up for packs yet." };
 
   // The Champion's Tribute: squad members hold free Faceless Packs. On
@@ -1032,11 +1111,11 @@ export async function openChampionsPack(
 
   let openId: number | null = null;
   if (!usedComp) {
-    const { data: openData, error: openError } = await service.rpc("open_card_pack", {
+    const { data: openData, error: openError } = await timing.measure("begin_rpc", () => service.rpc("open_card_pack", {
       p_user: discordId,
       p_season: season,
       p_cost: CHAMPIONS_PACK_COST,
-    });
+    }));
     if (openError) return chargeFailed("open_card_pack (champions)", openError, { discordId, season, cost: CHAMPIONS_PACK_COST });
     openId = openData as number;
   }
@@ -1070,14 +1149,14 @@ export async function openChampionsPack(
   // the most-played champion's skin catalog — validated against the
   // REGULAR splash directory, the only one this card's renderer draws
   // from, so a frozen print can never point at art the CDN doesn't serve.
-  const skinNums = await fetchChampionSkinNums(def.champion);
-  const artSkin = await rollPrint(
+  const skinNums = await timing.measure("artwork_catalog", () => fetchChampionSkinNums(def.champion));
+  const artSkin = await timing.measure("artwork_validation", () => rollPrint(
     def.champion,
     skinNums,
     rand,
     splashArtExists,
     signed ? SIGNED_ALT_SKIN_CHANCE : ALT_SKIN_CHANCE,
-  );
+  ));
 
   // Which mint of this rank the copy is. A plain count, same contract as
   // moment serials: a same-second tie shares a number and that's a story,
@@ -1096,7 +1175,7 @@ export async function openChampionsPack(
     ...(signed && ink ? { autograph: ink } : {}),
   };
 
-  const { data: inserted, error: insertError } = await service
+  const { data: inserted, error: insertError } = await timing.measure("fulfillment", () => service
     .from("card_inventory")
     .insert({
       discord_id: discordId,
@@ -1114,7 +1193,7 @@ export async function openChampionsPack(
       pack_open_id: openId,
     })
     .select("id")
-    .single();
+    .single());
 
   if (insertError || !inserted) {
     if (usedComp) {
@@ -1134,19 +1213,25 @@ export async function openChampionsPack(
     return { ok: false, error: "That pack didn't open — you haven't been charged." };
   }
 
-  // The relic is already in inventory, so its signed pull is safe to
-  // announce. Failed inserts and recovered openings never reach this line.
+  // The relic is already in inventory, so its signed pull is safe to queue.
+  // Failed inserts never reach this line.
   if (signed === true) {
-    await announceChampionSignatureClaim(service, discordId, { card, foil, foilType, signed }, (inserted as { id: number }).id, "premier");
+    scheduleChampionSignatureAnnouncement({
+      service,
+      discordId,
+      print: structuredClone({ card, foil, foilType, signed }),
+      inventoryId: (inserted as { id: number }).id,
+      openingId: requestId,
+    });
   }
 
-  const { data: profile } = await service
+  const { data: profile } = await timing.measure("final_balance", () => service
     .from("betting_profiles")
     .select("balance")
     .eq("discord_id", discordId)
-    .single();
+    .single());
 
-  revalidatePath("/cards/packs");
+  timing.log("ok");
 
   return {
     ok: true,
