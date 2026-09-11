@@ -1,6 +1,7 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { cleanup, render, screen, fireEvent } from "@testing-library/react";
 import { BetPanel } from "./BetPanel";
+import { MIN_STAKE, MIN_STAKE_ERROR } from "@/lib/betting/stakes";
 
 afterEach(() => {
   cleanup();
@@ -47,7 +48,7 @@ describe("BetPanel", () => {
   it("disables BUY when locked", () => {
     setup({ locked: true });
     const input = screen.getByLabelText(/amount/i);
-    fireEvent.change(input, { target: { value: "100" } });
+    fireEvent.change(input, { target: { value: "300" } });
     expect(buyButton().disabled).toBe(true);
   });
 
@@ -61,9 +62,31 @@ describe("BetPanel", () => {
 
   it("calls onBet with the selected team and amount", () => {
     const { onBet } = setup();
-    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: "200" } });
+    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: "300" } });
     fireEvent.click(buyButton());
-    expect(onBet).toHaveBeenCalledWith(teamA.id, 200);
+    expect(onBet).toHaveBeenCalledWith(teamA.id, 300);
+  });
+
+  it("disables BUY below the minimum stake and says why", () => {
+    setup();
+    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: String(MIN_STAKE - 1) } });
+    expect(buyButton().disabled).toBe(true);
+    expect(screen.getByText(MIN_STAKE_ERROR)).toBeTruthy();
+  });
+
+  it("enables BUY at exactly the minimum stake, with no warning", () => {
+    const { onBet } = setup();
+    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: String(MIN_STAKE) } });
+    expect(buyButton().disabled).toBe(false);
+    expect(screen.queryByText(MIN_STAKE_ERROR)).toBeNull();
+    fireEvent.click(buyButton());
+    expect(onBet).toHaveBeenCalledWith(teamA.id, MIN_STAKE);
+  });
+
+  it("shows the minimum next to the amount field before anything is typed", () => {
+    setup();
+    expect(screen.getByText(/min \$250/i)).toBeTruthy();
+    expect(screen.queryByText(MIN_STAKE_ERROR)).toBeNull();
   });
 
   it("disables BUY when amount exceeds balance", () => {
@@ -76,9 +99,9 @@ describe("BetPanel", () => {
     const { onBet } = setup({ drawEnabled: true, poolDraw: 1000 });
     const drawBtn = screen.getByRole("button", { name: "DRAW" });
     fireEvent.click(drawBtn);
-    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: "100" } });
+    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: "300" } });
     fireEvent.click(buyButton());
-    expect(onBet).toHaveBeenCalledWith(-1, 100);
+    expect(onBet).toHaveBeenCalledWith(-1, 300);
   });
 
   it("hides the DRAW side when draw is disabled", () => {

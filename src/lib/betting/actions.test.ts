@@ -12,6 +12,7 @@ const { revalidatePath } = vi.hoisted(() => ({ revalidatePath: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
 import { placeBet, cashoutBet, placePickemCard, suggestProp } from "./actions";
+import { MIN_STAKE, MIN_STAKE_ERROR } from "./stakes";
 
 const ALLOWED_USER = {
   discordId: "42",
@@ -30,7 +31,7 @@ beforeEach(() => {
 
 describe("betting action access guards", () => {
   it.each([
-    ["placeBet", () => placeBet(5, 1, 100), "Sign in to place a bet."],
+    ["placeBet", () => placeBet(5, 1, 300), "Sign in to place a bet."],
     ["cashoutBet", () => cashoutBet(9), "Sign in to cash out."],
     ["placePickemCard", () => placePickemCard(7, { 1: 11, 2: 14 }, 300), "Sign in to play the pick'em."],
     ["suggestProp", () => suggestProp("How much will Chime go for?", "Over 500", "Under 500"), "Sign in to suggest a bet."],
@@ -42,7 +43,7 @@ describe("betting action access guards", () => {
   });
 
   it.each([
-    ["placeBet", () => placeBet(5, 1, 100)],
+    ["placeBet", () => placeBet(5, 1, 300)],
     ["cashoutBet", () => cashoutBet(9)],
     ["placePickemCard", () => placePickemCard(7, { 1: 11, 2: 14 }, 300)],
   ])("%s rejects a caller without betting access", async (_name, run) => {
@@ -63,33 +64,54 @@ describe("positive stake guards", () => {
   });
 });
 
+describe("minimum stake guards", () => {
+  it.each([
+    ["placeBet", () => placeBet(5, 1, MIN_STAKE - 1)],
+    ["placePickemCard", () => placePickemCard(7, { 1: 11, 2: 14 }, MIN_STAKE - 1)],
+    // truncated first, so 249.9 is 249 — under the floor, not a lucky round-up
+    ["placeBet (fractional)", () => placeBet(5, 1, MIN_STAKE - 0.1)],
+  ])("%s rejects a stake under the minimum without touching the RPC", async (_name, run) => {
+    expect(await run()).toEqual({ ok: false, error: MIN_STAKE_ERROR });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["placeBet", () => placeBet(5, 1, MIN_STAKE)],
+    ["placePickemCard", () => placePickemCard(7, { 1: 11, 2: 14 }, MIN_STAKE)],
+  ])("%s lets a stake exactly at the minimum through", async (_name, run) => {
+    expect(await run()).toEqual({ ok: true, balance: 800 });
+    expect(rpc).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ p_amount: MIN_STAKE }));
+  });
+});
+
 describe("placeBet", () => {
   it("re-derives the discord id server-side and calls place_bet", async () => {
-    const result = await placeBet(5, 1, 100);
+    const result = await placeBet(5, 1, 300);
 
     expect(rpc).toHaveBeenCalledWith("place_bet", {
       p_user: "42",
       p_market: 5,
       p_team: 1,
-      p_amount: 100,
+      p_amount: 300,
     });
     expect(result).toEqual({ ok: true, balance: 800 });
     expect(revalidatePath).toHaveBeenCalledWith("/betting", "layout");
   });
 
   it("accepts -1 as the draw team sentinel", async () => {
-    await placeBet(5, -1, 100);
+    await placeBet(5, -1, 300);
     expect(rpc).toHaveBeenCalledWith("place_bet", {
       p_user: "42",
       p_market: 5,
       p_team: -1,
-      p_amount: 100,
+      p_amount: 300,
     });
   });
 
   it.each([
     ["insufficient balance", "Insufficient balance."],
     ["amount must be positive", "Enter a valid bet amount."],
+    ["minimum stake is 250", MIN_STAKE_ERROR],
     ["market 5 locked", "This market has locked — betting is closed."],
     ["market 5 not open (status=LOCKED)", "This market isn't open for betting."],
     ["this market has no draw option", "This market has no draw option."],
@@ -100,7 +122,7 @@ describe("placeBet", () => {
   ])("maps the RPC error %j to a friendly message", async (rpcMessage, friendly) => {
     rpc.mockResolvedValue({ data: null, error: { message: rpcMessage } });
 
-    const result = await placeBet(5, 1, 100);
+    const result = await placeBet(5, 1, 300);
 
     expect(result).toEqual({ ok: false, error: friendly });
     expect(revalidatePath).not.toHaveBeenCalled();
@@ -155,6 +177,7 @@ describe("placePickemCard", () => {
   it.each([
     ["insufficient balance", "Insufficient balance."],
     ["amount must be positive", "Enter a valid card amount."],
+    ["minimum stake is 250", MIN_STAKE_ERROR],
     ["picks must choose a team for every series", "Pick a team for every series."],
     ["pick-em is locked", "This pick'em has locked — entries are closed."],
     ["unknown pick-em 7", "Pick'em not found."],

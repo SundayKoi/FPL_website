@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useIsLocked } from "@/hooks/useIsLocked";
 import { placePickemCard } from "@/lib/betting/actions";
 import { fmtPoints } from "@/lib/betting/format";
+import { MIN_STAKE } from "@/lib/betting/stakes";
 import type { PickemData, PickemLegData } from "@/lib/betting/types";
 import { StatusPill } from "./StatusPill";
 import { LockCountdown } from "./LockCountdown";
@@ -158,7 +159,7 @@ export function PickemPanel({ pickem, balance, loggedIn }: { pickem: PickemData;
               aria-label="card amount"
               className="w-28 input-brand p-2"
               type="number"
-              min={1}
+              min={MIN_STAKE}
               max={balance}
               placeholder="stake"
               value={amount || ""}
@@ -167,11 +168,12 @@ export function PickemPanel({ pickem, balance, loggedIn }: { pickem: PickemData;
             <button
               type="button"
               className="rounded bg-action-fill px-4 py-2 text-sm font-bold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={!complete || amount <= 0 || amount > balance || pending}
+              disabled={!complete || amount < MIN_STAKE || amount > balance || pending}
               onClick={submit}
             >
               {pickem.my_card ? "Update card" : "Lock it in"}
             </button>
+            <span className="text-xs text-muted">min {fmtPoints(MIN_STAKE)}</span>
           </div>
         ) : (
           <div className="mt-3 text-xs text-muted">Log in to play the Pick&apos;em.</div>

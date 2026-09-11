@@ -47,7 +47,7 @@ select is(
   (select place_pickem_card((select u from win1), (select pickem_id from p1), (select picks from right_picks), 300)),
   700::bigint, 'place_pickem_card debits stake, returns new balance'
 );
-select place_pickem_card((select u from win2), (select pickem_id from p1), (select picks from right_picks), 100);
+select place_pickem_card((select u from win2), (select pickem_id from p1), (select picks from right_picks), 300);
 
 -- lose1 picks team_b on the last leg only
 create temp table lose_picks as
@@ -62,7 +62,7 @@ select is((select count(*) from betting_ledger where discord_id=(select u from w
 
 -- validation: incomplete picks rejected
 select throws_like(
-  format('select place_pickem_card(%L,%s,%L::jsonb,100)',
+  format('select place_pickem_card(%L,%s,%L::jsonb,300)',
     (select u from lose1), (select pickem_id from p1),
     jsonb_build_object((select market_id::text from legs1 limit 1), (select team_a_id from legs1 limit 1))::text),
   '%every series%', 'incomplete picks rejected'
@@ -100,17 +100,17 @@ create temp table wrong2 as
     (select team_b_id from legs2 order by market_id desc limit 1)
   ) as picks;
 
-select place_pickem_card((select u from pw1), (select pickem_id from p2), (select picks from right2), 300);
-select place_pickem_card((select u from pw2), (select pickem_id from p2), (select picks from right2), 100);
+select place_pickem_card((select u from pw1), (select pickem_id from p2), (select picks from right2), 750);
+select place_pickem_card((select u from pw2), (select pickem_id from p2), (select picks from right2), 250);
 select place_pickem_card((select u from pl), (select pickem_id from p2), (select picks from wrong2), 600);
 
 select resolve_market_admin((select actor from act), market_id, team_a_id) from legs2;
 select resolve_pickem((select pickem_id from p2));
 select resolve_pickem((select pickem_id from p2));  -- idempotent
 
--- pool = 300+100+600 stakes + 900 carryover = 1900; split 3:1
-select is((select balance from betting_profiles where discord_id=(select u from pw1)), (1000 - 300 + 1425)::bigint, 'perfect card 1 gets pro-rata share of pool+carryover');
-select is((select balance from betting_profiles where discord_id=(select u from pw2)), (1000 - 100 + 475)::bigint, 'perfect card 2 gets pro-rata share of pool+carryover');
+-- pool = 750+250+600 stakes + 900 carryover = 2500; split 3:1
+select is((select balance from betting_profiles where discord_id=(select u from pw1)), (1000 - 750 + 1875)::bigint, 'perfect card 1 gets pro-rata share of pool+carryover');
+select is((select balance from betting_profiles where discord_id=(select u from pw2)), (1000 - 250 + 625)::bigint, 'perfect card 2 gets pro-rata share of pool+carryover');
 select is((select balance from betting_profiles where discord_id=(select u from pl)), 400::bigint, 'imperfect card gets nothing back');
 select is((select status from betting_pickems where id=(select pickem_id from p2)), 'RESOLVED', 'pick''em marked resolved');
 select is((select count(*) from betting_ledger where discord_id=(select u from pw1) and reason='pickem_payout'), 1::bigint, 'winner ledger reason is pickem_payout');
@@ -200,7 +200,7 @@ create temp table nearmiss_picks as
     (select market_id::text from legs6 order by market_id desc limit 1),
     (select team_b_id from legs6 order by market_id desc limit 1)
   ) as picks;
-select place_pickem_card((select u from near1), (select pickem_id from p6), (select picks from nearmiss_picks), 100);
+select place_pickem_card((select u from near1), (select pickem_id from p6), (select picks from nearmiss_picks), 300);
 
 update betting_pickems set lock_at = now() - interval '1 minute' where id=(select pickem_id from p6);
 select ok((select pickem_id from p6) = any(array(select lock_due_pickems())), 'lock_due_pickems returns the flipped id');
@@ -214,7 +214,7 @@ select is(
   'pickem_near_misses lists the one-off card'
 );
 create temp table summary6 as select * from pickem_summary((select pickem_id from p6));
-select is((select pool from summary6), 100::bigint, 'pickem_summary reports the pool');
+select is((select pool from summary6), 300::bigint, 'pickem_summary reports the pool');
 
 -- ==== store: start_purchase / fulfill_purchase / refund_purchase ==============
 

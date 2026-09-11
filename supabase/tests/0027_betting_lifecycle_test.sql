@@ -22,8 +22,8 @@ create temp table act as select test_profile(0) as actor;
 -- and only lock_due_markets acts on it
 create temp table s1 as select test_profile(1000) as a, test_profile(1000) as b;
 create temp table s1m as select test_market((select event_id from fx),(select team_a from fx),(select team_b from fx)) as m;
-select place_bet((select a from s1), (select m from s1m), (select team_a from fx), 100);
-select place_bet((select b from s1), (select m from s1m), (select team_b from fx), 100);
+select place_bet((select a from s1), (select m from s1m), (select team_a from fx), 300);
+select place_bet((select b from s1), (select m from s1m), (select team_b from fx), 300);
 update betting_markets set lock_at = now() - interval '30 seconds' where id = (select m from s1m);
 select betting_lifecycle_tick();
 select is((select status from betting_markets where id=(select m from s1m)), 'LOCKED', 'betting_lifecycle_tick locks a two-sided market past lock_at');
@@ -53,7 +53,7 @@ create temp table p1 as select create_pickem_admin(
 ) as pickem_id;
 create temp table pu1 as select test_profile(1000) as u;
 create temp table picks1 as select jsonb_object_agg(market_id::text, team_a_id) as picks from legs1;
-select place_pickem_card((select u from pu1), (select pickem_id from p1), (select picks from picks1), 200);
+select place_pickem_card((select u from pu1), (select pickem_id from p1), (select picks from picks1), 300);
 
 update betting_pickems set lock_at = now() - interval '1 minute' where id=(select pickem_id from p1);
 select is(array(select resolvable_pickems()), array[]::bigint[], 'resolvable_pickems is empty while legs are unresolved');

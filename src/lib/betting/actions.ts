@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getBettingUser } from "./wallet";
 import { createBettingServiceClient } from "./service-client";
 import { friendlyPlaceBetError } from "./bet-errors";
+import { MIN_STAKE, MIN_STAKE_ERROR } from "./stakes";
 
 type ActionResult = { ok: true; balance: number } | { ok: false; error: string };
 
@@ -25,6 +26,7 @@ function friendlyCashoutError(message: string): string {
 function friendlyPlacePickemCardError(message: string): string {
   if (/insufficient balance/i.test(message)) return "Insufficient balance.";
   if (/amount must be positive/i.test(message)) return "Enter a valid card amount.";
+  if (/minimum stake/i.test(message)) return MIN_STAKE_ERROR;
   if (/every series/i.test(message)) return "Pick a team for every series.";
   if (/pick-em is locked/i.test(message)) return "This pick'em has locked — entries are closed.";
   if (/unknown pick-em/i.test(message)) return "Pick'em not found.";
@@ -44,6 +46,9 @@ export async function placeBet(marketId: number, teamId: number, amount: number)
   }
   if (!Number.isFinite(amount) || amount <= 0) {
     return { ok: false, error: "Enter a valid bet amount." };
+  }
+  if (Math.trunc(amount) < MIN_STAKE) {
+    return { ok: false, error: MIN_STAKE_ERROR };
   }
 
   const user = await getBettingUser();
@@ -98,6 +103,9 @@ export async function placePickemCard(pickemId: number, picks: Record<number, nu
   }
   if (!Number.isFinite(amount) || amount <= 0) {
     return { ok: false, error: "Enter a valid card amount." };
+  }
+  if (Math.trunc(amount) < MIN_STAKE) {
+    return { ok: false, error: MIN_STAKE_ERROR };
   }
   const entries = Object.entries(picks);
   if (entries.length === 0 || entries.some(([, teamId]) => !Number.isInteger(teamId))) {

@@ -41,14 +41,16 @@ values
   ('NA1_SETTLE_2', 'alpha-2', 'Alpha', false, 'S99'), ('NA1_SETTLE_2', 'bravo-2', 'Bravo', true,  'S99'),
   ('NA1_SETTLE_3', 'alpha-3', 'Alpha', true,  'S99'), ('NA1_SETTLE_3', 'bravo-3', 'Bravo', false, 'S99');
 
+-- every stake and wallet scaled x25 off the original 10/20/10, so the
+-- settlement arithmetic below is the same one over place_bet's 250 floor
 create temp table settlement_users as
-select test_profile(100) as winner, test_profile(100) as loser, test_profile(100) as card_user;
+select test_profile(1000) as winner, test_profile(1000) as loser, test_profile(1000) as card_user;
 insert into public.betting_markets(event_id, team_a_id, team_b_id, status, game_at, lock_at, fixture_id)
 values (:'event_id', 9101, 9102, 'OPEN', now() + interval '1 hour', now() + interval '1 hour',
         '10000000-0000-0000-0000-000000000101')
 returning id \gset market_
-select place_bet((select winner from settlement_users), :'market_id', 9101, 10);
-select place_bet((select loser from settlement_users), :'market_id', 9102, 20);
+select place_bet((select winner from settlement_users), :'market_id', 9101, 250);
+select place_bet((select loser from settlement_users), :'market_id', 9102, 500);
 update public.betting_markets set status = 'LOCKED' where id = :'market_id';
 
 select public.settle_betting_market_from_stats(
@@ -70,9 +72,9 @@ select is((select status from public.betting_markets where id=:'market_id'), 'RE
 select is((select winning_team_id from public.betting_markets where id=:'market_id'), 9101::bigint, 'raw stats winner is stored');
 select is((select settlement_evidence #>> '{series_score,fixture_team_a}' from public.betting_markets where id=:'market_id'), '2', 'computed series score is stored');
 select is((select settlement_run_id from public.betting_markets where id=:'market_id'), '40000000-0000-0000-0000-000000000101'::uuid, 'automation run id is stored');
-select is((select balance from public.betting_profiles where discord_id=(select winner from settlement_users)), 120::bigint, 'existing market payout logic pays winner');
-select is((select balance from public.betting_profiles where discord_id=(select loser from settlement_users)), 80::bigint, 'loser keeps the existing loss behavior');
-select is((select payout from public.betting_bets where market_id=:'market_id' and team_id=9101), 30::bigint, 'winner payout is calculated by _resolve_market');
+select is((select balance from public.betting_profiles where discord_id=(select winner from settlement_users)), 1500::bigint, 'existing market payout logic pays winner');
+select is((select balance from public.betting_profiles where discord_id=(select loser from settlement_users)), 500::bigint, 'loser keeps the existing loss behavior');
+select is((select payout from public.betting_bets where market_id=:'market_id' and team_id=9101), 750::bigint, 'winner payout is calculated by _resolve_market');
 select is((select settled from public.betting_bets where market_id=:'market_id' and team_id=9102), true, 'loser bet is settled');
 select is((select count(*) from public.betting_profiles p where p.discord_id in (select winner from settlement_users union all select loser from settlement_users) and p.balance <> coalesce((select sum(delta) from public.betting_ledger l where l.discord_id=p.discord_id),0)), 0::bigint, 'wallet balances equal their ledgers');
 select is((select count(*) from public.betting_admin_audit where action='market_auto_resolve_stats' and target='betting_markets:'||:'market_id'), 1::bigint, 'automatic settlement uses the existing audit mechanism');
@@ -83,7 +85,7 @@ select public.settle_betting_market_from_stats(
   '40000000-0000-0000-0000-000000000102'
 ) as result \gset retry_
 select is(:'retry_result'::jsonb->>'status', 'already_resolved', 'retry is idempotent');
-select is((select balance from public.betting_profiles where discord_id=(select winner from settlement_users)), 120::bigint, 'retry does not pay twice');
+select is((select balance from public.betting_profiles where discord_id=(select winner from settlement_users)), 1500::bigint, 'retry does not pay twice');
 
 update public.raw_stats set win = false where match_id='NA1_SETTLE_1' and team_name='Alpha';
 select public.settle_betting_market_from_stats(
@@ -105,7 +107,7 @@ insert into public.betting_pickem_legs(pickem_id, market_id)
 values (:'pickem_id', :'market_id'), (:'pickem_id', :'cancelled_market_id');
 select place_pickem_card(
   (select card_user from settlement_users), :'pickem_id',
-  jsonb_build_object(:'market_id'::text, '9101', :'cancelled_market_id'::text, '9101'), 10
+  jsonb_build_object(:'market_id'::text, '9101', :'cancelled_market_id'::text, '9101'), 250
 );
 select throws_like(format('select resolve_pickem(%s)', :'pickem_id'), '%unresolved series%', 'unresolved pickem leg stays pending');
 select cancel_market_admin((select winner from settlement_users), :'cancelled_market_id');
@@ -114,8 +116,8 @@ select resolve_pickem(:'pickem_id');
 select is((select status from public.betting_pickems where id=:'pickem_id'), 'RESOLVED', 'final resolved leg resolves pickem');
 select is((select correct from public.betting_pickem_cards where pickem_id=:'pickem_id'), 1, 'cancelled leg is excluded from grading');
 select is((select settled from public.betting_pickem_cards where pickem_id=:'pickem_id'), true, 'pickem card is settled');
-select is((select payout from public.betting_pickem_cards where pickem_id=:'pickem_id'), 10::bigint, 'existing pickem payout logic is preserved');
-select is((select balance from public.betting_profiles where discord_id=(select card_user from settlement_users)), 100::bigint, 'pickem payout keeps the wallet ledger consistent');
+select is((select payout from public.betting_pickem_cards where pickem_id=:'pickem_id'), 250::bigint, 'existing pickem payout logic is preserved');
+select is((select balance from public.betting_profiles where discord_id=(select card_user from settlement_users)), 1000::bigint, 'pickem payout keeps the wallet ledger consistent');
 
 select * from finish();
 rollback;

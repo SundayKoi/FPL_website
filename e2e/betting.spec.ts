@@ -4,7 +4,7 @@ import { BETTING_MEMBER_EMAIL, BETTING_ADMIN_EMAIL, BETTING_PASSWORD } from "../
 
 /**
  * Markets betting, end to end against the real running app + local
- * Supabase: a member signs in, opens the seeded market, stakes 100 on the
+ * Supabase: a member signs in, opens the seeded market, stakes 250 on the
  * team an already-seeded loser bet 500 against — then a seeded admin
  * resolves the market for that team, and the member's payout/profit show up
  * on their profile.
@@ -23,8 +23,9 @@ import { BETTING_MEMBER_EMAIL, BETTING_ADMIN_EMAIL, BETTING_PASSWORD } from "../
  * than a flat refund (see _resolve_market in
  * 20260813000003_betting_market_rpcs.sql: an empty losing pool just refunds
  * everyone) — with rake 0, resolving for Betting FC pays the member
- * 100 (stake back) + 100 * 500 / 100 (100% of the solo-loser pool,
- * pro-rata over a solo winner) = 600, i.e. +500 profit.
+ * 250 (stake back) + 250 * 500 / 250 (100% of the solo-loser pool,
+ * pro-rata over a solo winner) = 750, i.e. +500 profit. The stake is the
+ * 250 floor place_bet enforces (20261016000001_betting_minimum_stake.sql).
  */
 
 const MEMBER_EMAIL = BETTING_MEMBER_EMAIL;
@@ -48,7 +49,7 @@ async function signOut(page: Page) {
 test("member bets, admin resolves, member's profile shows the payout", async ({ page }) => {
   execSync("npx tsx e2e/seed-betting.ts", { stdio: "inherit" });
 
-  // === Member: sign in, open the market, stake 100 on Betting FC ===========
+  // === Member: sign in, open the market, stake 250 on Betting FC ===========
   await signIn(page, MEMBER_EMAIL, "/betting");
 
   // Signup-bonus balance from the seed, formatted by fmtPoints ("$1,000").
@@ -61,12 +62,12 @@ test("member bets, admin resolves, member's profile shows the payout", async ({ 
   // Team A (Betting FC) is BetPanel's default side already, but select it
   // explicitly so the bet doesn't depend on that default staying true.
   await page.getByRole("button", { name: "BFC", exact: true }).click();
-  await page.locator("#bet-amount").fill("100");
+  await page.locator("#bet-amount").fill("250");
   await page.getByRole("button", { name: "BUY", exact: true }).click();
 
-  // Balance chip drops by the 100 stake ($1,000 -> $900) — proves the bet
+  // Balance chip drops by the 250 stake ($1,000 -> $750) — proves the bet
   // actually posted (place_bet's balance write), not just an optimistic UI.
-  await expect(page.getByText("$900", { exact: true })).toBeVisible();
+  await expect(page.getByText("$750", { exact: true })).toBeVisible();
 
   await signOut(page);
 
@@ -97,11 +98,11 @@ test("member bets, admin resolves, member's profile shows the payout", async ({ 
     return page.getByText(label, { exact: true }).locator("xpath=following-sibling::div[1]");
   }
 
-  // Balance: $1,000 - 100 (stake) + 600 (payout) = $1,500.
+  // Balance: $1,000 - 250 (stake) + 750 (payout) = $1,500.
   await expect(statValue("Balance")).toHaveText("$1,500");
-  // Record: one graded bet, and it won (payout 600 > stake 100).
+  // Record: one graded bet, and it won (payout 750 > stake 250).
   await expect(statValue("Record")).toHaveText("1W / 0L");
-  // Net profit, from the ledger (bet_place -100, bet_payout +600): $500.
+  // Net profit, from the ledger (bet_place -250, bet_payout +750): $500.
   await expect(statValue("Net profit")).toHaveText("$500");
   // Recent Settled row: "+$500" (unambiguous — nothing else on the page
   // renders a leading "+").

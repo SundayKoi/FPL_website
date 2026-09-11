@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import type { PickemData } from "@/lib/betting/types";
 import { PickemPanel } from "./PickemPanel";
+import { MIN_STAKE } from "@/lib/betting/stakes";
 
 const { placePickemCard } = vi.hoisted(() => ({ placePickemCard: vi.fn() }));
 vi.mock("@/lib/betting/actions", () => ({ placePickemCard }));
@@ -62,6 +63,20 @@ describe("PickemPanel", () => {
     await waitFor(() => expect(placePickemCard).toHaveBeenCalledWith(9, { 1: 11, 2: 14 }, 300));
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     expect(screen.getByText(/card placed/i)).toBeTruthy();
+  });
+
+  it("keeps submit disabled under the minimum stake, and shows the floor", () => {
+    render(<PickemPanel pickem={pickem} balance={1000} loggedIn />);
+
+    fireEvent.click(screen.getByRole("button", { name: "AAA" }));
+    fireEvent.click(screen.getByRole("button", { name: "DDD" }));
+    expect(screen.getByText(/min \$250/i)).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText(/card amount/i), { target: { value: String(MIN_STAKE - 1) } });
+    expect(lockInButton().disabled).toBe(true);
+
+    fireEvent.change(screen.getByLabelText(/card amount/i), { target: { value: String(MIN_STAKE) } });
+    expect(lockInButton().disabled).toBe(false);
   });
 
   it("surfaces a server error without refreshing", async () => {

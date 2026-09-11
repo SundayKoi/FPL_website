@@ -20,6 +20,7 @@ vi.mock("../service-client", () => ({
 // / `modalHandlers.betmodal = ...` registration (mirrors commands.ts's
 // registration side effect that commands.test.ts relies on the same way).
 import { componentHandlers, modalHandlers } from "./registry";
+import { MIN_STAKE_ERROR } from "../stakes";
 import type { DiscordInteraction } from "./registry";
 import "./components";
 
@@ -117,6 +118,15 @@ describe("bet amount modal (modalHandlers.betmodal)", () => {
     };
 
     expect(res.data.embeds[0].description).toContain("Enter a whole positive amount.");
+    expect(rpcImpl.current).not.toHaveBeenCalled();
+  });
+
+  it("rejects a stake under the minimum before calling any RPC", async () => {
+    const res = (await modalHandlers.betmodal(modalInteraction("249"))) as {
+      data: { embeds: Array<{ description: string }> };
+    };
+
+    expect(res.data.embeds[0].description).toContain(MIN_STAKE_ERROR);
     expect(rpcImpl.current).not.toHaveBeenCalled();
   });
 

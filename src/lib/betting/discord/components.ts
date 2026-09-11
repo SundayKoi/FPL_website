@@ -17,6 +17,7 @@ import "server-only";
 import { createBettingServiceClient } from "../service-client";
 import { fmtPoints } from "../format";
 import { friendlyPlaceBetError } from "../bet-errors";
+import { MIN_STAKE, MIN_STAKE_ERROR } from "../stakes";
 import { componentHandlers, modalHandlers } from "./registry";
 import type { DiscordInteraction } from "./registry";
 import { BRAND, GREEN, embed, errMsg, modal } from "./respond";
@@ -76,7 +77,7 @@ async function handleBetButton(interaction: DiscordInteraction): Promise<object>
     // max_length 12 — port of main.py's BetAmountModal TextInput
     // (bot/main.py:84): caps the raw input client-side so an absurdly long
     // digit string can't parse to Infinity/overflow before parseAmount runs.
-    { custom_id: "amount", label: "Amount", placeholder: "e.g. 500", max_length: 12 },
+    { custom_id: "amount", label: "Amount", placeholder: `e.g. 500 (min ${MIN_STAKE})`, max_length: 12 },
   ]);
 }
 
@@ -90,7 +91,9 @@ function modalAmountValue(interaction: DiscordInteraction): string {
 }
 
 /** Strips commas/`$` and requires an all-digit, positive amount — port of
- * main.py's BetAmountModal.on_submit parsing verbatim. */
+ * main.py's BetAmountModal.on_submit parsing verbatim. The stake floor is
+ * checked separately, so "under the minimum" reads differently from "not a
+ * number". */
 function parseAmount(raw: string): number | null {
   const cleaned = raw.trim().replace(/,/g, "").replace(/\$/g, "");
   if (!/^\d+$/.test(cleaned)) return null;
@@ -138,6 +141,9 @@ async function handleBetModalSubmit(interaction: DiscordInteraction): Promise<ob
   const amount = parseAmount(modalAmountValue(interaction));
   if (amount === null) {
     return errMsg("Enter a whole positive amount.");
+  }
+  if (amount < MIN_STAKE) {
+    return errMsg(MIN_STAKE_ERROR);
   }
 
   const service = createBettingServiceClient();

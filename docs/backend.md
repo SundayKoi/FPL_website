@@ -342,7 +342,13 @@ Important RPC families include:
 - Betting: `place_bet`, `cashout_bet`, lifecycle/lock functions, the admin
   create/resolve/cancel/grant functions, and the service-role-only
   `settle_betting_market_from_stats` RPC. Early `cashout_bet` is separate from
-  post-series settlement.
+  post-series settlement. `place_bet` and `place_pickem_card` both refuse a
+  stake under 250 betting dollars (`minimum stake is 250`) — per bet and per
+  card, for everyone, checked before the wallet is read so a short balance
+  still fails on balance. `src/lib/betting/stakes.ts` mirrors the number for
+  the bet panels, the server actions and the Discord stake modal; the
+  database stays the authority. Bets and cards placed before
+  `20261016000001_betting_minimum_stake.sql` are untouched.
 - Recurring rewards: `calculate_recurring_reward` is the shared database
   calculator used by `claim_daily_streak`, `claim_weekly_streak`,
   `vote_daily_banger`, `claim_daily_game_reward`, and `pay_match_win`. The wallet

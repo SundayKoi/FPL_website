@@ -48,21 +48,21 @@ select throws_like(
 create temp table s3 as select test_profile(1000) as u;
 create temp table s3m as select test_market((select event_id from fx),(select team_a from fx),(select team_b from fx), 0, interval '1 hour', 'LOCKED') as m;
 select throws_like(
-  format('select place_bet(%L,%s,%s,100)', (select u from s3), (select m from s3m), (select team_a from fx)),
+  format('select place_bet(%L,%s,%s,300)', (select u from s3), (select m from s3m), (select team_a from fx)),
   '%not open%', 'bet on non-open market rejected'
 );
 
 create temp table s4 as select test_profile(1000) as u;
 create temp table s4m as select test_market((select event_id from fx),(select team_a from fx),(select team_b from fx), 0, interval '-60 seconds', 'OPEN') as m;
 select throws_like(
-  format('select place_bet(%L,%s,%s,100)', (select u from s4), (select m from s4m), (select team_a from fx)),
+  format('select place_bet(%L,%s,%s,300)', (select u from s4), (select m from s4m), (select team_a from fx)),
   '%locked%', 'bet after lock_at rejected'
 );
 
 create temp table s5 as select test_profile(1000) as u;
 create temp table s5m as select test_market((select event_id from fx),(select team_a from fx),(select team_b from fx)) as m;
 select throws_like(
-  format('select place_bet(%L,%s,%s,100)', (select u from s5), (select m from s5m), (select other_team from fx)),
+  format('select place_bet(%L,%s,%s,300)', (select u from s5), (select m from s5m), (select other_team from fx)),
   '%not in market%', 'bet on team not in market rejected'
 );
 
@@ -106,13 +106,13 @@ select is((select balance from betting_profiles where discord_id=(select u1 from
 
 create temp table s9 as select test_profile(1000) as u;
 create temp table s9m as select test_market((select event_id from fx),(select team_a from fx),(select team_b from fx), 0, interval '1 hour', 'OPEN', true) as m;
-select place_bet((select u from s9),(select m from s9m), -1, 200);
+select place_bet((select u from s9),(select m from s9m), -1, 300);
 select is((select is_draw from betting_bets where discord_id=(select u from s9)), true, 'draw bet recorded is_draw');
 select is((select team_id from betting_bets where discord_id=(select u from s9)), null::bigint, 'draw bet has null team_id');
 
 create temp table s9off as select test_market((select event_id from fx),(select team_a from fx),(select team_b from fx), 0, interval '1 hour', 'OPEN', false) as m;
 select throws_like(
-  format('select place_bet(%L,%s,-1,100)', (select u from s9), (select m from s9off)),
+  format('select place_bet(%L,%s,-1,300)', (select u from s9), (select m from s9off)),
   '%no draw option%', 'draw bet rejected when draw_enabled=false'
 );
 select throws_like(
@@ -120,10 +120,12 @@ select throws_like(
   '%no draw option%', 'resolve_market_admin rejects draw winner on a non-draw market'
 );
 
+-- 750/250 keeps the old 3:1 draw split (and every balance below) at stakes
+-- that clear place_bet's 250 floor; the 400 losing pool is unchanged.
 create temp table s10 as select test_profile(1000) as d1, test_profile(1000) as d2, test_profile(1000) as ta;
 create temp table s10m as select test_market((select event_id from fx),(select team_a from fx),(select team_b from fx), 0, interval '1 hour', 'OPEN', true) as m;
-select place_bet((select d1 from s10),(select m from s10m), -1, 300);
-select place_bet((select d2 from s10),(select m from s10m), -1, 100);
+select place_bet((select d1 from s10),(select m from s10m), -1, 750);
+select place_bet((select d2 from s10),(select m from s10m), -1, 250);
 select place_bet((select ta from s10),(select m from s10m),(select team_a from fx), 400);
 select resolve_market_admin((select actor from act), (select m from s10m), -1);
 select is((select balance from betting_profiles where discord_id=(select d1 from s10)), 1300::bigint, 'draw pool splits pro-rata (d1)');
@@ -188,7 +190,7 @@ select is((select count(*) from betting_admin_audit where action='market_delete'
 
 create temp table s17 as select test_profile(1000) as u;
 create temp table s17m as select test_market((select event_id from fx),(select team_a from fx),(select team_b from fx)) as m;
-select place_bet((select u from s17),(select m from s17m),(select team_a from fx), 100);
+select place_bet((select u from s17),(select m from s17m),(select team_a from fx), 300);
 select throws_like(
   format('select delete_market_admin(%L,%s)', (select actor from act), (select m from s17m)),
   '%cancel it instead%', 'delete_market_admin refuses a market with bets'

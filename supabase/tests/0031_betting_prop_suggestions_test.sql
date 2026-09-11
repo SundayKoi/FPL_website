@@ -98,7 +98,7 @@ select is(
 -- ---- betting on the approved prop works like any market --------------------
 select lives_ok(
   format($$select place_bet('prop_member', %s,
-    (select team_a_id from betting_markets where id = %s), 100)$$,
+    (select team_a_id from betting_markets where id = %s), 300)$$,
     (select market_id from betting_prop_suggestions order by id limit 1),
     (select market_id from betting_prop_suggestions order by id limit 1)),
   'members can bet on an approved prop through the normal engine');

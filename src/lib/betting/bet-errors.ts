@@ -9,9 +9,12 @@
  * imported directly by a non-action module. No `"use server"` here — plain
  * shared code, importable from either side.
  */
+import { MIN_STAKE_ERROR } from "./stakes";
+
 export function friendlyPlaceBetError(message: string): string {
   if (/insufficient balance/i.test(message)) return "Insufficient balance.";
   if (/amount must be positive/i.test(message)) return "Enter a valid bet amount.";
+  if (/minimum stake/i.test(message)) return MIN_STAKE_ERROR;
   if (/no draw option/i.test(message)) return "This market has no draw option.";
   if (/not in market/i.test(message)) return "Invalid team selection.";
   if (/not open/i.test(message)) return "This market isn't open for betting.";

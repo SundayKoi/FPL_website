@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { BettingTeam } from "@/lib/betting/types";
 import { fmtPoints } from "@/lib/betting/format";
 import { projectedProfit } from "@/lib/betting/parimutuel";
+import { MIN_STAKE, MIN_STAKE_ERROR } from "@/lib/betting/stakes";
 import { TeamSideButton } from "./TeamSideButton";
 
 /** Sentinel "side" for a draw bet — matches the place_bet RPC's p_team=-1 convention. */
@@ -49,7 +50,10 @@ export function BetPanel({
   const profit = Math.floor(projectedProfit(amount, yourPool, opposingPool));
 
   const tooBig = amount > balance;
-  const disabled = !loggedIn || locked || amount <= 0 || tooBig;
+  // Typed something, but under the floor place_bet enforces. A bare 0 is
+  // the untouched field, not a mistake to shout about.
+  const tooSmall = amount > 0 && amount < MIN_STAKE;
+  const disabled = !loggedIn || locked || amount < MIN_STAKE || tooBig;
 
   return (
     <div className="rounded-lg border border-border-subtle bg-surface p-4">
@@ -75,14 +79,17 @@ export function BetPanel({
           </button>
         )}
       </div>
-      <label className="mt-4 block text-xs uppercase tracking-wide text-muted" htmlFor="bet-amount">
-        Amount
-      </label>
+      <div className="mt-4 flex items-baseline justify-between gap-2">
+        <label className="block text-xs uppercase tracking-wide text-muted" htmlFor="bet-amount">
+          Amount
+        </label>
+        <span className="text-xs text-muted">min {fmtPoints(MIN_STAKE)}</span>
+      </div>
       <input
         id="bet-amount"
         className="mt-1 w-full input-brand p-2"
         type="number"
-        min={0}
+        min={MIN_STAKE}
         max={balance}
         value={amount || ""}
         placeholder="0"
@@ -114,6 +121,7 @@ export function BetPanel({
         <span className="font-display font-bold not-italic text-mint">+{fmtPoints(profit)}</span>
       </div>
       {tooBig && <div role="alert" className="mt-2 text-xs text-red-400">Over balance</div>}
+      {tooSmall && <div role="alert" className="mt-2 text-xs text-red-400">{MIN_STAKE_ERROR}</div>}
       {error && <div role="alert" className="mt-2 text-xs text-red-400">{error}</div>}
       <button
         type="button"

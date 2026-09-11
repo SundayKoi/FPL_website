@@ -98,7 +98,7 @@ create temp table p1 as select create_pickem_admin(
 ) as pickem_id;
 create temp table u7 as select test_profile(1000) as u;
 create temp table picks1 as select jsonb_object_agg(market_id::text, team_a_id) as picks from legs1;
-select place_pickem_card((select u from u7), (select pickem_id from p1), (select picks from picks1), 200);
+select place_pickem_card((select u from u7), (select pickem_id from p1), (select picks from picks1), 300);
 select is((select perfect_pickems from betting_leaderboard where discord_id=(select u from u7)), 0::bigint, 'perfect_pickems is 0 before the pick''em resolves');
 select resolve_market_admin((select actor from act), market_id, team_a_id) from legs1;
 select resolve_pickem((select pickem_id from p1));

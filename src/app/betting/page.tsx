@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { fetchEventSummaries } from "@/lib/betting/queries";
+import { fmtPoints } from "@/lib/betting/format";
+import { MIN_STAKE } from "@/lib/betting/stakes";
 import type { EventSummary } from "@/lib/betting/types";
 
 export const metadata: Metadata = {
@@ -74,7 +76,11 @@ export default async function BettingIndexPage() {
             proportion to what they staked. The odds you see are the live split, and they move until the market locks.
           </li>
           <li>Each market locks at its game time. You can cash out an open bet before then at the current line.</li>
-          <li>Pick&apos;em is its own pool: stake what you like on a full card of calls, and the perfect cards split it.</li>
+          <li>Pick&apos;em is its own pool: stake on a full card of calls, and the perfect cards split it.</li>
+          <li>
+            Every stake has a {fmtPoints(MIN_STAKE)} minimum — the same floor on a market bet and a pick&apos;em card,
+            for everyone.
+          </li>
         </ul>
       </details>
 
