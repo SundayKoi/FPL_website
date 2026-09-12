@@ -8,35 +8,45 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# Repository-specific guidance
+# Working in this repository
 
-- Read [README.md](README.md) for setup, operations, and test commands.
-- Read [docs/backend.md](docs/backend.md) before changing database behavior,
-  authorization, realtime flows, betting, stats ingestion, or scheduled jobs.
-- Treat `supabase/migrations/` and `supabase/tests/` as the database source of
-  truth. Add forward migrations and matching pgTAP coverage; do not edit an
-  already-applied migration.
-- Use the correct Supabase boundary: browser/server anon clients for normal
-  user-scoped work, and the service-role client only in trusted server code or
-  scripts. Service-role keys must never reach client bundles.
-- UI access flags are presentation only. RLS, grants, and RPC checks must
-  enforce permissions and state transitions.
-- Preserve unrelated working-tree changes. Before claiming completion, run
-  the narrow relevant tests plus the broader checks documented in the README.
+FPL serves paired Premier and Academy leagues. Keep league/season isolation
+and server-enforced access intact when changing shared features.
 
-## Migration ordering and releases
+## Find the relevant context
 
-- New migration versions must be unique and sort after every migration on
-  the target branch and recorded in the deployment database. Recheck before
-  merging: today's timestamp can sort behind existing future-dated files.
-- Never edit, rename, or delete migrations already on the target branch or
-  applied to a shared database. Add a new forward migration for corrections.
-- CI checks committed migration history with
-  `node scripts/check-migrations.mjs <base-commit> [head-commit]`.
-- Before releasing database-dependent code, compare local and remote history,
-  review the migration dry run, apply backward-compatible migrations, and
-  verify required RPC signatures and permissions before deploying dependent
-  code. Failed migrations or unresolved history mismatches must block release.
-- Never mark a migration applied without verifying its SQL changes exist.
-  History repair does not execute SQL. Treat `--include-all` as a reviewed
-  recovery option; older migrations can overwrite newer definitions.
+- [README.md](README.md): setup, commands, and operations; use the relevant section.
+- [docs/backend.md](docs/backend.md): client/server boundaries and domain contracts;
+  read the affected sections for database, authorization, realtime, betting,
+  ingestion, or scheduled-job changes.
+- [docs/testing.md](docs/testing.md): checks appropriate to the change and local fixtures.
+- [docs/releases.md](docs/releases.md): migration ordering and database-dependent releases;
+  read when adding/reviewing migrations or preparing a release.
+- [CONTEXT.md](CONTEXT.md): terminology for daily games.
+- `docs/superpowers/`: dated plans and designs for historical context. Verify
+  their assumptions against current code; their workflow boilerplate does not
+  require skills, delegation, approval checkpoints, or task-by-task execution.
+
+## Constraints
+
+- Preserve unrelated working-tree changes.
+- Browser and cookie-bound server clients handle normal user-scoped work.
+  Service-role clients belong only in trusted server code/scripts, with caller
+  authorization at that boundary; keys must never reach client bundles.
+- UI access flags are presentation only. RLS, grants, and RPC checks enforce
+  permissions and state transitions. Keep shared-state and money transitions
+  atomic in their authoritative RPCs.
+- `supabase/migrations/` and `supabase/tests/` are the database source of truth.
+  Add forward migrations and matching pgTAP coverage. Never edit, rename, or
+  delete migrations on the target branch or applied to a shared database.
+- Failed migrations or unresolved local/remote history mismatches block release
+  of dependent code. History repair does not execute SQL.
+
+## Completion
+
+Carry the requested change through implementation and relevant verification,
+fixing failures it introduces. Routine local edits and checks do not need a
+separate approval. Use judgment for implementation choices; ask when missing
+information changes the intended result or a consequential action lacks authorization.
+Report the result, verification evidence, and any remaining blocker. A local
+implementation request does not itself authorize production operations.
