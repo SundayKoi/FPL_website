@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 const { fetchStaffTier, redirect, fetchAllCardSeasons, fetchCardEditionWeeks, fetchEditionCards } = vi.hoisted(() => ({
   fetchStaffTier: vi.fn(),
@@ -26,8 +26,6 @@ vi.mock("@/components/cards/PlayerCard3D", () => ({
 }));
 
 const ParallelsPreviewPage = (await import("./page")).default;
-
-afterEach(cleanup);
 
 const card = (name: string, overall: number, standout = false) =>
   ({ slug: name.toLowerCase(), name, overall, standout, tier: { key: "gold", label: "Gold" } }) as never;

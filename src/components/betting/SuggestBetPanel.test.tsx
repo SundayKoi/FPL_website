@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { suggestProp } = vi.hoisted(() => ({ suggestProp: vi.fn() }));
 vi.mock("@/lib/betting/actions", () => ({ suggestProp }));
@@ -9,10 +9,6 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
 import { SuggestBetPanel } from "./SuggestBetPanel";
 import type { PropSuggestion } from "@/lib/betting/types";
-
-afterEach(() => {
-  cleanup();
-});
 
 beforeEach(() => {
   suggestProp.mockReset().mockResolvedValue({ ok: true });

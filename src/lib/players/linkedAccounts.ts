@@ -1,4 +1,4 @@
-import { normalizePlayerName } from "./freeAgency";
+import { normalizePlayerName } from "./normalize";
 
 /**
  * Player OP.GG account links, keyed by normalized player name. Source: the

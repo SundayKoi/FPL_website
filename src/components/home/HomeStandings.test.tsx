@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import HomeStandings from "./HomeStandings";
 import type { HomeStandingTeam } from "@/lib/home/standings";
 
@@ -14,10 +14,6 @@ function team(name: string, nomination_position: number, division?: string | nul
     losses: 0,
   };
 }
-
-afterEach(() => {
-  cleanup();
-});
 
 describe("HomeStandings", () => {
   it("renders every featured team with an initial 0–0 record", () => {

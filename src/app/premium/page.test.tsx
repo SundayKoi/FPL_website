@@ -1,5 +1,5 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { premiumAccessMock, loadSnapshotMock, loadPaymentMock } = vi.hoisted(() => ({
   premiumAccessMock: vi.fn(),
@@ -31,8 +31,6 @@ beforeEach(() => {
   loadPaymentMock.mockResolvedValue("https://www.paypal.com/paypalme/DraftFPL");
   loadSnapshotMock.mockResolvedValue(emptySnapshot);
 });
-
-afterEach(() => cleanup());
 
 describe("PremiumPageView", () => {
   it("shows the official payment gate to signed-out visitors", async () => {

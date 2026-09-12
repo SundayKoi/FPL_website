@@ -1,5 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-import { execSync } from "node:child_process";
+import { expect, type Page } from "@playwright/test";
+import { seedFixture, signIn, test } from "./fixtures";
 import { BETTING_MEMBER_EMAIL, BETTING_ADMIN_EMAIL, BETTING_PASSWORD } from "../scripts/betting-fixture";
 
 /**
@@ -32,24 +32,16 @@ const ADMIN_EMAIL = BETTING_ADMIN_EMAIL;
 const PASSWORD = BETTING_PASSWORD;
 const MARKET_TITLE = "Betting FC vs Wager United";
 
-async function signIn(page: Page, email: string, redirect: string) {
-  await page.goto(`/login?redirect=${encodeURIComponent(redirect)}`);
-  await page.getByPlaceholder("email").fill(email);
-  await page.getByPlaceholder("password").fill(PASSWORD);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await page.waitForURL(redirect);
-}
-
 async function signOut(page: Page) {
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.waitForURL("/");
 }
 
 test("member bets, admin resolves, member's profile shows the payout", async ({ page }) => {
-  execSync("npx tsx e2e/seed-betting.ts", { stdio: "inherit" });
+  seedFixture("betting");
 
   // === Member: sign in, open the market, stake 100 on Betting FC ===========
-  await signIn(page, MEMBER_EMAIL, "/betting");
+  await signIn(page, MEMBER_EMAIL, PASSWORD, "/betting");
 
   // Signup-bonus balance from the seed, formatted by fmtPoints ("$1,000").
   await expect(page.getByText("$1,000", { exact: true })).toBeVisible();
@@ -71,7 +63,7 @@ test("member bets, admin resolves, member's profile shows the payout", async ({ 
   await signOut(page);
 
   // === Admin: sign in, resolve the market for the team the member backed ===
-  await signIn(page, ADMIN_EMAIL, "/admin/betting");
+  await signIn(page, ADMIN_EMAIL, PASSWORD, "/admin/betting");
 
   const marketRow = page.locator("li", { hasText: MARKET_TITLE });
   await expect(marketRow).toBeVisible();
@@ -86,7 +78,7 @@ test("member bets, admin resolves, member's profile shows the payout", async ({ 
   await signOut(page);
 
   // === Member again: profile shows the settled bet's payout/profit ========
-  await signIn(page, MEMBER_EMAIL, "/betting/profile");
+  await signIn(page, MEMBER_EMAIL, PASSWORD, "/betting/profile");
 
   // The profile page's stat boxes (ProfilePage's <StatBox>) render as a
   // label div immediately followed by a value div — scope each assertion to

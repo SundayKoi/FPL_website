@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import AdminBettingTabs from "./AdminBettingTabs";
 
 const usePathname = vi.fn<() => string>(() => "/admin/betting");
@@ -7,10 +7,6 @@ const usePathname = vi.fn<() => string>(() => "/admin/betting");
 vi.mock("next/navigation", () => ({
   usePathname: () => usePathname(),
 }));
-
-afterEach(() => {
-  cleanup();
-});
 
 describe("AdminBettingTabs", () => {
   it("links every betting admin section", () => {

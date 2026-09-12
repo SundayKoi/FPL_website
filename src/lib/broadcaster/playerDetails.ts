@@ -1,9 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cardPlayerKey, type PlayerCardData } from "@/lib/cards/build";
 import { fetchCurrentWeekCards } from "@/lib/cards/queries";
-import { normalizeCanonicalName } from "@/lib/players/canonicalMatch";
-import { linkedAccountUrls } from "@/lib/players/linkedAccounts";
-import { normalizeBasePlayerName } from "@/lib/players/normalize";
+import { playerAccountNames, riotIdKey, riotIdKeys } from "@/lib/players/accountNames";
+import { normalizePlayerName as nameKey } from "@/lib/players/normalize";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
 import type { PlayerAggRow } from "@/lib/stats/types";
 import type { ScoutRosterPlayer } from "@/lib/scouting/types";
@@ -15,45 +14,8 @@ export interface BroadcasterTurretRow {
   turret_kills: number | null;
 }
 
-function nameKey(name: string): string {
-  return normalizeCanonicalName(name);
-}
-
 function roleModeFor(role: ScoutRosterPlayer["role"]): string {
   return ({ top: "TOP", jungle: "JUNGLE", mid: "MIDDLE", adc: "BOTTOM", support: "UTILITY" })[role];
-}
-
-function linkedAccountNames(url: string): string[] {
-  try {
-    const parsed = new URL(url);
-    const multisearch = parsed.searchParams.get("summoners");
-    if (multisearch) return multisearch.split(",").map((account) => account.trim()).filter(Boolean);
-    const slug = decodeURIComponent(parsed.pathname.split("/").pop() ?? "");
-    const separator = slug.lastIndexOf("-");
-    return separator > 0 ? [`${slug.slice(0, separator)}#${slug.slice(separator + 1)}`] : [];
-  } catch {
-    return [];
-  }
-}
-
-function playerMatchNames(player: ScoutRosterPlayer): string[] {
-  return [
-    player.displayName,
-    ...linkedAccountUrls(player.displayName).flatMap(linkedAccountNames),
-    ...(player.opggUrl ? linkedAccountNames(player.opggUrl) : []),
-  ].filter(Boolean);
-}
-
-function riotIdKey(name: string, tag: string): string {
-  return `${normalizeBasePlayerName(name).replace(/\s+/g, "")}#${tag.trim().toLocaleLowerCase()}`;
-}
-
-function playerMatchRiotIds(player: ScoutRosterPlayer): Set<string> {
-  return new Set(playerMatchNames(player).flatMap((value) => {
-    const separator = value.lastIndexOf("#");
-    if (separator <= 0 || separator === value.length - 1) return [];
-    return [riotIdKey(value.slice(0, separator), value.slice(separator + 1))];
-  }));
 }
 
 function groupByName<T>(rows: T[], getName: (row: T) => string): Map<string, T[]> {
@@ -71,7 +33,7 @@ function selectStats(
   roleMode: string,
   player: ScoutRosterPlayer,
 ): PlayerAggRow | null {
-  const exactRiotIds = playerMatchRiotIds(player);
+  const exactRiotIds = riotIdKeys(playerAccountNames(player));
   const exactRows = allRows.filter((row) =>
     row.role_mode === roleMode && exactRiotIds.has(riotIdKey(row.summoner_name, row.tag)),
   );

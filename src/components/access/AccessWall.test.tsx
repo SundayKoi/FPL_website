@@ -1,8 +1,6 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import AccessWall from "./AccessWall";
-
-afterEach(cleanup);
 
 describe("AccessWall", () => {
   it("sends a signed-out visitor to sign in, back to where they were going", () => {

@@ -1,10 +1,8 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import { BRACKETS, RAKE_CAP_BIG_BLINDS, STACK_SIZE } from "@/lib/showdown/config";
 import { HAND_RANKS } from "@/lib/showdown/hands";
 import ShowdownRules from "./ShowdownRules";
-
-afterEach(cleanup);
 
 describe("the Showdown rulebook", () => {
   it("prints every hand in the evaluator's own order", () => {

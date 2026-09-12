@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FixtureRow } from "@/lib/schedule/types";
 import AdminPage from "./page";
 
@@ -93,8 +93,6 @@ beforeEach(() => {
   fetchAcademyDraftData.mockResolvedValue({ teams: [{ name: "Academy A" }, { name: "Academy B" }] });
   fetchLeagueSeasons.mockResolvedValue({ premier: "S5", academy: "A1" });
 });
-
-afterEach(() => cleanup());
 
 describe("AdminPage", () => {
   it("does not render the removed homepage write-up section", async () => {

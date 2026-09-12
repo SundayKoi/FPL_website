@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import CardsGallery from "./CardsGallery";
 
@@ -42,8 +42,6 @@ const cards = [
   makeCard("Commonly", "Support", 62),
   makeCard("Toplander", "Top", 71),
 ];
-
-afterEach(cleanup);
 
 describe("CardsGallery", () => {
   it("names both jobs of the card page on every chip", () => {

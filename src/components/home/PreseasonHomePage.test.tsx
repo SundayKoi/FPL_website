@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import PreseasonHomePage from "./PreseasonHomePage";
 
 vi.mock("@/lib/home/preseason", () => ({
@@ -30,8 +30,6 @@ vi.mock("@/lib/home/preseason", () => ({
     ],
   })),
 }));
-
-afterEach(() => cleanup());
 
 describe("PreseasonHomePage", () => {
   it("presents the draft briefing, budget preview, and available player pool", async () => {

@@ -1,5 +1,5 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const rows = [
   { id: 1, profile_id: "u1", body: "glhf 🔥", created_at: "2026-08-14T00:00:00Z" },
@@ -34,10 +34,6 @@ vi.mock("@/lib/supabase/client", () => ({
 }));
 
 import DraftChat from "./DraftChat";
-
-afterEach(() => {
-  cleanup();
-});
 
 beforeEach(() => {
   rpc.mockClear();

@@ -1,10 +1,8 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import ExpeditionMark from "./ExpeditionMark";
 import PlayerCard3D from "./PlayerCard3D";
-
-afterEach(cleanup);
 
 /** A plain player card, nothing stamped on it — the control for the
  *  integration cases below (same shape DrawLaurel.test.tsx uses). */

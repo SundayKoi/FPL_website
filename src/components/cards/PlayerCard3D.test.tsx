@@ -3,8 +3,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import PlayerCard3D from "./PlayerCard3D";
 
-afterEach(cleanup);
-
 const card: PlayerCardData = {
   slug: "7gen-na1",
   name: "7gen",

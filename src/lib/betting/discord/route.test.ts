@@ -10,8 +10,6 @@ vi.mock("server-only", () => ({}));
 import { POST } from "@/app/api/discord/interactions/route";
 import { autocompleteHandlers, commandHandlers, componentHandlers, modalHandlers } from "./registry";
 
-const ORIGINAL_ENV = { ...process.env };
-
 const toHex = (buf: ArrayBuffer): string =>
   Array.from(new Uint8Array(buf))
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -44,11 +42,11 @@ beforeEach(async () => {
   keyPair = await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]);
   const rawPublicKey = await crypto.subtle.exportKey("raw", keyPair.publicKey);
   publicKeyHex = toHex(rawPublicKey);
-  process.env = { ...ORIGINAL_ENV, DISCORD_PUBLIC_KEY: publicKeyHex };
-  delete process.env.DISCORD_REQUIRED_ROLE_ID;
+  vi.stubEnv("DISCORD_PUBLIC_KEY", publicKeyHex);
+  vi.stubEnv("DISCORD_REQUIRED_ROLE_ID", undefined);
 });
 afterEach(() => {
-  process.env = { ...ORIGINAL_ENV };
+  vi.unstubAllEnvs();
   for (const key of Object.keys(commandHandlers)) delete commandHandlers[key];
   for (const key of Object.keys(componentHandlers)) delete componentHandlers[key];
   for (const key of Object.keys(modalHandlers)) delete modalHandlers[key];
@@ -142,7 +140,7 @@ describe("POST /api/discord/interactions", () => {
   });
 
   it("never gates PING, even when a role is required and no member is attached", async () => {
-    process.env.DISCORD_REQUIRED_ROLE_ID = "role-1";
+    vi.stubEnv("DISCORD_REQUIRED_ROLE_ID", "role-1");
     const req = await signedRequest({ type: 1 });
 
     const res = await POST(req);
@@ -152,7 +150,7 @@ describe("POST /api/discord/interactions", () => {
   });
 
   it("returns 500 (not 401) when DISCORD_PUBLIC_KEY is missing", async () => {
-    delete process.env.DISCORD_PUBLIC_KEY;
+    vi.stubEnv("DISCORD_PUBLIC_KEY", undefined);
     const req = await signedRequest({ type: 1 });
 
     const res = await POST(req);
@@ -161,7 +159,7 @@ describe("POST /api/discord/interactions", () => {
   });
 
   it("denies a command from a member without the required role, ephemerally", async () => {
-    process.env.DISCORD_REQUIRED_ROLE_ID = "role-1";
+    vi.stubEnv("DISCORD_REQUIRED_ROLE_ID", "role-1");
     commandHandlers.ping = async () => ({ type: 4, data: { content: "should not run" } });
     const req = await signedRequest({
       type: 2,
@@ -182,7 +180,7 @@ describe("POST /api/discord/interactions", () => {
   });
 
   it("denies a DM (no member field) when a role is required", async () => {
-    process.env.DISCORD_REQUIRED_ROLE_ID = "role-1";
+    vi.stubEnv("DISCORD_REQUIRED_ROLE_ID", "role-1");
     commandHandlers.ping = async () => ({ type: 4, data: { content: "should not run" } });
     const req = await signedRequest({
       type: 2,
@@ -200,7 +198,7 @@ describe("POST /api/discord/interactions", () => {
   });
 
   it("allows a command from a member with the required role", async () => {
-    process.env.DISCORD_REQUIRED_ROLE_ID = "role-1";
+    vi.stubEnv("DISCORD_REQUIRED_ROLE_ID", "role-1");
     commandHandlers.ping = async () => ({ type: 4, data: { content: "pong" } });
     const req = await signedRequest({
       type: 2,
@@ -309,7 +307,7 @@ describe("POST /api/discord/interactions", () => {
     const unknown = await POST(await signedRequest({ type: 4, data: { name: "nope", options: [] }, member: { user: { id: "u1" }, roles: [] } }));
     expect(await unknown.json()).toEqual({ type: 8, data: { choices: [] } });
 
-    process.env.DISCORD_REQUIRED_ROLE_ID = "role-1";
+    vi.stubEnv("DISCORD_REQUIRED_ROLE_ID", "role-1");
     autocompleteHandlers.flex = async () => ({ type: 8, data: { choices: [{ name: "Doug", value: "doug-na1" }] } });
     const gated = await POST(await signedRequest({ type: 4, data: { name: "flex", options: [] }, member: { user: { id: "u1" }, roles: [] } }));
     expect(await gated.json()).toEqual({ type: 8, data: { choices: [] } });

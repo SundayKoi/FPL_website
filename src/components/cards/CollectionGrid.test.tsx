@@ -102,10 +102,7 @@ function cardsFor(name: string) {
   return screen.queryAllByRole("button", { name: new RegExp(`^${name} player card`) });
 }
 
-afterEach(cleanup);
-
 describe("CollectionGrid binder pins", () => {
-  afterEach(cleanup);
 
   it("pins the shelf's best copy and marks the ones already on display", () => {
     // Chaseworthy's best copy is #1; Commonly's is #4.
@@ -252,7 +249,6 @@ describe("CollectionGrid print numbers", () => {
 });
 
 describe("CollectionGrid paging", () => {
-  afterEach(cleanup);
 
   /** 70 players, one copy each — past the 60-cell page so the button shows. */
   const many: InventoryRow[] = Array.from({ length: 70 }, (_, index) =>
@@ -296,7 +292,6 @@ describe("CollectionGrid paging", () => {
     expect(screen.getByRole("button", { name: "Show more" })).toBeTruthy();
   });
 });
-
 
 describe("CollectionGrid select-to-dust", () => {
   afterEach(() => {

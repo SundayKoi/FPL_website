@@ -1,10 +1,9 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import SupportDevsPage from "./page";
 
 describe("SupportDevsPage", () => {
-  afterEach(cleanup);
 
   it("renders the standalone support page and PayPal destination", () => {
     render(<SupportDevsPage />);

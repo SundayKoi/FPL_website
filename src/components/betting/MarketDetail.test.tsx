@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { MarketDetailData } from "@/lib/betting/types";
 import { useMarketDetail } from "@/hooks/useMarketDetail";
 import { MarketDetail } from "./MarketDetail";
@@ -14,8 +14,6 @@ vi.mock("@/lib/betting/actions", () => ({
   cashoutBet: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-
-afterEach(cleanup);
 
 const market: MarketDetailData = {
   id: 7,

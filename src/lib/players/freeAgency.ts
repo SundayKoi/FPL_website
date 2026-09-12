@@ -4,7 +4,7 @@ import {
   type FreeAgencyCaptain,
   type FreeAgencyPlayer,
 } from "./freeAgencyData";
-import { PLAYER_NAME_ALIASES, normalizeBasePlayerName } from "./normalize";
+import { normalizePlayerName } from "./normalize";
 import { PLAYER_SEASONS, type RoleSection, type SeasonKey } from "./seasonData";
 import { ROLE_LABELS, ROLE_ORDER } from "@/lib/draft/types";
 
@@ -18,10 +18,7 @@ export type CanonicalPlayerPoolRow = {
   opgg_url: string | null;
 };
 
-export function normalizePlayerName(name: string): string {
-  const normalized = normalizeBasePlayerName(name);
-  return PLAYER_NAME_ALIASES[normalized] ?? normalized;
-}
+export { normalizePlayerName };
 
 export function isPlayerAvailableToCaptain(
   playerName: string,

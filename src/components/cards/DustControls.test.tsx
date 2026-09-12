@@ -1,5 +1,5 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import DustControls, { type DustCopy } from "./DustControls";
 
@@ -77,8 +77,6 @@ beforeEach(() => {
   dustCardAction.mockReset().mockResolvedValue({ ok: true, value: 10, balance: 1010 });
   refresh.mockReset();
 });
-
-afterEach(cleanup);
 
 describe("DustControls", () => {
   it("keeps the drawer shut until asked", () => {

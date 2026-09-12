@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import MyListings, { byOpenness, statusLabel, type MyListing } from "./MyListings";
 
 const { cancelListing } = vi.hoisted(() => ({ cancelListing: vi.fn() }));
@@ -41,8 +41,6 @@ beforeEach(() => {
   cancelListing.mockReset().mockResolvedValue({ ok: true });
   refresh.mockReset();
 });
-
-afterEach(cleanup);
 
 describe("statusLabel", () => {
   it("names the buyer on a sale — that is what the panel is read for", () => {

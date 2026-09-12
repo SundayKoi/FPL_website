@@ -1,10 +1,6 @@
-import { afterEach, describe, it, expect, vi } from "vitest";
-import { cleanup, render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { BetPanel } from "./BetPanel";
-
-afterEach(() => {
-  cleanup();
-});
 
 const teamA = { id: 1, name: "New Origins", short_code: "NOA", color: "#3b82f6", logo_url: null };
 const teamB = { id: 2, name: "DoV Twisted", short_code: "DOVT", color: "#ef4444", logo_url: null };

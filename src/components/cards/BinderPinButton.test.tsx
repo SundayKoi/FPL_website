@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { toggle } = vi.hoisted(() => ({
   toggle: vi.fn(async () => ({ ok: true as const, pinned: true })),
@@ -10,7 +10,6 @@ import BinderPinButton from "./BinderPinButton";
 
 describe("BinderPinButton", () => {
   beforeEach(() => toggle.mockClear());
-  afterEach(cleanup);
 
   it("pins a copy without asking which slot", async () => {
     render(<BinderPinButton inventoryId={7} pinned={false} playerName="Ari" />);

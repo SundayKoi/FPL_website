@@ -1,4 +1,5 @@
 import type { Acquisition, LolRole } from "@/lib/draft/types";
+import { normalizeBasePlayerName } from "@/lib/players/normalize";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchDraftId } from "./fetchDraftId";
 
@@ -32,17 +33,6 @@ export type PreseasonPlayer = {
   available: boolean;
   lockLabel: string | null;
 };
-
-function normalizePlayerName(name: string): string {
-  return name
-    .normalize("NFKC")
-    .trim()
-    .replace(/^captain:\s*/i, "")
-    .split("#")[0]
-    .trim()
-    .replace(/\s+/g, " ")
-    .toLocaleLowerCase();
-}
 
 export type PreseasonHomeData = {
   draftId: string | null;
@@ -110,11 +100,11 @@ export async function fetchPreseasonHomeData(): Promise<PreseasonHomeData> {
     opgg_url: string | null;
   }>);
   const canonicalById = new Map(canonicalPlayers.map((player) => [player.id, player]));
-  const canonicalByName = new Map(canonicalPlayers.map((player) => [normalizePlayerName(player.display_name), player]));
+  const canonicalByName = new Map(canonicalPlayers.map((player) => [normalizeBasePlayerName(player.display_name), player]));
 
   const playerMetadata = (player: (typeof players)[number]) =>
     (player.canonical_player_id ? canonicalById.get(player.canonical_player_id) : undefined) ??
-    canonicalByName.get(normalizePlayerName(player.display_name));
+    canonicalByName.get(normalizeBasePlayerName(player.display_name));
 
   return {
     draftId,

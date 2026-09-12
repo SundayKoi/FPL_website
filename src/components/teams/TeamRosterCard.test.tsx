@@ -1,10 +1,8 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { RosterTeamView } from "@/lib/draft/types";
 import { PLACEHOLDER_TEAMS } from "./placeholderTeams";
 import TeamRosterCard from "./TeamRosterCard";
-
-afterEach(cleanup);
 
 describe("TeamRosterCard", () => {
   it("renders the team image and no point or budget stats", () => {

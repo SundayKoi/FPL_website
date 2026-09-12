@@ -1,9 +1,7 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import GuessTheCardBoard from "./GuessTheCardBoard";
 import type { GuessTheCardGame, GuessTheCardReveal, GuessTheCardSubmission } from "@/lib/guess-the-card/server";
-
-afterEach(() => cleanup());
 
 const reveal: GuessTheCardReveal = {
   stage: "champion",

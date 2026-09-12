@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import WantsBoard, { byBounty, matchingCopies, type BoardWant } from "./WantsBoard";
 import type { TradeCardOption } from "./TradeBuilder";
 
@@ -52,8 +52,6 @@ beforeEach(() => {
   fillWant.mockReset().mockResolvedValue({ ok: true });
   refresh.mockReset();
 });
-
-afterEach(cleanup);
 
 describe("byBounty", () => {
   it("puts the biggest money first", () => {

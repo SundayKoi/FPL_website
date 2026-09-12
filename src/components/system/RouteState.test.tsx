@@ -1,8 +1,6 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { RouteErrorState, RouteLoadingState } from "./RouteState";
-
-afterEach(cleanup);
 
 describe("RouteLoadingState", () => {
   it("provides an accessible page-loading announcement", () => {

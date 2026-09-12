@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import BidControls from "./BidControls";
 
@@ -11,10 +11,6 @@ vi.mock("@/lib/supabase/client", () => ({
 const team = { id: "team-1", name: "Team 1", points_remaining: 30 } as never;
 const lot = { id: "lot-1", current_bid: 10, status: "open", leading_team_id: "team-2" } as never;
 const player = { id: "player-1", display_name: "Player 1", role: "top" } as never;
-
-afterEach(() => {
-  cleanup();
-});
 
 describe("BidControls", () => {
   it("submits the custom bid amount when the bid form is submitted", async () => {

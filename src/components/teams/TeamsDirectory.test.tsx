@@ -1,9 +1,7 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import { PLACEHOLDER_TEAMS } from "./placeholderTeams";
 import TeamsDirectory from "./TeamsDirectory";
-
-afterEach(cleanup);
 
 describe("TeamsDirectory", () => {
   it("groups teams by division in order and omits empty sections", () => {

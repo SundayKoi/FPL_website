@@ -1,5 +1,5 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import type { Draft, Player, Team } from "@/lib/draft/types";
 import DraftSetupPreview from "./DraftSetupPreview";
 
@@ -53,8 +53,6 @@ const assignedPlayer: Player = {
   price: 0,
   acquisition: "captain",
 };
-
-afterEach(cleanup);
 
 describe("DraftSetupPreview", () => {
   it("renders a read-only scheduled preview without draft controls", () => {

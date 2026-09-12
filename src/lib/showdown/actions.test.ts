@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { createTable } = vi.hoisted(() => ({ createTable: vi.fn() }));
 vi.mock("./server", async () => {
@@ -14,6 +14,8 @@ beforeEach(() => {
   createTable.mockReset();
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("the action adapters", () => {
   it("return a refusal as data, with the sentence the player needs", async () => {
