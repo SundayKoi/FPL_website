@@ -1,5 +1,9 @@
 # Domain glossary
 
+Use this reference for daily-game terminology. Current behavior and access gates
+are defined by the domain code and database migrations; verify mutable values
+there when changing a game. This file is not a required read for other work.
+
 ## Daily games
 
 - **Shared daily reward**: One 200-betting-dollar reward per member and UTC puzzle date, increased to 300 while the member's patron flame is active. Completing any enabled daily game—FPL'dle, Higher or Lower, or Guess the Card—claims it; completing another game later does not pay again.
