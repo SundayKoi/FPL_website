@@ -1615,6 +1615,22 @@ After a rename, re-run the **Archive card edition** workflow with "Rebuild
 every week" ticked: packs mint from `card_editions`, and a week archived while
 the identity was split holds two half-players.
 
+A coverage audit on 2026-09-14 found three tables the function had never been
+taught about, added after it shipped. `20261016000001` closes them:
+`card_print_runs` (the serial ledger — left behind, the next copy minted
+restarts at 1 and re-stamps a number a collector already holds, while every
+existing copy loses its denominator), `card_wants` (an open want on the old
+slug can never be filled), and `opgg_url` on both `player_pool` and `players`.
+The LEFTOVERS self-check now counts the first two, so a future miss reports a
+non-zero total instead of looking clean. Counters are **summed** on a merge,
+which is the only value no future stamp can collide with; copies minted before
+the merge can still share a serial, and the report says so rather than
+renumbering a card somebody is holding.
+
+When you add a table with a name, tag or slug in it, add it to `rename_player`
+in the same pull request. That is the whole contract — the function is only as
+good as the list inside it.
+
 `public.card_slug()` mirrors `cardSlug()` in `src/lib/cards/build.ts`. The two
 are pinned to one shared case table — the pgTAP suite owns it and
 `src/lib/cards/slugBridge.test.ts` reads those cases out of the `.sql` file
