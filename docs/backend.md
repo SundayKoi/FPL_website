@@ -1,9 +1,22 @@
 # Backend architecture
 
-This document is the short architectural map for agents working on the FPL
-League Platform. It describes the infrastructure that exists in this repo;
+This is a reference for FPL architecture and domain contracts. Read the sections
+relevant to the affected feature. It describes the infrastructure that exists in this repo;
 the migrations and source code are the final authority when this document and
 the implementation disagree.
+
+## Reference index
+
+- [Request and data boundaries](#request-and-data-boundaries)
+- [Authentication and authorization](#authentication-and-authorization)
+- [Database organization](#database-organization)
+- [Player identity and My Team](#player-identity-and-my-team)
+- [Realtime behavior](#realtime-behavior)
+- [Scheduled and trusted workflows](#scheduled-and-trusted-workflows)
+- [Common pitfalls](#common-pitfalls)
+
+Feature-specific contracts are under their named headings; search for the domain
+or RPC being changed rather than loading the whole reference.
 
 ## System shape
 
@@ -1661,27 +1674,12 @@ than the first. The existing controls still apply — `sync_fixture_score` write
 only while the fixture's score is null, and `/schedule`'s editor is the
 correction path.
 
-## Agent workflow by task type
+## Verification and rollout
 
-1. **UI or page change:** start in the route under `src/app/` and its nearby
-   component/domain folder. Follow existing server-vs-client boundaries and
-   add the focused Vitest/component test next to the implementation.
-2. **Business-rule change:** find the domain module in `src/lib/` and its
-   tests. If the rule protects shared state or money, confirm whether the
-   authoritative check belongs in a Postgres RPC as well.
-3. **Database or permission change:** inspect the latest related migration,
-   add a new migration and pgTAP test, then verify grants/RLS for anon,
-   authenticated, and service-role callers.
-4. **Realtime change:** inspect the subscription and initial-fetch path
-   together. Test reconnect/catch-up and the behavior of a second browser.
-5. **External or scheduled integration:** update the script/Edge Function,
-   its workflow/configuration, the required secret list, and a safe local
-   or unit test path.
-
-Before handing off, run the narrow tests first, then `npm run lint`, `npm test`,
-`npm run build`, and `npx supabase test db` when the change touches the
-database. Run `npm run e2e` for auction, betting, or other multi-browser
-flows when Docker/Supabase is available.
+Use [Testing](testing.md#choose-checks-by-change) for check selection and
+[Migration and release contracts](releases.md) for database rollout. For a
+business-rule change, trace the caller through its authorization boundary to
+the authoritative RPC; the domain sections above explain the relevant contracts.
 
 ## Common pitfalls
 
