@@ -15,6 +15,17 @@
 -- The LEFTOVERS self-check now counts the first two, so a rename that leaves
 -- either behind reports a non-zero total instead of looking clean.
 --
+-- Two more came out of rehearsing a real rename against a copy of the data:
+--
+--   player_pool      was matched on normalized_name alone, which is SUPPOSED
+--                    to hold the lowercased name. One row holds the tag
+--                    instead, and that player's profile was skipped in
+--                    silence. Now matched on the display name as well, and
+--                    normalized_name is repaired on the way past.
+--   opgg_url         a real op.gg link percent-encodes its spaces and does
+--                    not match the typed case, so the literal replace() never
+--                    fired. Matched with a case-insensitive regex instead.
+--
 -- Everything else is the 20260910000001 definition, verbatim.
 -- ---------------------------------------------------------------------------
 
@@ -29,6 +40,9 @@ declare
   v_display  text := p_new_name || '#' || p_new_tag;
   v_bad      bigint;
   v_n        bigint;
+  v_name_pat text;
+  v_tag_pat  text;
+  v_new_enc  text;
 begin
   if coalesce(trim(p_new_name), '') = '' or coalesce(trim(p_new_tag), '') = '' then
     raise exception 'The new name and tag are both required.';
@@ -111,28 +125,47 @@ begin
      and not exists (select 1 from public.player_identity_links l where l.player_pool_id = pp.id)
      and not exists (select 1 from public.players p where p.canonical_player_id = pp.id);
 
+  -- Matched on normalized_name OR the name half of display_name. The pool is
+  -- meant to hold the lowercased NAME in normalized_name, but it is not a
+  -- guarantee: at least one row holds the TAG instead, and matching on
+  -- normalized_name alone silently skips that player's profile entirely.
+  -- Writing normalized_name from the new name also repairs the row on its way
+  -- past. Tag-only renames still match, because display_name carries both.
   update public.player_pool
      set display_name = case when display_name like '%#%' then v_display else p_new_name end,
          normalized_name = lower(p_new_name)
-   where lower(normalized_name) = lower(p_old_name);
+   where lower(normalized_name) = lower(p_old_name)
+      or lower(trim(split_part(display_name, '#', 1))) = lower(p_old_name);
   get diagnostics v_n = row_count;
   return query select 'player_pool', 'renamed', v_n;
 
-  -- The profile link embeds the Riot ID. replace() is a no-op when the URL
-  -- was typed in some other shape, which is the safe failure here.
+  -- The profile link embeds the Riot ID, and a real one does not look like a
+  -- plain concatenation: op.gg percent-encodes spaces, a multisearch uses %23
+  -- for the hash, and the case rarely matches what was typed here. A literal
+  -- replace() misses all three, so this matches with a regex instead —
+  -- case-insensitively, with every space in the old name allowed to appear as
+  -- a space, %20 or +. The separator is captured and handed back unchanged so
+  -- a /summoners/ path keeps its hyphen and a multisearch keeps its %23.
+  -- Everything is regex-quoted first: names contain brackets and dots.
+  v_name_pat := regexp_replace(p_old_name, '([\\^$.|?*+()\[\]{}-])', '\\\1', 'g');
+  v_name_pat := replace(v_name_pat, ' ', '(?: |%20|\+)');
+  v_tag_pat  := regexp_replace(p_old_tag,  '([\\^$.|?*+()\[\]{}-])', '\\\1', 'g');
+  -- The replacement keeps the new name URL-safe in the same way op.gg does.
+  v_new_enc  := replace(p_new_name, ' ', '%20');
+
   update public.player_pool
-     set opgg_url = replace(replace(replace(opgg_url,
-           p_old_name || '-'   || p_old_tag, p_new_name || '-'   || p_new_tag),
-           p_old_name || '%23' || p_old_tag, p_new_name || '%23' || p_new_tag),
-           p_old_name || '#'   || p_old_tag, p_new_name || '#'   || p_new_tag)
-   where opgg_url is not null;
+     set opgg_url = regexp_replace(opgg_url,
+           v_name_pat || '(-|%23|#)' || v_tag_pat,
+           v_new_enc || '\1' || p_new_tag, 'gi')
+   where opgg_url is not null
+     and opgg_url ~* (v_name_pat || '(-|%23|#)' || v_tag_pat);
 
   update public.players
-     set opgg_url = replace(replace(replace(opgg_url,
-           p_old_name || '-'   || p_old_tag, p_new_name || '-'   || p_new_tag),
-           p_old_name || '%23' || p_old_tag, p_new_name || '%23' || p_new_tag),
-           p_old_name || '#'   || p_old_tag, p_new_name || '#'   || p_new_tag)
-   where opgg_url is not null;
+     set opgg_url = regexp_replace(opgg_url,
+           v_name_pat || '(-|%23|#)' || v_tag_pat,
+           v_new_enc || '\1' || p_new_tag, 'gi')
+   where opgg_url is not null
+     and opgg_url ~* (v_name_pat || '(-|%23|#)' || v_tag_pat);
 
   update public.players
      set display_name = case when display_name like '%#%' then v_display else p_new_name end

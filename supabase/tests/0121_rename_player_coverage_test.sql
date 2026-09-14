@@ -10,7 +10,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_betting_fixtures.sql.inc
-select plan(11);
+select plan(15);
 
 select test_profile(0) as wanter \gset
 select test_profile(0) as holder_a \gset
@@ -97,6 +97,37 @@ select is(
   (select count(*)::int from public.card_inventory
     where slug = public.card_slug('DupNew', 'EUW')),
   2, 'and both copies survive the merge — nothing is deleted to tidy the ledger');
+
+-- ==== rehearsing a real rename found two more =============================
+-- The pool is SUPPOSED to hold the lowercased name in normalized_name. One
+-- row holds the tag instead, and matching on normalized_name alone skipped
+-- that player's profile in silence — the exact shape of miss this function
+-- exists to prevent.
+insert into public.player_pool (id, season_key, display_name, normalized_name, role, opgg_url) values
+  ('81000000-0000-0000-0000-0000000000c1', 'S_ODD', '08 Mitsu Eclipse#Chime', 'chime', 'mid',
+   'https://op.gg/lol/summoners/na/08%20Mitsu%20Eclipse-Chime');
+
+select lives_ok(
+  $$ select * from public.rename_player('08 MITSU ECLIPSE', 'CHIME', 'Resolute', 'chime') $$,
+  'a name with spaces and a pool row keyed on the tag goes through');
+
+select is(
+  (select display_name from public.player_pool
+    where id = '81000000-0000-0000-0000-0000000000c1'),
+  'Resolute#chime', 'a pool row whose normalized_name held the TAG is still found');
+
+select is(
+  (select normalized_name from public.player_pool
+    where id = '81000000-0000-0000-0000-0000000000c1'),
+  'resolute', 'and normalized_name is repaired to the name on the way past');
+
+-- A real op.gg link percent-encodes its spaces and does not match the typed
+-- case, so a literal replace() never fired on it.
+select is(
+  (select opgg_url from public.player_pool
+    where id = '81000000-0000-0000-0000-0000000000c1'),
+  'https://op.gg/lol/summoners/na/Resolute-chime',
+  'the encoded, differently-cased profile link is rewritten and keeps its separator');
 
 select * from finish();
 rollback;
