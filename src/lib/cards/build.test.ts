@@ -22,6 +22,9 @@ const agg = (over: Partial<PlayerAggRow> = {}): PlayerAggRow => ({
   avg_dmg_share_pct: 25,
   avg_vision_per_min: 1,
   avg_solo_kills: 0.5,
+  total_kills: 40,
+  total_deaths: 20,
+  total_assists: 55,
   total_solo_kills: 5,
   total_plates: 10,
   total_doubles: 3,
@@ -604,7 +607,7 @@ describe("laning counts duelling, not just farm", () => {
       avg_kp_pct: 55, avg_dmg_per_min: 500, avg_dmg_share_pct: 25,
       avg_dmg_taken_per_min: 700, avg_cs_per_min: 7, avg_gold_per_min: 380,
       avg_cs_at_10: 60, avg_gold_at_10: 3200, avg_xp_at_10: 4200,
-      avg_vision_per_min: 1, avg_solo_kills: 0, total_solo_kills: 0,
+      avg_vision_per_min: 1, avg_solo_kills: 0, total_kills: 0, total_deaths: 0, total_assists: 0, total_solo_kills: 0,
       first_blood_involvements: 0, total_plates: 4, avg_game_duration: 30,
       ...over,
     }) as PlayerAggRow;

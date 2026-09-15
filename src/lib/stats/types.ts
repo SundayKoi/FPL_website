@@ -26,6 +26,9 @@ export interface PlayerAggRow {
   avg_dmg_share_pct: number;
   avg_vision_per_min: number;
   avg_solo_kills: number;
+  total_kills: number;
+  total_deaths: number;
+  total_assists: number;
   total_solo_kills: number;
   total_plates: number;
   total_doubles: number;
