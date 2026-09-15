@@ -1,0 +1,76 @@
+name: Settle betting markets from stats
+
+# Lifted out of "Ingest match reports" on 2026-09-15.
+#
+# It used to be that workflow's last step, which meant its exit code decided
+# that workflow's conclusion — and the whole of Tuesday's card chain gates on
+# that conclusion. Moment cards, the weekly card drop and the weekly draw all
+# read `workflow_run.conclusion == 'success'` from the ingest. So a betting
+# market that needed a human to look at it stopped cards from being minted at
+# all, silently, with nothing in the card workflows to say why they had not
+# run. That is what happened on 2026-09-15: five fixtures whose participants
+# no longer mapped to exactly one non-prop betting team turned the ingest red
+# and the cards never dropped.
+#
+# Settlement and card minting both depend on the ingest and on nothing else,
+# so they belong side by side rather than in a line. Now a settlement
+# conflict reds THIS workflow — loudly, on its own — and the cards carry on.
+#
+# It deliberately runs on EVERY completion of the ingest, success or not: the
+# ingester can finish some reports and fail others, and each fixture's own
+# evidence checks are the authority for its payout, not the ingester's exit
+# code. That was the reasoning behind the old `always() && !cancelled()`.
+#
+# It does NOT honour the `cascade` opt-out. A hand-run ingest unticks that box
+# to avoid re-posting to Discord and re-paying fantasy; settlement pays real
+# bets off evidence and is idempotent per market, so skipping it would leave
+# money unpaid for no benefit.
+
+on:
+  workflow_run:
+    workflows: ["Ingest match reports"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      fixture_id:
+        description: "Only inspect one fixture UUID. Blank = every eligible fixture."
+        type: string
+        default: ""
+      season:
+        description: "Only inspect one season (for example S5 or A5). Blank = all."
+        type: string
+        default: ""
+      dry_run:
+        description: "Derive and print settlements without writing markets, wallets or pick'ems"
+        type: boolean
+        default: false
+
+# Its own group, so a stuck settlement never blocks the ingest or the cards.
+concurrency:
+  group: settle-betting
+  cancel-in-progress: false
+
+jobs:
+  settle:
+    runs-on: ubuntu-latest
+    # secrets live in the repo's "Production" environment — a job only sees
+    # environment secrets when it declares the environment
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests python-dotenv
+      - name: Settle stats-verified betting markets and pick'ems
+        # Exit 2 is a real failure, exit 1 is a validation conflict a human
+        # needs to look at. Both red this workflow, and neither reaches the
+        # cards any more.
+        run: |
+          python scripts/settle-betting-from-stats.py \
+            ${{ inputs.fixture_id && format('--fixture-id {0}', inputs.fixture_id) || '' }} \
+            ${{ inputs.season && format('--season {0}', inputs.season) || '' }} \
+            ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
