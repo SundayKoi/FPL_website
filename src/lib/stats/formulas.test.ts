@@ -159,6 +159,19 @@ describe("combineSeasonRows", () => {
     expect(combined.kda).toBeCloseTo(5, 2);
   });
 
+  it("sums the season totals for kills, deaths and assists across seasons", () => {
+    // The point of the totals: "how many kills this season" must be a real
+    // count, not an average multiplied back up by a game count — which goes
+    // wrong the moment one row is missing.
+    const s1 = playerRow({ season: "S1", games: 5, total_kills: 31, total_deaths: 12, total_assists: 44 });
+    const s2 = playerRow({ season: "S2", games: 7, total_kills: 19, total_deaths: 20, total_assists: 61 });
+    const all = combineSeasonRows([s1, s2]);
+    expect(all.total_kills).toBe(50);
+    expect(all.total_deaths).toBe(32);
+    expect(all.total_assists).toBe(105);
+    expect(all.games).toBe(12);
+  });
+
   it("sums simple counting columns directly", () => {
     const s1 = playerRow({ season: "S1", games: 5, total_solo_kills: 3, total_doubles: 1, first_blood_involvements: 2 });
     const s2 = playerRow({ season: "S2", games: 5, total_solo_kills: 7, total_doubles: 2, first_blood_involvements: 1 });
@@ -477,6 +490,9 @@ function playerRow(overrides: Partial<PlayerAggRow> = {}): PlayerAggRow {
     avg_dmg_share_pct: 20,
     avg_vision_per_min: 1,
     avg_solo_kills: 1,
+    total_kills: 60,
+    total_deaths: 30,
+    total_assists: 90,
     total_solo_kills: 10,
     total_plates: 5,
     total_doubles: 1,
