@@ -599,7 +599,11 @@ describe("MatchDraftBoard", () => {
       });
     });
 
-    expect(screen.getByText(/waiting on RED/i)).toBeTruthy();
+    // findByText, not getByText: the waitFor above settles as soon as the RPC
+    // has been CALLED, but this banner only appears on the re-render after it
+    // resolves — a later tick. A synchronous assertion here races that render
+    // and failed intermittently in CI for exactly that reason.
+    expect(await screen.findByText(/waiting on RED/i)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /RED ready/i }));
 
     await waitFor(() => {

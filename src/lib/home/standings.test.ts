@@ -65,8 +65,8 @@ describe("fetchHomepageStandings", () => {
     // 2-1 is ONE series win, not two wins and a loss.
     await expect(fetchHomepageStandings()).resolves.toEqual({
       teams: [
-        { id: "team-1", name: "Alpha", abbreviation: "AL", nomination_position: 1, wins: 1, losses: 0, winrate_pct: 100, form: ["W"], next_opponent: null },
-        { id: "team-2", name: "Bravo", abbreviation: "BR", nomination_position: 2, wins: 0, losses: 1, winrate_pct: 0, form: ["L"], next_opponent: null },
+        { id: "team-1", name: "Alpha", abbreviation: "AL", nomination_position: 1, wins: 1, losses: 0, winrate_pct: 100, game_wins: 2, game_losses: 1, game_winrate_pct: 66.7, avg_win_minutes: undefined, form: ["W"], next_opponent: null },
+        { id: "team-2", name: "Bravo", abbreviation: "BR", nomination_position: 2, wins: 0, losses: 1, winrate_pct: 0, game_wins: 1, game_losses: 2, game_winrate_pct: 33.3, avg_win_minutes: undefined, form: ["L"], next_opponent: null },
       ],
       race: [],
     });
@@ -84,7 +84,7 @@ describe("fetchHomepageStandings", () => {
 
     await expect(fetchHomepageStandings()).resolves.toEqual({
       teams: [
-        { id: "team-1", name: "Alpha", abbreviation: "AL", nomination_position: 1, wins: 0, losses: 0, winrate_pct: 0, form: [], next_opponent: null },
+        { id: "team-1", name: "Alpha", abbreviation: "AL", nomination_position: 1, wins: 0, losses: 0, winrate_pct: 0, game_wins: 0, game_losses: 0, game_winrate_pct: 0, avg_win_minutes: undefined, form: [], next_opponent: null },
       ],
       race: [],
     });
@@ -223,5 +223,143 @@ describe("deriveSeriesStandings", () => {
     );
     expect(standings.map((t) => t.name)).toEqual(["Endless", "Alcatraz", "Wildcats"]);
     expect(standings[0].winrate_pct).toBe(100);
+  });
+});
+
+describe("deriveSeriesStandings tiebreakers", () => {
+  const roster = (...names: string[]) =>
+    names.map((name, index) => ({
+      id: `team-${name}`,
+      name,
+      abbreviation: name.slice(0, 3).toUpperCase(),
+      nomination_position: index + 1,
+    }));
+
+  /** One completed series. `a` beat `b` by the given game score. */
+  const series = (id: string, a: string, b: string, scoreA: number, scoreB: number) => ({
+    id,
+    season: "S5",
+    team_a: a,
+    team_b: b,
+    score_a: scoreA,
+    score_b: scoreB,
+  });
+
+  const order = (result: { name: string }[]) => result.map((team) => team.name);
+
+  it("puts a sweep above a grind on the same series record", () => {
+    // Both 1-0 in series. FUR won 2-0 (100% of games), ALC won 2-1 (67%).
+    // Alphabetically ALC came first, which is the bug being fixed.
+    const standings = deriveSeriesStandings(
+      [series("f1", "FUR", "VEX", 2, 0), series("f2", "ALC", "OBS", 2, 1)],
+      "S5",
+      roster("ALC", "FUR", "OBS", "VEX"),
+    );
+    expect(order(standings).slice(0, 2)).toEqual(["FUR", "ALC"]);
+  });
+
+  it("counts games inside the series, not just the series", () => {
+    const standings = deriveSeriesStandings(
+      [series("f1", "FUR", "VEX", 2, 0), series("f2", "ALC", "OBS", 2, 1)],
+      "S5",
+      roster("ALC", "FUR", "OBS", "VEX"),
+    );
+    const fur = standings.find((team) => team.name === "FUR")!;
+    const obs = standings.find((team) => team.name === "OBS")!;
+    expect([fur.game_wins, fur.game_losses, fur.game_winrate_pct]).toEqual([2, 0, 100]);
+    expect([obs.game_wins, obs.game_losses, obs.game_winrate_pct]).toEqual([1, 2, 33.3]);
+  });
+
+  it("falls to head-to-head when series record and game percentage are level", () => {
+    // Both end 1-1 in series and 3-3 in games; ALC beat FUR in their meeting.
+    const standings = deriveSeriesStandings(
+      [
+        series("f1", "ALC", "FUR", 2, 1),
+        series("f2", "FUR", "OBS", 2, 1),
+        series("f3", "VEX", "ALC", 2, 1),
+      ],
+      "S5",
+      roster("ALC", "FUR", "OBS", "VEX"),
+    );
+    const alc = standings.find((team) => team.name === "ALC")!;
+    const fur = standings.find((team) => team.name === "FUR")!;
+    expect([alc.wins, alc.losses, alc.game_winrate_pct]).toEqual([1, 1, 50]);
+    expect([fur.wins, fur.losses, fur.game_winrate_pct]).toEqual([1, 1, 50]);
+    expect(order(standings).indexOf("ALC")).toBeLessThan(order(standings).indexOf("FUR"));
+  });
+
+  it("resolves a three-way head-to-head cycle on the mini-league, not sort order", () => {
+    // A beat B, B beat C, C beat A — every pairwise comparison contradicts the
+    // next, so a pairwise comparator would return whatever order it started
+    // in. All three are 1-1 in series; the mini-league is 1-1 for each, so the
+    // tie survives head-to-head and the order must still be deterministic.
+    const fixtures = [
+      series("f1", "ALC", "FUR", 2, 1),
+      series("f2", "FUR", "VEX", 2, 1),
+      series("f3", "VEX", "ALC", 2, 1),
+    ];
+    const forwards = deriveSeriesStandings(fixtures, "S5", roster("ALC", "FUR", "VEX"));
+    const backwards = deriveSeriesStandings([...fixtures].reverse(), "S5", roster("VEX", "FUR", "ALC"));
+    expect(order(forwards)).toEqual(order(backwards));
+  });
+
+  it("uses the quickest average series win once head-to-head is level", () => {
+    // Neither has met the other, so the mini-league is neutral for both.
+    // FUR's win took 50 minutes, ALC's took 70.
+    const fixtures = [series("f1", "FUR", "VEX", 2, 0), series("f2", "ALC", "OBS", 2, 0)];
+    const minutes = new Map([
+      ["f1", 50],
+      ["f2", 70],
+    ]);
+    const standings = deriveSeriesStandings(fixtures, "S5", roster("ALC", "FUR", "OBS", "VEX"), minutes);
+    expect(order(standings).slice(0, 2)).toEqual(["FUR", "ALC"]);
+    expect(standings.find((team) => team.name === "FUR")!.avg_win_minutes).toBe(50);
+  });
+
+  it("sorts an unknown win time last rather than treating it as instant", () => {
+    const fixtures = [series("f1", "FUR", "VEX", 2, 0), series("f2", "ALC", "OBS", 2, 0)];
+    // Only ALC's series has a duration on record.
+    const standings = deriveSeriesStandings(
+      fixtures,
+      "S5",
+      roster("ALC", "FUR", "OBS", "VEX"),
+      new Map([["f2", 70]]),
+    );
+    expect(standings.find((team) => team.name === "FUR")!.avg_win_minutes).toBeUndefined();
+    expect(order(standings).slice(0, 2)).toEqual(["ALC", "FUR"]);
+  });
+
+  it("averages a team's series wins rather than summing them", () => {
+    const fixtures = [series("f1", "FUR", "VEX", 2, 0), series("f2", "FUR", "OBS", 2, 0)];
+    const standings = deriveSeriesStandings(
+      fixtures,
+      "S5",
+      roster("FUR", "OBS", "VEX"),
+      new Map([
+        ["f1", 50],
+        ["f2", 60],
+      ]),
+    );
+    expect(standings.find((team) => team.name === "FUR")!.avg_win_minutes).toBe(55);
+  });
+
+  it("ignores time from series the team lost", () => {
+    const fixtures = [series("f1", "FUR", "VEX", 2, 0), series("f2", "ALC", "FUR", 2, 0)];
+    const standings = deriveSeriesStandings(
+      fixtures,
+      "S5",
+      roster("ALC", "FUR", "VEX"),
+      new Map([
+        ["f1", 50],
+        ["f2", 90],
+      ]),
+    );
+    expect(standings.find((team) => team.name === "FUR")!.avg_win_minutes).toBe(50);
+  });
+
+  it("still lists a team that has not played at 0-0", () => {
+    const standings = deriveSeriesStandings([series("f1", "FUR", "VEX", 2, 0)], "S5", roster("FUR", "OBS", "VEX"));
+    const obs = standings.find((team) => team.name === "OBS")!;
+    expect([obs.wins, obs.losses, obs.game_wins, obs.game_losses]).toEqual([0, 0, 0, 0]);
   });
 });

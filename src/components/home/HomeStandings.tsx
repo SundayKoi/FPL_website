@@ -58,9 +58,22 @@ function StandingRow({
           />
         ) : null}
       </div>
-      {team.next_opponent ? (
+      {team.next_opponent || (team.game_wins ?? 0) + (team.game_losses ?? 0) > 0 ? (
         <p className="hidden pl-[1.75rem] pt-1 font-mono text-[11px] text-muted group-hover:block group-focus-visible:block">
-          <span className="text-league-accent">Next</span> vs {team.next_opponent}
+          {/* The game record is the first tiebreaker after the series record,
+              so two teams showing the same W-L are ordered on a number that
+              is otherwise nowhere on the page. */}
+          {(team.game_wins ?? 0) + (team.game_losses ?? 0) > 0 ? (
+            <span>
+              <span className="text-league-accent">Games</span> {team.game_wins}–{team.game_losses}
+              {team.next_opponent ? " · " : ""}
+            </span>
+          ) : null}
+          {team.next_opponent ? (
+            <span>
+              <span className="text-league-accent">Next</span> vs {team.next_opponent}
+            </span>
+          ) : null}
         </p>
       ) : null}
     </div>
