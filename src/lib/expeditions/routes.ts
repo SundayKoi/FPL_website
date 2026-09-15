@@ -1021,7 +1021,7 @@ export interface RoleCallDef {
 export const ROLE_CALLS: RoleCallDef[] = [
   { choice: "hold", role: "Top", label: "Hold the checkpoint", tease: `Camp, and nothing that can happen to a camper happens. +${Math.round(HOLD_LOOT * 100)}% loot. A Top's call, once a run.`, kind: "camp" },
   { choice: "scout", role: "Jungle", label: "Scout it first", tease: "Push at three-quarter risk, and whatever goes wrong lands on the Jungle. Once a run.", kind: "push" },
-  { choice: "roam", role: "Mid", label: "Roam for it", tease: "Push for half again the loot; the harm is rolled on two cards, not one. A Mid's call, once a run.", kind: "push" },
+  { choice: "roam", role: "Mid", label: "Roam for it", tease: "Push for 50% more loot; the harm is rolled on two cards, not one. A Mid's call, once a run.", kind: "push" },
   { choice: "kite", role: "Bot", label: "Kite it", tease: "Push for half the loot at a quarter of the risk. A Bot's call, once a run.", kind: "push" },
   { choice: "ward", role: "Support", label: "Ward the approach", tease: "Push with the lost and dead rolls halved. A Support's call, once a run.", kind: "push" },
 ];
@@ -1030,7 +1030,7 @@ export const ROLE_CALLS: RoleCallDef[] = [
 export const VETERAN_TEASE: Record<RoleCall, string> = {
   hold: `Veteran Top: +${Math.round(VETERAN_HOLD_LOOT * 100)}% instead.`,
   scout: "Veteran Jungle: half risk instead.",
-  roam: "Veteran Mid: three-quarters again the loot instead.",
+  roam: "Veteran Mid: 75% more loot instead.",
   kite: "Veteran Bot: an eighth of the risk instead.",
   ward: "Veteran Support: lost and dead rolls to a quarter.",
 };
@@ -1148,7 +1148,7 @@ export function forkOptions(
     {
       choice: "rally",
       label: "Rally the roster",
-      tease: `Push for double the loot at half again the risk. Three from one team.`,
+      tease: `Push for double the loot at 50% more risk. Three from one team.`,
       locked: !abilities.rally ? "Needs three cards from one roster." : null,
     },
   ];

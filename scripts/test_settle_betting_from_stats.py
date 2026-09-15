@@ -130,5 +130,39 @@ class SettlementDerivationTests(unittest.TestCase):
         self.assertEqual(first["source_match_ids"], ["M1", "M2", "M3"])
 
 
+class ConflictFlagResponseTests(unittest.TestCase):
+    """The response the RPC gives when a conflict is flagged on a RESOLVED market.
+
+    A market resolved BY HAND carries no settlement evidence, so the
+    automation never settled it and settle_betting_market_from_stats answers
+    already_resolved. Reading that as a failure is what made an ordinary week
+    exit 2 on 2026-09-15 — and because the card workflows gate on this
+    workflow's conclusion, a betting bookkeeping detail silently stopped
+    moment cards, the weekly drop and the draw from running at all.
+    """
+
+    def test_conflict_is_the_flag_being_recorded(self):
+        self.assertIsNone(MODULE.conflict_flag_failure({"status": "conflict", "market_id": 43}))
+
+    def test_already_resolved_is_a_hand_resolved_market_not_a_failure(self):
+        self.assertIsNone(MODULE.conflict_flag_failure({"status": "already_resolved", "market_id": 34}))
+
+    def test_a_genuinely_unexpected_status_still_fails_and_names_itself(self):
+        reason = MODULE.conflict_flag_failure({"status": "settled", "market_id": 35})
+        self.assertIsNotNone(reason)
+        self.assertIn("settled", reason)
+
+    def test_a_missing_status_fails_and_says_so(self):
+        reason = MODULE.conflict_flag_failure({"market_id": 46})
+        self.assertIsNotNone(reason)
+        self.assertIn("None", reason)
+
+    def test_a_non_mapping_response_is_not_judged(self):
+        # The RPC layer raises on a real transport error. Inventing a failure
+        # from a shape we did not expect to parse would be guessing.
+        for shape in (None, [], "ok", 200):
+            self.assertIsNone(MODULE.conflict_flag_failure(shape))
+
+
 if __name__ == "__main__":
     unittest.main()
