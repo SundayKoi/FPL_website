@@ -161,6 +161,13 @@ export default async function AdminPage() {
       href: "/admin/mutations",
     },
     {
+      label: "Season's End",
+      stat: "Regular-season honors",
+      statTone: "text-gold",
+      description: "Real season leaders, team achievements, meme inserts, record breakers, and cumulative season cards for Premier and Academy.",
+      href: "/admin/seasons-end",
+    },
+    {
       label: "Card overlays",
       stat: "Proposal preview",
       statTone: "text-gold",
