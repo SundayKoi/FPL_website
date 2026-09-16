@@ -49,8 +49,12 @@ function winnerNames(winner: AwardWinner): string[] {
 function decorateCard(card: PlayerCardData, award: SeasonAward, winner: AwardWinner): PlayerCardData {
   return {
     ...card,
-    archetype: award.title,
+    archetype: winner.title ?? award.title,
     motto: winner.detail ?? award.description,
+    ...(winner.champion ? {
+      signature: { champion: winner.champion, games: winner.championGames ?? card.signature?.games ?? 0 },
+      artSkin: 0,
+    } : {}),
     standout: false,
   };
 }
@@ -121,6 +125,7 @@ function AwardVisualCard({
   const unit = unitFor(award);
   const roster = cards[0]?.team?.slots.filter((slot) => slot.slug).map((slot) => slot.name) ?? [];
   const titleId = `title-${award.id}-${division ?? "global"}-${winnerIndex}`;
+  const title = winner.title ?? award.title;
 
   return (
     <article aria-labelledby={titleId} className={`${styles.card} ${styles[family]}`}>
@@ -133,7 +138,7 @@ function AwardVisualCard({
       <div className={styles.topline}><span>{season} · {league}</span>{division ? <DivisionMark division={division} /> : <span>REGULAR</span>}</div>
       <div className={styles.content}>
         <p className={styles.collection}>{familyLabel(award)}</p>
-        <h3 id={titleId} className={styles.title}>{award.title}</h3>
+        <h3 id={titleId} className={styles.title}>{title}</h3>
         <p className={styles.description}>{award.description}</p>
         <p className={styles.name}>{winner.name}</p>
         <div className={styles.value}>

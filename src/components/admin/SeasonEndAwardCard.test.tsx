@@ -72,4 +72,37 @@ describe("SeasonEndAwardCard", () => {
     expect(screen.getByLabelText("Solari division").textContent).toContain("☀");
     expect(screen.getByLabelText("Lunari division").textContent).toContain("☾");
   });
+
+  it("uses the assigned champion and per-champion title in the normal Season's End card", () => {
+    render(
+      <SeasonEndAwardCard
+        award={{
+          id: "best-of-champion",
+          title: "Best of Champion",
+          description: "One unique played champion per player.",
+          group: "Season stories",
+          scope: "player",
+          status: "ready",
+          winners: [{
+            name: "Alice#NA1",
+            team: "Wolves",
+            value: 88,
+            games: 6,
+            champion: "Azir",
+            championGames: 2,
+            title: "Best of Azir",
+            detail: "Azir · 2–0 · 2 games · 8.00 KDA",
+          }],
+        }}
+        season="S5"
+        league="premier"
+        index={0}
+        cards={[card]}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Best of Azir" })).toBeTruthy();
+    expect(screen.getByTestId("award-card-art").getAttribute("style")).toContain("Azir_0.jpg");
+    expect(screen.getByText("SEASON ARCHIVE")).toBeTruthy();
+  });
 });

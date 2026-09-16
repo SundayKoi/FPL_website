@@ -1,7 +1,7 @@
 # Season's End cards
 
 Open **Admin → Season's End** (`/admin/seasons-end`). Admins and owners can
-calculate all 60 accolade cards for either league and a selected season, plus
+calculate all 61 accolade cards for either league and a selected season, plus
 the normal cumulative Season Cards for contributors with more than five games.
 This is a read-only awards desk, not a collectible mint or a season-closing
 operation. The former `/admin/season-end` route redirects here for existing
@@ -13,6 +13,12 @@ statistic, evidence line and archive seal. Team honors use the roster-card data
 to choose a champion background when a complete team is available. Season Cards
 remain the ordinary cumulative player cards for contributors with more than
 five games.
+
+Best of Champion assigns one played champion to each player and one player to
+each champion, maximizing player coverage before the combined win-rate and
+role-relative performance score. Each assigned winner is rendered with its
+per-champion title and splash art inside the same Season's End archive-card
+layout; it does not use the separate cumulative Season Card layout.
 
 Player-only accolades are calculated separately inside Solari and Lunari, so
 each such accolade has one card per division. The card marks Solari with a sun

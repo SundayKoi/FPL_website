@@ -122,7 +122,7 @@ describe("season-end winners", () => {
   });
   it("keeps the configured cards visible, including the correctly named steal award", () => {
     const result = deriveSeasonEnd(season(), fixtures(), "S5", "premier");
-    expect(result.awards).toHaveLength(60);
+    expect(result.awards).toHaveLength(61);
     expect(result.awards.map((award) => award.title)).not.toEqual(expect.arrayContaining([
       "Opening Act",
       "Full Arsenal",
@@ -134,6 +134,21 @@ describe("season-end winners", () => {
       "Hot Streak",
     ]));
     expect(result.awards.find(a => a.id === "grand-theft-objective")?.description).toContain("not recorded");
+  });
+
+  it("assigns one played champion per player for Best of Champion", () => {
+    const champions = ["Ahri", "Azir", "Braum", "Caitlyn", "Darius", "Ekko", "Fiora", "Garen", "Jinx", "Lulu"];
+    const rows = season().map((row) => ({
+      ...row,
+      champion: champions[(row.summoner_name.startsWith("B") ? 5 : 0) + Number(row.summoner_name.slice(1))],
+    }));
+    const result = deriveSeasonEnd(rows, fixtures(), "S5", "premier");
+    const bestOf = result.awards.find((award) => award.id === "best-of-champion")!;
+
+    expect(bestOf.winners).toHaveLength(10);
+    expect(new Set(bestOf.winners.map((winner) => winner.playerKeys?.[0])).size).toBe(10);
+    expect(new Set(bestOf.winners.map((winner) => winner.champion)).size).toBe(10);
+    expect(bestOf.winners.every((winner) => winner.title === `Best of ${winner.champion}`)).toBe(true);
   });
 
   it("calculates singular-player accolades independently for Solari and Lunari", () => {

@@ -35,6 +35,7 @@ export const SEASON_AWARDS: AwardDefinition[] = [
   special("Season stories", "Late Bloomer", "Highest mean role-relative performance in the final chronological third of league games; at least three games in that window."),
   special("Season stories", "Metronome", "Lowest performance standard deviation, with mean score at least 60 and every game at least 40 (out of 100)."),
   special("Season stories", "Bloodline", "Longest consecutive run of appearances with at least one solo kill."),
+  special("Season stories", "Best of Champion", "One unique played champion assigned to each player, maximizing coverage before champion-specific performance."),
   metric("Season stories", "Lane Landlord", "Highest mean gold lead at 15 against the unique opposing-role player.", "gold_diff_15", "mean", "gold"),
   metric("Season stories", "Farm Gap", "Highest mean CS lead at 15 against the unique opposing-role player.", "cs_diff_15", "mean", "CS"),
   metric("Season stories", "Fast Starter", "Most games strictly ahead of the opposing role in gold at 10.", "ahead_10"),
