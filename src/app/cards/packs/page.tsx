@@ -8,7 +8,7 @@ import { weekNotices } from "@/lib/packs/weekNotices";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchPatronTenureDays } from "@/lib/patron/queries";
-import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardSeason, fetchEditionWeekInfo, type CardLeague, type EditionWeekInfo } from "@/lib/cards/queries";
 import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
 import {
   fetchChampionsWindow,
@@ -59,16 +59,21 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
 
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, league);
-  const [ownedSlugs, openCount, editionWeeks, dailyRip]: [string[], number, string[], DailyRipStatus] = season
+  const [ownedSlugs, openCount, editionWeekInfo, dailyRip]: [string[], number, EditionWeekInfo[], DailyRipStatus] = season
     ? await Promise.all([
         // Slugs, not the collection. The shop only asks "do I own this
         // player at all"; the shelf itself lives on its own tab.
         fetchOwnedSlugs(service, user.discordId, season),
         fetchPackOpenCount(service, user.discordId, season),
-        fetchCardEditionWeeks(service, season),
+        // Labelled rather than bare: the picker has to tell a weekly print
+        // from a send-off, and a vaulted send-off is not on sale at all —
+        // fetchEditionWeekInfo leaves those out, so the shop never offers a
+        // week the opener would refuse.
+        fetchEditionWeekInfo(service, season),
         fetchDailyRipStatus(service, user.discordId),
       ])
     : [[], 0, [], { left: 0, patron: false, flame: null }];
+  const editionWeeks = editionWeekInfo.map((info) => info.week);
   // The banners above the shop: an open Live Drops window and this week's
   // chase. The chase is pinned to the NEWEST edition, matching the week a
   // pack mints by default — and it is league-wide, so the academy shop
@@ -143,8 +148,10 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         // an inventory row's own slug answers without shipping the cards.
         ownedSlugs={ownedSlugs}
         // Every archived week stays on sale, so a card from an earlier week
-        // is always still obtainable.
+        // is always still obtainable — except a send-off, which shuts a
+        // fortnight after the finals and is already gone from this list.
         editionWeeks={editionWeeks}
+        editionWeekInfo={editionWeekInfo}
         dailyRipsLeft={dailyRip.left}
         patron={dailyRip.patron}
         flame={dailyRip.flame}

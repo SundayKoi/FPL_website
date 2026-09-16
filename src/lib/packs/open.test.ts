@@ -29,11 +29,19 @@ const { createBettingServiceClient } = vi.hoisted(() => ({ createBettingServiceC
 vi.mock("@/lib/betting/service-client", () => ({ createBettingServiceClient }));
 
 // The pool, the roll and the art are all somebody else's tested job — these
-// stubs pin them so the only thing moving in this suite is the money.
+// stubs pin them so the only thing moving in this suite is the money. The
+// three the Send-off vault turns on are hoisted so a test can steer them;
+// sendoff.ts itself stays real, so the vault rule under test is the rule.
+const { fetchCardEditionWeeks, fetchEditionCards, fetchSeasonFixtures } = vi.hoisted(() => ({
+  fetchCardEditionWeeks: vi.fn(async (): Promise<string[]> => ["2026-08-24"]),
+  fetchEditionCards: vi.fn(async () => [{ slug: "doug-na1" }]),
+  fetchSeasonFixtures: vi.fn(async (): Promise<unknown[]> => []),
+}));
 vi.mock("@/lib/cards/queries", () => ({
   fetchCardSeason: vi.fn(async () => "s4"),
-  fetchCardEditionWeeks: vi.fn(async () => ["2026-08-24"]),
-  fetchEditionCards: vi.fn(async () => [{ slug: "doug-na1" }]),
+  fetchCardEditionWeeks,
+  fetchEditionCards,
+  fetchSeasonFixtures,
   fetchCurrentWeekCards: vi.fn(async () => [{ slug: "doug-na1" }]),
   fetchWeekMoments: vi.fn(async () => []),
   // The roster-plate roll is a real CSPRNG draw against TEAM_PULL_CHANCE,
@@ -385,6 +393,68 @@ beforeEach(() => {
   rollPackFinishes.mockClear();
   rollDribb.mockReset();
   rollDribb.mockReturnValue(false);
+  fetchCardEditionWeeks.mockClear();
+  fetchCardEditionWeeks.mockResolvedValue(["2026-08-24"]);
+  fetchEditionCards.mockClear();
+  fetchEditionCards.mockResolvedValue([{ slug: "doug-na1" }]);
+  fetchSeasonFixtures.mockClear();
+  fetchSeasonFixtures.mockResolvedValue([]);
+});
+
+describe("the Send-off vault", () => {
+  /** The finals, long enough ago that the fortnight is up whatever day the
+   *  suite runs on. Its Eastern week is 2026-08-24. */
+  const finals = [{
+    stage: "finals",
+    team_a: "Storm",
+    team_b: "Ember",
+    score_a: 3,
+    score_b: 1,
+    scheduled_at: "2026-08-25T00:00:00.000Z",
+  }];
+
+  it("refuses a vaulted send-off week before anything is charged", async () => {
+    const shop = createShop();
+    fetchSeasonFixtures.mockResolvedValue(finals);
+
+    const result = await openPackFor("42", "premier", { requestedWeek: "2026-08-24" });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "That send-off edition is vaulted — what was pulled is all there will ever be.",
+    });
+    // The whole point of refusing here: no charge, no opening row, no mint.
+    expect(shop.rpc).not.toHaveBeenCalledWith("begin_card_pack_opening", expect.anything());
+  });
+
+  it("falls back to the newest week still on sale rather than shutting the shop", async () => {
+    // The newest archived week is whatever the drop last wrote, and a
+    // fortnight after the finals that is a send-off. Refusing an
+    // unqualified "open a pack" would close the shop for the off-season.
+    createShop();
+    fetchCardEditionWeeks.mockResolvedValue(["2026-08-24", "2026-08-17"]);
+    fetchSeasonFixtures.mockResolvedValue(finals);
+
+    const result = await openPackFor("42", "premier");
+
+    expect(result.ok).toBe(true);
+    expect(fetchEditionCards).toHaveBeenCalledWith(expect.anything(), "s4", "2026-08-17");
+  });
+
+  it("keeps selling a send-off week while the vault is open", async () => {
+    createShop();
+    // A semifinal in the week on sale, with the finals still ahead — the
+    // week is a send-off, and the fortnight has not started counting.
+    fetchSeasonFixtures.mockResolvedValue([
+      { ...finals[0], stage: "semifinals" },
+      { ...finals[0], scheduled_at: "2099-08-25T00:00:00.000Z" },
+    ]);
+
+    const result = await openPackFor("42", "premier", { requestedWeek: "2026-08-24" });
+
+    expect(result.ok).toBe(true);
+    expect(fetchEditionCards).toHaveBeenCalledWith(expect.anything(), "s4", "2026-08-24");
+  });
 });
 
 describe("openPackFor finishes", () => {

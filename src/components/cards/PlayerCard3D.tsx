@@ -45,6 +45,7 @@ import { dribbLabel, dribbLook } from "@/lib/cards/dribb";
 import type { OverlayMockup } from "@/lib/cards/overlayMockups";
 import { secretSerialLabel, stattrakLabel } from "@/lib/packs/rarities";
 import { gradeOf, isSlabbed, wearOf } from "@/lib/cards/wear";
+import { EXIT_LABELS, SENDOFF_META, type SendoffMark } from "@/lib/cards/sendoff";
 
 /** What an overlay mockup hands the renderer: the layers and the accent. */
 export type OverlayPreview = Pick<OverlayMockup, "front" | "back" | "chip" | "artEcho" | "ink" | "accent">;
@@ -66,6 +67,27 @@ interface CardStamp {
   /** The ledger's words. */
   label: string;
   detail: string | null;
+}
+
+/**
+ * The whole story of a send-off print, for its coin's hover. The mark
+ * carries the team and the series but not the opponent — it is a fact about
+ * this card, not about the fixture — so the line names the round the split
+ * ended in rather than who ended it. The Champion is the one team that did
+ * not fall, so it gets its own verb.
+ */
+function sendoffTitle(mark: SendoffMark): string {
+  const meta = SENDOFF_META[mark.stage];
+  const round = EXIT_LABELS[mark.exit];
+  const what =
+    mark.stage === "champion"
+      ? mark.series
+        ? `took the ${round} ${mark.series}`
+        : `won the ${round}`
+      : mark.series
+        ? `fell ${mark.series} in the ${round}`
+        : `went out in the ${round}`;
+  return `The Send-off — ${meta.line}. ${mark.team} ${what}.`;
 }
 
 /** A stamp coin: 20px, one glyph, its colour on the rim. */
@@ -289,6 +311,12 @@ function PlayerCardFace({
   // Every stamp this copy carries, in the order the strip and the back's
   // ledger both print them. One list so the two can never disagree.
   const stamps: CardStamp[] = [
+    // The Send-off leads the strip: it is what this print IS — the playoff
+    // edition the card was struck in — where every other coin is something
+    // that happened to the copy after it left the pack.
+    ...(card.sendoff
+      ? [{ key: "sendoff", testId: "sendoff-stamp", glyph: SENDOFF_META[card.sendoff.stage].glyph, accent: SENDOFF_META[card.sendoff.stage].accent, title: sendoffTitle(card.sendoff), label: "Send-off", detail: SENDOFF_META[card.sendoff.stage].label }]
+      : []),
     ...(card.live ? [{ key: "live", testId: "live-stamp", glyph: "●", accent: "#f87171", title: `Opened live — ${card.live.label}`, label: "Live", detail: card.live.label }] : []),
     ...(card.chase ? [{ key: "chase", testId: "chase-stamp", glyph: "★", accent: "#f5b62e", title: `First to the chase: ${card.chase.title}`, label: "Chase", detail: card.chase.title }] : []),
     ...(card.dribb
@@ -320,18 +348,28 @@ function PlayerCardFace({
       ? [{ key: "wounded", testId: "wounded", glyph: "✚", accent: "#fca5a5", title: `Wounded — benched from expeditions and the Gauntlet until ${woundedUntilLabel} ET`, label: "Wounded", detail: `until ${woundedUntilLabel} ET` }]
       : []),
   ];
+  // The Champion's send-off is the only print in the league that can wear
+  // the crimson-and-white-gold frame, and five of them exist per season, so
+  // it outranks Card of the Week the way Card of the Week outranks a tier.
+  // Eclipse still beats it: a one-of-one is rarer than a title. Every other
+  // send-off stage wears its ribbon and nothing more.
+  const championSendoff = card.sendoff?.stage === "champion";
   // Card of the Week outshines its tier: molten-gold animated frame.
   const frameClass = isEclipse
     ? "card-frame-eclipse"
-    : card.standout
-      ? "card-frame-standout"
-      : style.frameClass;
+    : championSendoff
+      ? "card-frame-champion"
+      : card.standout
+        ? "card-frame-standout"
+        : style.frameClass;
   const frameStyle = frameClass ? undefined : style.frame;
   const glowClass = isEclipse
     ? "card-glow-eclipse"
-    : card.standout
-      ? "card-glow-standout"
-      : style.glowClass ?? "";
+    : championSendoff
+      ? "card-glow-champion"
+      : card.standout
+        ? "card-glow-standout"
+        : style.glowClass ?? "";
   // The art the front tries, best first. Riot's centered crop is the one the
   // frame is designed around, but it's missing for a lot of otherwise valid
   // skins — the uncropped splash of the same skin beats falling all the way
@@ -735,6 +773,27 @@ function PlayerCardFace({
                 ) : null}
               </div>
             </div>
+            {card.sendoff ? (
+              // The send-off ribbon: how far the split got, said on the front
+              // where the tier banner has just said how good the player is.
+              // Above the Card of the Week pill when the card wears both —
+              // the edition names the card before the crown qualifies it.
+              <div data-testid="sendoff-ribbon" className="relative mt-1 flex flex-col items-center">
+                <span
+                  className="rounded-full border bg-black/70 px-3 py-0.5 text-[10px] font-black uppercase tracking-[0.22em]"
+                  style={{
+                    borderColor: `${SENDOFF_META[card.sendoff.stage].accent}b3`,
+                    color: SENDOFF_META[card.sendoff.stage].accent,
+                    textShadow: `0 0 10px ${SENDOFF_META[card.sendoff.stage].accent}99`,
+                  }}
+                >
+                  {SENDOFF_META[card.sendoff.stage].stamp}
+                </span>
+                <span className="text-[8px] font-bold uppercase tracking-[0.16em] text-white/75 [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]">
+                  {SENDOFF_META[card.sendoff.stage].line}
+                </span>
+              </div>
+            ) : null}
             {card.standout ? (
               <div className="relative mt-1 flex justify-center">
                 <span className="rounded-full border border-gold/70 bg-black/70 px-3 py-0.5 text-[10px] font-black uppercase tracking-[0.22em] text-gold [text-shadow:0_0_10px_rgb(245_182_46/0.8)]">

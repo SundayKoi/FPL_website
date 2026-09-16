@@ -3,7 +3,8 @@ import "server-only";
 import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import { fetchCardEditionWeeks, fetchCardSeason, fetchCurrentWeekCards, fetchEditionCards, fetchTeamIdentity, fetchWeekMoments, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardEditionWeeks, fetchCardSeason, fetchCurrentWeekCards, fetchEditionCards, fetchSeasonFixtures, fetchTeamIdentity, fetchWeekMoments, type CardLeague } from "@/lib/cards/queries";
+import { isPlayoffWeek, isSendoffVaulted } from "@/lib/cards/sendoff";
 import {
   CHAMPIONS_LOGO_PATH,
   CHAMPIONS_PACK_COST,
@@ -340,14 +341,37 @@ export async function openPackFor(
   // earlier changes nothing about the honest answer (a window closing
   // mid-pack keeps whichever side of the boundary the read landed on), and
   // it is read before the charge either way.
-  const [weeks, liveRowResult, signatures] = await timing.measure("pool_loading", () => Promise.all([
+  const [weeks, liveRowResult, signatures, fixtures] = await timing.measure("pool_loading", () => Promise.all([
     fetchCardEditionWeeks(service, season),
     service.from("league_settings").select("live_until, live_label").eq("id", 1).maybeSingle(),
     fetchSignatures(service),
+    // The bracket, for the Send-off vault below. In this batch rather than
+    // on its own because it costs nothing here and a round trip there —
+    // and it is still read before anything is charged, which is the part
+    // that matters.
+    fetchSeasonFixtures(service, season),
   ]));
-  const editionWeek = requestedWeek && weeks.includes(requestedWeek) ? requestedWeek : weeks[0] ?? null;
+  let editionWeek: string | null = requestedWeek && weeks.includes(requestedWeek) ? requestedWeek : weeks[0] ?? null;
   if (requestedWeek && !weeks.includes(requestedWeek)) {
     return { ok: false, error: "That week isn't available yet." };
+  }
+
+  // The Send-off vault. A playoff edition stays on sale for a fortnight
+  // after the finals and then shuts for good (src/lib/cards/sendoff.ts) —
+  // that deadline is the whole promise the edition is sold on, so it is
+  // enforced HERE, before the charge, rather than by leaving the week off
+  // the shop's picker and hoping nobody asks for it.
+  //
+  // Asking for a vaulted week is refused. Asking for NOTHING is not: the
+  // newest week is whatever the drop last archived, and once the finals are
+  // a fortnight old that is a send-off. Refusing an unqualified "open a
+  // pack" would shut the whole shop, so it falls back to the newest week
+  // still on sale.
+  if (editionWeek && isSendoffVaulted(fixtures, new Date()) && isPlayoffWeek(fixtures, editionWeek)) {
+    if (requestedWeek) {
+      return { ok: false, error: "That send-off edition is vaulted — what was pulled is all there will ever be." };
+    }
+    editionWeek = weeks.find((week) => !isPlayoffWeek(fixtures, week)) ?? null;
   }
 
   // The archive is what an edition pack mints from — that is what makes a

@@ -21,7 +21,7 @@ import { useCallback, useState, useSyncExternalStore, useTransition } from "reac
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
-import type { CardLeague } from "@/lib/cards/queries";
+import type { CardLeague, EditionWeekInfo } from "@/lib/cards/queries";
 import { CHAMPIONS_PACK_COST } from "@/lib/cards/champions";
 import { openChampionsPackAction, openDailyRipAction, openPackAction, setPatronFlameAction } from "@/lib/packs/actions";
 import { dustManyAction } from "@/lib/trades/actions";
@@ -51,11 +51,28 @@ async function measureOpen<T>(kind: "standard" | "daily" | "champions", task: ()
 }
 
 /** "Week 3 · Sep 8" — the week number counts up from the season's first
- *  archived edition, which is how players talk about them. */
+ *  archived edition, which is how players talk about them.
+ *
+ *  The fallback labeller, for callers that pass only `editionWeeks` (the
+ *  Discord flows and the older tests). A page that hands over
+ *  `editionWeekInfo` gets labels built server-side by fetchEditionWeekInfo,
+ *  which knows which weeks are send-offs and numbers the weekly prints
+ *  around them. */
 function editionLabel(week: string, number: number): string {
   const date = new Date(`${week}T12:00:00.000Z`);
   const when = date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
   return `Week ${number} · ${when}`;
+}
+
+/** "Sep 30" on the league's own clock — the vault shuts at an instant, and
+ *  rendering it in the viewer's zone would name a different day either side
+ *  of the date line (and disagree with the server's first paint). */
+function vaultDayLabel(closesAt: string): string {
+  return new Date(closesAt).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "America/New_York",
+  });
 }
 
 export default function PackShop({
@@ -65,6 +82,7 @@ export default function PackShop({
   openCount: initialOpenCount,
   ownedSlugs = [],
   editionWeeks = [],
+  editionWeekInfo,
   dailyRipsLeft = 0,
   patron = false,
   flame = null,
@@ -82,6 +100,12 @@ export default function PackShop({
    *  league whose first weekly drop hasn't run — the shop then just sells
    *  the current cards. */
   editionWeeks?: string[];
+  /** The same weeks, already labelled by the server (fetchEditionWeekInfo):
+   *  "Week 3 · Sep 8" for a weekly print, "Send-off · Finals" for a playoff
+   *  edition, with the date that edition's vault shuts. Preferred when it is
+   *  there; `editionWeeks` alone still works for callers that have no
+   *  fixtures to hand. */
+  editionWeekInfo?: EditionWeekInfo[];
   /** Every slug already in the collection — the overlay's NEW badges are the
    *  difference between this and what comes out of the pack. */
   ownedSlugs?: string[];
@@ -124,9 +148,20 @@ export default function PackShop({
   const [flameKey, setFlameKey] = useState<PatronFlameKey | null>(flame ? patronFlameOf(flame) : null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // The picker's rows, newest first. The server-labelled list wins when a
+  // page hands one over — it is the only one that knows a send-off from a
+  // weekly print, and which send-offs have vaulted; otherwise the weeks are
+  // numbered here exactly as they always were.
+  const weekOptions: EditionWeekInfo[] = editionWeekInfo
+    ?? editionWeeks.map((value, index) => ({
+      week: value,
+      label: editionLabel(value, editionWeeks.length - index),
+      sendoff: null,
+    }));
   // Defaults to the newest week; picking an older one re-mints that week
   // exactly, ratings and all.
-  const [week, setWeek] = useState(editionWeeks[0] ?? "");
+  const [week, setWeek] = useState(weekOptions[0]?.week ?? "");
+  const selectedEdition = weekOptions.find((option) => option.week === week) ?? null;
   // Which shelf the overlay's pack came off — "Open another" re-deals the
   // same kind, and the overlay quotes the right price for it.
   const [packKind, setPackKind] = useState<"standard" | "champions">("standard");
@@ -348,7 +383,7 @@ export default function PackShop({
             <span className="label-dash">Pack price</span>
             <span className="text-sm font-semibold text-white">{fmtPoints(packCost)}</span>
           </div>
-          {editionWeeks.length > 0 ? (
+          {weekOptions.length > 0 ? (
             <label className="flex flex-col gap-1 text-xs text-steel">
               Edition
               <select
@@ -357,12 +392,21 @@ export default function PackShop({
                 disabled={pending}
                 className="input-brand px-3 py-2 text-sm disabled:opacity-60"
               >
-                {editionWeeks.map((value, index) => (
-                  <option key={value} value={value}>
-                    {editionLabel(value, editionWeeks.length - index)}
+                {weekOptions.map((option) => (
+                  <option key={option.week} value={option.week}>
+                    {option.label}
                   </option>
                 ))}
               </select>
+              {/* A send-off is the one edition with a deadline, so the
+                  deadline goes where the choice is made. A native <option>
+                  renders one line of text, so the second line belongs under
+                  the picker, on the week that is actually selected. */}
+              {selectedEdition?.sendoff?.closesAt ? (
+                <span className="text-[11px] font-semibold text-gold">
+                  Vault shuts {vaultDayLabel(selectedEdition.sendoff.closesAt)}
+                </span>
+              ) : null}
             </label>
           ) : null}
         </div>

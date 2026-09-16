@@ -12,6 +12,14 @@
 import { fetchAllPages } from "@/lib/supabase/pagination";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { mondayOf } from "@/lib/packs/week";
+import {
+  exitsInWeek,
+  isPlayoffWeek,
+  isSendoffVaulted,
+  sendoffVaultClosesAt,
+  sendoffWeekLabel,
+  type SendoffFixture,
+} from "./sendoff";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
 import { aggregateWeeklyPlayerRows, type WeeklyRawStatRow } from "@/lib/stats/weekly";
 import type { GameLogRow, PlayerAggRow, RecordRow } from "@/lib/stats/types";
@@ -363,6 +371,25 @@ export async function fetchLatestGameWeek(supabase: SupabaseClient, season: stri
 }
 
 /**
+ * The season's playoff-relevant fixture rows — everything sendoff.ts reads.
+ *
+ * Both leagues' fixtures carry the same season code as their cards, so this
+ * is league-agnostic like the rest of the pipeline. Returns [] on error: for
+ * every reader but the edition builder a fixture is garnish (it decides
+ * which rating basis a live surface shows, and the season build is the safe
+ * answer), and the builder checks the read separately before it prints an
+ * edition off it.
+ */
+export async function fetchSeasonFixtures(supabase: SupabaseClient, season: string): Promise<SendoffFixture[]> {
+  const { data, error } = await supabase
+    .from("fixtures")
+    .select("stage, team_a, team_b, score_a, score_b, scheduled_at")
+    .eq("season", season);
+  if (error) return [];
+  return ((data as SendoffFixture[]) ?? []);
+}
+
+/**
  * The cards as this week's drop rates them — the live view everywhere a
  * card is shown.
  *
@@ -380,6 +407,15 @@ export async function fetchLatestGameWeek(supabase: SupabaseClient, season: stri
 export async function fetchCurrentWeekCards(supabase: SupabaseClient, season: string): Promise<PlayerCardData[]> {
   const week = await fetchLatestGameWeek(supabase, season);
   if (!week) return fetchSeasonCards(supabase, season);
+  // During the bracket, the week's cohort is whoever is still in it — 40
+  // people, then 20, then 10 — and rating a finalist against the nine other
+  // people who played the final is how a runner-up ends up with a bad card
+  // for reaching the final. So the hub, browse, compare, the teams page and
+  // the homepage all show the season build through the playoffs: the whole
+  // collection, rated against the whole league. The archive for such a week
+  // is a Send-off (src/lib/cards/sendoff.ts), which is season-rated for the
+  // same reason.
+  if (isPlayoffWeek(await fetchSeasonFixtures(supabase, season), week)) return fetchSeasonCards(supabase, season);
   const cards = await fetchWeekCards(supabase, season, week);
   // A week that ingested no usable rows would otherwise blank every card
   // surface at once; the season build is a worse answer than the week's,
@@ -596,6 +632,70 @@ export async function fetchCardEditionWeeks(
   }
 
   return [...weeks];
+}
+
+export interface EditionWeekInfo {
+  week: string;
+  /** What the shop calls it: "Week 3 · Sep 8", or "Send-off · Finals". */
+  label: string;
+  /** Set on a send-off week. `closesAt` is when the whole send-off vault
+   *  shuts (ISO), or null while the finals have no date yet. */
+  sendoff: { closesAt: string | null } | null;
+}
+
+/** "Sep 8" — the edition's Monday, formatted as UTC. The stored week is a
+ *  plain calendar date, so letting a local timezone parse it would slide a
+ *  chunk of the world back a day and name the wrong print run. */
+function weekDayLabel(week: string): string {
+  return new Date(`${week}T12:00:00.000Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/**
+ * Every archived week on sale, newest first, labelled for the shop's picker.
+ *
+ * Two kinds of week: a weekly print, numbered ("Week 3 · Sep 8") counting
+ * only the weekly prints, so a send-off in the middle of the season does not
+ * push the numbering out of step with how people talk about the weeks; and a
+ * send-off, named by its round ("Send-off · Finals").
+ *
+ * VAULTED send-off weeks are left out entirely — they are not on sale, and
+ * offering a week the opener refuses is worse than not offering it.
+ *
+ * Deliberately no per-week card read: whether a week is a send-off is a
+ * question about FIXTURES, and a select over card_editions' json for twenty
+ * weeks to answer it would cost the shop a page load.
+ */
+export async function fetchEditionWeekInfo(
+  supabase: SupabaseClient,
+  season: string,
+  now: Date = new Date(),
+): Promise<EditionWeekInfo[]> {
+  const [weeks, fixtures] = await Promise.all([
+    fetchCardEditionWeeks(supabase, season),
+    fetchSeasonFixtures(supabase, season),
+  ]);
+  const vaulted = isSendoffVaulted(fixtures, now);
+  const closesAt = sendoffVaultClosesAt(fixtures);
+
+  // Oldest first so the weekly numbering counts up the way the season ran.
+  const ordered = [...weeks].sort();
+  let weeklyNumber = 0;
+  const rows: EditionWeekInfo[] = [];
+  for (const week of ordered) {
+    const sendoffLabel = isPlayoffWeek(fixtures, week) ? sendoffWeekLabel(exitsInWeek(fixtures, week)) : null;
+    if (sendoffLabel) {
+      if (vaulted) continue;
+      rows.push({ week, label: sendoffLabel, sendoff: { closesAt } });
+      continue;
+    }
+    weeklyNumber += 1;
+    rows.push({ week, label: `Week ${weeklyNumber} · ${weekDayLabel(week)}`, sendoff: null });
+  }
+  return rows.reverse();
 }
 
 /**
