@@ -53,6 +53,7 @@ describe("BestOfChampionCard", () => {
 
     expect(screen.getByRole("heading", { name: "Best of Azir" })).toBeTruthy();
     expect(screen.getByTestId("best-of-card-art").getAttribute("style")).toContain("Azir_0.jpg");
+    expect(screen.getByTestId("best-of-card-art").getAttribute("style")).toContain("/champion/centered/Azir_0.jpg");
     expect(screen.getByTestId("best-of-card-art").getAttribute("style")).toContain("background-size: cover");
     expect(screen.getByTestId("best-of-card-foil")).toBeTruthy();
     expect(screen.getByTestId("best-of-card-ornament").getAttribute("aria-hidden")).toBe("true");

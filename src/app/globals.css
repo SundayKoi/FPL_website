@@ -3662,6 +3662,815 @@ body {
   .card-ov-dribb-aether-ring::before, .card-ov-dribb-aether-leak, .card-ov-dribb-aether-rift::before, .card-ov-dribb-aether-nebula, .card-ov-dribb-aether-glass { animation: none; }
 }
 
+/* ── The Send-off looks. ────────────────────────────────────────────────
+   Six prototypes for the playoff print (src/lib/cards/sendoffLooks.ts),
+   drawn on real cards on /admin/sendoff through PlayerCard3D's `overlay`
+   prop. Mockups only: no minted copy can reach these layers, and when the
+   league picks one it becomes the treatment `card.sendoff` turns on.
+
+   A layer is a bare <div> with a class on it, so its text can only be
+   static and its ladder can only be a custom property. Two shared families
+   carry the stage in, set on the SAME element as the look's own class:
+
+     card-ov-so-word-<stage>   the stamp word, as ::before content
+     card-ov-so-rung-<stage>   --so-fill  how far up the ladder, 0-100%
+                               --so-crown 1 on the Champion, else 0
+
+   The metal of the ladder — pewter, bronze, silver, gold — arrives as
+   --ov-accent from the stage's accent, which is the shipped stamp's own
+   colour, so a mockup and the ribbon under it can never disagree. */
+
+@utility card-ov-so-word-gauntlet { &::before { content: "GAUNTLET"; } }
+@utility card-ov-so-word-quarterfinalist { &::before { content: "QUARTERFINALIST"; } }
+@utility card-ov-so-word-semifinalist { &::before { content: "SEMIFINALIST"; } }
+@utility card-ov-so-word-finalist { &::before { content: "FINALIST"; } }
+@utility card-ov-so-word-champion { &::before { content: "CHAMPION"; } }
+
+@utility card-ov-so-rung-gauntlet { --so-fill: 18%; --so-crown: 0; }
+@utility card-ov-so-rung-quarterfinalist { --so-fill: 38%; --so-crown: 0; }
+@utility card-ov-so-rung-semifinalist { --so-fill: 58%; --so-crown: 0; }
+@utility card-ov-so-rung-finalist { --so-fill: 78%; --so-crown: 0; }
+@utility card-ov-so-rung-champion { --so-fill: 100%; --so-crown: 1; }
+
+/* ── 1. Newsprint — the match-day programme. ──────────────────────────── */
+
+/* The page: a cream gutter all the way round, a fibre grain, and a paper
+   tint held to 10% so the card's own name, labels and numbers stay white
+   on their own dark ground. The PAPER proper is the furniture — the
+   masthead, the photo block and the stub — not a wash over the face. */
+@utility card-ov-so-newsprint {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background-image:
+    repeating-linear-gradient(94deg, rgb(150 138 114 / 0.07) 0 1px, rgb(0 0 0 / 0) 1px 4px),
+    repeating-linear-gradient(3deg, rgb(150 138 114 / 0.05) 0 1px, rgb(0 0 0 / 0) 1px 7px),
+    linear-gradient(180deg, rgb(233 227 210 / 0.1), rgb(226 218 198 / 0.1));
+  box-shadow:
+    inset 0 0 0 7px #e9e3d2,
+    inset 0 0 0 8px rgb(62 54 40 / 0.6),
+    inset 0 0 18px 8px rgb(92 78 56 / 0.25);
+}
+
+/* The photograph, as a newspaper prints one: a block ruled off the page,
+   the ink screened into dots, the paper strongest at the top of the
+   picture and gone by the time it reaches the name. */
+@utility card-ov-so-newsprint-screen {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  top: 78px;
+  height: 140px;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgb(22 19 13 / 0.56) 0 0.78px, rgb(0 0 0 / 0) 1.12px),
+    linear-gradient(180deg,
+      rgb(236 230 214 / 0.3) 0 38%,
+      rgb(236 230 214 / 0.2) 60%,
+      rgb(236 230 214 / 0.06) 82%,
+      rgb(236 230 214 / 0) 100%);
+  background-size: 3px 3px, 100% 100%;
+  box-shadow: inset 0 0 0 1px rgb(233 227 210 / 0.45);
+}
+
+/* The masthead, with a bite taken out of it for the rating ring so the
+   one number the card is rated on is not printed over. */
+@utility card-ov-so-newsprint-masthead {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* Below the chip, which every overlay pins at 10px: the two used to sit
+     on top of each other and neither could be read. */
+  top: 32px;
+  height: 46px;
+  /* The rules live in the background, not in a border or a shadow: the
+     mask below clips this element to its own box, so anything painted
+     outside it — the red press rule, a drop shadow — simply vanishes. */
+  background: linear-gradient(180deg,
+    #f2ece0 0 33px,
+    #e4dcc8 33px 39px,
+    #16130d 39px 41px,
+    rgb(0 0 0 / 0) 41px 42px,
+    #c0392b 42px 44px,
+    rgb(0 0 0 / 0.35) 44px 46px);
+  -webkit-mask-image: radial-gradient(circle 35px at calc(100% - 44px) 14px, rgb(0 0 0 / 0) 0 33px, #000 35px);
+  mask-image: radial-gradient(circle 35px at calc(100% - 44px) 14px, rgb(0 0 0 / 0) 0 33px, #000 35px);
+  &::before {
+    content: "THE SEND-OFF";
+    position: absolute;
+    left: 6px;
+    right: 78px;
+    top: 5px;
+    text-align: center;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 800;
+    font-size: 21px;
+    line-height: 1;
+    letter-spacing: -0.015em;
+    color: #14110c;
+  }
+  &::after {
+    content: "PLAYOFF EDITION · ONE PRINT PER PLAYER";
+    position: absolute;
+    left: 6px;
+    right: 78px;
+    bottom: 10px;
+    padding-top: 2px;
+    border-top: 1px solid rgb(62 54 40 / 0.45);
+    text-align: center;
+    font-family: var(--font-body);
+    font-size: 6px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    color: #5c5140;
+  }
+}
+
+/* The stage, in rubber and ink: rotated, bled, laid over the photograph. */
+@utility card-ov-so-newsprint-stamp {
+  position: absolute;
+  left: 50%;
+  top: 43%;
+  transform: translateX(-50%) rotate(-7deg);
+  padding: 5px 11px 6px;
+  white-space: nowrap;
+  border: 3px double color-mix(in srgb, var(--ov-accent, #c0392b) 82%, #3a1410);
+  border-radius: 4px;
+  background: rgb(243 238 224 / 0.22);
+  color: color-mix(in srgb, var(--ov-accent, #c0392b) 82%, #3a1410);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  opacity: 0.9;
+  text-shadow: 0 0 2px color-mix(in srgb, var(--ov-accent, #c0392b) 45%, transparent);
+  box-shadow:
+    inset 0 0 9px color-mix(in srgb, var(--ov-accent, #c0392b) 30%, transparent),
+    0 1px 4px rgb(0 0 0 / 0.35);
+  filter: blur(0.25px) contrast(1.12);
+}
+
+/* The perforated stub along the foot, punched through to the card. */
+@utility card-ov-so-newsprint-stub {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 34px;
+  background-image:
+    radial-gradient(circle at 6px 3px, rgb(0 0 0 / 0) 0 2.4px, #efe8d9 2.9px),
+    linear-gradient(180deg, #ece5d5, #ded5bd);
+  background-size: 12px 8px, 100% calc(100% - 8px);
+  background-position: left top, left bottom;
+  background-repeat: repeat-x, no-repeat;
+  border-top: 1px dashed rgb(62 54 40 / 0.55);
+  &::before {
+    content: "THE SEND-OFF · PLAYOFF STUB";
+    position: absolute;
+    left: 10px;
+    bottom: 9px;
+    font-family: var(--font-body);
+    font-size: 7px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    color: #3c3427;
+  }
+  &::after {
+    content: "ADMIT ONE";
+    position: absolute;
+    right: 10px;
+    bottom: 6px;
+    padding: 2px 5px;
+    border: 1px solid rgb(62 54 40 / 0.65);
+    font-family: var(--font-body);
+    font-size: 7px;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    color: #3c3427;
+  }
+}
+
+/* The Champion's masthead, printed in foil: `lighten` leaves the cream
+   paper alone and lifts only the black type into gold. */
+@utility card-ov-so-newsprint-foil {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 32px;
+  height: 42px;
+  background: linear-gradient(101deg, #a87a1e 0%, #f3dc8e 24%, #fff6cf 40%, #c8962f 56%, #f6e3a2 78%, #a87a1e 100%);
+  mix-blend-mode: lighten;
+  -webkit-mask-image: radial-gradient(circle 35px at calc(100% - 44px) 14px, rgb(0 0 0 / 0) 0 33px, #000 35px);
+  mask-image: radial-gradient(circle 35px at calc(100% - 44px) 14px, rgb(0 0 0 / 0) 0 33px, #000 35px);
+}
+
+/* Black ink at press contrast; the Champion's is hand-tinted. */
+@utility card-ov-so-newsprint-echo {
+  filter: grayscale(1) contrast(1.7) brightness(1.02);
+}
+@utility card-ov-so-newsprint-echo-tint {
+  filter: grayscale(0.4) sepia(0.32) saturate(1.45) brightness(1.04) contrast(1.4);
+}
+
+/* ── 2. The Plaque — the hall-of-fame wall. ───────────────────────────── */
+
+/* Walnut, matte, with the grain running across it, masked to a frame so
+   the card sits in the window rather than under the wood. */
+@utility card-ov-so-plaque {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background-image:
+    repeating-linear-gradient(91deg, rgb(26 13 5 / 0.5) 0 1px, rgb(0 0 0 / 0) 1px 3px, rgb(104 60 28 / 0.3) 3px 4px, rgb(0 0 0 / 0) 4px 9px),
+    repeating-linear-gradient(89deg, rgb(18 9 3 / 0.38) 0 2px, rgb(0 0 0 / 0) 2px 14px),
+    radial-gradient(ellipse 28% 7% at 24% 5%, rgb(126 76 36 / 0.5), rgb(0 0 0 / 0) 70%),
+    radial-gradient(ellipse 26% 6% at 74% 96%, rgb(112 66 30 / 0.45), rgb(0 0 0 / 0) 70%),
+    linear-gradient(112deg, #47280f 0%, #62371a 27%, #3b220f 54%, #573015 78%, #351c0c 100%);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 140' preserveAspectRatio='none'%3E%3Cpath fill='%23fff' fill-rule='evenodd' d='M0 0h100v140H0z M3.2 3.2h93.6v120.8H3.2z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 140' preserveAspectRatio='none'%3E%3Cpath fill='%23fff' fill-rule='evenodd' d='M0 0h100v140H0z M3.2 3.2h93.6v120.8H3.2z'/%3E%3C/svg%3E");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  filter: saturate(0.82);
+}
+
+/* The window's bevel and the shadow it throws inward. */
+@utility card-ov-so-plaque-bevel {
+  position: absolute;
+  left: 3.23%;
+  right: 3.23%;
+  top: 2.29%;
+  bottom: 11.43%;
+  background: radial-gradient(ellipse 78% 64% at 50% 44%, rgb(0 0 0 / 0) 52%, rgb(8 5 2 / 0.6) 100%);
+  box-shadow:
+    inset 0 2px 0 rgb(0 0 0 / 0.85),
+    inset 0 -2px 0 color-mix(in srgb, var(--ov-accent, #b08d57) 28%, transparent),
+    inset 2px 0 0 rgb(0 0 0 / 0.7),
+    inset -2px 0 0 color-mix(in srgb, var(--ov-accent, #b08d57) 20%, transparent),
+    inset 0 0 26px 7px rgb(0 0 0 / 0.5),
+    0 0 0 1px rgb(255 240 210 / 0.07);
+}
+
+/* Four brass domes, one per corner. */
+@utility card-ov-so-plaque-screws {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 5.5px 5.5px, #f6e6b4 0 1.1px, #c9a75f 1.6px 3.3px, #5e4318 3.7px 4.3px, rgb(0 0 0 / 0) 4.7px),
+    radial-gradient(circle at calc(100% - 5.5px) 5.5px, #f6e6b4 0 1.1px, #c9a75f 1.6px 3.3px, #5e4318 3.7px 4.3px, rgb(0 0 0 / 0) 4.7px),
+    radial-gradient(circle at 5.5px calc(100% - 5.5px), #f6e6b4 0 1.1px, #c9a75f 1.6px 3.3px, #5e4318 3.7px 4.3px, rgb(0 0 0 / 0) 4.7px),
+    radial-gradient(circle at calc(100% - 5.5px) calc(100% - 5.5px), #f6e6b4 0 1.1px, #c9a75f 1.6px 3.3px, #5e4318 3.7px 4.3px, rgb(0 0 0 / 0) 4.7px);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.85));
+}
+
+/* The nameplate: the stage cut into the metal, the metal off the ladder. */
+@utility card-ov-so-plaque-plate {
+  position: absolute;
+  left: 13%;
+  right: 13%;
+  bottom: 8px;
+  height: 38px;
+  border-radius: 2px;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--ov-accent, #b08d57) 55%, #fff3d4) 0 12%,
+    color-mix(in srgb, var(--ov-accent, #b08d57) 88%, #2a1c07) 14% 50%,
+    color-mix(in srgb, var(--ov-accent, #b08d57) 66%, #140d03) 52% 84%,
+    color-mix(in srgb, var(--ov-accent, #b08d57) 48%, #fff0c8) 86% 100%);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.8), 0 2px 6px rgb(0 0 0 / 0.7), inset 0 0 14px rgb(0 0 0 / 0.22);
+  &::before {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 7px;
+    text-align: center;
+    font-family: var(--font-engrave);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.13em;
+    color: color-mix(in srgb, var(--ov-accent, #b08d57) 26%, #100a02);
+    text-shadow:
+      0 1px 0 color-mix(in srgb, var(--ov-accent, #b08d57) 72%, #fff8e0),
+      0 -1px 1px rgb(0 0 0 / 0.5);
+  }
+  &::after {
+    content: "THE SEND-OFF";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 7px;
+    text-align: center;
+    font-family: var(--font-body);
+    font-size: 6px;
+    font-weight: 800;
+    letter-spacing: 0.34em;
+    color: color-mix(in srgb, var(--ov-accent, #b08d57) 30%, #180f03);
+    text-shadow: 0 1px 0 color-mix(in srgb, var(--ov-accent, #b08d57) 62%, #fff8e0);
+  }
+}
+
+/* The Champion's plate is wreathed. */
+@utility card-ov-so-plaque-laurel {
+  position: absolute;
+  left: 13%;
+  right: 13%;
+  bottom: 8px;
+  height: 38px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 230 38'%3E%3Cg fill='%231a1004' opacity='0.78'%3E%3Cellipse cx='24' cy='5' rx='4.4' ry='1.9' transform='rotate(-58 24 5)'/%3E%3Cellipse cx='29.4' cy='6.6' rx='3.8' ry='1.7' transform='rotate(-6 29.4 6.6)'/%3E%3Cellipse cx='21.3' cy='9.7' rx='4.4' ry='1.9' transform='rotate(-54 21.3 9.7)'/%3E%3Cellipse cx='26.7' cy='11.3' rx='3.8' ry='1.7' transform='rotate(-2 26.7 11.3)'/%3E%3Cellipse cx='18.7' cy='14.3' rx='4.4' ry='1.9' transform='rotate(-49 18.7 14.3)'/%3E%3Cellipse cx='24.1' cy='15.9' rx='3.8' ry='1.7' transform='rotate(3 24.1 15.9)'/%3E%3Cellipse cx='16' cy='19' rx='4.4' ry='1.9' transform='rotate(-45 16 19)'/%3E%3Cellipse cx='21.4' cy='20.6' rx='3.8' ry='1.7' transform='rotate(7 21.4 20.6)'/%3E%3Cellipse cx='13.3' cy='23.7' rx='4.4' ry='1.9' transform='rotate(-41 13.3 23.7)'/%3E%3Cellipse cx='18.7' cy='25.3' rx='3.8' ry='1.7' transform='rotate(11 18.7 25.3)'/%3E%3Cellipse cx='10.7' cy='28.3' rx='4.4' ry='1.9' transform='rotate(-36 10.7 28.3)'/%3E%3Cellipse cx='16.1' cy='29.9' rx='3.8' ry='1.7' transform='rotate(16 16.1 29.9)'/%3E%3Cellipse cx='8' cy='33' rx='4.4' ry='1.9' transform='rotate(-32 8 33)'/%3E%3Cellipse cx='13.4' cy='34.6' rx='3.8' ry='1.7' transform='rotate(20 13.4 34.6)'/%3E%3C/g%3E%3Cg fill='none' stroke='%231a1004' stroke-width='1.1' opacity='0.8'%3E%3Cpath d='M27 4C17 10 12 20 13 34'/%3E%3C/g%3E%3Cg transform='translate(230,0) scale(-1,1)'%3E%3Cg fill='%231a1004' opacity='0.78'%3E%3Cellipse cx='24' cy='5' rx='4.4' ry='1.9' transform='rotate(-58 24 5)'/%3E%3Cellipse cx='29.4' cy='6.6' rx='3.8' ry='1.7' transform='rotate(-6 29.4 6.6)'/%3E%3Cellipse cx='21.3' cy='9.7' rx='4.4' ry='1.9' transform='rotate(-54 21.3 9.7)'/%3E%3Cellipse cx='26.7' cy='11.3' rx='3.8' ry='1.7' transform='rotate(-2 26.7 11.3)'/%3E%3Cellipse cx='18.7' cy='14.3' rx='4.4' ry='1.9' transform='rotate(-49 18.7 14.3)'/%3E%3Cellipse cx='24.1' cy='15.9' rx='3.8' ry='1.7' transform='rotate(3 24.1 15.9)'/%3E%3Cellipse cx='16' cy='19' rx='4.4' ry='1.9' transform='rotate(-45 16 19)'/%3E%3Cellipse cx='21.4' cy='20.6' rx='3.8' ry='1.7' transform='rotate(7 21.4 20.6)'/%3E%3Cellipse cx='13.3' cy='23.7' rx='4.4' ry='1.9' transform='rotate(-41 13.3 23.7)'/%3E%3Cellipse cx='18.7' cy='25.3' rx='3.8' ry='1.7' transform='rotate(11 18.7 25.3)'/%3E%3Cellipse cx='10.7' cy='28.3' rx='4.4' ry='1.9' transform='rotate(-36 10.7 28.3)'/%3E%3Cellipse cx='16.1' cy='29.9' rx='3.8' ry='1.7' transform='rotate(16 16.1 29.9)'/%3E%3Cellipse cx='8' cy='33' rx='4.4' ry='1.9' transform='rotate(-32 8 33)'/%3E%3Cellipse cx='13.4' cy='34.6' rx='3.8' ry='1.7' transform='rotate(20 13.4 34.6)'/%3E%3C/g%3E%3Cg fill='none' stroke='%231a1004' stroke-width='1.1' opacity='0.8'%3E%3Cpath d='M27 4C17 10 12 20 13 34'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") center/100% 100% no-repeat;
+  opacity: 0.85;
+}
+
+/* Under glass, and a little drained: a photograph, not a splash. */
+@utility card-ov-so-plaque-echo {
+  filter: saturate(0.62) contrast(1.04) brightness(0.86) sepia(0.14);
+}
+
+/* ── 3. Rafters — the banner in the arena roof. ───────────────────────── */
+
+@utility card-ov-so-rafters {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background-image:
+    repeating-linear-gradient(38deg, rgb(158 176 196 / 0.055) 0 1px, rgb(0 0 0 / 0) 1px 24px),
+    repeating-linear-gradient(-38deg, rgb(158 176 196 / 0.055) 0 1px, rgb(0 0 0 / 0) 1px 24px),
+    linear-gradient(180deg, rgb(4 6 10 / 0.92) 0 14%, rgb(6 9 14 / 0.7) 28%, rgb(5 7 11 / 0.42) 52%, rgb(3 5 8 / 0.74) 100%);
+}
+
+/* One warm floodlight, from above and a little behind. */
+@utility card-ov-so-rafters-light {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 58% 30% at 50% -6%, rgb(255 226 168 / 0.5), rgb(255 214 140 / 0.14) 52%, rgb(0 0 0 / 0) 78%),
+    radial-gradient(ellipse 28% 8% at 50% 72%, rgb(255 226 168 / 0.16), rgb(0 0 0 / 0) 75%);
+  mix-blend-mode: screen;
+}
+
+/* The truss it hangs off. */
+@utility card-ov-so-rafters-hang {
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  top: 12.8%;
+  height: 7px;
+  background: linear-gradient(180deg, #8d99a6 0 20%, #3a444e 55%, #0f151b 100%);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.85), inset 0 0 0 1px rgb(0 0 0 / 0.55);
+  &::before, &::after {
+    content: "";
+    position: absolute;
+    top: 5px;
+    width: 3px;
+    height: 14px;
+    background: linear-gradient(180deg, #74818d, #212930);
+  }
+  &::before { left: 3%; }
+  &::after { left: 24%; }
+}
+
+/* Felt, stitched, fringed along the bottom in the ladder's thread. */
+@utility card-ov-so-rafters-banner {
+  position: absolute;
+  left: 0;
+  right: 73.5%;
+  top: 14.2%;
+  height: 18%;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 66%, 0 100%);
+  /* The trim rides in the BACKGROUND, not in a border or an inset shadow:
+     those follow the border box and would run straight across the tails
+     the clip-path cuts. */
+  background-image:
+    linear-gradient(180deg, color-mix(in srgb, var(--ov-accent, #c0c9d2) 86%, transparent) 0 2px, rgb(0 0 0 / 0) 2px),
+    linear-gradient(90deg, color-mix(in srgb, var(--ov-accent, #c0c9d2) 86%, transparent) 0 2px, rgb(0 0 0 / 0) 2px),
+    linear-gradient(270deg, color-mix(in srgb, var(--ov-accent, #c0c9d2) 86%, transparent) 0 2px, rgb(0 0 0 / 0) 2px),
+    linear-gradient(180deg,
+      rgb(0 0 0 / 0) 0 56%,
+      color-mix(in srgb, var(--ov-accent, #c0c9d2) 80%, transparent) 56% 59%,
+      rgb(0 0 0 / 0) 59%),
+    repeating-linear-gradient(92deg, rgb(255 255 255 / 0.04) 0 1px, rgb(0 0 0 / 0) 1px 3px),
+    radial-gradient(ellipse 74% 60% at 50% 34%, rgb(255 255 255 / 0.09), rgb(0 0 0 / 0) 72%),
+    linear-gradient(100deg, #290f2e 0%, #5b1a3c 46%, #32112a 100%);
+  box-shadow: inset 0 0 22px rgb(0 0 0 / 0.55);
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.7));
+  &::before {
+    position: absolute;
+    left: 5px;
+    right: 5px;
+    top: 20%;
+    text-align: center;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 800;
+    font-size: 8px;
+    line-height: 1.1;
+    letter-spacing: 0;
+    color: rgb(255 249 238 / 0.96);
+    text-shadow: 0 1px 0 rgb(0 0 0 / 0.85), 0 0 8px rgb(0 0 0 / 0.55);
+  }
+  &::after {
+    content: "THE SEND-OFF";
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    top: calc(20% + 13px);
+    text-align: center;
+    font-family: var(--font-body);
+    font-size: 5.5px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    color: color-mix(in srgb, var(--ov-accent, #c0c9d2) 82%, #fff);
+    text-shadow: 0 1px 0 rgb(0 0 0 / 0.85);
+  }
+}
+
+/* The Champion hangs two. */
+@utility card-ov-so-rafters-second {
+  position: absolute;
+  left: 0;
+  right: 76.5%;
+  top: 13.2%;
+  height: 17.5%;
+  transform: rotate(-7deg);
+  transform-origin: 90% 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 66%, 0 100%);
+  background-image:
+    repeating-linear-gradient(92deg, rgb(255 255 255 / 0.03) 0 1px, rgb(0 0 0 / 0) 1px 3px),
+    linear-gradient(100deg, #1d0a22 0%, #40122b 48%, #240c1e 100%);
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--ov-accent, #ffd166) 50%, transparent),
+    inset 0 0 22px rgb(0 0 0 / 0.7);
+  filter: brightness(0.72);
+}
+
+/* Confetti, frozen where it fell. */
+@utility card-ov-so-rafters-confetti {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 140' preserveAspectRatio='none' opacity='.8'%3E%3Cg fill='%23ffd166'%3E%3Crect x='65' y='13' width='3' height='5' transform='rotate(8 65 13)'/%3E%3Crect x='14' y='97' width='3' height='4' transform='rotate(112 14 97)'/%3E%3C/g%3E%3Cg fill='%23fff4d0'%3E%3Crect x='78' y='66' width='3' height='5' transform='rotate(104 78 66)'/%3E%3Crect x='34' y='91' width='4' height='5' transform='rotate(122 34 91)'/%3E%3Crect x='95' y='51' width='3' height='5' transform='rotate(126 95 51)'/%3E%3Crect x='71' y='113' width='3' height='4' transform='rotate(1 71 113)'/%3E%3Crect x='73' y='19' width='3' height='6' transform='rotate(110 73 19)'/%3E%3C/g%3E%3Cg fill='%23e6c14b'%3E%3Crect x='11' y='101' width='2' height='6' transform='rotate(93 11 101)'/%3E%3Crect x='91' y='123' width='4' height='5' transform='rotate(49 91 123)'/%3E%3Crect x='86' y='94' width='4' height='3' transform='rotate(35 86 94)'/%3E%3Crect x='19' y='93' width='4' height='4' transform='rotate(26 19 93)'/%3E%3Crect x='41' y='88' width='4' height='4' transform='rotate(62 41 88)'/%3E%3Crect x='75' y='53' width='4' height='5' transform='rotate(162 75 53)'/%3E%3C/g%3E%3Cg fill='%23ff8fa3'%3E%3Crect x='38' y='62' width='4' height='5' transform='rotate(31 38 62)'/%3E%3Crect x='29' y='122' width='3' height='4' transform='rotate(122 29 122)'/%3E%3Crect x='38' y='35' width='4' height='5' transform='rotate(37 38 35)'/%3E%3Crect x='56' y='111' width='4' height='5' transform='rotate(8 56 111)'/%3E%3Crect x='30' y='13' width='4' height='4' transform='rotate(173 30 13)'/%3E%3Crect x='70' y='88' width='3' height='5' transform='rotate(161 70 88)'/%3E%3C/g%3E%3Cg fill='%239be7ff'%3E%3Crect x='36' y='131' width='3' height='3' transform='rotate(138 36 131)'/%3E%3Crect x='39' y='130' width='4' height='3' transform='rotate(31 39 130)'/%3E%3Crect x='22' y='6' width='4' height='4' transform='rotate(85 22 6)'/%3E%3Crect x='93' y='52' width='3' height='5' transform='rotate(131 93 52)'/%3E%3Crect x='4' y='64' width='3' height='3' transform='rotate(12 4 64)'/%3E%3Crect x='34' y='58' width='3' height='4' transform='rotate(78 34 58)'/%3E%3Crect x='12' y='131' width='3' height='4' transform='rotate(72 12 131)'/%3E%3Crect x='56' y='32' width='3' height='6' transform='rotate(27 56 32)'/%3E%3Crect x='18' y='34' width='2' height='3' transform='rotate(8 18 34)'/%3E%3C/g%3E%3Cg fill='%23fff'%3E%3Crect x='69' y='71' width='2' height='5' transform='rotate(12 69 71)'/%3E%3Crect x='42' y='25' width='3' height='4' transform='rotate(20 42 25)'/%3E%3Crect x='70' y='21' width='3' height='5' transform='rotate(88 70 21)'/%3E%3Crect x='78' y='111' width='2' height='6' transform='rotate(162 78 111)'/%3E%3Crect x='77' y='28' width='4' height='4' transform='rotate(14 77 28)'/%3E%3Crect x='35' y='56' width='3' height='5' transform='rotate(21 35 56)'/%3E%3C/g%3E%3C/svg%3E") center/100% 100% no-repeat;
+  filter: drop-shadow(0 0 3px rgb(255 226 150 / 0.55));
+}
+
+/* ── 4. Curtain Call — the last bow. ──────────────────────────────────── */
+
+/* The back wall, and the valance across the top of the proscenium. */
+@utility card-ov-so-curtain {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgb(9 4 6 / 0.88) 0 7%, rgb(11 5 8 / 0.5) 24%, rgb(7 3 5 / 0.32) 58%, rgb(4 2 3 / 0.8) 100%);
+  &::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 24px;
+    background-image:
+      radial-gradient(circle at 11px 0, #67101f 0 11px, rgb(0 0 0 / 0) 11.4px),
+      linear-gradient(180deg, #86162a, #4c0a14);
+    background-size: 22px 12px, 100% 12px;
+    background-position: left bottom, left top;
+    background-repeat: repeat-x, repeat-x;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.7);
+  }
+}
+
+/* Two panels, gathered at the top and tied back toward the foot. The
+   Champion's draw back to the edges (--so-crown). */
+@utility card-ov-so-curtain-drape {
+  position: absolute;
+  inset: 0;
+  &::before, &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: calc(36px - var(--so-crown, 0) * 16px);
+    background-image:
+      repeating-linear-gradient(90deg, rgb(0 0 0 / 0.55) 0 3px, rgb(0 0 0 / 0) 3px 9px, rgb(168 34 54 / 0.35) 9px 12px, rgb(0 0 0 / 0) 12px 19px),
+      linear-gradient(90deg, #2b050c, #6d0f1e 28%, #47080f 58%, #7d1322 80%, #280409 100%);
+    box-shadow: inset 0 0 34px rgb(0 0 0 / 0.72);
+  }
+  &::before {
+    left: 0;
+    clip-path: polygon(0 0, 100% 0, 48% 11%, 28% 100%, 0 100%);
+  }
+  &::after {
+    right: 0;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 72% 100%, 52% 11%);
+  }
+}
+
+/* One lamp, from the wings. White-to-warm at rest, gold on the Champion,
+   breathing the way a follow-spot's gate does. */
+@keyframes soSpotBreath {
+  0%, 100% { opacity: 0.42; }
+  50% { opacity: 0.56; }
+}
+@utility card-ov-so-curtain-spot {
+  position: absolute;
+  inset: 0;
+  background:
+    conic-gradient(from 100deg at 18% -12%,
+      rgb(0 0 0 / 0) 0 4deg,
+      color-mix(in srgb, var(--ov-accent, #ffe3a6) 55%, #fff8e8) 11deg,
+      color-mix(in srgb, var(--ov-accent, #ffe3a6) 48%, #fff2d6) 25deg,
+      rgb(0 0 0 / 0) 34deg),
+    radial-gradient(ellipse 32% 10% at 52% 64%, color-mix(in srgb, var(--ov-accent, #ffe3a6) 70%, #fff), rgb(0 0 0 / 0) 72%);
+  mix-blend-mode: screen;
+  opacity: 0.48;
+  animation: soSpotBreath 7s ease-in-out infinite;
+}
+
+/* The marquee: the stage in lights, lit as far along as the team got. */
+@utility card-ov-so-curtain-marquee {
+  position: absolute;
+  left: 9%;
+  right: 9%;
+  bottom: 10px;
+  height: 40px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #191220, #0a0710 58%, #16101a);
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--ov-accent, #ffd166) 62%, transparent),
+    inset 0 -14px 20px -10px color-mix(in srgb, var(--ov-accent, #ffd166) 42%, transparent),
+    inset 0 0 18px rgb(0 0 0 / 0.8),
+    0 3px 12px rgb(0 0 0 / 0.75);
+  &::before {
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    top: 7px;
+    text-align: center;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 800;
+    font-size: 12px;
+    line-height: 1;
+    letter-spacing: 0.1em;
+    color: color-mix(in srgb, var(--ov-accent, #ffd166) 72%, #fff);
+    text-shadow:
+      0 0 8px color-mix(in srgb, var(--ov-accent, #ffd166) 75%, transparent),
+      0 0 20px rgb(255 205 130 / 0.45);
+  }
+  &::after {
+    content: "";
+    position: absolute;
+    left: 9px;
+    right: 9px;
+    bottom: 7px;
+    height: 7px;
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--ov-accent, #ffd166) 92%, #fff) 0 var(--so-fill, 100%),
+      rgb(74 68 58 / 0.85) var(--so-fill, 100%) 100%);
+    -webkit-mask-image: radial-gradient(circle at 5px 3.5px, #000 0 3px, rgb(0 0 0 / 0) 3.4px);
+    mask-image: radial-gradient(circle at 5px 3.5px, #000 0 3px, rgb(0 0 0 / 0) 3.4px);
+    -webkit-mask-size: 10px 7px;
+    mask-size: 10px 7px;
+    -webkit-mask-repeat: repeat-x;
+    mask-repeat: repeat-x;
+  }
+}
+
+/* Black and white under the lamp. */
+@utility card-ov-so-curtain-echo {
+  filter: grayscale(1) contrast(1.2) brightness(0.9);
+}
+
+/* ── 5. The Bracket — the blueprint of the run. ───────────────────────── */
+
+@utility card-ov-so-bracket {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background-image:
+    repeating-linear-gradient(90deg, rgb(127 216 255 / 0.09) 0 1px, rgb(0 0 0 / 0) 1px 13px),
+    repeating-linear-gradient(0deg, rgb(127 216 255 / 0.09) 0 1px, rgb(0 0 0 / 0) 1px 13px),
+    repeating-linear-gradient(90deg, rgb(127 216 255 / 0.16) 0 1px, rgb(0 0 0 / 0) 1px 65px),
+    repeating-linear-gradient(0deg, rgb(127 216 255 / 0.16) 0 1px, rgb(0 0 0 / 0) 1px 65px),
+    linear-gradient(180deg,
+      rgb(6 21 50 / 0.72) 0 46%,
+      rgb(5 17 42 / 0.7) 55%,
+      rgb(5 15 36 / 0.3) 64%,
+      rgb(4 13 32 / 0.22) 100%);
+  box-shadow: inset 0 0 0 1px rgb(127 216 255 / 0.32), inset 0 0 26px rgb(0 18 48 / 0.35);
+}
+
+/* Eight into four into two into one, drawn cold. */
+@utility card-ov-so-bracket-tree {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 29%;
+  height: 25%;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 272 114' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='rgba(127,216,255,0.42)' stroke-width='1.2'%3E%3Cpath d='M8 6H56 M8 20H56 M56 6V20 M56 13H110 M8 34H56 M8 48H56 M56 34V48 M56 41H110 M8 62H56 M8 76H56 M56 62V76 M56 69H110 M8 90H56 M8 104H56 M56 90V104 M56 97H110 M110 13V41 M110 27H164 M110 69V97 M110 83H164 M164 27V83 M164 55H214'/%3E%3C/g%3E%3Cg fill='none' stroke='rgba(127,216,255,0.5)' stroke-width='1.2'%3E%3Ccircle cx='8' cy='6' r='2.6'/%3E%3Ccircle cx='8' cy='20' r='2.6'/%3E%3Ccircle cx='8' cy='34' r='2.6'/%3E%3Ccircle cx='8' cy='48' r='2.6'/%3E%3Ccircle cx='8' cy='62' r='2.6'/%3E%3Ccircle cx='8' cy='76' r='2.6'/%3E%3Ccircle cx='8' cy='90' r='2.6'/%3E%3Ccircle cx='8' cy='104' r='2.6'/%3E%3Ccircle cx='110' cy='13' r='2.2'/%3E%3Ccircle cx='110' cy='41' r='2.2'/%3E%3Ccircle cx='110' cy='69' r='2.2'/%3E%3Ccircle cx='110' cy='97' r='2.2'/%3E%3Ccircle cx='164' cy='27' r='2.2'/%3E%3Ccircle cx='164' cy='83' r='2.2'/%3E%3Crect x='214' y='44' width='32' height='22' rx='2'/%3E%3C/g%3E%3C/svg%3E") center/100% 100% no-repeat;
+}
+
+/* The team's own route, lit as far as it ran (--so-fill). The line is a
+   mask over the accent, so the ladder recolours it without a second SVG. */
+@utility card-ov-so-bracket-path {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 29%;
+  height: 25%;
+  background: var(--ov-accent, #7fd8ff);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 272 114' preserveAspectRatio='none'%3E%3Cpath d='M8 62H56V69H110V83H164V55H222' fill='none' stroke='%23fff' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='8' cy='62' r='4.6' fill='%23fff'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 272 114' preserveAspectRatio='none'%3E%3Cpath d='M8 62H56V69H110V83H164V55H222' fill='none' stroke='%23fff' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='8' cy='62' r='4.6' fill='%23fff'/%3E%3C/svg%3E");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  clip-path: inset(0 calc(100% - var(--so-fill, 100%)) 0 0);
+}
+
+/* The node at the end of the bracket, which only one card reaches. */
+@utility card-ov-so-bracket-crown {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 29%;
+  height: 25%;
+  background: var(--ov-accent, #ffd166);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 272 114' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23fff' stroke-width='1.6'%3E%3Crect x='214' y='44' width='32' height='22' rx='2'/%3E%3C/g%3E%3Cg fill='%23fff'%3E%3Cpath d='M223 48h14v4a7 7 0 0 1-14 0zM228 58h4v3h4v2h-12v-2h4z'/%3E%3C/g%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 272 114' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23fff' stroke-width='1.6'%3E%3Crect x='214' y='44' width='32' height='22' rx='2'/%3E%3C/g%3E%3Cg fill='%23fff'%3E%3Cpath d='M223 48h14v4a7 7 0 0 1-14 0zM228 58h4v3h4v2h-12v-2h4z'/%3E%3C/g%3E%3C/svg%3E");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* The draughtsman's note under the drawing. */
+@utility card-ov-so-bracket-note {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 55%;
+  height: 12px;
+  border-top: 1px dashed rgb(127 216 255 / 0.4);
+  &::before {
+    position: absolute;
+    left: 0;
+    top: 3px;
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.1em;
+    color: color-mix(in srgb, var(--ov-accent, #7fd8ff) 80%, #fff);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--ov-accent, #7fd8ff) 55%, transparent), 0 1px 2px rgb(0 0 0 / 0.9);
+  }
+  &::after {
+    content: "FIG.1 · PATH OF THE SPLIT";
+    position: absolute;
+    right: 0;
+    top: 4px;
+    font-family: var(--font-mono);
+    font-size: 7px;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    color: rgb(150 216 255 / 0.62);
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.9);
+  }
+}
+
+/* Cyanotype. */
+@utility card-ov-so-bracket-echo {
+  filter: grayscale(1) sepia(1) hue-rotate(158deg) saturate(3.4) brightness(0.98) contrast(1.1);
+}
+
+/* ── 6. Yearbook — the photograph in the drawer. ──────────────────────── */
+
+/* The print's cream border, scalloped along its inner edge. */
+@utility card-ov-so-yearbook {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgb(244 237 220 / 0.13), rgb(232 221 196 / 0.09));
+  box-shadow:
+    inset 0 0 0 11px #f4eddc,
+    inset 0 0 0 12px rgb(150 133 102 / 0.5),
+    inset 0 0 22px 12px rgb(56 44 26 / 0.22);
+  &::before {
+    content: "";
+    position: absolute;
+    left: 11px;
+    right: 11px;
+    top: 11px;
+    height: 6px;
+    background: radial-gradient(circle at 5px 0, #f4eddc 0 4.4px, rgb(0 0 0 / 0) 4.8px) top left/10px 6px repeat-x;
+  }
+  &::after {
+    content: "";
+    position: absolute;
+    left: 11px;
+    right: 11px;
+    top: 11px;
+    bottom: 11px;
+    background:
+      radial-gradient(circle at 0 5px, #f4eddc 0 4.4px, rgb(0 0 0 / 0) 4.8px) left top/6px 10px repeat-y,
+      radial-gradient(circle at 100% 5px, #f4eddc 0 4.4px, rgb(0 0 0 / 0) 4.8px) right top/6px 10px repeat-y;
+  }
+}
+
+/* The leak across the top-right corner of the print. */
+@utility card-ov-so-yearbook-leak {
+  position: absolute;
+  left: 11px;
+  right: 11px;
+  top: 11px;
+  bottom: 57px;
+  background:
+    radial-gradient(ellipse 58% 32% at 97% 3%, rgb(255 206 140 / 0.68), rgb(255 150 96 / 0.24) 42%, rgb(0 0 0 / 0) 74%),
+    radial-gradient(ellipse 130% 42% at 100% 0%, rgb(255 236 200 / 0.24), rgb(0 0 0 / 0) 58%);
+  mix-blend-mode: screen;
+}
+
+/* Four black photo-corner mounts. */
+@utility card-ov-so-yearbook-corners {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(135deg, #17150f 0 48%, rgb(0 0 0 / 0) 48%),
+    linear-gradient(225deg, #17150f 0 48%, rgb(0 0 0 / 0) 48%),
+    linear-gradient(45deg, #17150f 0 48%, rgb(0 0 0 / 0) 48%),
+    linear-gradient(315deg, #17150f 0 48%, rgb(0 0 0 / 0) 48%);
+  background-size: 25px 25px;
+  background-repeat: no-repeat;
+  background-position: left 10px top 10px, right 10px top 10px, left 10px bottom 59px, right 10px bottom 59px;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.6));
+}
+
+/* The wide foot of the print, and what somebody wrote on it. */
+@utility card-ov-so-yearbook-caption {
+  position: absolute;
+  left: 11px;
+  right: 11px;
+  bottom: 11px;
+  height: 46px;
+  background:
+    radial-gradient(circle at 5px 7px, #f4eddc 0 6px, rgb(0 0 0 / 0) 6.4px) top left/10px 7px repeat-x,
+    linear-gradient(180deg, #f4eddc, #eae0c7) bottom left/100% calc(100% - 6px) no-repeat;
+  &::before {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: 11px;
+    text-align: center;
+    overflow: hidden;
+    transform: rotate(-1.3deg);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    color: color-mix(in srgb, var(--ov-accent, #8a7550) 42%, #2b2417);
+  }
+  &::after {
+    content: "the send-off · split's end";
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 6px;
+    text-align: center;
+    transform: rotate(-1deg);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    color: color-mix(in srgb, var(--ov-accent, #8a7550) 38%, #3a3021);
+  }
+}
+
+/* The Champion's print is mounted in gold leaf at one corner. */
+@utility card-ov-so-yearbook-gold {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 26px;
+  height: 26px;
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+  background: linear-gradient(135deg, #fff3c4 0%, #e8c15a 26%, #a87a1e 52%, #f6dd94 74%, #c99a2c 100%);
+  box-shadow: inset 2px 2px 0 rgb(255 255 255 / 0.4), inset -6px -6px 10px -4px rgb(80 52 8 / 0.55);
+}
+
+/* Faded, then hand-tinted back for the one card that won. */
+@utility card-ov-so-yearbook-echo {
+  filter: sepia(1) saturate(0.45) contrast(0.84) brightness(1.16) hue-rotate(-8deg);
+}
+@utility card-ov-so-yearbook-echo-color {
+  filter: sepia(0.06) saturate(1.32) contrast(1.06) brightness(1.02);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-ov-so-curtain-spot { animation: none; }
+}
+
 /* ── God Pack ceremony ────────────────────────────────────────────────────
    God Packs are still server-settled cards; this is only their presentation.
    Obsidian, gold seams, a staged announcement, and a dedicated final reveal
