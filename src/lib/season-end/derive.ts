@@ -5,6 +5,7 @@ import { DIVISIONS, type Division, type FixtureRow } from "@/lib/schedule/types"
 import { cardPlayerKey } from "@/lib/cards/build";
 import { assignChampions } from "@/lib/cards/seasonsEnd/assignment";
 import { championDisplayName } from "@/lib/match-draft/champions";
+import { BEST_OF_SCORE_FLOOR } from "./policy";
 
 /** Raw storage fields stay nullable. Missing observations must never become zero. */
 export interface SeasonRow {
@@ -35,6 +36,12 @@ export interface AwardWinner {
   championGames?: number;
   playerKeys?: string[];
   title?: string;
+  evidence?: AwardEvidence;
+}
+export interface AwardEvidence {
+  record?: string;
+  kda?: number;
+  mean?: number;
 }
 export type AwardStatus = "ready" | "unavailable" | "unearned";
 export interface DivisionAwardStatus {
@@ -127,7 +134,7 @@ function mergeDivisionalAwards(
   divisionalResults: Map<Division, SeasonEndResult>,
 ): SeasonAward[] {
   return awards.map((award) => {
-    if (award.scope !== "player") return award;
+    if (award.partition !== "division") return award;
 
     const divisionStatuses = Object.fromEntries(DIVISIONS.map((division) => {
       const divisionalAward = divisionalResults.get(division)!.awards.find((candidate) => candidate.id === award.id)!;
@@ -274,32 +281,43 @@ export function deriveSeasonEnd(
           const score = 60 * wins / playerRows.length + 0.4 * mean(playerRows.map(performance));
           const first = playerRows[0];
           const playerName = identity(first);
-          const kills = sum(playerRows.map((row) => number(row, "kills") ?? 0));
-          const deaths = sum(playerRows.map((row) => number(row, "deaths") ?? 0));
-          const assists = sum(playerRows.map((row) => number(row, "assists") ?? 0));
+          const kills = all(playerRows, "kills");
+          const deaths = all(playerRows, "deaths");
+          const assists = all(playerRows, "assists");
+          const kda = kills && deaths && assists
+            ? (sum(kills) + sum(assists)) / Math.max(1, sum(deaths))
+            : undefined;
           return {
             name: playerName,
             team: [...new Set(playerRows.map((row) => row.team_name))].join(" / "),
             value: score,
             games: playerRows.length,
-            detail: `${champion} · ${wins}–${playerRows.length - wins} · ${playerRows.length} games · ${((kills + assists) / Math.max(1, deaths)).toFixed(2)} KDA`,
             champion,
             championGames: playerRows.length,
             playerKeys: [playerKey(first)],
             title: `Best of ${champion}`,
+            evidence: { record: `${wins}–${playerRows.length - wins}`, ...(kda === undefined ? {} : { kda }) },
             key: `${playerKey(first)}:${champion}`,
             playerKey: playerKey(first),
           };
         }));
-      const assigned = assignChampions(candidates);
+      const eligibleCandidates = candidates.filter((candidate) => candidate.value >= BEST_OF_SCORE_FLOOR);
+      const eligiblePlayers = new Set(eligibleCandidates.map((candidate) => candidate.playerKey));
+      const assigned = assignChampions(eligibleCandidates);
       const assignedPlayers = new Set(assigned.map((candidate) => candidate.playerKey));
-      const unassigned = players
-        .filter((player) => !assignedPlayers.has(playerKey(player.rows[0])))
+      const belowFloor = players
+        .filter((player) => !eligiblePlayers.has(playerKey(player.rows[0])))
         .map((player) => player.name);
-      if (!options.division && unassigned.length) warnings.push(`Best of Champion covers ${assigned.length}/${players.length} players. No eligible unused played champion for: ${unassigned.join(", ")}.`);
+      const blockedByAssignment = players
+        .filter((player) => eligiblePlayers.has(playerKey(player.rows[0])) && !assignedPlayers.has(playerKey(player.rows[0])))
+        .map((player) => player.name);
+      if (!options.division) {
+        if (belowFloor.length) warnings.push(`Best of Champion covers ${assigned.length}/${players.length} players. No champion performance reached ${BEST_OF_SCORE_FLOOR}/100 for: ${belowFloor.join(", ")}.`);
+        if (blockedByAssignment.length) warnings.push(`Best of Champion covers ${assigned.length}/${players.length} players. Qualifying performances had no unused champion after coverage-first assignment for: ${blockedByAssignment.join(", ")}.`);
+      }
       return assigned.length
         ? { ...def, winners: assigned, status: "ready" }
-        : { ...def, winners: [], status: "unearned", note: "No qualifying champion assignment yet." };
+        : { ...def, winners: [], status: "unearned", note: eligibleCandidates.length ? "No unused champion could be assigned." : `No champion performances reached ${BEST_OF_SCORE_FLOOR}/100.` };
     }
     if (def.field) {
       const isRate = def.mode !== "total";
@@ -356,7 +374,7 @@ export function deriveSeasonEnd(
         const scores = all(subset, "performance")!; const average = mean(scores);
         if (def.id === "metronome" && (average < 60 || Math.min(...scores) < 40)) continue;
         const value = def.id === "late-bloomer" ? average : Math.sqrt(mean(scores.map(s => (s - average) ** 2)));
-        values.push({ ...winner(p, value, `${average.toFixed(1)} mean performance · ${subset.length} games`), games: subset.length });
+        values.push({ ...winner(p, value), games: subset.length, evidence: { mean: average } });
       }
       return choose(def, values, def.id === "metronome", true);
     }
@@ -459,8 +477,12 @@ export function deriveSeasonEnd(
     }
     return choose(def, values, ["fortress", "speedrunners"].includes(def.id));
   });
-  const result = { awards: baseAwards, games: matches.size, players: players.length, minGames, complete, warnings };
   const hasDivisionData = !options.division && DIVISIONS.some((division) => rows.some((row) => rowDivision(row, divisions) === division));
+  if (hasDivisionData) {
+    const unassignedRows = rows.filter((row) => rowDivision(row, divisions) === null).length;
+    if (unassignedRows) warnings.push(`${unassignedRows} valid rows have no unambiguous division and are excluded from divisional honors.`);
+  }
+  const result = { awards: baseAwards, games: matches.size, players: players.length, minGames, complete, warnings };
   if (!hasDivisionData) return result;
 
   const divisionalResults = new Map<Division, SeasonEndResult>(DIVISIONS.map((division) => [

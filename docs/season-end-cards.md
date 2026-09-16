@@ -16,14 +16,19 @@ five games.
 
 Best of Champion assigns one played champion to each player and one player to
 each champion, maximizing player coverage before the combined win-rate and
-role-relative performance score. Each assigned winner is rendered with its
-per-champion title and splash art inside the same Season's End archive-card
-layout; it does not use the separate cumulative Season Card layout.
+role-relative performance score. Only candidates scoring at least 70/100 are
+eligible; the score floor is fixed rather than falling back per season. Each
+assigned winner is rendered with its per-champion title and splash art inside
+the same Season's End archive-card layout; it does not use the separate
+cumulative Season Card layout.
 
-Player-only accolades are calculated separately inside Solari and Lunari, so
-each such accolade has one card per division. The card marks Solari with a sun
-and Lunari with a moon. Team and player-pair honors remain single awards, as do
-the ordinary cumulative Season Cards.
+Ordinary player, player-pair, and Teamwork accolades are calculated separately
+inside Solari and Lunari, so each such accolade has one card per division. The
+card marks Solari with a sun and Lunari with a moon. Best of Champions is the
+exception: it is assigned once across the selected league, so Premier has at
+most one Best of Ahri, one Best of Azir, and so on across both divisions.
+Academy is calculated independently. The ordinary cumulative Season Cards
+remain outside this division policy.
 
 The server checks staff access before fetching data through the cookie-bound
 Supabase client. Reads are scoped to the selected season and `Regular` phase,
@@ -70,10 +75,17 @@ exist, their team names also constrain the data. No migrations are required.
 - Grand Theft Objective uses all objective steals. Stored data does not prove
   Baron-specific steals, so it does not use the Grand Theft Baron title.
 
-Volume-based cards display the normalized per-game figure or event rate as the
-headline, while retaining the winner's season numerator total and game count
-in the evidence line. Per-minute and damage-per-gold cards continue to display
-their actual winning rate explicitly.
+Card headlines are rounded to whole numbers with half-away-from-zero rounding.
+Percentages are percentage points, and signed means, ratios, scores, and
+durations keep their ordinary units. Volume-based cards display the normalized
+per-game figure or event rate as the headline, while retaining the winner's
+season numerator total and game count in the evidence line. When an explicitly
+configured additive count average or rate is below one, the headline switches
+to the observed season numerator as a labelled total and removes `/game` or
+`/min`; the raw value used for ranking is unchanged. Missing totals never
+become zero, and percentages, ratios, durations, and non-additive means do not
+receive count-total fallbacks. Best of evidence shows an integer score, record,
+appearances, and KDA without decimal formatting.
 
 ## Champion mappings
 

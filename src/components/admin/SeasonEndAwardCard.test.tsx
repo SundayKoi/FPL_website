@@ -21,6 +21,7 @@ describe("SeasonEndAwardCard", () => {
           description: "Most kills per game",
           group: "Record breakers",
           scope: "player",
+          partition: "division",
           mode: "perGame",
           unit: "kills/game",
           status: "ready",
@@ -51,6 +52,7 @@ describe("SeasonEndAwardCard", () => {
           description: "Most kills",
           group: "Record breakers",
           scope: "player",
+          partition: "division",
           mode: "total",
           unit: "kills",
           status: "ready",
@@ -75,6 +77,37 @@ describe("SeasonEndAwardCard", () => {
     expect(screen.getByLabelText("Lunari division").textContent).toContain("☾");
   });
 
+  it.each(["pair", "team"] as const)("uses the same division treatment for %s awards", (scope) => {
+    render(
+      <SeasonEndAwardCard
+        award={{
+          id: scope === "pair" ? "jungle-mid-connection" : "dragon-hoard",
+          title: scope === "pair" ? "Jungle–Mid Connection" : "Dragon Hoard",
+          description: "A Teamwork award",
+          group: "Teamwork",
+          scope,
+          partition: "division",
+          mode: "perGame",
+          unit: "dragons/game",
+          status: "ready",
+          divisionStatuses: {
+            Solari: { status: "ready" },
+            Lunari: { status: "unavailable", note: "Lunari fixtures are incomplete." },
+          },
+          winners: [{ name: "Alice#NA1", team: "Wolves", value: 2, games: 6, division: "Solari" }],
+        }}
+        season="S5"
+        league="premier"
+        index={0}
+        cards={[card]}
+      />,
+    );
+
+    expect(screen.getByLabelText("Solari division")).toBeTruthy();
+    expect(screen.getByLabelText("Lunari division")).toBeTruthy();
+    expect(screen.getByText("Lunari fixtures are incomplete.")).toBeTruthy();
+  });
+
   it("uses the assigned champion and per-champion title in the normal Season's End card", () => {
     render(
       <SeasonEndAwardCard
@@ -82,8 +115,9 @@ describe("SeasonEndAwardCard", () => {
           id: "best-of-champion",
           title: "Best of Champion",
           description: "One unique played champion per player.",
-          group: "Season stories",
+          group: "Best of Champions",
           scope: "player",
+          partition: "league",
           status: "ready",
           winners: [{
             name: "Alice#NA1",
@@ -93,7 +127,7 @@ describe("SeasonEndAwardCard", () => {
             champion: "Azir",
             championGames: 2,
             title: "Best of Azir",
-            detail: "Azir · 2–0 · 2 games · 8.00 KDA",
+            evidence: { record: "2–0", kda: 8 },
           }],
         }}
         season="S5"
@@ -105,6 +139,35 @@ describe("SeasonEndAwardCard", () => {
 
     expect(screen.getByRole("heading", { name: "Best of Azir" })).toBeTruthy();
     expect(screen.getByTestId("award-card-art").getAttribute("style")).toContain("Azir_0.jpg");
+    expect(screen.queryByText("One unique played champion per player.")).toBeNull();
+    expect(screen.getByText(/2–0 · 8 KDA · 88\/100 score · Wolves · 6 games/)).toBeTruthy();
     expect(screen.getByText("SEASON ARCHIVE")).toBeTruthy();
+  });
+
+  it("keeps Best of empty states actionable without repeating the assignment description", () => {
+    render(
+      <SeasonEndAwardCard
+        award={{
+          id: "best-of-champion",
+          title: "Best of Champion",
+          description: "This explanation should not be rendered on the card.",
+          group: "Best of Champions",
+          scope: "player",
+          partition: "league",
+          status: "unearned",
+          note: "No champion performances reached 70/100.",
+          winners: [],
+        }}
+        season="S5"
+        league="premier"
+        index={0}
+        cards={[]}
+      />,
+    );
+
+    expect(screen.getByText("Not earned yet")).toBeTruthy();
+    expect(screen.getByText("No champion performances reached 70/100.")).toBeTruthy();
+    expect(screen.queryByText("This explanation should not be rendered on the card.")).toBeNull();
+    expect(screen.queryByLabelText(/division$/)).toBeNull();
   });
 });
