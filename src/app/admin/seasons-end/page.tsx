@@ -11,6 +11,7 @@ import { loadSeasonEnd } from "@/lib/season-end/queries";
 import { resolveLeagueView } from "@/lib/league/context";
 import { fetchLeagueSeasons, seasonBelongsToLeague } from "@/lib/league/season";
 import { createServerSupabase } from "@/lib/supabase/server";
+import styles from "./preview.module.css";
 
 export const metadata: Metadata = { title: "Season’s End · FPL Admin" };
 
@@ -55,7 +56,7 @@ export default async function SeasonsEndPage({
   }
 
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-[1440px] flex-1 flex-col gap-10 px-6 py-12">
+    <main className={`${styles.preview} page-backdrop flex w-full flex-1 flex-col gap-10 px-3 py-8 sm:px-5 lg:px-7 2xl:px-10`}>
       <header className="flex flex-col gap-4">
         <Link href="/admin" className="label-dash w-fit hover:text-coral">← Admin</Link>
         <p className="text-xs uppercase tracking-[.3em] text-gold">The season, in good company</p>
@@ -90,7 +91,7 @@ export default async function SeasonsEndPage({
           return (
             <section id={`group-${groupIndex}`} key={group} aria-label={group} className="scroll-mt-8">
               <div className="mb-5 flex items-baseline gap-4 border-b border-line pb-3"><span className="font-mono text-sm text-steel">0{groupIndex + 1}</span><h2 className="type-display text-3xl text-gold">{group}</h2></div>
-              <div className="flex flex-col gap-8">
+              <div className={styles.cardRow}>
                 {awards.map((award, index) => <SeasonEndAwardCard key={award.id} award={award} season={season} league={league} index={index} cards={allSeasonCards} />)}
               </div>
             </section>
@@ -100,7 +101,7 @@ export default async function SeasonsEndPage({
         <section id="season-cards" aria-label="Season Cards" className="scroll-mt-8">
           <div className="mb-5 flex items-baseline gap-4 border-b border-line pb-3"><span className="font-mono text-sm text-steel">06</span><h2 className="type-display text-3xl text-gold">Season Cards</h2></div>
           <p className="mb-5 max-w-3xl text-sm text-steel">Cumulative player cards for regular contributors (more than five games). Unlike accolade cards, these retain their standard season OVR, tier, and stat lines.</p>
-          {seasonCardsError ? <p className="card-brand p-5 text-steel">Cumulative Season Cards could not be assembled, but the accolade results above are still available.</p> : seasonCards.length ? <div className="flex flex-wrap gap-5">{seasonCards.map((card) => <PlayerCard3D key={card.slug} card={card} />)}</div> : <p className="card-brand p-5 text-steel">No players have more than five recorded games for this season yet.</p>}
+          {seasonCardsError ? <p className="card-brand p-5 text-steel">Cumulative Season Cards could not be assembled, but the accolade results above are still available.</p> : seasonCards.length ? <div className="card-shelf flex flex-wrap justify-center gap-x-0 gap-y-4">{seasonCards.map((card) => <div key={card.slug} className="card-cell flex flex-col items-center gap-2"><PlayerCard3D card={card} /></div>)}</div> : <p className="card-brand p-5 text-steel">No players have more than five recorded games for this season yet.</p>}
         </section>
       </> : null}
     </main>

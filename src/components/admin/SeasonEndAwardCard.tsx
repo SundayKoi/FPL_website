@@ -202,7 +202,7 @@ export default function SeasonEndAwardCard({
 
   if (isDivisional) {
     return (
-      <div className={styles.grid}>
+      <div className={styles.cardGroup}>
         {(["Solari", "Lunari"] as const).flatMap((division) => {
           const winners = award.winners.filter((winner) => winner.division === division);
           return winners.length ? winners.map((winner, winnerIndex) => (
@@ -223,7 +223,7 @@ export default function SeasonEndAwardCard({
   }
 
   return (
-    <div className={styles.grid}>
+    <div className={styles.cardGroup}>
       {award.winners.length ? award.winners.map((winner, winnerIndex) => (
         <AwardVisualCard
           key={`${winner.name}-${winnerIndex}`}
