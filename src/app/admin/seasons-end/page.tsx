@@ -1,63 +1,82 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createServerSupabase } from "@/lib/supabase/server";
-import { fetchStaffTier } from "@/lib/auth/staffTier";
-import { fetchSeasonsEnd } from "@/lib/cards/seasonsEnd/queries";
+import SeasonEndAwardCard from "@/components/admin/SeasonEndAwardCard";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
-import { cardPlayerKey } from "@/lib/cards/build";
-import { buildTeamCards, teamToCard } from "@/lib/cards/teamCards";
-import { awardPlayerCard } from "@/lib/cards/seasonsEnd/cardData";
-import styles from "./preview.module.css";
+import { fetchStaffTier } from "@/lib/auth/staffTier";
+import { fetchSeasonCards } from "@/lib/cards/queries";
+import { AWARD_GROUPS } from "@/lib/season-end/catalog";
+import type { SeasonEndResult } from "@/lib/season-end/derive";
+import { loadSeasonEnd } from "@/lib/season-end/queries";
+import { resolveLeagueView } from "@/lib/league/context";
+import { fetchLeagueSeasons, seasonBelongsToLeague } from "@/lib/league/season";
+import { createServerSupabase } from "@/lib/supabase/server";
 
-export const metadata: Metadata = { title: "Season’s End — Admin Preview", robots: {index:false,follow:false} };
-export default async function SeasonsEndPage({searchParams}:{searchParams:Promise<{league?:string;season?:string}>}) {
-  const supabase=await createServerSupabase();
-  const {isAdmin,isOwner}=await fetchStaffTier(supabase);
-  if(!isAdmin && !isOwner) redirect("/");
-  const params=await searchParams;
-  const league=params.league==="academy"?"academy":"premier";
-  let data: Awaited<ReturnType<typeof fetchSeasonsEnd>> | undefined;
-  try {data=await fetchSeasonsEnd(supabase,league,params.season);} catch { /* Fail visibly rather than render partial winners. */ }
-  return <main className={`${styles.preview} mx-auto w-full max-w-7xl px-6 py-12`}>
-    <header className="mb-9 flex flex-col gap-3">
-      <Link href="/admin" className="label-dash">← Admin</Link>
-      <p className="text-xs uppercase tracking-[.25em] text-gold">Private preview · Collection 01</p>
-      <h1 className="type-display text-5xl sm:text-7xl">Season&apos;s End</h1>
-      <p className="max-w-2xl text-muted">The players, partnerships and performances that defined the regular season. Twelve award families, calculated from real stats. Preview only: no cards are minted.</p>
+export const metadata: Metadata = { title: "Season’s End · FPL Admin" };
+
+/** The single, admin-only Season's End collection. */
+export default async function SeasonsEndPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const client = await createServerSupabase();
+  const staff = await fetchStaffTier(client);
+  if (!staff.isAdmin && !staff.isOwner) redirect("/admin");
+
+  const params = await searchParams;
+  const league = resolveLeagueView(params.league);
+  const seasons = await fetchLeagueSeasons(client);
+  const season = (typeof params.season === "string" ? params.season : seasons[league]).trim();
+  let result: SeasonEndResult | null = null;
+  let seasonCards: Awaited<ReturnType<typeof fetchSeasonCards>> = [];
+  let error: string | null = null;
+  let seasonCardsError = false;
+
+  if (!seasonBelongsToLeague(season, league)) {
+    error = "Choose a season belonging to the selected league (S for Premier, A for Academy).";
+  } else {
+    try { result = await loadSeasonEnd(client, league, season); }
+    catch { error = "Season data could not be loaded completely. Retry after checking the stats and fixture data; no winners have been declared."; }
+    if (result) {
+      try { seasonCards = (await fetchSeasonCards(client, season)).filter((card) => card.level > 5); }
+      catch { seasonCardsError = true; }
+    }
+  }
+
+  return <main className="page-backdrop mx-auto flex w-full max-w-[1440px] flex-1 flex-col gap-10 px-6 py-12">
+    <header className="flex flex-col gap-4">
+      <Link href="/admin" className="label-dash w-fit hover:text-coral">← Admin</Link>
+      <p className="text-xs uppercase tracking-[.3em] text-gold">The season, in good company</p>
+      <h1 className="type-display text-4xl sm:text-6xl">Season&apos;s End</h1>
+      <p className="max-w-3xl text-sm text-steel">Regular-season honors, calculated from recorded matches. Each accolade card shows the stat that earned it; cumulative Season Cards retain the normal card treatment.</p>
       <form className="flex flex-wrap items-end gap-3" action="/admin/seasons-end">
-        <label className="flex flex-col gap-1 text-sm">League<select aria-label="League" name="league" defaultValue={league} className={styles.select}><option value="premier">Premier</option><option value="academy">Academy</option></select></label>
-        <label className="flex flex-col gap-1 text-sm">Season<select aria-label="Season" name="season" defaultValue={data?.season??""} className={styles.select}><option value="">Latest in selected league</option>{data?.options.map(s=><option key={s} value={s}>{s}</option>)}</select></label>
-        <button className={styles.button} type="submit">View collection</button>
+        <label className="flex flex-col gap-1 text-sm">League<select name="league" defaultValue={league} className="rounded border border-line bg-panel p-2"><option value="premier">Premier</option><option value="academy">Academy</option></select></label>
+        <label className="flex flex-col gap-1 text-sm">Season<input name="season" defaultValue={season} placeholder={seasons[league]} className="w-28 rounded border border-line bg-panel p-2" required maxLength={32} /></label>
+        <button type="submit" className="rounded border border-gold px-4 py-2 text-sm text-gold hover:bg-gold/10">Calculate cards</button>
       </form>
-      {data?.result && <p className="text-sm text-muted">{league === "academy" ? "Academy" : "Premier"} · {data.season} · Regular season · {data.result.games} complete games · {data.result.players} players</p>}
-      <p className="text-xs text-muted">Live, provisional calculations. Final awards require a complete ingest and confirmed standings. Card ratings and stat bars use the normal season-card engine. Best-of awards use a unique champion assignment; bot-lane points exclude the win bonus. Activate a player card to see its back.</p>
     </header>
-    {!data ? <p role="alert" className="card-brand p-6">Season stats could not be loaded. Refresh to retry; no partial winners are displayed.</p> : !data.result ? <p className="card-brand p-6">No seasons with stats are available for this league.</p> : <>
-      {data.result.warnings.length>0 && <aside aria-label="Data coverage" className="mb-8 rounded-xl border border-gold/40 p-4 text-sm text-gold">{data.result.warnings.map(w=><p key={w}>{w}</p>)}</aside>}
-      <nav aria-label="Award families" className="mb-10 flex flex-wrap gap-2">{data.result.awards.map(a=><a className={styles.jump} key={a.id} href={`#${a.id}`}>{a.title} <span>{a.winners.length}</span></a>)}</nav>
-      <div className="flex flex-col gap-14">{data.result.awards.map((award,index)=><section id={award.id} key={award.id} aria-labelledby={`${award.id}-title`}>
-        <div className="mb-5 flex flex-wrap items-baseline gap-3"><span className="font-mono text-sm text-gold">{String(index+1).padStart(2,"0")}</span><h2 id={`${award.id}-title`} className="type-display text-3xl">{award.title}</h2><span className="text-sm text-muted">{award.winners.length} {award.winners.length===1?"card":"cards"}</span></div>
-        <p className="mb-5 max-w-3xl text-sm text-muted">{award.rule}</p>
-        {award.winners.length===0 ? <div className="card-brand p-6 text-sm text-muted">{award.unavailable??"No qualifying winner in this season. Minimum appearances and positive-stat requirements apply."}</div> : <div className={styles.grid}>{award.winners.map(winner=>{
-          const cards = (data.result?.cards ?? []).filter(card=>winner.playerKeys?.includes(cardPlayerKey(card.name,card.tag)));
-          const title = winner.title ?? award.title;
-          const team = award.id === "undefeated" ? buildTeamCards(cards.map(card=>({...card,teamName:winner.name})))[0] : null;
-          return <article key={winner.key} className={styles.entry} aria-label={`${title}: ${winner.name}`}>
-            <div className={styles.awardHeader}>
-              <h3 className="font-display text-xl text-gold">{title}</h3>
-              <p className="text-sm">{winner.name}</p>
-              {award.id !== "season-cards" && <p className="font-mono text-xl text-gold">{winner.display}</p>}
-              <p className="text-xs text-muted">{winner.evidence}</p>
-            </div>
-            <div className={styles.cardRow}>
-              {team ? <PlayerCard3D card={teamToCard(team,data.season!,0)} /> : cards.map(card=><PlayerCard3D key={card.slug} interactive card={awardPlayerCard(card,winner,award.title,award.id==="season-cards")} />)}
-            </div>
-            {!cards.length && <p className="text-sm text-muted">No complete player-card stats available.</p>}
-            {winner.roster && <details className="mt-3 text-sm text-muted"><summary>Season roster · {winner.roster.length} contributors</summary><ul>{winner.roster.map(n=><li key={n}>{n}</li>)}</ul></details>}
-          </article>;
-        })}</div>}
-      </section>)}</div>
-    </>}
+    {error ? <p role="alert" className="card-brand p-5 text-coral">{error}</p> : null}
+    {result ? <>
+      <section aria-label="Season coverage" className="card-brand flex flex-col gap-3 p-5">
+        <p className="font-semibold">{league === "premier" ? "Premier" : "Academy"} · {season} · {result.games} games · {result.players} players</p>
+        <p className="text-sm text-gold">{result.complete ? "All scheduled regular-season series are complete. Results reflect currently ingested stats." : "Provisional leaders — regular-season fixtures are unfinished or unavailable."}</p>
+        <p className="text-sm text-steel">Rate and performance awards require {result.minGames} measured games (at least five and half the busiest player’s appearances). Speedrunners requires three wins. Missing required observations leave an award unavailable.</p>
+        {result.warnings.map((warning) => <p key={warning} className="text-sm text-coral">{warning}</p>)}
+        <details className="text-sm text-steel"><summary className="cursor-pointer text-white">Scoring & mapping notes</summary><p className="mt-3">Performance is the mean of five same-role, per-game percentile scores: KDA, champion damage/min, CS/min, vision/min and kill participation. Late Bloomer uses the final third of league games in chronological order. Metronome requires a mean of 60 and a per-game floor of 40. Chronological ties use match ID. Streaks follow each player’s appearances. Team standings use series wins, then losses; tied teams remain tied.</p></details>
+      </section>
+      <nav aria-label="Award groups" className="flex flex-wrap gap-3 text-sm">
+        {AWARD_GROUPS.map((group, index) => <a key={group} href={`#group-${index}`} className="rounded-full border border-line px-4 py-2 hover:border-gold">{group}</a>)}
+        <a href="#season-cards" className="rounded-full border border-line px-4 py-2 hover:border-gold">Season Cards</a>
+      </nav>
+      {AWARD_GROUPS.map((group, groupIndex) => {
+        const awards = result.awards.filter((award) => award.group === group);
+        return <section id={`group-${groupIndex}`} key={group} aria-label={group} className="scroll-mt-8">
+          <div className="mb-5 flex items-baseline gap-4 border-b border-line pb-3"><span className="font-mono text-sm text-steel">0{groupIndex + 1}</span><h2 className="type-display text-3xl text-gold">{group}</h2></div>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">{awards.map((award, index) => <SeasonEndAwardCard key={award.id} award={award} season={season} league={league} index={index} />)}</div>
+        </section>;
+      })}
+      <section id="season-cards" aria-label="Season Cards" className="scroll-mt-8">
+        <div className="mb-5 flex items-baseline gap-4 border-b border-line pb-3"><span className="font-mono text-sm text-steel">06</span><h2 className="type-display text-3xl text-gold">Season Cards</h2></div>
+        <p className="mb-5 max-w-3xl text-sm text-steel">Cumulative player cards for regular contributors (more than five games). Unlike accolade cards, these retain their standard season OVR, tier, and stat lines.</p>
+        {seasonCardsError ? <p className="card-brand p-5 text-steel">Cumulative Season Cards could not be assembled, but the accolade results above are still available.</p> : seasonCards.length ? <div className="flex flex-wrap gap-5">{seasonCards.map((card) => <PlayerCard3D key={card.slug} card={card} />)}</div> : <p className="card-brand p-5 text-steel">No players have more than five recorded games for this season yet.</p>}
+      </section>
+    </> : null}
   </main>;
 }
