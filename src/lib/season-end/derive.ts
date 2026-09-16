@@ -5,7 +5,6 @@ import { DIVISIONS, type Division, type FixtureRow } from "@/lib/schedule/types"
 import { cardPlayerKey } from "@/lib/cards/build";
 import { assignChampions } from "@/lib/cards/seasonsEnd/assignment";
 import { championDisplayName } from "@/lib/match-draft/champions";
-import { BEST_OF_SCORE_FLOOR } from "./policy";
 
 /** Raw storage fields stay nullable. Missing observations must never become zero. */
 export interface SeasonRow {
@@ -65,6 +64,9 @@ export interface SeasonEndResult {
 type Group = { name: string; team: string; rows: SeasonRow[] };
 type DeriveOptions = {
   division?: Division;
+  /** Current roster truth overrides historical appearance inference when a
+   * player changed divisions during the selected season. */
+  currentPlayerDivisions?: ReadonlyMap<string, Division>;
 };
 const identity = (r: SeasonRow) => `${r.summoner_name}#${r.tag}`;
 const playerKey = (r: SeasonRow) => cardPlayerKey(r.summoner_name, r.tag);
@@ -120,6 +122,30 @@ function rowDivision(row: SeasonRow, divisions: ReturnType<typeof divisionMap>):
   if (row.division === "Solari" || row.division === "Lunari") return row.division;
   const key = teamKey(row.team_name);
   return divisions.conflicts.has(key) ? null : divisions.byTeam.get(key) ?? null;
+}
+
+/** Resolve a player's division across every selected-season appearance. */
+function playerDivisionMap(
+  rows: SeasonRow[],
+  divisions: ReturnType<typeof divisionMap>,
+  currentPlayerDivisions?: ReadonlyMap<string, Division>,
+): Map<string, Division> {
+  const states = new Map<string, { resolved: Set<Division>; unresolved: boolean }>();
+  for (const row of rows) {
+    const state = states.get(playerKey(row)) ?? { resolved: new Set<Division>(), unresolved: false };
+    const division = rowDivision(row, divisions);
+    if (division) state.resolved.add(division);
+    else state.unresolved = true;
+    states.set(playerKey(row), state);
+  }
+
+  return new Map([...states.entries()].flatMap(([key, state]) => {
+    const currentDivision = currentPlayerDivisions?.get(key);
+    if (currentDivision) return [[key, currentDivision] as const];
+    return !state.unresolved && state.resolved.size === 1
+      ? [[key, [...state.resolved][0]] as const]
+      : [];
+  }));
 }
 
 function fixtureIsInDivision(fixture: FixtureRow, division: Division, divisions: ReturnType<typeof divisionMap>): boolean {
@@ -202,6 +228,7 @@ export function deriveSeasonEnd(
   const datesComplete = rows.every(r => Number.isFinite(Date.parse(r.game_date)));
   rows.sort(chronological);
   const players: Group[] = groups(rows, identity).map(rs => ({ name: identity(rs[0]), team: [...new Set(rs.map(r => r.team_name))].join(" / "), rows: rs }));
+  const playerDivisions = playerDivisionMap(rows, divisions, options.currentPlayerDivisions);
   const minGames = 5;
   const qualified = players.filter(p => p.rows.length >= minGames);
   const teamGames = groups(rows, r => `${r.match_id}|${teamKey(r.team_name)}`);
@@ -301,23 +328,35 @@ export function deriveSeasonEnd(
             playerKey: playerKey(first),
           };
         }));
-      const eligibleCandidates = candidates.filter((candidate) => candidate.value >= BEST_OF_SCORE_FLOOR);
-      const eligiblePlayers = new Set(eligibleCandidates.map((candidate) => candidate.playerKey));
+      // Best of eligibility belongs to the player, not to an individual
+      // champion pick: a regular contributor may have spread five or more
+      // appearances across several champions. The candidate score remains
+      // the champion-specific overall used to choose among those picks.
+      const eligiblePlayers = new Set(qualified.map((player) => playerKey(player.rows[0])));
+      const eligibleCandidates = candidates.filter((candidate) => eligiblePlayers.has(candidate.playerKey));
       const assigned = assignChampions(eligibleCandidates);
       const assignedPlayers = new Set(assigned.map((candidate) => candidate.playerKey));
-      const belowFloor = players
+      const assignedWithDivisions = assigned.map((candidate) => {
+        const division = playerDivisions.get(candidate.playerKey);
+        return division ? { ...candidate, division } : candidate;
+      });
+      const belowMinimum = players
         .filter((player) => !eligiblePlayers.has(playerKey(player.rows[0])))
         .map((player) => player.name);
       const blockedByAssignment = players
         .filter((player) => eligiblePlayers.has(playerKey(player.rows[0])) && !assignedPlayers.has(playerKey(player.rows[0])))
         .map((player) => player.name);
       if (!options.division) {
-        if (belowFloor.length) warnings.push(`Best of Champion covers ${assigned.length}/${players.length} players. No champion performance reached ${BEST_OF_SCORE_FLOOR}/100 for: ${belowFloor.join(", ")}.`);
-        if (blockedByAssignment.length) warnings.push(`Best of Champion covers ${assigned.length}/${players.length} players. Qualifying performances had no unused champion after coverage-first assignment for: ${blockedByAssignment.join(", ")}.`);
+        if (belowMinimum.length) warnings.push(`Best of Champion covers ${assigned.length}/${qualified.length} eligible players. Players with fewer than ${minGames} games do not receive a card: ${belowMinimum.join(", ")}.`);
+        if (blockedByAssignment.length) warnings.push(`Best of Champion covers ${assigned.length}/${qualified.length} eligible players. Qualifying performances had no unused champion after coverage-first assignment for: ${blockedByAssignment.join(", ")}.`);
+        const unassignedDivisions = assigned.filter((candidate) => !playerDivisions.has(candidate.playerKey)).length;
+        if (unassignedDivisions && (divisions.byTeam.size > 0 || rows.some((row) => rowDivision(row, divisions)))) {
+          warnings.push(`Best of Champion omitted division emblems for ${unassignedDivisions} assigned winner${unassignedDivisions === 1 ? "" : "s"} with unresolved season division metadata.`);
+        }
       }
       return assigned.length
-        ? { ...def, winners: assigned, status: "ready" }
-        : { ...def, winners: [], status: "unearned", note: eligibleCandidates.length ? "No unused champion could be assigned." : `No champion performances reached ${BEST_OF_SCORE_FLOOR}/100.` };
+        ? { ...def, winners: assignedWithDivisions, status: "ready" }
+        : { ...def, winners: [], status: "unearned", note: eligibleCandidates.length ? "No unused champion could be assigned to an eligible player." : `No player has at least ${minGames} games.` };
     }
     if (def.field) {
       const isRate = def.mode !== "total";
@@ -447,8 +486,8 @@ export function deriveSeasonEnd(
         const g = teamGames.find(g => g[0].match_id === r.match_id && teamKey(g[0].team_name) === teamKey(r.team_name))!;
         if (g.some(o => o.win !== r.win || o.team_side !== r.team_side)) return missing(def);
         let value: number | null = null;
-        if (def.id === "dragon-hoard" || def.id === "baron-society") {
-          const fields = all(g, def.id === "dragon-hoard" ? "team_dragons" : "team_barons");
+        if (def.id === "dragon-hoard") {
+          const fields = all(g, "team_dragons");
           if (fields && new Set(fields).size === 1) value = fields[0];
         } else if (def.id === "fortress") {
           const opponent = matches.get(r.match_id)!.filter(o => o.team_side !== r.team_side);
@@ -463,7 +502,7 @@ export function deriveSeasonEnd(
         numbers.push(value);
       }
       if (def.id === "speedrunners" && numbers.length < 3) continue;
-      if (["fortress", "dragon-hoard", "baron-society", "marathon-winners"].includes(def.id) && t.rows.length < minGames) continue;
+      if (["fortress", "dragon-hoard", "marathon-winners"].includes(def.id) && t.rows.length < minGames) continue;
       const total = sum(numbers);
       const average = mean(numbers);
       const value = ["fortress", "speedrunners"].includes(def.id)

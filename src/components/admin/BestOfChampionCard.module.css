@@ -1,24 +1,25 @@
 .card { min-width:0; color:#f5f1e8; }
-.face { --best-of-focal-position:center; container-type:inline-size; position:relative; aspect-ratio:5 / 7; overflow:hidden; border-radius:18px; background:#10161d; box-shadow:0 16px 38px #0005; }
-.art { position:absolute; z-index:0; inset:0; background-color:#10161d; background-position:var(--best-of-focal-position); background-repeat:no-repeat; background-size:cover; }
-.shade { position:absolute; z-index:1; inset:0; pointer-events:none; }
-.shadeTop { background:linear-gradient(180deg, rgb(4 8 12 / .72), transparent 24%); }
-.shadeIdentity { background:radial-gradient(ellipse 82% 32% at 18% 75%, rgb(4 7 10 / .84), transparent 72%); }
-.shadeFooter { background:linear-gradient(0deg, rgb(4 7 10 / .76), transparent 18%); }
-.frame { position:absolute; z-index:3; inset:4.5%; width:91%; height:91%; color:#e7c780; fill:none; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; stroke-width:2; opacity:.94; pointer-events:none; }
-.overall { position:absolute; z-index:4; top:7%; right:7%; display:flex; min-width:58px; flex-direction:column; align-items:flex-end; padding:4px 7px 5px; border-radius:4px; background:linear-gradient(135deg, rgb(5 9 13 / .72), transparent); text-align:right; text-shadow:0 2px 7px #000; }
-.overallNumber { color:#fff7dd; font-family:var(--font-display, Georgia, serif); font-size:clamp(32px, 10cqw, 48px); font-weight:800; line-height:.88; letter-spacing:-.06em; }
-.overallLabel { color:#e7c780; font-family:var(--font-body, sans-serif); font-size:clamp(8px, 2.8cqw, 11px); font-weight:800; letter-spacing:.22em; line-height:1; }
-.identity { position:absolute; z-index:4; right:10%; bottom:20%; left:8%; }
-.kicker { margin:0 0 5px; color:#e7c780; font-family:var(--font-body, sans-serif); font-size:clamp(9px, 3cqw, 12px); font-weight:800; letter-spacing:.18em; line-height:1.1; text-transform:uppercase; text-shadow:0 1px 5px #000; }
-.name { max-width:100%; margin:0; color:#fff8e8; font-family:var(--font-display, Georgia, serif); font-size:clamp(24px, 8.5cqw, 32px); font-weight:800; line-height:.98; overflow-wrap:anywhere; text-shadow:0 2px 7px #000; text-wrap:balance; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
-.emptyIdentity { position:absolute; z-index:4; right:10%; bottom:20%; left:8%; }
+.face { --celestial-accent:#ebcc8b; container-type:inline-size; position:relative; isolation:isolate; aspect-ratio:5 / 7; overflow:hidden; border-radius:16px; background:#10161d; box-shadow:0 16px 38px #0005; }
+.face.lunari { --celestial-accent:#cfdaff; }
+.art { position:absolute; z-index:0; inset:0; background-color:#10161d; background-repeat:no-repeat; transform:scale(var(--art-zoom, 1)); transform-origin:center; }
+.shade { position:absolute; z-index:1; inset:0; background:linear-gradient(0deg, rgb(3 8 12 / .94), rgb(3 8 12 / .72) 19%, transparent 53%, rgb(3 8 12 / .2)); pointer-events:none; }
+.foil { position:absolute; z-index:2; inset:0; pointer-events:none; opacity:.18; background:repeating-radial-gradient(ellipse at 50% 15%, transparent 0 23px, #d7bf792a 24px, transparent 25px 35px); -webkit-mask-image:linear-gradient(90deg, #000, transparent 20% 80%, #000); mask-image:linear-gradient(90deg, #000, transparent 20% 80%, #000); }
+.frame { position:absolute; z-index:3; inset:9px; border:1px solid var(--celestial-accent); border-radius:11px; box-shadow:0 0 4px color-mix(in srgb, var(--celestial-accent) 24%, transparent); pointer-events:none; }
+.frame::after { position:absolute; inset:5px; border:1px solid color-mix(in srgb, var(--celestial-accent) 36%, transparent); border-radius:7px; content:""; }
+.ornament { position:absolute; z-index:3; inset:0; width:100%; height:100%; color:var(--celestial-accent); pointer-events:none; }
+.solari .ornament { color:#ebcc8b; }
+.lunari .ornament { color:#cfdaff; }
+.lunari .frame { border-color:#b9c8e4; box-shadow:0 0 4px rgb(141 229 211 / .2); }
+.lunari .foil { background:repeating-radial-gradient(ellipse at 50% 15%, transparent 0 23px, #cad8ff24 24px, transparent 25px 35px); }
+.identity { position:absolute; z-index:4; right:8%; bottom:15%; left:8%; }
+.kicker { margin:0 0 8px; color:#e7c780; font-family:var(--font-body, sans-serif); font-size:clamp(9px, 3.5cqw, 12px); font-weight:700; letter-spacing:.16em; line-height:1.1; text-transform:uppercase; text-shadow:0 1px 5px #000; }
+.name { max-width:100%; margin:0; color:#fff8e8; font-family:var(--font-display, Georgia, serif); font-size:clamp(24px, 8.4cqw, 34px); font-weight:800; line-height:1.04; overflow-wrap:anywhere; text-shadow:0 2px 7px #000; text-wrap:balance; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+.emptyIdentity { position:absolute; z-index:4; right:8%; bottom:15%; left:8%; }
 .emptyStatus { max-width:75%; margin:0; color:#fff8e8; font-family:var(--font-display, Georgia, serif); font-size:clamp(22px, 7cqw, 30px); font-weight:800; line-height:1; text-shadow:0 2px 7px #000; }
-.footer { position:absolute; z-index:4; right:8%; bottom:6.5%; left:8%; display:flex; align-items:flex-end; justify-content:space-between; gap:10px; }
-.seasonLeague { color:#fff8e8; font-family:var(--font-body, sans-serif); font-size:clamp(10px, 3.2cqw, 13px); font-weight:700; letter-spacing:.1em; text-shadow:0 1px 5px #000; }
-.divisionMark { display:inline-flex; align-items:center; gap:5px; flex-shrink:0; color:#e7c780; font-family:var(--font-body, sans-serif); font-size:clamp(10px, 3.2cqw, 13px); line-height:1; text-shadow:0 1px 5px #000; }
-.divisionMark span:last-child { font-size:clamp(8px, 2.5cqw, 10px); letter-spacing:.12em; text-transform:uppercase; }
-.autographBox { position:absolute; z-index:4; right:8%; bottom:13%; width:28%; height:10%; transform:rotate(-6deg); pointer-events:none; }
+.footer { position:absolute; z-index:4; right:8%; bottom:6%; left:8%; display:flex; align-items:flex-end; gap:10px; }
+.seasonLeague { color:#d4d8d9; font-family:var(--font-body, sans-serif); font-size:clamp(10px, 3.4cqw, 13px); font-weight:700; letter-spacing:.1em; text-shadow:0 1px 5px #000; }
+.gem { position:absolute; z-index:4; bottom:2.8%; left:48.5%; width:3%; aspect-ratio:1; transform:rotate(45deg); border:1px solid var(--celestial-accent); background:#101923; box-shadow:0 0 9px color-mix(in srgb, var(--celestial-accent) 40%, transparent); pointer-events:none; }
+.autographBox { position:absolute; z-index:4; top:38%; right:8%; width:22%; height:7%; transform:rotate(-6deg); pointer-events:none; }
 .autograph { object-fit:contain; filter:drop-shadow(0 1px 3px rgb(0 0 0 / .95)) drop-shadow(0 0 8px rgb(255 255 255 / .35)); }
 .details { display:grid; gap:4px; padding:11px 3px 0; }
 .detailsLabel { margin:0; color:#e7c780; font-size:10px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
@@ -27,7 +28,7 @@
 .description { margin-top:2px; color:#9eacb9; }
 .srOnly { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 .emptyState .face { background:#121920; }
-.emptyState .frame { opacity:.72; }
+.emptyState .frame,.emptyState .ornament,.emptyState .gem { opacity:.72; }
 
 @media (prefers-reduced-motion:reduce) {
   .face { scroll-behavior:auto; }

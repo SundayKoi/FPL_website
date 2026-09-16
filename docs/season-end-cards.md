@@ -1,7 +1,7 @@
 # Season's End cards
 
 Open **Admin → Season's End** (`/admin/seasons-end`). Admins and owners can
-calculate all 61 accolade cards for either league and a selected season, plus
+calculate all 56 accolade cards for either league and a selected season, plus
 the normal cumulative Season Cards for contributors with more than five games.
 This is a read-only awards desk, not a collectible mint or a season-closing
 operation. The former `/admin/season-end` route redirects here for existing
@@ -12,16 +12,20 @@ family-colored card with the winner's champion splash art, award title, winning
 statistic, evidence line and archive seal. Team honors use the roster-card data
 to choose a champion background when a complete team is available. Best of
 Champion is the visual exception: its face is a 5:7 full-bleed champion splash
-with a fine inset gold frame, the player name in the lower title region, an OVR
-badge sourced from the resolved player card, and the selected season/league in
-the lower-left footer. Its score and evidence remain in the compact details
-below the face. Season Cards remain the ordinary cumulative player cards for
-contributors with more than five games.
+with a clean continuous double gold edge frame, a manually calibrated crop, the
+player name in the lower title region, and the selected season/league in the
+lower-left footer. A resolved division adds one small Solari or Lunari seal in
+the upper-right; there is no OVR or replacement rating. Its score and evidence
+remain in the compact details below the face. Missing or conflicting division
+metadata leaves the face valid without a seal. Season Cards remain the ordinary
+cumulative player cards for contributors with more than five games.
 
 Best of Champion assigns one played champion to each player and one player to
-each champion, maximizing player coverage before the combined win-rate and
-role-relative performance score. Only candidates scoring at least 70/100 are
-eligible; the score floor is fixed rather than falling back per season. Each
+each champion, maximizing coverage across players with at least five
+regular-season games before the combined win-rate and role-relative
+performance score. There is no minimum score floor. The full-precision
+champion-specific score favors the stronger player when a champion is contested,
+while preserving the league-wide one-player/one-champion assignment. Each
 assigned winner is rendered with its per-champion title and assigned splash art
 inside the full-art Best of face; it does not use the separate cumulative
 Season Card layout. The live admin preview is deliberately unsigned: it does
@@ -34,7 +38,18 @@ card marks Solari with a sun and Lunari with a moon. Best of Champions is the
 exception: it is assigned once across the selected league, so Premier has at
 most one Best of Ahri, one Best of Azir, and so on across both divisions.
 Academy is calculated independently. The ordinary cumulative Season Cards
-remain outside this division policy.
+remain outside this division policy. Division seals are presentation metadata
+resolved from every selected-season regular-season appearance; conflicting or
+unresolved team/row divisions do not receive an invented default.
+
+Best of face crops use the curated base-skin registry in
+`src/lib/season-end/championArt.ts`. It stores CSS crop positions rather than
+source-image face coordinates, currently matching the approved Milio (48%),
+Senna (53%), Maokai (70%), and Jhin (64%) horizontal positions with 50%
+vertical positioning and no additional zoom. Unreviewed champions, new
+aliases, and alternate skins use a centered cover fallback until explicitly
+reviewed. The design decision and acceptance criteria are recorded in [the Best
+of prototype adoption plan](plans/2026-09-16-best-of-prototype-adoption.md).
 
 The server checks staff access before fetching data through the cookie-bound
 Supabase client. Reads are scoped to the selected season and `Regular` phase,
