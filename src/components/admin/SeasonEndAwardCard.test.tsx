@@ -124,6 +124,7 @@ describe("SeasonEndAwardCard", () => {
             team: "Wolves",
             value: 88,
             games: 6,
+            division: "Solari",
             champion: "Azir",
             championGames: 2,
             title: "Best of Azir",
@@ -139,7 +140,9 @@ describe("SeasonEndAwardCard", () => {
 
     expect(screen.getByRole("heading", { name: "Best of Azir" })).toBeTruthy();
     expect(screen.getByTestId("best-of-card-art").getAttribute("style")).toContain("Azir_0.jpg");
-    expect(screen.getByLabelText("Overall unavailable")).toBeTruthy();
+    expect(screen.queryByLabelText(/overall/i)).toBeNull();
+    expect(screen.getByLabelText("Solari division")).toBeTruthy();
+    expect(screen.queryByText("☀")).toBeNull();
     expect(screen.getByText("S5 Premier")).toBeTruthy();
     expect(screen.getByText(/2–0 · 8 KDA · 88\/100 score · Wolves · 6 games/)).toBeTruthy();
     expect(screen.getByText("One unique played champion per player.")).toBeTruthy();

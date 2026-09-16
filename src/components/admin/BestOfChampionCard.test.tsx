@@ -39,7 +39,7 @@ const winner = (overrides: Partial<SeasonAward["winners"][number]> = {}) => ({
 });
 
 describe("BestOfChampionCard", () => {
-  it("uses assigned champion art, player-card OVR, identity, and selected metadata", () => {
+  it("uses assigned champion art, identity, and selected metadata without OVR", () => {
     render(
       <BestOfChampionCard
         award={award({ winners: [winner()] })}
@@ -54,7 +54,9 @@ describe("BestOfChampionCard", () => {
     expect(screen.getByRole("heading", { name: "Best of Azir" })).toBeTruthy();
     expect(screen.getByTestId("best-of-card-art").getAttribute("style")).toContain("Azir_0.jpg");
     expect(screen.getByText("Alice")).toBeTruthy();
-    expect(screen.getByLabelText("91 overall")).toBeTruthy();
+    expect(screen.queryByText("OVR")).toBeNull();
+    expect(screen.queryByLabelText(/overall/i)).toBeNull();
+    expect(screen.getByRole("article").getAttribute("aria-label")).toBe("Best of Azir — Alice#NA1");
     expect(screen.getByText("S5 Premier")).toBeTruthy();
     expect(screen.getByText(/2–0 · 8 KDA · 88\/100 score · Wolves · 6 games/)).toBeTruthy();
     expect(screen.getByText("One unique played champion per player.")).toBeTruthy();
@@ -74,7 +76,7 @@ describe("BestOfChampionCard", () => {
 
     expect(screen.getByTestId("best-of-card-art").getAttribute("style")).toContain("Azir_0.jpg");
     expect(screen.getByText("Alice")).toBeTruthy();
-    expect(screen.getByLabelText("Overall unavailable")).toBeTruthy();
+    expect(screen.queryByLabelText(/overall/i)).toBeNull();
     expect(screen.getByText("A1 Academy")).toBeTruthy();
   });
 
@@ -92,7 +94,7 @@ describe("BestOfChampionCard", () => {
     expect(screen.getByRole("heading", { name: "Best of Champion" })).toBeTruthy();
     expect(screen.getByTestId("best-of-card-art").getAttribute("style")).toBeNull();
     expect(screen.getByText("Bob")).toBeTruthy();
-    expect(screen.getByLabelText("Overall unavailable")).toBeTruthy();
+    expect(screen.queryByLabelText(/overall/i)).toBeNull();
   });
 
   it("keeps long player names in the identity region and the full account identity accessible", () => {
@@ -146,7 +148,7 @@ describe("BestOfChampionCard", () => {
     expect(screen.getByAltText("Alice#NA1's autograph")).toBeTruthy();
   });
 
-  it("keeps supplied division marks and heading IDs distinct for multiple winners", () => {
+  it("renders small division emblems and keeps heading IDs distinct for multiple winners", () => {
     render(
       <div>
         <BestOfChampionCard award={award({ winners: [winner()] })} winner={winner()} season="S5" league="premier" headingId="best-of-solari" division="Solari" />
@@ -159,5 +161,9 @@ describe("BestOfChampionCard", () => {
     expect(screen.getByRole("heading", { name: "Best of Ahri" }).id).toBe("best-of-lunari");
     expect(screen.getByLabelText("Solari division")).toBeTruthy();
     expect(screen.getByLabelText("Lunari division")).toBeTruthy();
+    expect(screen.getByText("SOLARI")).toBeTruthy();
+    expect(screen.getByText("LUNARI")).toBeTruthy();
+    expect(screen.queryByText("☀")).toBeNull();
+    expect(screen.queryByText("☾")).toBeNull();
   });
 });

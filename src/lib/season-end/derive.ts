@@ -122,6 +122,22 @@ function rowDivision(row: SeasonRow, divisions: ReturnType<typeof divisionMap>):
   return divisions.conflicts.has(key) ? null : divisions.byTeam.get(key) ?? null;
 }
 
+/** Resolve a player's division across every selected-season appearance. */
+function playerDivisionMap(rows: SeasonRow[], divisions: ReturnType<typeof divisionMap>): Map<string, Division> {
+  const states = new Map<string, { resolved: Set<Division>; unresolved: boolean }>();
+  for (const row of rows) {
+    const state = states.get(playerKey(row)) ?? { resolved: new Set<Division>(), unresolved: false };
+    const division = rowDivision(row, divisions);
+    if (division) state.resolved.add(division);
+    else state.unresolved = true;
+    states.set(playerKey(row), state);
+  }
+
+  return new Map([...states.entries()]
+    .filter(([, state]) => !state.unresolved && state.resolved.size === 1)
+    .map(([key, state]) => [key, [...state.resolved][0]]));
+}
+
 function fixtureIsInDivision(fixture: FixtureRow, division: Division, divisions: ReturnType<typeof divisionMap>): boolean {
   if (fixture.division) return fixture.division === division;
   const a = fixture.team_a ? divisions.byTeam.get(teamKey(fixture.team_a)) : null;
@@ -202,6 +218,7 @@ export function deriveSeasonEnd(
   const datesComplete = rows.every(r => Number.isFinite(Date.parse(r.game_date)));
   rows.sort(chronological);
   const players: Group[] = groups(rows, identity).map(rs => ({ name: identity(rs[0]), team: [...new Set(rs.map(r => r.team_name))].join(" / "), rows: rs }));
+  const playerDivisions = playerDivisionMap(rows, divisions);
   const minGames = 5;
   const qualified = players.filter(p => p.rows.length >= minGames);
   const teamGames = groups(rows, r => `${r.match_id}|${teamKey(r.team_name)}`);
@@ -305,6 +322,10 @@ export function deriveSeasonEnd(
       const eligiblePlayers = new Set(eligibleCandidates.map((candidate) => candidate.playerKey));
       const assigned = assignChampions(eligibleCandidates);
       const assignedPlayers = new Set(assigned.map((candidate) => candidate.playerKey));
+      const assignedWithDivisions = assigned.map((candidate) => {
+        const division = playerDivisions.get(candidate.playerKey);
+        return division ? { ...candidate, division } : candidate;
+      });
       const belowFloor = players
         .filter((player) => !eligiblePlayers.has(playerKey(player.rows[0])))
         .map((player) => player.name);
@@ -314,9 +335,13 @@ export function deriveSeasonEnd(
       if (!options.division) {
         if (belowFloor.length) warnings.push(`Best of Champion covers ${assigned.length}/${players.length} players. No champion performance reached ${BEST_OF_SCORE_FLOOR}/100 for: ${belowFloor.join(", ")}.`);
         if (blockedByAssignment.length) warnings.push(`Best of Champion covers ${assigned.length}/${players.length} players. Qualifying performances had no unused champion after coverage-first assignment for: ${blockedByAssignment.join(", ")}.`);
+        const unassignedDivisions = assigned.filter((candidate) => !playerDivisions.has(candidate.playerKey)).length;
+        if (unassignedDivisions && (divisions.byTeam.size > 0 || rows.some((row) => rowDivision(row, divisions)))) {
+          warnings.push(`Best of Champion omitted division emblems for ${unassignedDivisions} assigned winner${unassignedDivisions === 1 ? "" : "s"} with unresolved season division metadata.`);
+        }
       }
       return assigned.length
-        ? { ...def, winners: assigned, status: "ready" }
+        ? { ...def, winners: assignedWithDivisions, status: "ready" }
         : { ...def, winners: [], status: "unearned", note: eligibleCandidates.length ? "No unused champion could be assigned." : `No champion performances reached ${BEST_OF_SCORE_FLOOR}/100.` };
     }
     if (def.field) {
@@ -447,8 +472,8 @@ export function deriveSeasonEnd(
         const g = teamGames.find(g => g[0].match_id === r.match_id && teamKey(g[0].team_name) === teamKey(r.team_name))!;
         if (g.some(o => o.win !== r.win || o.team_side !== r.team_side)) return missing(def);
         let value: number | null = null;
-        if (def.id === "dragon-hoard" || def.id === "baron-society") {
-          const fields = all(g, def.id === "dragon-hoard" ? "team_dragons" : "team_barons");
+        if (def.id === "dragon-hoard") {
+          const fields = all(g, "team_dragons");
           if (fields && new Set(fields).size === 1) value = fields[0];
         } else if (def.id === "fortress") {
           const opponent = matches.get(r.match_id)!.filter(o => o.team_side !== r.team_side);
@@ -463,7 +488,7 @@ export function deriveSeasonEnd(
         numbers.push(value);
       }
       if (def.id === "speedrunners" && numbers.length < 3) continue;
-      if (["fortress", "dragon-hoard", "baron-society", "marathon-winners"].includes(def.id) && t.rows.length < minGames) continue;
+      if (["fortress", "dragon-hoard", "marathon-winners"].includes(def.id) && t.rows.length < minGames) continue;
       const total = sum(numbers);
       const average = mean(numbers);
       const value = ["fortress", "speedrunners"].includes(def.id)

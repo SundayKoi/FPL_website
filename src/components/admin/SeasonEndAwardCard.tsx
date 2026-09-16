@@ -204,7 +204,7 @@ export default function SeasonEndAwardCard({
         season={season}
         league={league}
         headingId={`title-${award.id}-${division ?? "global"}-${winner ? winnerIndex : "empty"}`}
-        division={division}
+        division={division ?? winner?.division}
       />
     );
 

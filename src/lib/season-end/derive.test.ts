@@ -32,7 +32,6 @@ describe("season-end winners", () => {
   });
   it("counts team objectives once per game and measures towers lost from the opponent", () => {
     expect(award(season(), "dragon-hoard").winners).toMatchObject([{ name: "Wolves", value: 3, total: 18, games: 6 }]);
-    expect(award(season(), "baron-society").winners[0]).toMatchObject({ value: 2, total: 12, games: 6 });
     expect(award(season(), "fortress").winners).toMatchObject([{ name: "Wolves", value: 2 }]);
     expect(award(season(), "jungle-mid-connection").winners).toMatchObject([{ name: "A1#NA1 + A2#NA1", value: 100, total: 6, games: 6 }]);
   });
@@ -63,7 +62,6 @@ describe("season-end winners", () => {
   });
   it("uses unique opposing roles and excludes short games from lane checkpoints", () => {
     expect(award(season(), "lane-landlord").winners[0].value).toBe(1000);
-    expect(award(season(), "farm-gap").winners[0].value).toBe(20);
     const ambiguous = season(); ambiguous[6].role = "TOP";
     expect(award(ambiguous, "lane-landlord").status).toBe("unavailable");
     const short = season(); short.filter(r => r.match_id === "match1").forEach(r => { r.game_duration_min = 12; r.gold_at_15 = null; });
@@ -140,7 +138,7 @@ describe("season-end winners", () => {
   });
   it("keeps the configured cards visible, including the correctly named steal award", () => {
     const result = deriveSeasonEnd(season(), fixtures(), "S5", "premier");
-    expect(result.awards).toHaveLength(61);
+    expect(result.awards).toHaveLength(56);
     expect(result.awards.map((award) => award.title)).not.toEqual(expect.arrayContaining([
       "Opening Act",
       "Full Arsenal",
@@ -150,6 +148,11 @@ describe("season-end winners", () => {
       "Ironclad",
       "Unkillable Run",
       "Hot Streak",
+      "Baron Society",
+      "Value Engine",
+      "Four Horsemen",
+      "Low Budget, High Impact",
+      "Farm Gap",
     ]));
     expect(result.awards.find(a => a.id === "grand-theft-objective")?.description).toContain("not recorded");
   });
@@ -168,6 +171,67 @@ describe("season-end winners", () => {
     expect(new Set(bestOf.winners.map((winner) => winner.playerKeys?.[0])).size).toBe(5);
     expect(new Set(bestOf.winners.map((winner) => winner.champion)).size).toBe(5);
     expect(bestOf.winners.every((winner) => winner.title === `Best of ${winner.champion}`)).toBe(true);
+  });
+
+  it("annotates league-wide Best of winners after assignment without changing the assignment", () => {
+    const champions = ["Ahri", "Azir", "Braum", "Caitlyn", "Darius", "Ekko", "Fiora", "Garen", "Jinx", "Lulu"];
+    const baseRows = season().map((row) => ({
+      ...row,
+      champion: champions[(row.summoner_name.startsWith("B") ? 5 : 0) + Number(row.summoner_name.slice(1))],
+    }));
+    const dividedRows = baseRows.map((row) => row.team_name === "Wolves"
+      ? { ...row, division: row.summoner_name === "A4" ? "Lunari" as const : "Solari" as const }
+      : row);
+    const base = deriveSeasonEnd(baseRows, fixtures(), "S5", "premier").awards.find((award) => award.id === "best-of-champion")!;
+    const divided = deriveSeasonEnd(dividedRows, fixtures(), "S5", "premier").awards.find((award) => award.id === "best-of-champion")!;
+    const project = (winner: typeof base.winners[number]) => ({
+      name: winner.name,
+      team: winner.team,
+      value: winner.value,
+      games: winner.games,
+      champion: winner.champion,
+      championGames: winner.championGames,
+      title: winner.title,
+      evidence: winner.evidence,
+    });
+
+    expect(divided.winners.map(project)).toEqual(base.winners.map(project));
+    expect(divided.partition).toBe("league");
+    expect(divided.winners.find((winner) => winner.name === "A4#NA1")?.division).toBe("Lunari");
+    expect(divided.winners.filter((winner) => winner.division === "Solari")).toHaveLength(4);
+  });
+
+  it("resolves Best of division metadata from fixtures, team changes, and conservative fallbacks", () => {
+    const inferredFixtures = Array.from({ length: 6 }, (_, i) => ({
+      ...fixtures()[0],
+      id: `inferred-${i + 1}`,
+      stage: weekStages[i % weekStages.length],
+      division: "Solari" as const,
+    }));
+    const inferred = award(season(), "best-of-champion", inferredFixtures);
+    expect(inferred.winners.every((winner) => winner.division === "Solari")).toBe(true);
+
+    const changedRows = season().map((row) => row.summoner_name === "A0" && row.match_id === "match6"
+      ? { ...row, team_name: "Wolves II" }
+      : row);
+    const changedFixtures = [
+      ...inferredFixtures,
+      { ...inferredFixtures[0], id: "changed-team", team_a: "Wolves II" },
+    ];
+    const changed = award(changedRows, "best-of-champion", changedFixtures);
+    expect(changed.winners.find((winner) => winner.name === "A0#NA1")?.division).toBe("Solari");
+
+    const unresolved = award(season(), "best-of-champion");
+    expect(unresolved.winners[0].division).toBeUndefined();
+
+    const conflictingFixtures = [
+      { ...inferredFixtures[0], id: "conflict-a", division: "Solari" as const },
+      { ...inferredFixtures[0], id: "conflict-b", division: "Lunari" as const, team_a: "Wolves" },
+    ];
+    const conflictingResult = deriveSeasonEnd(season(), conflictingFixtures, "S5", "premier");
+    const conflicting = conflictingResult.awards.find((candidate) => candidate.id === "best-of-champion")!;
+    expect(conflicting.winners.every((winner) => winner.division === undefined)).toBe(true);
+    expect(conflictingResult.warnings.some((warning) => warning.includes("omitted division emblems"))).toBe(true);
   });
 
   it("calculates singular-player accolades independently for Solari and Lunari", () => {
@@ -205,7 +269,7 @@ describe("season-end winners", () => {
     const result = deriveSeasonEnd(rows, splitFixtures, "S5", "premier");
     const teamwork = result.awards.filter((candidate) => candidate.group === "Teamwork");
 
-    expect(teamwork).toHaveLength(8);
+    expect(teamwork).toHaveLength(7);
     expect(teamwork.every((candidate) => candidate.divisionStatuses && candidate.winners.every((winner) => winner.division))).toBe(true);
     expect(teamwork.find((candidate) => candidate.id === "jungle-mid-connection")?.winners.length).toBeGreaterThan(0);
 

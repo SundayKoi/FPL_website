@@ -1,0 +1,124 @@
+.emblem {
+  --emblem-color: #edcd82;
+  position: absolute;
+  z-index: 4;
+  top: 5.5%;
+  right: 6%;
+  width: 17%;
+  color: var(--emblem-color);
+  text-align: center;
+  filter: drop-shadow(0 2px 5px #000);
+}
+
+.lunari { --emblem-color: #d0dcff; }
+
+.decorativeSeal,
+.seal {
+  position: relative;
+  aspect-ratio: 1;
+}
+
+.seal {
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: radial-gradient(circle, #111923ed 35%, #10192399 66%, transparent 68%);
+  box-shadow: 0 0 0 3px #10151c66, inset 0 0 0 3px #10151c;
+}
+
+.seal::before,
+.seal::after {
+  position: absolute;
+  content: "";
+  border-radius: 50%;
+}
+
+.seal::before {
+  inset: 8%;
+  border: 1px dotted currentColor;
+  opacity: .8;
+}
+
+.seal::after {
+  inset: 15%;
+  border: 1px solid currentColor;
+  opacity: .5;
+}
+
+.ray {
+  position: absolute;
+  top: 21%;
+  left: 48%;
+  width: 4%;
+  height: 58%;
+  transform: rotate(var(--angle));
+}
+
+.ray::before,
+.ray::after {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 17%;
+  content: "";
+  background: currentColor;
+  clip-path: polygon(50% 0, 100% 75%, 50% 100%, 0 75%);
+}
+
+.ray::after {
+  bottom: 0;
+  transform: rotate(180deg);
+}
+
+.sun {
+  position: absolute;
+  inset: 35%;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff5c9, #b8872d);
+  box-shadow: 0 0 0 3px #111923, 0 0 0 4px #dfbc7199, 0 0 14px #edba5555;
+}
+
+.moon {
+  position: absolute;
+  inset: 27%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fff8e5, #9bafe4);
+  transform: rotate(-25deg);
+  -webkit-mask: radial-gradient(circle at 69% 31%, transparent 45%, #000 47%);
+  mask: radial-gradient(circle at 69% 31%, transparent 45%, #000 47%);
+}
+
+.star {
+  position: absolute;
+  width: 7%;
+  height: 7%;
+  background: currentColor;
+  clip-path: polygon(50% 0, 61% 38%, 100% 50%, 61% 62%, 50% 100%, 39% 62%, 0 50%, 39% 38%);
+}
+
+.starOne { top: 29%; left: 58%; width: 11%; height: 11%; }
+.starTwo { top: 47%; left: 68%; }
+.starThree { top: 18%; left: 48%; width: 5%; height: 5%; }
+
+.jewel {
+  position: absolute;
+  top: -5%;
+  left: 46%;
+  width: 8%;
+  height: 8%;
+  transform: rotate(45deg);
+  border: 1px solid currentColor;
+  background: #131b25;
+}
+
+.bottomJewel { top: auto; bottom: -5%; }
+
+.label {
+  display: block;
+  margin-top: 9px;
+  font-size: clamp(8px, 3cqw, 12px);
+  font-weight: 700;
+  letter-spacing: .18em;
+  line-height: 1;
+  white-space: nowrap;
+}
