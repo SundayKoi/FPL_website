@@ -1,6 +1,6 @@
 import Image from "next/image";
 import type { CSSProperties } from "react";
-import { championDisplayName, championSplashUrl } from "@/lib/match-draft/champions";
+import { championCenteredUrl, championDisplayName, championSplashUrl } from "@/lib/match-draft/champions";
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { AwardWinner, SeasonAward } from "@/lib/season-end/derive";
 import { championArtCrop, type ChampionArtCrop } from "@/lib/season-end/championArt";
@@ -75,14 +75,29 @@ export default function BestOfChampionCard({
   const display = winner ? formatAwardPresentation(award, winner) : null;
   const status = winner ? null : (award.status === "unearned" ? "Not earned yet" : "Awaiting evidence");
   const statusNote = winner ? null : (award.note ?? "No qualifying champion assignment yet.");
-  const art = champion ? championSplashUrl(champion, 0) : null;
+  const splashArt = champion ? championSplashUrl(champion, 0) : null;
+  const centeredArt = champion ? championCenteredUrl(champion, 0) : null;
   const artCrop = crop ?? (champion ? championArtCrop(champion, 0) : null);
   const leagueLabel = league === "premier" ? "Premier" : "Academy";
   const articleLabel = winner && identity
     ? `${title} — ${identity}`
     : title;
-  const artStyle: CSSProperties | undefined = art && artCrop ? {
-    backgroundImage: `url("${art}")`,
+  // Riot's centered source keeps the champion's subject in the portrait
+  // window for the default crop. Explicitly tuned crops remain on the full
+  // splash so their focal positions are not shifted a second time. The
+  // splash sits underneath as a CSS-image fallback for centered assets that
+  // are missing from the CDN.
+  const usesCenteredArt = Boolean(
+    centeredArt && artCrop
+    && artCrop.cropPositionX === 50
+    && artCrop.cropPositionY === 50
+    && artCrop.zoom === 1,
+  );
+  const artSources = usesCenteredArt
+    ? [centeredArt, splashArt].filter((url): url is string => Boolean(url))
+    : [splashArt].filter((url): url is string => Boolean(url));
+  const artStyle: CSSProperties | undefined = artSources.length && artCrop ? {
+    backgroundImage: artSources.map((source) => `url("${source}")`).join(", "),
     backgroundPosition: `${artCrop.cropPositionX}% ${artCrop.cropPositionY}%`,
     backgroundSize: "cover",
     "--art-zoom": artCrop.zoom,
