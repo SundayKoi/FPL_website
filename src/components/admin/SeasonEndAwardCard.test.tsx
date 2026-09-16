@@ -18,13 +18,13 @@ describe("SeasonEndAwardCard", () => {
         award={{
           id: "body-count",
           title: "Body Count",
-          description: "Most kills",
+          description: "Most kills per game",
           group: "Record breakers",
           scope: "player",
-          mode: "total",
-          unit: "kills",
+          mode: "perGame",
+          unit: "kills/game",
           status: "ready",
-          winners: [{ name: "Alice#NA1", team: "Wolves", value: 60, games: 6 }],
+          winners: [{ name: "Alice#NA1", team: "Wolves", value: 10, games: 6, total: 60, perGame: 10 }],
         }}
         season="S5"
         league="premier"
@@ -34,8 +34,10 @@ describe("SeasonEndAwardCard", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Body Count" })).toBeTruthy();
-    expect(screen.getByText("Most kills")).toBeTruthy();
+    expect(screen.getByText("Most kills per game")).toBeTruthy();
     expect(screen.getByText("Record breakers")).toBeTruthy();
+    expect(screen.getByText("kills/game")).toBeTruthy();
+    expect(screen.getByText("60 total · Wolves · 6 games")).toBeTruthy();
     expect(screen.getByText("SEASON ARCHIVE")).toBeTruthy();
     expect(screen.getByTestId("award-card-art").getAttribute("style")).toContain("Ahri_0.jpg");
   });
@@ -71,5 +73,38 @@ describe("SeasonEndAwardCard", () => {
     expect(screen.getAllByRole("heading", { name: "Body Count" })).toHaveLength(2);
     expect(screen.getByLabelText("Solari division").textContent).toContain("☀");
     expect(screen.getByLabelText("Lunari division").textContent).toContain("☾");
+  });
+
+  it("uses the assigned champion and per-champion title in the normal Season's End card", () => {
+    render(
+      <SeasonEndAwardCard
+        award={{
+          id: "best-of-champion",
+          title: "Best of Champion",
+          description: "One unique played champion per player.",
+          group: "Season stories",
+          scope: "player",
+          status: "ready",
+          winners: [{
+            name: "Alice#NA1",
+            team: "Wolves",
+            value: 88,
+            games: 6,
+            champion: "Azir",
+            championGames: 2,
+            title: "Best of Azir",
+            detail: "Azir · 2–0 · 2 games · 8.00 KDA",
+          }],
+        }}
+        season="S5"
+        league="premier"
+        index={0}
+        cards={[card]}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Best of Azir" })).toBeTruthy();
+    expect(screen.getByTestId("award-card-art").getAttribute("style")).toContain("Azir_0.jpg");
+    expect(screen.getByText("SEASON ARCHIVE")).toBeTruthy();
   });
 });

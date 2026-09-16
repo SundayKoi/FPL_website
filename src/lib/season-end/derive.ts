@@ -2,6 +2,9 @@ import { SEASON_AWARDS, type AwardDefinition } from "./catalog";
 import championMap from "./champion-map.json";
 import { seasonBelongsToLeague, type LeagueSeasons } from "@/lib/league/season";
 import { DIVISIONS, type Division, type FixtureRow } from "@/lib/schedule/types";
+import { cardPlayerKey } from "@/lib/cards/build";
+import { assignChampions } from "@/lib/cards/seasonsEnd/assignment";
+import { championDisplayName } from "@/lib/match-draft/champions";
 
 /** Raw storage fields stay nullable. Missing observations must never become zero. */
 export interface SeasonRow {
@@ -28,6 +31,10 @@ export interface AwardWinner {
   perGame?: number;
   detail?: string;
   division?: Division;
+  champion?: string;
+  championGames?: number;
+  playerKeys?: string[];
+  title?: string;
 }
 export type AwardStatus = "ready" | "unavailable" | "unearned";
 export interface DivisionAwardStatus {
@@ -53,6 +60,7 @@ type DeriveOptions = {
   division?: Division;
 };
 const identity = (r: SeasonRow) => `${r.summoner_name}#${r.tag}`;
+const playerKey = (r: SeasonRow) => cardPlayerKey(r.summoner_name, r.tag);
 const normalized = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 const teamKey = (s: string) => s.trim().toLowerCase();
 const number = (r: SeasonRow, key: string): number | null => {
@@ -187,7 +195,7 @@ export function deriveSeasonEnd(
   const datesComplete = rows.every(r => Number.isFinite(Date.parse(r.game_date)));
   rows.sort(chronological);
   const players: Group[] = groups(rows, identity).map(rs => ({ name: identity(rs[0]), team: [...new Set(rs.map(r => r.team_name))].join(" / "), rows: rs }));
-  const minGames = Math.max(5, Math.ceil(Math.max(0, ...players.map(p => p.rows.length)) / 2));
+  const minGames = 5;
   const qualified = players.filter(p => p.rows.length >= minGames);
   const teamGames = groups(rows, r => `${r.match_id}|${teamKey(r.team_name)}`);
   const teams = groups(teamGames.map(g => g[0]), r => teamKey(r.team_name)).map(rs => ({ name: rs[0].team_name, team: rs[0].team_name, rows: rs }));
@@ -234,6 +242,8 @@ export function deriveSeasonEnd(
       return 100 * (values.filter(v => v < value).length + (values.filter(v => v === value).length - 1) / 2) / (values.length - 1);
     }));
   }
+  const performance = (row: SeasonRow) => number(row, "performance") ?? 0;
+  const scoreCovered = rows.length > 0 && rows.every((row) => typeof row.performance === "number" && Number.isFinite(row.performance));
   const unavailable = (def: AwardDefinition, note: string): SeasonAward => ({ ...def, winners: [], status: "unavailable", note });
   const choose = (def: AwardDefinition, values: AwardWinner[], lower = false, allowZero = false): SeasonAward => {
     const eligible = values.filter(v => Number.isFinite(v.value) && (allowZero || lower || v.value > 0));
@@ -247,6 +257,50 @@ export function deriveSeasonEnd(
     if (!rows.length) return unavailable(def, "No regular-season games available for this league and season.");
     if (incompleteMatches.length || duplicateMatches.size || valid.length !== candidates.length) return unavailable(def, "Season contains incomplete or conflicting participant records. Repair ingestion before declaring winners.");
     if (ambiguousTeams.length && (def.group === "Teamwork" && def.id !== "clean-sweep")) return unavailable(def, "A game has conflicting team assignments; correct the match's team labels before awarding this card.");
+    if (def.id === "best-of-champion") {
+      if (!scoreCovered) return unavailable(def, "Required role or performance observations are missing; no champion cards declared.");
+      if (rows.some((row) => !row.champion?.trim())) return unavailable(def, "Champion data is missing from one or more regular-season games; no champion cards declared.");
+
+      const byChampion = new Map<string, SeasonRow[]>();
+      for (const row of rows) {
+        const champion = championDisplayName(row.champion.trim());
+        byChampion.set(champion, [...(byChampion.get(champion) ?? []), row]);
+      }
+
+      const candidates = [...byChampion.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .flatMap(([champion, championRows]) => groups(championRows, playerKey).map((playerRows) => {
+          const wins = playerRows.filter((row) => row.win).length;
+          const score = 60 * wins / playerRows.length + 0.4 * mean(playerRows.map(performance));
+          const first = playerRows[0];
+          const playerName = identity(first);
+          const kills = sum(playerRows.map((row) => number(row, "kills") ?? 0));
+          const deaths = sum(playerRows.map((row) => number(row, "deaths") ?? 0));
+          const assists = sum(playerRows.map((row) => number(row, "assists") ?? 0));
+          return {
+            name: playerName,
+            team: [...new Set(playerRows.map((row) => row.team_name))].join(" / "),
+            value: score,
+            games: playerRows.length,
+            detail: `${champion} · ${wins}–${playerRows.length - wins} · ${playerRows.length} games · ${((kills + assists) / Math.max(1, deaths)).toFixed(2)} KDA`,
+            champion,
+            championGames: playerRows.length,
+            playerKeys: [playerKey(first)],
+            title: `Best of ${champion}`,
+            key: `${playerKey(first)}:${champion}`,
+            playerKey: playerKey(first),
+          };
+        }));
+      const assigned = assignChampions(candidates);
+      const assignedPlayers = new Set(assigned.map((candidate) => candidate.playerKey));
+      const unassigned = players
+        .filter((player) => !assignedPlayers.has(playerKey(player.rows[0])))
+        .map((player) => player.name);
+      if (!options.division && unassigned.length) warnings.push(`Best of Champion covers ${assigned.length}/${players.length} players. No eligible unused played champion for: ${unassigned.join(", ")}.`);
+      return assigned.length
+        ? { ...def, winners: assigned, status: "ready" }
+        : { ...def, winners: [], status: "unearned", note: "No qualifying champion assignment yet." };
+    }
     if (def.field) {
       const isRate = def.mode !== "total";
       const pool = isRate ? qualified : players;
@@ -262,13 +316,15 @@ export function deriveSeasonEnd(
         if (!measured.length || (isRate && measured.length < minGames)) continue;
         const total = sum(observations);
         let divisor = 1;
-        if (def.mode === "mean") divisor = measured.length;
+        if (def.mode === "perGame" || def.mode === "mean") divisor = measured.length;
         if (def.mode === "minute" || def.mode === "gold") {
           const denominators = all(measured, def.mode === "minute" ? "game_duration_min" : "gold_earned");
           if (!denominators || denominators.some(v => v <= 0)) return missing(def);
           divisor = sum(denominators);
         }
-        values.push({ ...winner(p, total / divisor), games: measured.length, total, perGame: total / measured.length });
+        const average = total / measured.length;
+        const value = def.mode === "rate" ? average * 100 : total / divisor;
+        values.push({ ...winner(p, value), games: measured.length, total, perGame: def.mode === "rate" ? value : average });
       }
       return choose(def, values, def.lower, def.mode === "mean");
     }
@@ -306,12 +362,28 @@ export function deriveSeasonEnd(
     }
     if (def.id === "clean-sweep") {
       if (!regularFixtures.length) return unavailable(def, "No regular-season fixtures available.");
-      const counts = new Map<string, number>();
-      for (const f of completed) if (f.best_of > 1 && Math.min(f.score_a!, f.score_b!) === 0) {
-        const name = f.score_a! > f.score_b! ? f.team_a : f.team_b;
-        if (name) counts.set(name, (counts.get(name) ?? 0) + 1);
+      const series = new Map<string, { name: string; sweeps: number; completed: number }>();
+      for (const f of completed) {
+        if (f.best_of <= 1) continue;
+        const winnerKey = f.score_a! > f.score_b! ? teamKey(f.team_a ?? "") : teamKey(f.team_b ?? "");
+        for (const name of [f.team_a, f.team_b]) {
+          if (!name) continue;
+          const key = teamKey(name);
+          const entry = series.get(key) ?? { name, sweeps: 0, completed: 0 };
+          entry.completed++;
+          if (key === winnerKey && Math.min(f.score_a!, f.score_b!) === 0) entry.sweeps++;
+          series.set(key, entry);
+        }
       }
-      return choose(def, [...counts].map(([name,value]) => ({ name, team: name, value, games: completed.filter(f => f.team_a === name || f.team_b === name).length, detail: "undefeated series" })));
+      const teamGameCounts = new Map<string, number>();
+      for (const g of teamGames) teamGameCounts.set(teamKey(g[0].team_name), (teamGameCounts.get(teamKey(g[0].team_name)) ?? 0) + 1);
+      const values = [...series.values()]
+        .filter((entry) => (teamGameCounts.get(teamKey(entry.name)) ?? 0) >= minGames)
+        .map((entry) => {
+          const value = 100 * entry.sweeps / entry.completed;
+          return { name: entry.name, team: entry.name, value, games: entry.completed, total: entry.sweeps, perGame: value, detail: `${entry.sweeps} sweep${entry.sweeps === 1 ? "" : "s"} · ${entry.completed} completed multi-game series` };
+        });
+      return choose(def, values);
     }
     if (def.id === "the-starting-five") {
       if (!complete) return unavailable(def, "Waiting for final regular-season standings.");
@@ -329,16 +401,26 @@ export function deriveSeasonEnd(
       return choose(def, values);
     }
     if (def.id === "jungle-mid-connection") {
-      const pairs = new Map<string, AwardWinner>();
+      const pairs = new Map<string, AwardWinner & { wins: number }>();
       for (const g of teamGames) {
-        if (!g[0].win) continue;
         const jungle = g.filter(r => r.role === "JUNGLE"), mid = g.filter(r => r.role === "MIDDLE");
         if (jungle.length !== 1 || mid.length !== 1) return missing(def);
         const name = `${identity(jungle[0])} + ${identity(mid[0])}`, key = `${teamKey(g[0].team_name)}|${name}`;
-        const pair = pairs.get(key) ?? { name, team: g[0].team_name, value: 0, games: 0 };
-        pair.value++; pair.games++; pairs.set(key, pair);
+        const pair = pairs.get(key) ?? { name, team: g[0].team_name, value: 0, games: 0, wins: 0 };
+        pair.games++;
+        if (g[0].win) pair.wins++;
+        pairs.set(key, pair);
       }
-      return choose(def, [...pairs.values()]);
+      const values = [...pairs.values()]
+        .filter((pair) => pair.games >= minGames)
+        .map((pair) => ({
+          ...pair,
+          value: 100 * pair.wins / pair.games,
+          total: pair.wins,
+          perGame: 100 * pair.wins / pair.games,
+          detail: `${pair.wins}–${pair.games - pair.wins} together`,
+        }));
+      return choose(def, values);
     }
     const values: AwardWinner[] = [];
     for (const t of teams) {
@@ -363,9 +445,17 @@ export function deriveSeasonEnd(
         numbers.push(value);
       }
       if (def.id === "speedrunners" && numbers.length < 3) continue;
-      if (def.id === "fortress" && t.rows.length < minGames) continue;
-      const value = ["fortress", "speedrunners"].includes(def.id) ? mean(numbers) : sum(numbers);
-      values.push({ ...winner(t, value), games: numbers.length, total: sum(numbers), perGame: mean(numbers) });
+      if (["fortress", "dragon-hoard", "baron-society", "marathon-winners"].includes(def.id) && t.rows.length < minGames) continue;
+      const total = sum(numbers);
+      const average = mean(numbers);
+      const value = ["fortress", "speedrunners"].includes(def.id)
+        ? average
+        : def.mode === "rate"
+          ? average * 100
+          : def.mode === "perGame"
+            ? average
+            : total;
+      values.push({ ...winner(t, value), games: numbers.length, total, perGame: def.mode === "rate" ? value : average });
     }
     return choose(def, values, ["fortress", "speedrunners"].includes(def.id));
   });

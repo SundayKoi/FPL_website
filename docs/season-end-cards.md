@@ -1,7 +1,7 @@
 # Season's End cards
 
 Open **Admin → Season's End** (`/admin/seasons-end`). Admins and owners can
-calculate all 60 accolade cards for either league and a selected season, plus
+calculate all 61 accolade cards for either league and a selected season, plus
 the normal cumulative Season Cards for contributors with more than five games.
 This is a read-only awards desk, not a collectible mint or a season-closing
 operation. The former `/admin/season-end` route redirects here for existing
@@ -13,6 +13,12 @@ statistic, evidence line and archive seal. Team honors use the roster-card data
 to choose a champion background when a complete team is available. Season Cards
 remain the ordinary cumulative player cards for contributors with more than
 five games.
+
+Best of Champion assigns one played champion to each player and one player to
+each champion, maximizing player coverage before the combined win-rate and
+role-relative performance score. Each assigned winner is rendered with its
+per-champion title and splash art inside the same Season's End archive-card
+layout; it does not use the separate cumulative Season Card layout.
 
 Player-only accolades are calculated separately inside Solari and Lunari, so
 each such accolade has one card per division. The card marks Solari with a sun
@@ -28,11 +34,12 @@ exist, their team names also constrain the data. No migrations are required.
 ## Award rules
 
 - All exact leaders share an award; names only determine display order.
-- Counting awards use every eligible appearance. Zero occurrences do not earn
-  a counting award. Missing fields are never converted to zero.
-- Rates require at least five measured games and half the busiest player's
-  regular-season appearances, rounded up. Per-minute and damage-per-gold
-  measures divide season totals, rather than averaging individual game rates.
+- Volume-based player, pair and team awards rank by per-game averages or event
+  rates using actual observed games, not scheduled fixtures. They require at
+  least five measured games. Zero occurrences do not earn a counting award.
+  Missing fields are never converted to zero.
+- Per-minute and damage-per-gold measures divide season totals, rather than
+  averaging individual game rates.
 - Gold/CS comparisons require a unique same-role opponent on the other side.
   Games shorter than a checkpoint do not contribute; missing or ambiguous
   observations in games reaching it withhold the affected award.
@@ -63,8 +70,10 @@ exist, their team names also constrain the data. No migrations are required.
 - Grand Theft Objective uses all objective steals. Stored data does not prove
   Baron-specific steals, so it does not use the Grand Theft Baron title.
 
-Record breakers display the winner's season numerator total and per-game
-figure. Rate awards also display the actual winning rate explicitly.
+Volume-based cards display the normalized per-game figure or event rate as the
+headline, while retaining the winner's season numerator total and game count
+in the evidence line. Per-minute and damage-per-gold cards continue to display
+their actual winning rate explicitly.
 
 ## Champion mappings
 
