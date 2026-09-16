@@ -29,10 +29,10 @@ describe("season-end winners", () => {
     expect(deriveSeasonEnd(data, [], "A1", "academy").games).toBe(1);
   });
   it("counts team objectives once per game and measures towers lost from the opponent", () => {
-    expect(award(season(), "dragon-hoard").winners).toMatchObject([{ name: "Wolves", value: 18 }]);
-    expect(award(season(), "baron-society").winners[0].value).toBe(12);
+    expect(award(season(), "dragon-hoard").winners).toMatchObject([{ name: "Wolves", value: 3, total: 18, games: 6 }]);
+    expect(award(season(), "baron-society").winners[0]).toMatchObject({ value: 2, total: 12, games: 6 });
     expect(award(season(), "fortress").winners).toMatchObject([{ name: "Wolves", value: 2 }]);
-    expect(award(season(), "jungle-mid-connection").winners).toMatchObject([{ name: "A1#NA1 + A2#NA1", value: 6 }]);
+    expect(award(season(), "jungle-mid-connection").winners).toMatchObject([{ name: "A1#NA1 + A2#NA1", value: 100, total: 6, games: 6 }]);
   });
   it("keeps ties and prints season totals/per-game figures for rate winners", () => {
     const result = award(season(), "relentless");
@@ -57,7 +57,7 @@ describe("season-end winners", () => {
     const rows = season(); rows[0].team_name = "Bears";
     expect(award(rows, "dragon-hoard").status).toBe("unavailable");
     expect(award(rows, "body-count").winners[0].total).toBe(36);
-    expect(award(rows, "clean-sweep").winners[0].value).toBe(1);
+    expect(award(rows, "clean-sweep").winners[0].value).toBe(100);
   });
   it("uses unique opposing roles and excludes short games from lane checkpoints", () => {
     expect(award(season(), "lane-landlord").winners[0].value).toBe(1000);
@@ -68,9 +68,9 @@ describe("season-end winners", () => {
     expect(award(short, "lane-landlord").winners[0]).toMatchObject({ games: 5, value: 1000 });
   });
   it("uses strictly positive lane leads and double-digit assist games", () => {
-    expect(award(season(), "fast-starter").winners[0].value).toBe(6);
-    expect(award(season(), "human-highlight-reel").winners[0].value).toBe(6);
-    expect(award(season(), "everybody-eats").winners[0].value).toBe(6);
+    expect(award(season(), "fast-starter").winners[0]).toMatchObject({ value: 100, total: 6, games: 6 });
+    expect(award(season(), "human-highlight-reel").winners[0]).toMatchObject({ value: 100, total: 6, games: 6 });
+    expect(award(season(), "everybody-eats").winners[0]).toMatchObject({ value: 100, total: 6, games: 6 });
   });
   it("sorts Bloodline chronologically and breaks it on a failing game", () => {
     const rows = [game(6), game(3, false), game(1), game(5), game(2), game(4)].flat();
@@ -81,11 +81,12 @@ describe("season-end winners", () => {
   });
   it("requires three speedrun wins and strictly over forty minutes for marathon wins", () => {
     const rows = season(); rows.forEach(r => { r.game_duration_min = r.match_id === "match1" ? 40 : 41; });
-    expect(award(rows, "marathon-winners").winners[0].value).toBe(5);
+    expect(award(rows, "marathon-winners").winners[0]).toMatchObject({ total: 5, games: 6 });
+    expect(award(rows, "marathon-winners").winners[0].value).toBeCloseTo(100 * 5 / 6);
     expect(award(game(1), "speedrunners").status).toBe("unearned");
   });
   it("only counts completed multi-game sweeps and waits for final standings", () => {
-    expect(award(season(), "clean-sweep").winners[0].value).toBe(1);
+    expect(award(season(), "clean-sweep").winners[0]).toMatchObject({ value: 100, total: 1, games: 1 });
     expect(award(season(), "clean-sweep", fixtures({ score_a: 1 })).status).toBe("unearned");
     expect(award(season(), "clean-sweep", fixtures({ best_of: 1, score_a: 1 })).status).toBe("unearned");
     expect(award(season(), "the-starting-five").winners[0].detail).toContain("A4#NA1");
@@ -101,6 +102,21 @@ describe("season-end winners", () => {
     expect(award(game(1), "untouchable").status).toBe("unearned");
     expect(award([], "body-count").status).toBe("unavailable");
     expect(award(rows, "metronome").status).toBe("unearned"); // everyone scores 50, below floor
+  });
+
+  it("ranks by per-game averages and uses a fixed five-game floor", () => {
+    const rows = season().map((row) => {
+      if (row.match_id === "match6" && row.summoner_name === "A0") return { ...row, summoner_name: "PartTimer", kills: 100 };
+      if (row.summoner_name === "A0") return { ...row, kills: 7 };
+      return row;
+    });
+
+    const result = deriveSeasonEnd(rows, fixtures(), "S5", "premier");
+    const bodyCount = result.awards.find((candidate) => candidate.id === "body-count")!;
+
+    expect(result.minGames).toBe(5);
+    expect(bodyCount.winners[0]).toMatchObject({ name: "A0#NA1", value: 7, total: 35, games: 5 });
+    expect(bodyCount.winners.map((winner) => winner.name)).not.toContain("PartTimer#NA1");
   });
   it("uses late-season performance and enforces Metronome's minimum floor", () => {
     const rows = Array.from({length:9}, (_,i) => game(i+1)).flat();
@@ -152,17 +168,18 @@ describe("season-end winners", () => {
   });
 
   it("calculates singular-player accolades independently for Solari and Lunari", () => {
-    const solari = game(1).map((row) => ({ ...row, match_id: "solari", division: "Solari" as const }));
-    const lunari = game(2).map((row) => ({
+    const solari = Array.from({ length: 5 }, (_, i) => game(i + 1).map((row) => ({ ...row, match_id: `solari-${i + 1}`, division: "Solari" as const }))).flat();
+    const lunari = Array.from({ length: 5 }, (_, i) => game(i + 6).map((row) => ({
       ...row,
-      match_id: "lunari",
+      match_id: `lunari-${i + 1}`,
       team_name: row.team_name === "Wolves" ? "Comets" : "Falcons",
       division: "Lunari" as const,
-    }));
-    const splitFixtures = [
-      { ...fixtures()[0], id: "solari", division: "Solari" as const },
-      { ...fixtures()[0], id: "lunari", division: "Lunari" as const, team_a: "Comets", team_b: "Falcons" },
-    ];
+    }))).flat();
+    const stages = ["week_1", "week_2", "week_3", "week_4", "week_5"] as const;
+    const splitFixtures = Array.from({ length: 5 }, (_, i) => [
+      { ...fixtures()[0], id: `solari-${i + 1}`, stage: stages[i], division: "Solari" as const },
+      { ...fixtures()[0], id: `lunari-${i + 1}`, stage: stages[i], division: "Lunari" as const, team_a: "Comets", team_b: "Falcons" },
+    ]).flat();
 
     const result = deriveSeasonEnd([...solari, ...lunari], splitFixtures, "S5", "premier");
     const winners = result.awards.find((candidate) => candidate.id === "body-count")!.winners;

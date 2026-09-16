@@ -34,11 +34,12 @@ exist, their team names also constrain the data. No migrations are required.
 ## Award rules
 
 - All exact leaders share an award; names only determine display order.
-- Counting awards use every eligible appearance. Zero occurrences do not earn
-  a counting award. Missing fields are never converted to zero.
-- Rates require at least five measured games and half the busiest player's
-  regular-season appearances, rounded up. Per-minute and damage-per-gold
-  measures divide season totals, rather than averaging individual game rates.
+- Volume-based player, pair and team awards rank by per-game averages or event
+  rates using actual observed games, not scheduled fixtures. They require at
+  least five measured games. Zero occurrences do not earn a counting award.
+  Missing fields are never converted to zero.
+- Per-minute and damage-per-gold measures divide season totals, rather than
+  averaging individual game rates.
 - Gold/CS comparisons require a unique same-role opponent on the other side.
   Games shorter than a checkpoint do not contribute; missing or ambiguous
   observations in games reaching it withhold the affected award.
@@ -69,8 +70,10 @@ exist, their team names also constrain the data. No migrations are required.
 - Grand Theft Objective uses all objective steals. Stored data does not prove
   Baron-specific steals, so it does not use the Grand Theft Baron title.
 
-Record breakers display the winner's season numerator total and per-game
-figure. Rate awards also display the actual winning rate explicitly.
+Volume-based cards display the normalized per-game figure or event rate as the
+headline, while retaining the winner's season numerator total and game count
+in the evidence line. Per-minute and damage-per-gold cards continue to display
+their actual winning rate explicitly.
 
 ## Champion mappings
 

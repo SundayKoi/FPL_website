@@ -195,7 +195,7 @@ export function deriveSeasonEnd(
   const datesComplete = rows.every(r => Number.isFinite(Date.parse(r.game_date)));
   rows.sort(chronological);
   const players: Group[] = groups(rows, identity).map(rs => ({ name: identity(rs[0]), team: [...new Set(rs.map(r => r.team_name))].join(" / "), rows: rs }));
-  const minGames = Math.max(5, Math.ceil(Math.max(0, ...players.map(p => p.rows.length)) / 2));
+  const minGames = 5;
   const qualified = players.filter(p => p.rows.length >= minGames);
   const teamGames = groups(rows, r => `${r.match_id}|${teamKey(r.team_name)}`);
   const teams = groups(teamGames.map(g => g[0]), r => teamKey(r.team_name)).map(rs => ({ name: rs[0].team_name, team: rs[0].team_name, rows: rs }));
@@ -316,13 +316,15 @@ export function deriveSeasonEnd(
         if (!measured.length || (isRate && measured.length < minGames)) continue;
         const total = sum(observations);
         let divisor = 1;
-        if (def.mode === "mean") divisor = measured.length;
+        if (def.mode === "perGame" || def.mode === "mean") divisor = measured.length;
         if (def.mode === "minute" || def.mode === "gold") {
           const denominators = all(measured, def.mode === "minute" ? "game_duration_min" : "gold_earned");
           if (!denominators || denominators.some(v => v <= 0)) return missing(def);
           divisor = sum(denominators);
         }
-        values.push({ ...winner(p, total / divisor), games: measured.length, total, perGame: total / measured.length });
+        const average = total / measured.length;
+        const value = def.mode === "rate" ? average * 100 : total / divisor;
+        values.push({ ...winner(p, value), games: measured.length, total, perGame: def.mode === "rate" ? value : average });
       }
       return choose(def, values, def.lower, def.mode === "mean");
     }
@@ -360,12 +362,28 @@ export function deriveSeasonEnd(
     }
     if (def.id === "clean-sweep") {
       if (!regularFixtures.length) return unavailable(def, "No regular-season fixtures available.");
-      const counts = new Map<string, number>();
-      for (const f of completed) if (f.best_of > 1 && Math.min(f.score_a!, f.score_b!) === 0) {
-        const name = f.score_a! > f.score_b! ? f.team_a : f.team_b;
-        if (name) counts.set(name, (counts.get(name) ?? 0) + 1);
+      const series = new Map<string, { name: string; sweeps: number; completed: number }>();
+      for (const f of completed) {
+        if (f.best_of <= 1) continue;
+        const winnerKey = f.score_a! > f.score_b! ? teamKey(f.team_a ?? "") : teamKey(f.team_b ?? "");
+        for (const name of [f.team_a, f.team_b]) {
+          if (!name) continue;
+          const key = teamKey(name);
+          const entry = series.get(key) ?? { name, sweeps: 0, completed: 0 };
+          entry.completed++;
+          if (key === winnerKey && Math.min(f.score_a!, f.score_b!) === 0) entry.sweeps++;
+          series.set(key, entry);
+        }
       }
-      return choose(def, [...counts].map(([name,value]) => ({ name, team: name, value, games: completed.filter(f => f.team_a === name || f.team_b === name).length, detail: "undefeated series" })));
+      const teamGameCounts = new Map<string, number>();
+      for (const g of teamGames) teamGameCounts.set(teamKey(g[0].team_name), (teamGameCounts.get(teamKey(g[0].team_name)) ?? 0) + 1);
+      const values = [...series.values()]
+        .filter((entry) => (teamGameCounts.get(teamKey(entry.name)) ?? 0) >= minGames)
+        .map((entry) => {
+          const value = 100 * entry.sweeps / entry.completed;
+          return { name: entry.name, team: entry.name, value, games: entry.completed, total: entry.sweeps, perGame: value, detail: `${entry.sweeps} sweep${entry.sweeps === 1 ? "" : "s"} · ${entry.completed} completed multi-game series` };
+        });
+      return choose(def, values);
     }
     if (def.id === "the-starting-five") {
       if (!complete) return unavailable(def, "Waiting for final regular-season standings.");
@@ -383,16 +401,26 @@ export function deriveSeasonEnd(
       return choose(def, values);
     }
     if (def.id === "jungle-mid-connection") {
-      const pairs = new Map<string, AwardWinner>();
+      const pairs = new Map<string, AwardWinner & { wins: number }>();
       for (const g of teamGames) {
-        if (!g[0].win) continue;
         const jungle = g.filter(r => r.role === "JUNGLE"), mid = g.filter(r => r.role === "MIDDLE");
         if (jungle.length !== 1 || mid.length !== 1) return missing(def);
         const name = `${identity(jungle[0])} + ${identity(mid[0])}`, key = `${teamKey(g[0].team_name)}|${name}`;
-        const pair = pairs.get(key) ?? { name, team: g[0].team_name, value: 0, games: 0 };
-        pair.value++; pair.games++; pairs.set(key, pair);
+        const pair = pairs.get(key) ?? { name, team: g[0].team_name, value: 0, games: 0, wins: 0 };
+        pair.games++;
+        if (g[0].win) pair.wins++;
+        pairs.set(key, pair);
       }
-      return choose(def, [...pairs.values()]);
+      const values = [...pairs.values()]
+        .filter((pair) => pair.games >= minGames)
+        .map((pair) => ({
+          ...pair,
+          value: 100 * pair.wins / pair.games,
+          total: pair.wins,
+          perGame: 100 * pair.wins / pair.games,
+          detail: `${pair.wins}–${pair.games - pair.wins} together`,
+        }));
+      return choose(def, values);
     }
     const values: AwardWinner[] = [];
     for (const t of teams) {
@@ -417,9 +445,17 @@ export function deriveSeasonEnd(
         numbers.push(value);
       }
       if (def.id === "speedrunners" && numbers.length < 3) continue;
-      if (def.id === "fortress" && t.rows.length < minGames) continue;
-      const value = ["fortress", "speedrunners"].includes(def.id) ? mean(numbers) : sum(numbers);
-      values.push({ ...winner(t, value), games: numbers.length, total: sum(numbers), perGame: mean(numbers) });
+      if (["fortress", "dragon-hoard", "baron-society", "marathon-winners"].includes(def.id) && t.rows.length < minGames) continue;
+      const total = sum(numbers);
+      const average = mean(numbers);
+      const value = ["fortress", "speedrunners"].includes(def.id)
+        ? average
+        : def.mode === "rate"
+          ? average * 100
+          : def.mode === "perGame"
+            ? average
+            : total;
+      values.push({ ...winner(t, value), games: numbers.length, total, perGame: def.mode === "rate" ? value : average });
     }
     return choose(def, values, ["fortress", "speedrunners"].includes(def.id));
   });

@@ -90,7 +90,8 @@ function championFor(cards: PlayerCardData[]): string | null {
 function evidenceFor(award: SeasonAward, winner: AwardWinner): string {
   const games = `${winner.games} ${award.id === "clean-sweep" ? "series" : "games"}`;
   const team = winner.name !== winner.team ? `${winner.team} · ` : "";
-  return winner.detail ? `${winner.detail} · ${team}${games}` : `${team}${games}`;
+  const total = winner.total === undefined ? "" : `${format(winner.total)} total`;
+  return [winner.detail, total, `${team}${games}`].filter(Boolean).join(" · ");
 }
 
 function DivisionMark({ division }: { division: Division }) {
