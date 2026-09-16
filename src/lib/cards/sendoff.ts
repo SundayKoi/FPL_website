@@ -18,6 +18,8 @@
 // of week it is (src/lib/cards/editionBuilder.ts) and the renderer draws
 // the stamp off `card.sendoff`.
 
+import { normalizeTeamName } from "@/lib/league/context";
+import { mondayOf } from "@/lib/packs/week";
 import type { PlayerCardData } from "./build";
 
 /** How far the team got — the stamp on the card, least to most. */
@@ -174,4 +176,326 @@ export const EXIT_LABELS: Record<SendoffExitStage, string> = {
 export function sendoffWeekLabel(exits: readonly SendoffExitStage[]): string | null {
   const latest = [...exits].sort((a, b) => SENDOFF_EXIT_STAGES.indexOf(b) - SENDOFF_EXIT_STAGES.indexOf(a))[0];
   return latest ? `Send-off · ${EXIT_LABELS[latest]}` : null;
+}
+
+// ---------------------------------------------------------------------------
+// The planner
+// ---------------------------------------------------------------------------
+
+/** What the planner reads off a fixture. `FixtureRow` satisfies it, and so
+ *  does the narrow select fetchSeasonFixtures takes — the planner never
+ *  needs the id, the division or the best-of. */
+export interface SendoffFixture {
+  stage: string;
+  team_a: string | null;
+  team_b: string | null;
+  score_a: number | null;
+  score_b: number | null;
+  scheduled_at: string | null;
+}
+
+/** One team's split ending. */
+export interface Elimination {
+  /** The team, spelled as the fixture spells it. */
+  team: string;
+  stage: SendoffStage;
+  exit: SendoffExitStage;
+  /** The series from this team's side — "1–3" — or null when the fixture
+   *  carried no scores. En dash, like every other score line on the site. */
+  series: string | null;
+  opponent: string | null;
+  /** mondayOf(scheduled_at). */
+  week: string;
+}
+
+const EXIT_STAGE_SET: ReadonlySet<string> = new Set<string>(SENDOFF_EXIT_STAGES);
+
+function isExitStage(stage: string | null | undefined): stage is SendoffExitStage {
+  return typeof stage === "string" && EXIT_STAGE_SET.has(stage);
+}
+
+/** "1–3" from `mine`'s side. En dash. */
+function seriesLine(mine: number, theirs: number): string {
+  return `${mine}–${theirs}`;
+}
+
+/**
+ * Every split that ended in `week`.
+ *
+ * The loser of each DECIDED playoff fixture scheduled in that Eastern week,
+ * plus the winner of the finals as `champion` — the one team that leaves the
+ * bracket without being knocked out of it.
+ *
+ * An undecided fixture (either score null, or a tie) eliminates nobody: the
+ * series has not happened yet, or the row is half-entered, and printing a
+ * send-off off it would stamp somebody's career-defining card with a result
+ * that isn't one. Scores land, the week is re-archived, the edition appears.
+ *
+ * One entry per team. A team that loses the gauntlet's second round after
+ * winning its first appears in two fixtures in the same week, and only the
+ * LATER exit is its send-off — it got that far.
+ *
+ * Sorted by stage order then team name, so the drop's post and the admin
+ * ledger read in the order people fell.
+ */
+export function eliminationsInWeek(fixtures: SendoffFixture[], week: string): Elimination[] {
+  const byTeam = new Map<string, Elimination>();
+
+  const record = (elimination: Elimination) => {
+    const key = normalizeTeamName(elimination.team);
+    const held = byTeam.get(key);
+    // Later exit wins: a team knocked out in r2 played r1 too.
+    if (held && SENDOFF_META[held.stage].order >= SENDOFF_META[elimination.stage].order) return;
+    byTeam.set(key, elimination);
+  };
+
+  for (const fixture of fixtures) {
+    if (!isExitStage(fixture.stage) || !fixture.scheduled_at) continue;
+    if (mondayOf(new Date(fixture.scheduled_at)) !== week) continue;
+    const { team_a: teamA, team_b: teamB, score_a: scoreA, score_b: scoreB } = fixture;
+    if (!teamA || !teamB) continue;
+    if (scoreA === null || scoreB === null || scoreA === scoreB) continue;
+
+    const aWon = scoreA > scoreB;
+    const loser = aWon ? teamB : teamA;
+    const winner = aWon ? teamA : teamB;
+    const loserScore = aWon ? scoreB : scoreA;
+    const winnerScore = aWon ? scoreA : scoreB;
+
+    record({
+      team: loser,
+      stage: LOSER_STAGE_BY_EXIT[fixture.stage],
+      exit: fixture.stage,
+      series: seriesLine(loserScore, winnerScore),
+      opponent: winner,
+      week,
+    });
+
+    // The finals are the one fixture whose WINNER also stops playing.
+    if (fixture.stage === "finals") {
+      record({
+        team: winner,
+        stage: "champion",
+        exit: "finals",
+        series: seriesLine(winnerScore, loserScore),
+        opponent: loser,
+        week,
+      });
+    }
+  }
+
+  return [...byTeam.values()].sort(
+    (a, b) => SENDOFF_META[a.stage].order - SENDOFF_META[b.stage].order || a.team.localeCompare(b.team),
+  );
+}
+
+/**
+ * Does `week` hold a playoff fixture at all — decided or not?
+ *
+ * This, not `eliminationsInWeek().length`, is what makes a week a send-off
+ * week. A playoff week whose scores have not been entered yet must print
+ * NOTHING: the alternative is a weekly edition rating the ten people who
+ * played the semifinals against each other, which is the exact card the
+ * Send-off exists to stop printing.
+ */
+export function isPlayoffWeek(fixtures: SendoffFixture[], week: string): boolean {
+  return fixtures.some(
+    (fixture) =>
+      isExitStage(fixture.stage)
+      && Boolean(fixture.scheduled_at)
+      && mondayOf(new Date(fixture.scheduled_at as string)) === week,
+  );
+}
+
+/** The exit stages a week's playoff fixtures belong to, earliest first —
+ *  what names the edition (sendoffWeekLabel). */
+export function exitsInWeek(fixtures: SendoffFixture[], week: string): SendoffExitStage[] {
+  const exits = new Set<SendoffExitStage>();
+  for (const fixture of fixtures) {
+    if (!isExitStage(fixture.stage) || !fixture.scheduled_at) continue;
+    if (mondayOf(new Date(fixture.scheduled_at)) !== week) continue;
+    exits.add(fixture.stage);
+  }
+  return SENDOFF_EXIT_STAGES.filter((exit) => exits.has(exit));
+}
+
+export interface SendoffPlan {
+  week: string;
+  eliminations: Elimination[];
+  /** The edition: every season card whose team was eliminated this week,
+   *  stamped and crowned. Empty while the week's fixtures are undecided. */
+  cards: PlayerCardData[];
+  /** Eliminated teams no season card matched. A name mismatch between
+   *  fixtures and raw_stats would silently print nobody, so it is
+   *  reported rather than swallowed. */
+  unmatched: string[];
+  /** The exits this week holds, for sendoffWeekLabel. */
+  exits: SendoffExitStage[];
+}
+
+/**
+ * What a send-off week prints.
+ *
+ * `seasonCards` is the season-to-DATE build — the whole league rated
+ * against the whole league — because that is the only cohort that rates a
+ * finalist honestly. Everyone whose team fell this week gets their one
+ * playoff card out of it.
+ */
+export function planSendoff(
+  seasonCards: PlayerCardData[],
+  fixtures: SendoffFixture[],
+  week: string,
+): SendoffPlan {
+  const eliminations = eliminationsInWeek(fixtures, week);
+  const exits = exitsInWeek(fixtures, week);
+
+  // Fixtures carry league_teams.name; a card's teamName is raw_stats.
+  // team_name, written from the same table — but nothing enforces the two
+  // spell a team identically, so match on the normalized name.
+  const markByTeam = new Map<string, Elimination>();
+  for (const elimination of eliminations) markByTeam.set(normalizeTeamName(elimination.team), elimination);
+
+  const matched = new Set<string>();
+  const printed: PlayerCardData[] = [];
+  for (const card of seasonCards) {
+    const key = normalizeTeamName(card.teamName);
+    const elimination = key ? markByTeam.get(key) : undefined;
+    if (!elimination) continue;
+    matched.add(key);
+    printed.push(
+      withSendoff(card, {
+        stage: elimination.stage,
+        exit: elimination.exit,
+        team: elimination.team,
+        series: elimination.series,
+        week,
+      }),
+    );
+  }
+
+  return {
+    week,
+    eliminations,
+    cards: crownSendoff(printed),
+    unmatched: eliminations.filter((e) => !matched.has(normalizeTeamName(e.team))).map((e) => e.team),
+    exits,
+  };
+}
+
+/** Days a send-off edition stays on sale after the finals. Long enough that
+ *  someone who hears about it can still buy one; short enough that the
+ *  stamp means something. */
+export const SENDOFF_VAULT_DAYS = 14;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * When every send-off edition of the season closes: the finals fixture's
+ * `scheduled_at` plus SENDOFF_VAULT_DAYS, as an ISO instant.
+ *
+ * Null while no finals fixture carries a date — the season has nowhere to
+ * count fourteen days from, and the shop says so rather than inventing a
+ * deadline. Two dated finals fixtures is a data error; the LATER one wins,
+ * so the mistake sells packs for too long rather than shutting the vault
+ * early on people who were promised a fortnight.
+ */
+export function sendoffVaultClosesAt(fixtures: SendoffFixture[]): string | null {
+  let latest: number | null = null;
+  for (const fixture of fixtures) {
+    if (fixture.stage !== "finals" || !fixture.scheduled_at) continue;
+    const at = new Date(fixture.scheduled_at).getTime();
+    if (Number.isNaN(at)) continue;
+    if (latest === null || at > latest) latest = at;
+  }
+  return latest === null ? null : new Date(latest + SENDOFF_VAULT_DAYS * DAY_MS).toISOString();
+}
+
+/** Has the send-off vault shut? Unknowable (no dated finals) reads as open:
+ *  refusing to sell on a date nobody has set would close the shop on a
+ *  scheduling gap. */
+export function isSendoffVaulted(fixtures: SendoffFixture[], now: Date): boolean {
+  const closesAt = sendoffVaultClosesAt(fixtures);
+  return closesAt !== null && now.getTime() >= new Date(closesAt).getTime();
+}
+
+export interface TeamSendoffStatus {
+  team: string;
+  /** printed: its send-off has been planned in a week up to `throughWeek`.
+   *  alive: in the bracket, not eliminated yet. unscheduled: in no playoff
+   *  fixture at all — a regular-season team, or one the bracket has not
+   *  reached. */
+  status: "printed" | "alive" | "unscheduled";
+  stage: SendoffStage | null;
+  week: string | null;
+  /** How many season cards carry this team — how many cards its send-off
+   *  prints (or would print). */
+  cards: number;
+}
+
+/**
+ * The bracket ledger: every team the season's cards or playoff fixtures
+ * name, and whether it has printed.
+ *
+ * Runs eliminationsInWeek over every playoff week up to and including
+ * `throughWeek` rather than over the fixtures at large, so the answer is
+ * exactly what the drop would have printed week by week — including the
+ * "a team keeps its later exit" rule.
+ */
+export function sendoffLedger(
+  seasonCards: PlayerCardData[],
+  fixtures: SendoffFixture[],
+  throughWeek: string,
+): TeamSendoffStatus[] {
+  // normalized name -> the spelling to show. Fixtures win: the bracket is
+  // where these names are curated, and a card's team_name is ingest output.
+  const names = new Map<string, string>();
+  const cardCounts = new Map<string, number>();
+  for (const card of seasonCards) {
+    const key = normalizeTeamName(card.teamName);
+    if (!key) continue;
+    if (!names.has(key)) names.set(key, card.teamName as string);
+    cardCounts.set(key, (cardCounts.get(key) ?? 0) + 1);
+  }
+
+  const inBracket = new Set<string>();
+  const weeks = new Set<string>();
+  for (const fixture of fixtures) {
+    if (!isExitStage(fixture.stage) || !fixture.scheduled_at) continue;
+    // Bracket membership is not week-filtered — a team scheduled into a
+    // round that has not been played yet is alive, and the ledger is meant
+    // to show the whole bracket. Only the ELIMINATIONS stop at throughWeek.
+    const week = mondayOf(new Date(fixture.scheduled_at));
+    if (week <= throughWeek) weeks.add(week);
+    for (const team of [fixture.team_a, fixture.team_b]) {
+      const key = normalizeTeamName(team);
+      if (!key) continue;
+      inBracket.add(key);
+      names.set(key, team as string);
+    }
+  }
+
+  const printed = new Map<string, Elimination>();
+  for (const week of [...weeks].sort()) {
+    for (const elimination of eliminationsInWeek(fixtures, week)) {
+      printed.set(normalizeTeamName(elimination.team), elimination);
+    }
+  }
+
+  return [...names.entries()]
+    .map(([key, team]) => {
+      const elimination = printed.get(key);
+      return {
+        team,
+        status: elimination ? ("printed" as const) : inBracket.has(key) ? ("alive" as const) : ("unscheduled" as const),
+        stage: elimination?.stage ?? null,
+        week: elimination?.week ?? null,
+        cards: cardCounts.get(key) ?? 0,
+      };
+    })
+    .sort((a, b) => {
+      // Printed first, in the order they fell; then everyone still standing.
+      const rank = (row: TeamSendoffStatus) =>
+        row.status === "printed" ? SENDOFF_META[row.stage as SendoffStage].order : row.status === "alive" ? 100 : 200;
+      return rank(a) - rank(b) || a.team.localeCompare(b.team);
+    });
 }

@@ -5,15 +5,22 @@
  * out, refreshes the movement baselines and posts to Discord, which makes
  * it far too blunt an instrument for "just capture that week".
  *
- * Same rating basis as the drop's archive, deliberately: fetchWeekCards
- * rates each player on the requested week's games against that week's
- * cohort, so an edition minted here is indistinguishable from one the drop
- * minted. (This used to archive the season-to-date cards, which meant a
- * catch-up run stamped an edition on a different basis from every other
- * one.) Because the week's rating is rebuilt from raw_stats rather than
+ * Same edition as the drop's, deliberately, and chosen the same way:
+ * buildEditionForWeek (src/lib/cards/editionBuilder.ts) decides whether the
+ * requested week is an ordinary weekly print — each player rated on that
+ * week's games against that week's cohort — or a SEND-OFF, the playoff
+ * edition that prints each player once in the week their team's split ended,
+ * rated on the whole split (src/lib/cards/sendoff.ts). Either way an edition
+ * minted here is indistinguishable from one the drop minted. (This used to
+ * archive the season-to-date cards for every week, which meant a catch-up
+ * run stamped an edition on a different basis from every other one.)
+ *
+ * Because both bases are rebuilt from raw_stats and fixtures rather than
  * from a live snapshot, ANY past week can be reconstructed exactly — there
  * is no window that shuts, and a week the drop missed can be filled in
- * whenever someone notices.
+ * whenever someone notices. That is also the fix for a playoff week the drop
+ * met before the scores were entered: it printed nothing then, and running
+ * this script for that week once the fixtures are scored prints it now.
  *
  * Run: npx tsx scripts/archive-card-edition.ts [YYYY-MM-DD | all]
  * The week defaults to the current Eastern-calendar Monday. Pass one
@@ -40,7 +47,8 @@
  * overwrites it rather than duplicating it.
  */
 import { createClient } from "@supabase/supabase-js";
-import { fetchAllCardSeasons, fetchCardEditionWeeks, fetchWeekCards } from "../src/lib/cards/queries";
+import { fetchAllCardSeasons, fetchCardEditionWeeks, fetchSeasonCards } from "../src/lib/cards/queries";
+import { buildEditionForWeek } from "../src/lib/cards/editionBuilder";
 import { ALL_WEEKS, archiveEdition, weeksToArchive } from "../src/lib/cards/editions";
 import { mondayOf } from "../src/lib/packs/week";
 
@@ -92,14 +100,24 @@ async function main(): Promise<void> {
     }
 
     for (const week of weeks) {
-      // The requested week's cards, on exactly the basis the drop archives.
-      const cards = await fetchWeekCards(supabase, season, week);
+      // The requested week's edition, on exactly the basis the drop
+      // archives. The season build is a thunk so an ordinary week never
+      // pays for it — only a send-off week reads it.
+      const { kind, cards, plan } = await buildEditionForWeek(supabase, season, week, () =>
+        fetchSeasonCards(supabase, season));
+      if (plan && plan.unmatched.length > 0) {
+        console.warn(`[${league}] [WARN] No cards matched these eliminated teams: ${plan.unmatched.join(", ")}`);
+      }
       if (cards.length === 0) {
         // In `all` mode this leaves the existing rows in place rather than
         // deleting them. A week whose games have since been re-ingested
         // under different dates is a data question, not something a
         // rebuild should silently answer by emptying the edition.
-        console.log(`[${league}] Season ${season} played no games in the week of ${week} — nothing to archive.`);
+        console.log(
+          kind === "sendoff"
+            ? `[${league}] Season ${season}'s week of ${week} is a send-off week with no decided fixture — nothing to archive until the scores land.`
+            : `[${league}] Season ${season} played no games in the week of ${week} — nothing to archive.`,
+        );
         continue;
       }
       const { error, pruned } = await archiveEdition(supabase, season, week, cards, takenAt);
@@ -107,7 +125,8 @@ async function main(): Promise<void> {
       // script does, so a failure has to be visible and has to fail the job.
       if (error) throw new Error(`[${league}] Could not archive season ${season} week ${week}: ${error}`);
       const removed = pruned > 0 ? `, removed ${pruned} no longer in that week's pool` : "";
-      console.log(`[${league}] Archived ${cards.length} cards of season ${season} as the ${week} edition${removed}.`);
+      const what = kind === "sendoff" ? "send-off edition" : "edition";
+      console.log(`[${league}] Archived ${cards.length} cards of season ${season} as the ${week} ${what}${removed}.`);
       archived += cards.length;
     }
   }

@@ -17,6 +17,10 @@ The site now also includes:
 - fixture-based and public token-based champion drafts, including realtime
   presence and draft state; and
 - player cards, weekly rating snapshots, card art, mottos, and share images;
+- the Send-off: playoff weeks print each player's card once, in the week their
+  team's split ended, rated on the whole split and stamped with how far they
+  got — on sale for two weeks after the finals (see "The Send-off" in
+  [docs/backend.md](docs/backend.md));
 - Premium daily games: FPL'dle, the 45-round Higher or Lower card run with unlimited attempts, and the admin-testing Guess the Card game share one daily betting-dollar reward.
 
 See [docs/backend.md](docs/backend.md) for the backend architecture and the
@@ -106,7 +110,10 @@ Anthropic are external integrations used by specific workflows.
 ### Scheduled card pipeline
 
 The weekly card drop follows ingest → moment-card minting → card drop → weekly
-draw. After each league's weekly edition is archived successfully, the drop
+draw. A playoff week archives a Send-off edition instead of a weekly one, and
+prints nothing at all until that week's fixtures carry scores — re-run
+`npx tsx scripts/archive-card-edition.ts YYYY-MM-DD` for the week once they
+do. After each league's weekly edition is archived successfully, the drop
 also refreshes Higher or Lower for that run's current `America/New_York`
 calendar date from the two newest frozen editions. The refresh is additive: a
 date that already has a pool can temporarily contain three weeks when a new

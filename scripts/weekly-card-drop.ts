@@ -8,7 +8,10 @@
  * Note the two rating bases inside processSeason: everything the site reads
  * live (movers, snapshots, rating history) is season-to-date, while the
  * archived edition alone is rated on that week's games. They are not
- * interchangeable — see the comment there before merging the two reads.
+ * interchangeable — see the comment there before merging the two reads. The
+ * one exception is a playoff week, which archives a Send-off: season-rated
+ * on purpose, printed once per player in the week their split ended
+ * (src/lib/cards/sendoff.ts, chosen by src/lib/cards/editionBuilder.ts).
  *
  * Run: npx tsx scripts/weekly-card-drop.ts
  * Needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY; DISCORD_CARDS_WEBHOOK_URL
@@ -26,10 +29,18 @@ import {
   fetchAllCardSeasons,
   fetchLatestGameWeek,
   fetchSeasonCards,
-  fetchWeekCards,
+  fetchSeasonFixtures,
   type CardLeague,
 } from "../src/lib/cards/queries";
 import type { PlayerCardData } from "../src/lib/cards/build";
+import { buildEditionForWeek } from "../src/lib/cards/editionBuilder";
+import {
+  SENDOFF_META,
+  sendoffVaultClosesAt,
+  sendoffWeekLabel,
+  type Elimination,
+  type SendoffPlan,
+} from "../src/lib/cards/sendoff";
 import { settleGauntletWeek } from "../src/lib/gauntlet/settle";
 import { archiveEdition } from "../src/lib/cards/editions";
 import { ingestVerdict } from "../src/lib/cards/ingestFreshness";
@@ -140,6 +151,15 @@ export async function processSeason(
   //  * `editionCards` is that ONE WEEK alone, and only the archive takes it:
   //    an edition is a snapshot of how people played that week, which is
   //    what a pack bought for that week mints from.
+  //
+  // With ONE exception, and it is the only archive that is season-rated: a
+  // SEND-OFF week (buildEditionForWeek → src/lib/cards/sendoff.ts). A
+  // playoff week's cohort is only the teams still in the bracket — 40, then
+  // 20, then 10 people — so a weekly build rates a finalist against the nine
+  // others who played the final and prints a bad card for reaching it. A
+  // send-off prints each player once, in the week their split ended, off
+  // `cards` — the whole league against the whole league — which is why the
+  // builder is handed the season build rather than fetching its own.
   const cards = await fetchSeasonCards(supabase, season);
   console.log(`[${label}] Built ${cards.length} cards for season ${season}.`);
   if (cards.length === 0) {
@@ -211,13 +231,29 @@ export async function processSeason(
 
   const takenAt = new Date().toISOString();
 
-  // Archive the WEEK's cards — rated on this week's games against this
-  // week's cohort — so a pack bought for this week can mint them again
-  // forever. This is the only consumer of the weekly basis; everything
-  // else in this function stays on `cards` (see the note above).
-  const editionCards = await fetchWeekCards(supabase, season, editionWeek);
+  // Archive this week's edition so a pack bought for it can mint the same
+  // cards forever — the week's own build normally, a send-off when the
+  // bracket ended somebody's split (see the note above). This is the only
+  // consumer of the weekly basis; everything else in this function stays on
+  // `cards`.
+  const { kind: editionKind, cards: editionCards, plan } = await buildEditionForWeek(
+    supabase,
+    season,
+    editionWeek,
+    async () => cards,
+  );
+  // A name the fixtures spell differently from raw_stats prints nobody, and
+  // the edition would just come out short. Say so where the Actions log
+  // will show it.
+  if (plan && plan.unmatched.length > 0) {
+    console.warn(`[${label}] [WARN] No cards matched these eliminated teams: ${plan.unmatched.join(", ")}`);
+  }
   if (editionCards.length === 0) {
-    console.log(`[${label}] No games in the week of ${editionWeek} — no edition to archive.`);
+    console.log(
+      editionKind === "sendoff"
+        ? `[${label}] The week of ${editionWeek} is a send-off week with no decided fixture — nothing prints until the scores land.`
+        : `[${label}] No games in the week of ${editionWeek} — no edition to archive.`,
+    );
   } else {
     // Tolerated failure: an environment without the card_editions migration
     // still gets its snapshot and its movers post.
@@ -251,6 +287,13 @@ export async function processSeason(
       // on a successful archive: these cards are claimable through this
       // week's packs, and promising a chase the archive step just failed
       // to create would be worse than saying nothing.
+      // The send-off announcement comes FIRST: the Eclipse board below says
+      // "five new 1/1s in this week's packs", and it reads as five ordinary
+      // crowns unless the room has already been told what this week's
+      // edition is.
+      if (plan) {
+        await postSendoff(supabase, season, label, plan, webhookUrl, footer);
+      }
       await postEclipseBoard(supabase, season, label, editionWeek, editionCards, webhookUrl, origin ? `${origin}${hubPath}/vault` : null);
     }
   }
@@ -714,6 +757,64 @@ async function payMatchWinBonuses(
  * the board grows every week and that OLD weeks stay in play, and neither
  * fact is visible anywhere unless the drop says it.
  */
+/** "fell 1–3 to Storm", or — for the one team that leaves the bracket
+ *  without being knocked out of it — "beat Ember 3–1". */
+function sendoffLine(elimination: Elimination): string {
+  const stage = SENDOFF_META[elimination.stage].label;
+  const series = elimination.series ?? "";
+  const opponent = elimination.opponent ?? "the bracket";
+  return elimination.stage === "champion"
+    ? `**${elimination.team}** — ${stage} · beat ${opponent} ${series}`.trimEnd()
+    : `**${elimination.team}** — ${stage} · fell ${series} to ${opponent}`;
+}
+
+/** "Sep 22" on the league's own clock. The vault shuts at an instant, and a
+ *  UTC rendering of a late-evening Eastern one would name the wrong day. */
+function vaultDayLabel(closesAt: string): string {
+  return new Date(closesAt).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "America/New_York",
+  });
+}
+
+/**
+ * Announces a send-off edition — who fell, how far they got, and how long
+ * the edition stays on sale.
+ *
+ * Posted only on a successful archive, like the Eclipse board: promising an
+ * edition the archive step just failed to write would be worse than saying
+ * nothing. The vault line is omitted rather than guessed when the finals
+ * have no date yet — there is nothing to count fourteen days from.
+ */
+async function postSendoff(
+  supabase: SupabaseClient,
+  season: string,
+  label: string,
+  plan: SendoffPlan,
+  webhookUrl: string | null,
+  footer: string,
+): Promise<void> {
+  if (!webhookUrl || plan.cards.length === 0) return;
+  const closesAt = sendoffVaultClosesAt(await fetchSeasonFixtures(supabase, season));
+  const lines = [
+    ...plan.eliminations.map(sendoffLine),
+    "",
+    `${plan.cards.length} cards printed, one per player, rated on the whole split.`,
+  ];
+  if (closesAt) {
+    lines.push(
+      `Vault shuts ${vaultDayLabel(closesAt)} — then what was pulled is all there will ever be.`,
+    );
+  }
+  await postEmbed(
+    webhookUrl,
+    `🎓 ${label} — The ${sendoffWeekLabel(plan.exits) ?? "Send-off"}`,
+    lines.join("\n"),
+    footer,
+  );
+}
+
 async function postEclipseBoard(
   supabase: SupabaseClient,
   season: string,

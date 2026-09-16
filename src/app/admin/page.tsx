@@ -161,6 +161,14 @@ export default async function AdminPage() {
       href: "/admin/overlays",
     },
     {
+      label: "The Send-off",
+      stat: "Playoff editions",
+      statTone: "text-gold",
+      description:
+        "Playoff cards printed by elimination — the five stamps on real cards, and a dry run of what Tuesday's drop prints. Mints nothing.",
+      href: "/admin/sendoff",
+    },
+    {
       label: "The Dribb card",
       stat: "Proposal preview",
       statTone: "text-gold",

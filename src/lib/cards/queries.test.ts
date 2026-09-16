@@ -2,7 +2,14 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 import { WEEKLY_STAT_COLUMNS } from "@/lib/stats/weekly";
 import type { PlayerCardData } from "./build";
-import { backfillTeamIdentity, fetchCardEditionWeeks, fetchWeekCards, fetchWeekMoments } from "./queries";
+import {
+  backfillTeamIdentity,
+  fetchCardEditionWeeks,
+  fetchCurrentWeekCards,
+  fetchEditionWeekInfo,
+  fetchWeekCards,
+  fetchWeekMoments,
+} from "./queries";
 
 /** A frozen copy as it sits in card_inventory: whatever the card looked like
  *  the moment it was pulled. Older copies predate both the badge lookup and
@@ -218,6 +225,65 @@ describe("fetchWeekCards", () => {
   });
 });
 
+/** A Supabase stand-in for the whole live-card path: the latest game week
+ *  comes off raw_stats, the bracket off fixtures, and every table it asks
+ *  for is recorded so a test can tell which of the two builds ran. */
+function currentWeekSupabase(fixtures: unknown[], rawRows: unknown[], tables: string[] = []): SupabaseClient {
+  return {
+    from: (table: string) => {
+      tables.push(table);
+      const chain: Record<string, unknown> = {};
+      const data = table === "fixtures" ? fixtures : table === "raw_stats" ? rawRows : [];
+      for (const m of ["select", "eq", "not", "order", "range", "limit", "gte", "lt"]) chain[m] = () => chain;
+      // fetchLatestGameWeek's one-row read.
+      chain.maybeSingle = async () => ({ data: (rawRows[0] as { game_date: string }) ?? null, error: null });
+      chain.then = (resolve: (r: { data: unknown; error: unknown }) => unknown) =>
+        Promise.resolve({ data, error: null }).then(resolve);
+      return chain;
+    },
+  } as unknown as SupabaseClient;
+}
+
+describe("fetchCurrentWeekCards", () => {
+  const playoffFixture = {
+    stage: "semifinals",
+    team_a: "Storm",
+    team_b: "Ember",
+    score_a: 2,
+    score_b: 0,
+    // 8 PM ET on Monday 2026-08-17.
+    scheduled_at: "2026-08-18T00:00:00.000Z",
+  };
+
+  it("rates the whole league during the bracket rather than the ten who played", async () => {
+    // A playoff week's cohort is whoever is still in it — 40 people, then
+    // 20, then 10 — so a weekly build rates a finalist against the nine
+    // other people who played the final and prints a bad card for reaching
+    // it. The season build (stats_player_agg) is the honest cohort.
+    const tables: string[] = [];
+    await fetchCurrentWeekCards(
+      currentWeekSupabase([playoffFixture], [statRow("Finalist", "2026-08-18T00:00:00Z")], tables),
+      "S5",
+    );
+
+    expect(tables).toContain("stats_player_agg");
+  });
+
+  it("stays on the week's own build outside the bracket", async () => {
+    const tables: string[] = [];
+    await fetchCurrentWeekCards(
+      currentWeekSupabase(
+        [{ ...playoffFixture, stage: "week_5" }],
+        [statRow("Regular", "2026-08-18T00:00:00Z")],
+        tables,
+      ),
+      "S5",
+    );
+
+    expect(tables).not.toContain("stats_player_agg");
+  });
+});
+
 /** A Supabase stand-in for card_editions that pages: `pages` is handed out
  *  one `.range()` call at a time, so a test can prove the reader keeps
  *  going past the first 1000-row response. */
@@ -313,6 +379,54 @@ describe("fetchCardEditionWeeks", () => {
     // Losing the whole list because page two timed out would empty the pack
     // shop's week picker; a partial list still sells packs.
     expect(await fetchCardEditionWeeks(client, "S5", { pageSize: 2 })).toEqual(["2026-08-24"]);
+  });
+});
+
+/** card_editions hands back one page of weeks; fixtures hand back the
+ *  bracket. Everything fetchEditionWeekInfo reads, and nothing else. */
+function editionInfoSupabase(weeks: string[], fixtures: unknown[]): SupabaseClient {
+  return {
+    from: (table: string) => {
+      const chain: Record<string, unknown> = {};
+      for (const m of ["select", "eq", "order"]) chain[m] = () => chain;
+      chain.range = async () => ({ data: weeks.map((edition_week) => ({ edition_week })), error: null });
+      chain.then = (resolve: (r: { data: unknown; error: unknown }) => unknown) =>
+        Promise.resolve({ data: table === "fixtures" ? fixtures : [], error: null }).then(resolve);
+      return chain;
+    },
+  } as unknown as SupabaseClient;
+}
+
+describe("fetchEditionWeekInfo", () => {
+  // 8 PM ET on Monday 2026-08-31 — the finals.
+  const finals = {
+    stage: "finals",
+    team_a: "Storm",
+    team_b: "Ember",
+    score_a: 3,
+    score_b: 1,
+    scheduled_at: "2026-09-01T00:00:00.000Z",
+  };
+
+  it("names a send-off by its round and numbers only the weekly prints", async () => {
+    // A send-off in the middle of the picker must not push the weekly
+    // numbering out of step with how people talk about the weeks.
+    const client = editionInfoSupabase(["2026-08-17", "2026-08-24", "2026-08-31"], [finals]);
+
+    const info = await fetchEditionWeekInfo(client, "S5", new Date("2026-09-02T00:00:00.000Z"));
+
+    expect(info.map((row) => row.label)).toEqual(["Send-off · Finals", "Week 2 · Aug 24", "Week 1 · Aug 17"]);
+    expect(info[0].sendoff).toEqual({ closesAt: "2026-09-15T00:00:00.000Z" });
+    expect(info[1].sendoff).toBeNull();
+  });
+
+  it("drops a vaulted send-off off the shelf entirely", async () => {
+    // Offering a week the opener will refuse is worse than not offering it.
+    const client = editionInfoSupabase(["2026-08-24", "2026-08-31"], [finals]);
+
+    const info = await fetchEditionWeekInfo(client, "S5", new Date("2026-09-16T00:00:00.000Z"));
+
+    expect(info.map((row) => row.week)).toEqual(["2026-08-24"]);
   });
 });
 
