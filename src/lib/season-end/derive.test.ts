@@ -232,6 +232,14 @@ describe("season-end winners", () => {
     expect(conflictingResult.warnings.some((warning) => warning.includes("omitted division emblems"))).toBe(true);
   });
 
+  it("uses the current roster division after a player changes divisions", () => {
+    const currentPlayerDivisions = new Map([["a0#na1", "Lunari" as const]]);
+    const result = deriveSeasonEnd(season(), fixtures(), "S5", "premier", { currentPlayerDivisions });
+    const bestOf = result.awards.find((candidate) => candidate.id === "best-of-champion")!;
+
+    expect(bestOf.winners.find((winner) => winner.name === "A0#NA1")?.division).toBe("Lunari");
+  });
+
   it("calculates singular-player accolades independently for Solari and Lunari", () => {
     const solari = Array.from({ length: 5 }, (_, i) => game(i + 1).map((row) => ({ ...row, match_id: `solari-${i + 1}`, division: "Solari" as const }))).flat();
     const lunari = Array.from({ length: 5 }, (_, i) => game(i + 6).map((row) => ({

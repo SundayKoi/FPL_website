@@ -1,7 +1,9 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cardPlayerKey } from "@/lib/cards/build";
 import { seasonBelongsToLeague } from "@/lib/league/season";
-import type { FixtureRow } from "@/lib/schedule/types";
+import { normalizePlayerName } from "@/lib/players/normalize";
+import type { Division, FixtureRow } from "@/lib/schedule/types";
 import { deriveSeasonEnd, type SeasonRow } from "./derive";
 
 // Ordered pages are essential: a season exceeds the API's 1,000-row cap.
@@ -12,8 +14,104 @@ export async function loadSeasonEnd(client: SupabaseClient, league: "premier" | 
     readPages<SeasonRow>(async (from, to) => client.from("raw_stats").select("*").eq("season", season).eq("season_phase", "Regular").order("id").range(from, to)),
     readPages<FixtureRow>(async (from, to) => client.from("fixtures").select("*").eq("season", season).order("id").range(from, to)),
   ]);
-  return deriveSeasonEnd(rows, fixtures, season, league);
+  const currentPlayerDivisions = await loadCurrentPlayerDivisions(client, league, season, rows);
+  return deriveSeasonEnd(rows, fixtures, season, league, { currentPlayerDivisions });
 }
+
+type CurrentSettings = {
+  current_season: string | null;
+  academy_season: string | null;
+  featured_draft_id: string | null;
+  academy_draft_id: string | null;
+};
+type TeamDivisionRow = { id: string; name: string; division: Division | null };
+type CurrentPlayerRow = { display_name: string; team_id: string | null };
+type MembershipRow = {
+  riot_accounts: { game_name: string; tag_line: string } | { game_name: string; tag_line: string }[] | null;
+  league_teams: { name: string } | { name: string }[] | null;
+};
+
+function one<T>(value: T | T[] | null | undefined): T | null {
+  return Array.isArray(value) ? value[0] ?? null : value ?? null;
+}
+
+function teamKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+/**
+ * The active draft is the authority for a player's current division. The
+ * roster membership is keyed by Riot identity, so a trade updates this map
+ * even when the player's historical raw_stats rows still show the old team.
+ */
+async function loadCurrentPlayerDivisions(
+  client: SupabaseClient,
+  league: "premier" | "academy",
+  season: string,
+  rows: SeasonRow[],
+): Promise<Map<string, Division>> {
+  const { data: settings, error: settingsError } = await client
+    .from("league_settings")
+    .select("current_season, academy_season, featured_draft_id, academy_draft_id")
+    .eq("id", 1)
+    .single();
+  if (settingsError) throw settingsError;
+
+  const row = settings as CurrentSettings | null;
+  const currentSeason = league === "premier" ? row?.current_season : row?.academy_season;
+  const draftId = league === "premier" ? row?.featured_draft_id : row?.academy_draft_id;
+  if (currentSeason !== season || !draftId) return new Map();
+
+  const [teams, players, memberships] = await Promise.all([
+    readPages<TeamDivisionRow>(async (from, to) => client.from("teams").select("id, name, division").eq("draft_id", draftId).order("id").range(from, to)),
+    readPages<CurrentPlayerRow>(async (from, to) => client.from("players").select("display_name, team_id").eq("draft_id", draftId).order("id").range(from, to)),
+    readPages<MembershipRow>(async (from, to) => client
+      .from("roster_memberships")
+      .select("riot_accounts(game_name, tag_line), league_teams(name)")
+      .eq("season", season)
+      .order("id")
+      .range(from, to)),
+  ]);
+  const divisionsByTeam = new Map(
+    teams
+      .filter((team): team is TeamDivisionRow & { division: Division } => team.division === "Solari" || team.division === "Lunari")
+      .map((team) => [teamKey(team.name), team.division] as const),
+  );
+  const divisionsByTeamId = new Map(
+    teams
+      .filter((team): team is TeamDivisionRow & { division: Division } => team.division === "Solari" || team.division === "Lunari")
+      .map((team) => [team.id, team.division] as const),
+  );
+  const divisionsByPlayerName = new Map<string, Division | null>();
+  for (const player of players) {
+    const division = player.team_id ? divisionsByTeamId.get(player.team_id) : undefined;
+    if (!division) continue;
+    const key = normalizePlayerName(player.display_name);
+    const previous = divisionsByPlayerName.get(key);
+    divisionsByPlayerName.set(key, divisionsByPlayerName.has(key) && previous !== division ? null : division);
+  }
+  const divisionsByIdentity = new Map<string, Division | null>();
+  for (const membership of memberships) {
+    const account = one(membership.riot_accounts);
+    const leagueTeam = one(membership.league_teams);
+    const division = leagueTeam ? divisionsByTeam.get(teamKey(leagueTeam.name)) : undefined;
+    if (!account || !division) continue;
+    const key = cardPlayerKey(account.game_name, account.tag_line);
+    const previous = divisionsByIdentity.get(key);
+    divisionsByIdentity.set(key, divisionsByIdentity.has(key) && previous !== division ? null : division);
+  }
+  const divisions = new Map<string, Division>();
+  for (const row of rows) {
+    if (typeof row.summoner_name !== "string" || typeof row.tag !== "string") continue;
+    const identity = cardPlayerKey(row.summoner_name, row.tag);
+    const division = divisionsByIdentity.has(identity)
+      ? divisionsByIdentity.get(identity)
+      : divisionsByPlayerName.get(normalizePlayerName(row.summoner_name));
+    if (division) divisions.set(identity, division);
+  }
+  return divisions;
+}
+
 async function readPages<T>(read: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>): Promise<T[]> {
   const rows: T[] = [];
   // A short page can reflect a server cap smaller than requested. Continue

@@ -64,6 +64,9 @@ export interface SeasonEndResult {
 type Group = { name: string; team: string; rows: SeasonRow[] };
 type DeriveOptions = {
   division?: Division;
+  /** Current roster truth overrides historical appearance inference when a
+   * player changed divisions during the selected season. */
+  currentPlayerDivisions?: ReadonlyMap<string, Division>;
 };
 const identity = (r: SeasonRow) => `${r.summoner_name}#${r.tag}`;
 const playerKey = (r: SeasonRow) => cardPlayerKey(r.summoner_name, r.tag);
@@ -122,7 +125,11 @@ function rowDivision(row: SeasonRow, divisions: ReturnType<typeof divisionMap>):
 }
 
 /** Resolve a player's division across every selected-season appearance. */
-function playerDivisionMap(rows: SeasonRow[], divisions: ReturnType<typeof divisionMap>): Map<string, Division> {
+function playerDivisionMap(
+  rows: SeasonRow[],
+  divisions: ReturnType<typeof divisionMap>,
+  currentPlayerDivisions?: ReadonlyMap<string, Division>,
+): Map<string, Division> {
   const states = new Map<string, { resolved: Set<Division>; unresolved: boolean }>();
   for (const row of rows) {
     const state = states.get(playerKey(row)) ?? { resolved: new Set<Division>(), unresolved: false };
@@ -132,9 +139,13 @@ function playerDivisionMap(rows: SeasonRow[], divisions: ReturnType<typeof divis
     states.set(playerKey(row), state);
   }
 
-  return new Map([...states.entries()]
-    .filter(([, state]) => !state.unresolved && state.resolved.size === 1)
-    .map(([key, state]) => [key, [...state.resolved][0]]));
+  return new Map([...states.entries()].flatMap(([key, state]) => {
+    const currentDivision = currentPlayerDivisions?.get(key);
+    if (currentDivision) return [[key, currentDivision] as const];
+    return !state.unresolved && state.resolved.size === 1
+      ? [[key, [...state.resolved][0]] as const]
+      : [];
+  }));
 }
 
 function fixtureIsInDivision(fixture: FixtureRow, division: Division, divisions: ReturnType<typeof divisionMap>): boolean {
@@ -217,7 +228,7 @@ export function deriveSeasonEnd(
   const datesComplete = rows.every(r => Number.isFinite(Date.parse(r.game_date)));
   rows.sort(chronological);
   const players: Group[] = groups(rows, identity).map(rs => ({ name: identity(rs[0]), team: [...new Set(rs.map(r => r.team_name))].join(" / "), rows: rs }));
-  const playerDivisions = playerDivisionMap(rows, divisions);
+  const playerDivisions = playerDivisionMap(rows, divisions, options.currentPlayerDivisions);
   const minGames = 5;
   const qualified = players.filter(p => p.rows.length >= minGames);
   const teamGames = groups(rows, r => `${r.match_id}|${teamKey(r.team_name)}`);
