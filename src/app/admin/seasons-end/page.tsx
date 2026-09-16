@@ -61,7 +61,7 @@ export default async function SeasonsEndPage({
         <p className="text-xs uppercase tracking-[.3em] text-gold">The season, in good company</p>
         <h1 className="type-display text-4xl sm:text-6xl">Season&apos;s End</h1>
         <p className="max-w-3xl text-sm text-steel">
-          Regular-season honors, calculated from recorded matches. Each honor returns to the player-card treatment with champion art; cumulative Season Cards retain their normal card treatment.
+          Regular-season honors, calculated from recorded matches. Each accolade uses the original champion-art archive card treatment; cumulative Season Cards retain their normal card treatment.
         </p>
         <form className="flex flex-wrap items-end gap-3" action="/admin/seasons-end">
           <label className="flex flex-col gap-1 text-sm">League<select name="league" defaultValue={league} className="rounded border border-line bg-panel p-2"><option value="premier">Premier</option><option value="academy">Academy</option></select></label>
@@ -90,7 +90,7 @@ export default async function SeasonsEndPage({
           return (
             <section id={`group-${groupIndex}`} key={group} aria-label={group} className="scroll-mt-8">
               <div className="mb-5 flex items-baseline gap-4 border-b border-line pb-3"><span className="font-mono text-sm text-steel">0{groupIndex + 1}</span><h2 className="type-display text-3xl text-gold">{group}</h2></div>
-              <div className="flex flex-wrap items-start gap-x-6 gap-y-10">
+              <div className="flex flex-col gap-8">
                 {awards.map((award, index) => <SeasonEndAwardCard key={award.id} award={award} season={season} league={league} index={index} cards={allSeasonCards} />)}
               </div>
             </section>

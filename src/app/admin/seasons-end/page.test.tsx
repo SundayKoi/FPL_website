@@ -13,10 +13,16 @@ vi.mock("@/lib/auth/staffTier", () => ({ fetchStaffTier: staff }));
 vi.mock("@/lib/league/season", async (importOriginal) => ({ ...await importOriginal<object>(), fetchLeagueSeasons: async () => ({ premier: "S5", academy: "A1" }) }));
 vi.mock("@/lib/season-end/queries", () => ({ loadSeasonEnd: load }));
 vi.mock("@/lib/cards/queries", () => ({ fetchSeasonCards: fetchCards }));
-vi.mock("@/components/cards/PlayerCard3D", () => ({
-  default: ({ card }: { card: { name: string; archetype?: string; signature?: { champion: string } | null } }) => (
-    <div data-testid={card.archetype === "Body Count" ? "award-card" : "season-card"} data-champion={card.signature?.champion ?? ""}>{card.name}</div>
+vi.mock("@/components/admin/SeasonEndAwardCard", () => ({
+  default: ({ award, cards }: { award: { title: string; winners: { value: number }[] }; cards: unknown[] }) => (
+    <div data-testid="award-card" data-card-count={cards.length}>
+      <h3>{award.title}</h3>
+      {award.winners.map((winner) => <p key={winner.value}><span>{winner.value}</span> <span>kills</span></p>)}
+    </div>
   ),
+}));
+vi.mock("@/components/cards/PlayerCard3D", () => ({
+  default: ({ card }: { card: { name: string } }) => <div data-testid="season-card">{card.name}</div>,
 }));
 vi.mock("next/navigation", () => ({ redirect }));
 
@@ -43,13 +49,13 @@ describe("Season's End admin page", () => {
     expect(load).not.toHaveBeenCalled();
   });
 
-  it("uses the first-design player card for honors and keeps cumulative cards separate", async () => {
+  it("passes all season cards to the first-design honors renderer and keeps cumulative cards separate", async () => {
     render(await Page({ searchParams: Promise.resolve({}) }));
     expect(screen.getByRole("heading", { name: "Body Count" })).toBeTruthy();
     expect(screen.getByText("60")).toBeTruthy();
     expect(screen.getByText("kills")).toBeTruthy();
     expect(screen.queryByText(/Season total/)).toBeNull();
-    expect(screen.getByTestId("award-card").dataset.champion).toBe("Ahri");
+    expect(screen.getByTestId("award-card").dataset.cardCount).toBe("1");
     expect(screen.getByRole("heading", { name: "Season Cards" })).toBeTruthy();
     expect(screen.getByTestId("season-card").textContent).toBe("Alice");
   });

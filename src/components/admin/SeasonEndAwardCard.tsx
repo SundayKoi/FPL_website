@@ -1,9 +1,12 @@
-import PlayerCard3D from "@/components/cards/PlayerCard3D";
+import { championSplashUrl } from "@/lib/match-draft/champions";
 import { cardPlayerKey, type PlayerCardData } from "@/lib/cards/build";
 import { buildTeamCards, teamToCard } from "@/lib/cards/teamCards";
 import type { AwardWinner, SeasonAward } from "@/lib/season-end/derive";
+import styles from "./SeasonEndAwardCard.module.css";
 
 const format = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+
+type AwardFamily = "record" | "guardian" | "wild" | "story" | "team";
 
 function unitFor(award: SeasonAward): string {
   if (award.unit === "gold") return "$";
@@ -11,6 +14,26 @@ function unitFor(award: SeasonAward): string {
   if (award.id === "speedrunners") return "minutes";
   if (award.id === "fortress") return "towers/game";
   return "";
+}
+
+function familyFor(award: SeasonAward): AwardFamily {
+  switch (award.group) {
+    case "Teamwork": return "team";
+    case "Meme inserts": return "wild";
+    case "Season stories": return "story";
+    case "Support & survival": return "guardian";
+    case "Record breakers": return "record";
+  }
+}
+
+function familyLabel(award: SeasonAward): string {
+  switch (familyFor(award)) {
+    case "record": return "Record breakers";
+    case "guardian": return "Support & survival";
+    case "wild": return "Wild cards";
+    case "story": return "Season stories";
+    case "team": return "Teamwork";
+  }
 }
 
 function winnerKey(name: string): string {
@@ -25,24 +48,118 @@ function winnerNames(winner: AwardWinner): string[] {
 function decorateCard(card: PlayerCardData, award: SeasonAward, winner: AwardWinner): PlayerCardData {
   return {
     ...card,
-    // Keep the normal rating, tier and stat bars. Only the copy on the card
-    // changes: this award is what the card is being shown for today.
     archetype: award.title,
     motto: winner.detail ?? award.description,
     standout: false,
   };
 }
 
-/**
- * Season-end honors return to the first card treatment: the real player-card
- * renderer, including its champion art, rating, tier, stat bars and flip.
- * Season Cards remain the untouched normal renderer in the page below.
- */
+function cardsForWinner(
+  winner: AwardWinner,
+  award: SeasonAward,
+  cards: PlayerCardData[],
+  cardsByPlayer: Map<string, PlayerCardData>,
+  season: string,
+): PlayerCardData[] {
+  const winnerCards = winnerNames(winner)
+    .map((name) => cardsByPlayer.get(winnerKey(name)))
+    .filter((card): card is PlayerCardData => Boolean(card));
+  const teamCards = winner.name === winner.team
+    ? cards.filter((card) => card.teamName?.trim().toLowerCase() === winner.team.trim().toLowerCase())
+    : [];
+  const candidateTeam = teamCards.length ? buildTeamCards(teamCards, undefined, season)[0] : null;
+  const team = candidateTeam?.slots.every((slot) => slot.slug) ? candidateTeam : null;
+  return team
+    ? [teamToCard(team, season, 0)]
+    : winnerCards.map((card) => decorateCard(card, award, winner));
+}
+
+function championFor(cards: PlayerCardData[]): string | null {
+  for (const card of cards) {
+    const champion = card.signature?.champion ?? card.team?.slots.find((slot) => slot.champion)?.champion;
+    if (champion) return champion;
+  }
+  return null;
+}
+
+function evidenceFor(award: SeasonAward, winner: AwardWinner): string {
+  const games = `${winner.games} ${award.id === "clean-sweep" ? "series" : "games"}`;
+  const team = winner.name !== winner.team ? `${winner.team} · ` : "";
+  return winner.detail ? `${winner.detail} · ${team}${games}` : `${team}${games}`;
+}
+
+function AwardVisualCard({
+  award,
+  winner,
+  cards,
+  season,
+  league,
+  winnerIndex,
+}: {
+  award: SeasonAward;
+  winner: AwardWinner;
+  cards: PlayerCardData[];
+  season: string;
+  league: "premier" | "academy";
+  winnerIndex: number;
+}) {
+  const family = familyFor(award);
+  const champion = championFor(cards);
+  const art = champion ? championSplashUrl(champion, 0) : null;
+  const unit = unitFor(award);
+  const roster = cards[0]?.team?.slots.filter((slot) => slot.slug).map((slot) => slot.name) ?? [];
+  const titleId = `title-${award.id}-${winnerIndex}`;
+
+  return (
+    <article aria-labelledby={titleId} className={`${styles.card} ${styles[family]}`}>
+      <div
+        className={styles.art}
+        data-testid="award-card-art"
+        aria-hidden="true"
+        style={art ? { backgroundImage: `linear-gradient(180deg, transparent 10%, #101620 100%), url("${art}")` } : undefined}
+      />
+      <div className={styles.topline}><span>{season} · {league}</span><span>REGULAR</span></div>
+      <div className={styles.content}>
+        <p className={styles.collection}>{familyLabel(award)}</p>
+        <h3 id={titleId} className={styles.title}>{award.title}</h3>
+        <p className={styles.name}>{winner.name}</p>
+        <div className={styles.value}>
+          {unit === "$" ? "$" : ""}{format(winner.value)}
+          {unit && unit !== "$" ? <span className={styles.unit}>{unit}</span> : null}
+        </div>
+        <p className={styles.evidence}>{evidenceFor(award, winner)}</p>
+        {roster.length ? (
+          <details className={styles.details}>
+            <summary>Season roster · {roster.length} contributors</summary>
+            <ul>{roster.map((name) => <li key={name}>{name}</li>)}</ul>
+          </details>
+        ) : null}
+        <div className={styles.seal}><span>SEASON ARCHIVE</span><span>ADMIN PREVIEW</span></div>
+      </div>
+    </article>
+  );
+}
+
+function EmptyAwardCard({ award, season, league }: { award: SeasonAward; season: string; league: "premier" | "academy" }) {
+  return (
+    <article aria-labelledby={`title-${award.id}`} className={`${styles.card} ${styles[familyFor(award)]}`}>
+      <div className={styles.topline}><span>{season} · {league}</span><span>REGULAR</span></div>
+      <div className={styles.content}>
+        <p className={styles.collection}>{familyLabel(award)}</p>
+        <h3 id={`title-${award.id}`} className={styles.title}>{award.title}</h3>
+        <p className={styles.empty}>{award.status === "unearned" ? "Not earned yet" : "Awaiting evidence"}</p>
+        <p className={styles.evidence}>{award.note ?? award.description}</p>
+        <div className={styles.seal}><span>SEASON ARCHIVE</span><span>ADMIN PREVIEW</span></div>
+      </div>
+    </article>
+  );
+}
+
+/** The original Season's End treatment: tall archive cards with champion splash art. */
 export default function SeasonEndAwardCard({
   award,
   season,
   league,
-  index,
   cards,
 }: {
   award: SeasonAward;
@@ -51,76 +168,21 @@ export default function SeasonEndAwardCard({
   index: number;
   cards: PlayerCardData[];
 }) {
-  const unit = unitFor(award);
   const cardsByPlayer = new Map(cards.map((card) => [cardPlayerKey(card.name, card.tag), card]));
 
   return (
-    <article
-      aria-labelledby={`title-${award.id}`}
-      className="min-w-0 max-w-full"
-    >
-      <div className="mb-4 flex max-w-[20rem] flex-col gap-1">
-        <div className="flex justify-between gap-2 font-mono text-[10px] uppercase tracking-widest text-steel">
-          <span>{String(index + 1).padStart(2, "0")} / HONORS</span>
-          <span>{season} · {league}</span>
-        </div>
-        <h3 id={`title-${award.id}`} className="type-display text-xl leading-tight text-gold">
-          {award.title}
-        </h3>
-        <p className="text-xs leading-relaxed text-steel">{award.description}</p>
-      </div>
-
-      {award.winners.length ? (
-        <div className="flex flex-col gap-8">
-          {award.winners.map((winner, winnerIndex) => {
-            const winnerCards = winnerNames(winner)
-              .map((name) => cardsByPlayer.get(winnerKey(name)))
-              .filter((card): card is PlayerCardData => Boolean(card));
-            const teamCards = winner.name === winner.team
-              ? cards.filter((card) => card.teamName?.trim().toLowerCase() === winner.team.trim().toLowerCase())
-              : [];
-            const candidateTeam = teamCards.length ? buildTeamCards(teamCards, undefined, season)[0] : null;
-            const team = candidateTeam?.slots.every((slot) => slot.slug) ? candidateTeam : null;
-            const renderedCards = team
-              ? [teamToCard(team, season, 0)]
-              : winnerCards.map((card) => decorateCard(card, award, winner));
-
-            return (
-              <div key={`${winner.name}-${winnerIndex}`}>
-                <div className="mb-3 max-w-[20rem]">
-                  <p className="break-words text-lg font-semibold">{winner.name}</p>
-                  <p className="text-xs text-steel">
-                    {winner.name !== winner.team ? `${winner.team} · ` : ""}
-                    {winner.games} {award.id === "clean-sweep" ? "series" : "games"}
-                  </p>
-                  <p className="mt-2 break-words font-mono text-3xl font-black tracking-tighter text-gold">
-                    {unit === "$" ? "$" : ""}{format(winner.value)}
-                    {unit && unit !== "$" ? <span className="ml-2 text-sm font-normal text-steel">{unit}</span> : null}
-                  </p>
-                  {winner.detail ? <p className="mt-2 text-xs leading-relaxed text-steel">{winner.detail}</p> : null}
-                </div>
-
-                {renderedCards.length ? (
-                  <div className="flex flex-wrap gap-5">
-                    {renderedCards.map((card) => <PlayerCard3D key={card.slug} card={card} interactive />)}
-                  </div>
-                ) : (
-                  <p className="card-brand max-w-[20rem] p-4 text-sm text-steel">No complete player-card stats are available for this winner.</p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="card-brand max-w-[20rem] p-5">
-          <p className="text-lg text-steel">{award.status === "unearned" ? "Not earned yet" : "Awaiting evidence"}</p>
-          {award.note ? <p className="mt-2 text-xs text-steel">{award.note}</p> : null}
-        </div>
-      )}
-
-      <p className="mt-4 max-w-[20rem] border-t border-line pt-3 font-mono text-[10px] uppercase tracking-widest text-steel">
-        {award.winners.length > 1 ? `${award.winners.length} shared winners` : award.status === "ready" ? "Season leader" : "No winner declared"} · {league}
-      </p>
-    </article>
+    <div className={styles.grid}>
+      {award.winners.length ? award.winners.map((winner, winnerIndex) => (
+        <AwardVisualCard
+          key={`${winner.name}-${winnerIndex}`}
+          award={award}
+          winner={winner}
+          cards={cardsForWinner(winner, award, cards, cardsByPlayer, season)}
+          season={season}
+          league={league}
+          winnerIndex={winnerIndex}
+        />
+      )) : <EmptyAwardCard award={award} season={season} league={league} />}
+    </div>
   );
 }

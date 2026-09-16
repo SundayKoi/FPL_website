@@ -7,11 +7,12 @@ This is a read-only awards desk, not a collectible mint or a season-closing
 operation. The former `/admin/season-end` route redirects here for existing
 admin bookmarks.
 
-Accolade entries use the normal player-card renderer, so the winner's champion
-art, OVR, tier, stat lines and flip remain visible; the award title and winning
-stat sit immediately above the card. Team honors use the roster-card renderer
-when a complete team is available. Season Cards remain the ordinary cumulative
-player cards for contributors with more than five games.
+Accolade entries use the original Season's End archive-card treatment: a tall,
+family-colored card with the winner's champion splash art, award title, winning
+statistic, evidence line and archive seal. Team honors use the roster-card data
+to choose a champion background when a complete team is available. Season Cards
+remain the ordinary cumulative player cards for contributors with more than
+five games.
 
 The server checks staff access before fetching data through the cookie-bound
 Supabase client. Reads are scoped to the selected season and `Regular` phase,
