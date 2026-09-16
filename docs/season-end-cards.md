@@ -1,8 +1,17 @@
-# Season-end cards
+# Season's End cards
 
-Open **Admin → Season-end cards** (`/admin/season-end`). Admins and owners can
-calculate all 68 cards for either league and a selected season. This is a
-read-only awards desk, not a collectible mint or a season-closing operation.
+Open **Admin → Season's End** (`/admin/seasons-end`). Admins and owners can
+calculate all 68 accolade cards for either league and a selected season, plus
+the normal cumulative Season Cards for contributors with more than five games.
+This is a read-only awards desk, not a collectible mint or a season-closing
+operation. The former `/admin/season-end` route redirects here for existing
+admin bookmarks.
+
+Accolade entries use the normal player-card renderer, so the winner's champion
+art, OVR, tier, stat lines and flip remain visible; the award title and winning
+stat sit immediately above the card. Team honors use the roster-card renderer
+when a complete team is available. Season Cards remain the ordinary cumulative
+player cards for contributors with more than five games.
 
 The server checks staff access before fetching data through the cookie-bound
 Supabase client. Reads are scoped to the selected season and `Regular` phase,
@@ -78,6 +87,6 @@ page explicitly states that results reflect currently ingested data even when
 all fixtures are complete.
 
 Focused tests live in `src/lib/season-end/` and
-`src/app/admin/season-end/page.test.tsx`. They cover isolation, paginated reads,
+`src/app/admin/seasons-end/page.test.tsx`. They cover isolation, paginated reads,
 admin gating, ties, missing data, rates, timeline comparisons, chronological
 streaks, series completion, rosters, performance floors and champion mappings.

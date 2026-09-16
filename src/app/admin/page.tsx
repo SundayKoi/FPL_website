@@ -154,11 +154,11 @@ export default async function AdminPage() {
       href: "/admin/mutations",
     },
     {
-      label: "Season-end cards",
+      label: "Season's End",
       stat: "Regular-season honors",
       statTone: "text-gold",
-      description: "Real season leaders, team achievements, meme inserts and record breakers for Premier and Academy.",
-      href: "/admin/season-end",
+      description: "Real season leaders, team achievements, meme inserts, record breakers, and cumulative season cards for Premier and Academy.",
+      href: "/admin/seasons-end",
     },
     {
       label: "Card overlays",
