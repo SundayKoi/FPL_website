@@ -1,7 +1,7 @@
 # Season's End cards
 
 Open **Admin → Season's End** (`/admin/seasons-end`). Admins and owners can
-calculate all 61 accolade cards for either league and a selected season, plus
+calculate all 56 accolade cards for either league and a selected season, plus
 the normal cumulative Season Cards for contributors with more than five games.
 This is a read-only awards desk, not a collectible mint or a season-closing
 operation. The former `/admin/season-end` route redirects here for existing
