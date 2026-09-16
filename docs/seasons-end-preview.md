@@ -11,22 +11,38 @@ Queries are paginated and ordered, and failures render an error rather than a
 partial collection. Invalid or cross-league season parameters fall back to the
 latest available season in the selected league.
 
-The page contains twelve award families. Each prints its eligibility/ranking
-rule, winner, champion art, and supporting statistics. Ties share honors.
-Champion Sovereigns and Pocket Pick use 60% win rate plus 40% average role
-percentile of the existing fantasy game score. Ascension compares those role
-percentiles across the chronological halves of the league season. This score
-does not modify existing card ratings or fantasy scoring.
+All player awards use the normal `PlayerCard3D` renderer and `buildSeasonCards`
+engine. Complete regular-season rows are aggregated through the existing raw-row
+aggregation function, with the entire league as the rating cohort. Player cards
+retain their season OVR, stat bars, record, champion history, and interactive back.
+Award titles decorate the archetype label; award metrics are printed above the
+card. They are not substituted for an OVR. Weekly standout badges are disabled.
 
-Only complete ten-player matches with distinct player identities and consistent
-five-player teams/results count. Missing required numeric fields withhold the
-associated award. Ironman explicitly measures coverage of ingested team games;
-it cannot prove an unreported game does not exist. The roster award uses fixture
-series wins per division, includes forfeits, preserves tied leaders, and is
-withheld until all regular fixtures have decisive scores. Rosters list all
-observed season contributors rather than assuming the current roster played
-the entire season. All awards remain labeled provisional until reviewed.
+- **Best of [champion]:** one played champion per player and one player per
+  champion. The Hungarian assignment maximizes player coverage first, then total
+  score (60% win rate + 40% mean role percentile of fantasy game score).
+  All players with recorded games participate; one champion appearance suffices.
+  This constrained assignment is not an independent leaderboard per champion.
+  If coverage is impossible, only real assignments render and unmatched players
+  are named in a warning. Ties are resolved deterministically.
+- **Dynamic Duo:** the bot/support pairing with the highest cumulative combined
+  fantasy-stat points in games played together. The win tariff is zero. At least
+  four shared games are required; score ties share the award. The two normal
+  player cards sit together under their shared total and cumulative K/D/A.
+- **Season Cards:** replaces Ironman. Every player with strictly more than five
+  complete regular-season games receives their normal cumulative season card.
+  Players below that cutoff remain in the rating cohort.
+- **Undefeated:** replaces Regular-Season Royalty. Teams need positive wins and
+  zero game losses across regular-season fixtures, including forfeits. An observed
+  loss in stats also disqualifies them. Withheld until all regular fixtures are
+  complete. The normal roster-card renderer displays the team; the contributor
+  list includes everyone observed on that team during the regular season.
 
-Verification: `src/lib/cards/seasonsEnd/*.test.ts` covers ranking, coverage,
-pagination and isolation; `src/app/admin/seasons-end/page.test.tsx` covers the
-server gate and read-error/empty states. No migration is required.
+Other award eligibility is printed on the page. Only complete ten-player matches
+with distinct player identities and consistent five-player teams/results count.
+Missing required numeric fields withhold the corresponding award. All awards are
+provisional until the ingest and fixtures have been reviewed.
+
+Verification: `src/lib/cards/seasonsEnd/*.test.ts` covers assignment, ranking,
+coverage, pagination and isolation; `src/app/admin/seasons-end/page.test.tsx`
+covers the server gate and read-error/empty states. No migration is required.

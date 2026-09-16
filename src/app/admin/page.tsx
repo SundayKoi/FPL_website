@@ -101,7 +101,7 @@ export default async function AdminPage() {
       label: "Season’s End",
       stat: "Admin preview",
       statTone: "text-gold",
-      description: "Twelve regular-season award families on real stats: champion mastery, records, duos, and season stories.",
+      description: "Twelve regular-season award families on real stats: unique champion picks, cumulative season cards, bot-lane stats, and undefeated teams.",
       href: "/admin/seasons-end",
     },
     {
