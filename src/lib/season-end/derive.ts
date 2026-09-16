@@ -1,7 +1,7 @@
 import { SEASON_AWARDS, type AwardDefinition } from "./catalog";
 import championMap from "./champion-map.json";
 import { seasonBelongsToLeague, type LeagueSeasons } from "@/lib/league/season";
-import type { FixtureRow } from "@/lib/schedule/types";
+import { DIVISIONS, type Division, type FixtureRow } from "@/lib/schedule/types";
 
 /** Raw storage fields stay nullable. Missing observations must never become zero. */
 export interface SeasonRow {
@@ -12,6 +12,7 @@ export interface SeasonRow {
   season: string;
   season_phase: string;
   team_name: string;
+  division?: Division | null;
   team_side: string;
   role: string;
   game_date: string;
@@ -26,11 +27,18 @@ export interface AwardWinner {
   total?: number;
   perGame?: number;
   detail?: string;
+  division?: Division;
+}
+export type AwardStatus = "ready" | "unavailable" | "unearned";
+export interface DivisionAwardStatus {
+  status: AwardStatus;
+  note?: string;
 }
 export interface SeasonAward extends AwardDefinition {
   winners: AwardWinner[];
-  status: "ready" | "unavailable" | "unearned";
+  status: AwardStatus;
   note?: string;
+  divisionStatuses?: Record<Division, DivisionAwardStatus>;
 }
 export interface SeasonEndResult {
   awards: SeasonAward[];
@@ -41,6 +49,9 @@ export interface SeasonEndResult {
   warnings: string[];
 }
 type Group = { name: string; team: string; rows: SeasonRow[] };
+type DeriveOptions = {
+  division?: Division;
+};
 const identity = (r: SeasonRow) => `${r.summoner_name}#${r.tag}`;
 const normalized = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 const teamKey = (s: string) => s.trim().toLowerCase();
@@ -74,12 +85,87 @@ function completeFixture(f: FixtureRow): boolean {
     Math.min(f.score_a, f.score_b) >= 0 && Math.min(f.score_a, f.score_b) < Math.ceil(f.best_of / 2);
 }
 
-export function deriveSeasonEnd(input: SeasonRow[], fixtures: FixtureRow[], season: string, league: keyof LeagueSeasons): SeasonEndResult {
+function divisionMap(fixtures: FixtureRow[]): { byTeam: Map<string, Division>; conflicts: Set<string> } {
+  const byTeam = new Map<string, Division>();
+  const conflicts = new Set<string>();
+  for (const fixture of fixtures) {
+    if (!/^week_\d+$/.test(fixture.stage) || !fixture.division) continue;
+    for (const team of [fixture.team_a, fixture.team_b]) {
+      if (!team) continue;
+      const key = teamKey(team);
+      const previous = byTeam.get(key);
+      if (previous && previous !== fixture.division) conflicts.add(key);
+      else if (!conflicts.has(key)) byTeam.set(key, fixture.division);
+    }
+  }
+  return { byTeam, conflicts };
+}
+
+function rowDivision(row: SeasonRow, divisions: ReturnType<typeof divisionMap>): Division | null {
+  if (row.division === "Solari" || row.division === "Lunari") return row.division;
+  const key = teamKey(row.team_name);
+  return divisions.conflicts.has(key) ? null : divisions.byTeam.get(key) ?? null;
+}
+
+function fixtureIsInDivision(fixture: FixtureRow, division: Division, divisions: ReturnType<typeof divisionMap>): boolean {
+  if (fixture.division) return fixture.division === division;
+  const a = fixture.team_a ? divisions.byTeam.get(teamKey(fixture.team_a)) : null;
+  const b = fixture.team_b ? divisions.byTeam.get(teamKey(fixture.team_b)) : null;
+  return a === division && (b === null || b === division);
+}
+
+function mergeDivisionalAwards(
+  awards: SeasonAward[],
+  divisionalResults: Map<Division, SeasonEndResult>,
+): SeasonAward[] {
+  return awards.map((award) => {
+    if (award.scope !== "player") return award;
+
+    const divisionStatuses = Object.fromEntries(DIVISIONS.map((division) => {
+      const divisionalAward = divisionalResults.get(division)!.awards.find((candidate) => candidate.id === award.id)!;
+      return [division, { status: divisionalAward.status, note: divisionalAward.note }];
+    })) as Record<Division, DivisionAwardStatus>;
+    const divisionalAwards = DIVISIONS.map((division) => divisionalResults.get(division)!.awards.find((candidate) => candidate.id === award.id)!);
+    const winners = divisionalAwards.flatMap((divisionalAward, index) => divisionalAward.winners.map((winner) => ({
+      ...winner,
+      division: DIVISIONS[index],
+    })));
+    const statuses = divisionalAwards.map((divisionalAward) => divisionalAward.status);
+    const status = winners.length
+      ? "ready"
+      : statuses.every((candidate) => candidate === "unearned")
+        ? "unearned"
+        : "unavailable";
+
+    return {
+      ...award,
+      winners,
+      status,
+      note: status === "ready" ? undefined : divisionalAwards.find((candidate) => candidate.note)?.note,
+      divisionStatuses,
+    };
+  });
+}
+
+export function deriveSeasonEnd(
+  input: SeasonRow[],
+  fixtures: FixtureRow[],
+  season: string,
+  league: keyof LeagueSeasons,
+  options: DeriveOptions = {},
+): SeasonEndResult {
   if (!seasonBelongsToLeague(season, league)) throw new Error("Season does not belong to this league.");
   const warnings: string[] = [];
-  const regularFixtures = fixtures.filter(f => f.season === season && /^week_\d+$/.test(f.stage));
+  const seasonFixtures = fixtures.filter(f => f.season === season);
+  const divisions = divisionMap(seasonFixtures);
+  const regularFixtures = seasonFixtures
+    .filter(f => /^week_\d+$/.test(f.stage))
+    .filter(f => !options.division || fixtureIsInDivision(f, options.division, divisions));
+  const scopedInput = options.division
+    ? input.filter((row) => rowDivision(row, divisions) === options.division)
+    : input;
   const fixtureTeams = new Set(regularFixtures.flatMap(f => [f.team_a, f.team_b]).filter((s): s is string => !!s).map(teamKey));
-  const candidates = input.filter(r => r.season === season && r.season_phase === "Regular");
+  const candidates = scopedInput.filter(r => r.season === season && r.season_phase === "Regular");
   const valid = candidates.filter(r => r.match_id && r.summoner_name && r.tag && r.team_name &&
     ["Blue", "Red"].includes(r.team_side) && typeof r.win === "boolean" &&
     (!fixtureTeams.size || fixtureTeams.has(teamKey(r.team_name))));
@@ -122,7 +208,6 @@ export function deriveSeasonEnd(input: SeasonRow[], fixtures: FixtureRow[], seas
     r.ability_casts = combine(["spell1_casts_q", "spell2_casts_w", "spell3_casts_e", "spell4_casts_r"]);
     r.heal_shield = combine(["healing_on_teammates", "shielding_on_teammates"]);
     const deaths = number(r, "deaths"), assists = number(r, "assists");
-    r.low_deaths = deaths === null ? null : Number(deaths <= 2);
     r.deathless_games = deaths === null ? null : Number(deaths === 0);
     r.assist_games = assists === null ? null : Number(assists >= 10);
     const multi = all([r], "largest_multi_kill");
@@ -137,7 +222,6 @@ export function deriveSeasonEnd(input: SeasonRow[], fixtures: FixtureRow[], seas
       r[key] = r.role && sameRole.length === 1 && own !== null && other !== null ? own - other : null;
     }
     r.ahead_10 = r.gold_diff_10 == null ? null : Number(Number(r.gold_diff_10) > 0);
-    r.comeback = r.gold_diff_15 == null ? null : Number(r.win && Number(r.gold_diff_15) < 0);
   }
   // Role-relative midrank percentiles make performance comparable across roles.
   // Fixed five-part score, shared by Late Bloomer and Metronome.
@@ -159,10 +243,10 @@ export function deriveSeasonEnd(input: SeasonRow[], fixtures: FixtureRow[], seas
   };
   const winner = (g: Group, value: number, detail?: string): AwardWinner => ({ name: g.name, team: g.team, games: g.rows.length, value, detail });
   const missing = (def: AwardDefinition) => unavailable(def, "Required observations are missing or ambiguous; no winner declared from incomplete data.");
-  const awards = SEASON_AWARDS.map((def): SeasonAward => {
+  const baseAwards = SEASON_AWARDS.map((def): SeasonAward => {
     if (!rows.length) return unavailable(def, "No regular-season games available for this league and season.");
     if (incompleteMatches.length || duplicateMatches.size || valid.length !== candidates.length) return unavailable(def, "Season contains incomplete or conflicting participant records. Repair ingestion before declaring winners.");
-    if (ambiguousTeams.length && ((def.group === "Teamwork" && def.id !== "clean-sweep") || ["giant-slayer", "revenge-tour"].includes(def.id))) return unavailable(def, "A game has conflicting team assignments; correct the match's team labels before awarding this card.");
+    if (ambiguousTeams.length && (def.group === "Teamwork" && def.id !== "clean-sweep")) return unavailable(def, "A game has conflicting team assignments; correct the match's team labels before awarding this card.");
     if (def.field) {
       const isRate = def.mode !== "total";
       const pool = isRate ? qualified : players;
@@ -170,7 +254,7 @@ export function deriveSeasonEnd(input: SeasonRow[], fixtures: FixtureRow[], seas
       for (const p of pool) {
         // Short games cannot have a 15-minute snapshot. Every game reaching the
         // checkpoint must have an unambiguous observation before ranking anyone.
-        const checkpoint = ["gold_diff_15", "cs_diff_15", "comeback"].includes(def.field) ? 15 : def.field === "ahead_10" ? 10 : 0;
+        const checkpoint = ["gold_diff_15", "cs_diff_15"].includes(def.field) ? 15 : def.field === "ahead_10" ? 10 : 0;
         if (checkpoint && p.rows.some(r => number(r, "game_duration_min") === null)) return missing(def);
         const measured = checkpoint ? p.rows.filter(r => number(r, "game_duration_min")! >= checkpoint) : p.rows;
         const observations = all(measured, def.field);
@@ -188,17 +272,15 @@ export function deriveSeasonEnd(input: SeasonRow[], fixtures: FixtureRow[], seas
       }
       return choose(def, values, def.lower, def.mode === "mean");
     }
-    if (["hot-streak", "bloodline", "unkillable-run", "revenge-tour", "late-bloomer"].includes(def.id) && !datesComplete) return missing(def);
-    if (["hot-streak", "bloodline", "unkillable-run"].includes(def.id)) {
-      const field = def.id === "hot-streak" ? "win" : def.id === "bloodline" ? "solo_kills" : "deaths";
-      if (players.some(p => !all(p.rows, field))) return missing(def);
-      return choose(def, players.map(p => winner(p, longest(all(p.rows, field)!.map(v => def.id === "unkillable-run" ? v === 0 : v > 0)))));
+    if (["bloodline", "late-bloomer"].includes(def.id) && !datesComplete) return missing(def);
+    if (def.id === "bloodline") {
+      if (players.some(p => !all(p.rows, "solo_kills"))) return missing(def);
+      return choose(def, players.map(p => winner(p, longest(all(p.rows, "solo_kills")!.map(v => v > 0)))));
     }
-    if (["world-tour", "full-arsenal"].includes(def.id)) {
-      const kind = def.id === "world-tour" ? "regions" : "classes";
-      if (rows.filter(r => r.win).some(r => !championCategories(r.champion, kind))) return unavailable(def, "Champion mapping missing for a winning pick; update the pinned Riot mapping.");
+    if (def.id === "world-tour") {
+      if (rows.filter(r => r.win).some(r => !championCategories(r.champion, "regions"))) return unavailable(def, "Champion mapping missing for a winning pick; update the pinned Riot mapping.");
       return choose(def, players.map(p => {
-        const categories = [...new Set(p.rows.filter(r => r.win).flatMap(r => championCategories(r.champion, kind)!))].sort();
+        const categories = [...new Set(p.rows.filter(r => r.win).flatMap(r => championCategories(r.champion, "regions")!))].sort();
         return winner(p, categories.length, categories.join(" · "));
       }));
     }
@@ -221,27 +303,6 @@ export function deriveSeasonEnd(input: SeasonRow[], fixtures: FixtureRow[], seas
         values.push({ ...winner(p, value, `${average.toFixed(1)} mean performance · ${subset.length} games`), games: subset.length });
       }
       return choose(def, values, def.id === "metronome", true);
-    }
-    if (def.id === "giant-slayer" || def.id === "revenge-tour") {
-      if (def.id === "giant-slayer" && !complete) return unavailable(def, "Waiting for all regular-season fixtures to finish.");
-      const values: AwardWinner[] = [];
-      for (const p of players) {
-        let count = 0; const first = new Map<string, boolean>(); const revenge = new Set<string>();
-        for (const r of p.rows) {
-          const opponents = [...new Set(matches.get(r.match_id)!.filter(o => o.team_side !== r.team_side).map(o => teamKey(o.team_name)))];
-          if (opponents.length !== 1) return missing(def);
-          const opponent = opponents[0];
-          if (!first.has(opponent)) first.set(opponent, r.win);
-          else if (!first.get(opponent) && r.win) revenge.add(opponent);
-          const own = records.get(teamKey(r.team_name)), other = records.get(opponent);
-          if (def.id === "giant-slayer") {
-            if (!own || !other) return missing(def);
-            if (r.win && rankCompare(other, own) < 0) count++;
-          }
-        }
-        values.push(winner(p, def.id === "giant-slayer" ? count : revenge.size));
-      }
-      return choose(def, values);
     }
     if (def.id === "clean-sweep") {
       if (!regularFixtures.length) return unavailable(def, "No regular-season fixtures available.");
@@ -308,5 +369,13 @@ export function deriveSeasonEnd(input: SeasonRow[], fixtures: FixtureRow[], seas
     }
     return choose(def, values, ["fortress", "speedrunners"].includes(def.id));
   });
-  return { awards, games: matches.size, players: players.length, minGames, complete, warnings };
+  const result = { awards: baseAwards, games: matches.size, players: players.length, minGames, complete, warnings };
+  const hasDivisionData = !options.division && DIVISIONS.some((division) => rows.some((row) => rowDivision(row, divisions) === division));
+  if (!hasDivisionData) return result;
+
+  const divisionalResults = new Map<Division, SeasonEndResult>(DIVISIONS.map((division) => [
+    division,
+    deriveSeasonEnd(input, fixtures, season, league, { division }),
+  ]));
+  return { ...result, awards: mergeDivisionalAwards(baseAwards, divisionalResults) };
 }

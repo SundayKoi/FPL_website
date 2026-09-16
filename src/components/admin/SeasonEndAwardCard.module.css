@@ -2,9 +2,12 @@
 .card { --accent:#e7c780; position:relative; isolation:isolate; overflow:hidden; border:1px solid var(--accent); border-radius:18px; min-height:470px; background:#101620; color:#f5f1e8; box-shadow:0 14px 35px #0003; }
 .art { position:absolute; z-index:0; inset:0 0 auto; height:310px; background-size:cover; background-position:center; opacity:.8; }
 .topline { position:relative; z-index:1; display:flex; justify-content:space-between; gap:8px; padding:18px; font-size:10px; letter-spacing:1.8px; text-transform:uppercase; text-shadow:0 1px 4px #000; }
+.divisionMark { display:inline-flex; align-items:center; gap:5px; color:var(--accent); font-size:13px; letter-spacing:.8px; line-height:1; }
+.divisionMark span:last-child { font-size:9px; letter-spacing:1.4px; }
 .content { position:relative; z-index:1; display:flex; min-height:420px; flex-direction:column; padding:150px 22px 20px; }
 .collection { color:var(--accent); font-size:11px; text-transform:uppercase; letter-spacing:2px; margin-bottom:8px; }
 .title { font-family:Georgia,serif; font-size:32px; line-height:1.05; text-wrap:balance; margin-bottom:12px; }
+.description { color:#ccd5df; font-size:12px; line-height:1.5; margin-bottom:14px; overflow-wrap:anywhere; }
 .name { font-size:17px; font-weight:700; overflow-wrap:anywhere; min-height:24px; }
 .value { font-size:clamp(32px,4vw,48px); line-height:1.2; letter-spacing:-1px; color:var(--accent); margin-top:20px; overflow-wrap:anywhere; }
 .unit { display:inline-block; margin-left:8px; font-family:ui-sans-serif,system-ui,sans-serif; font-size:12px; font-weight:400; letter-spacing:0; color:#ccd5df; }

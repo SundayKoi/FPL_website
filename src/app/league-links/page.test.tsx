@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabase: vi.fn(async () => ({
@@ -16,7 +16,6 @@ vi.mock("@/lib/supabase/server", () => ({
 import LeagueLinksPage from "./page";
 
 describe("LeagueLinksPage", () => {
-  afterEach(cleanup);
 
   it("renders league resource links without the Rulebook card", async () => {
     render(await LeagueLinksPage());

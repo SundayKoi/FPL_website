@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 
 vi.mock("server-only", () => ({}));
@@ -141,6 +141,8 @@ beforeEach(() => {
   getBettingUser.mockResolvedValue({ profileId: "profile-1", discordId: "discord-1", allowed: true });
   premiumAccess.mockResolvedValue({ signedIn: true, allowed: true, inconclusive: false });
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe("Higher or Lower server module", () => {
   it("rejects malformed and stale mutations before auth or database access", async () => {

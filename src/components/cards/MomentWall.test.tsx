@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import MomentWall from "./MomentWall";
 import type { LeagueMoment } from "@/lib/cards/queries";
 
@@ -23,7 +23,6 @@ function moment(overrides: Partial<LeagueMoment> = {}): LeagueMoment {
 }
 
 describe("MomentWall", () => {
-  afterEach(cleanup);
 
   it("explains the emptiness rather than showing a blank wall", () => {
     render(<MomentWall moments={[]} />);

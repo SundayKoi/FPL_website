@@ -1,12 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 const { registerDiscordCommands } = vi.hoisted(() => ({ registerDiscordCommands: vi.fn() }));
 vi.mock("@/lib/betting/admin-actions", () => ({ registerDiscordCommands }));
 
 import BotCommandsAdmin from "./BotCommandsAdmin";
-
-afterEach(cleanup);
 
 describe("BotCommandsAdmin", () => {
   it("registers on click and reports what Discord accepted", async () => {

@@ -1,5 +1,5 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import FeaturedMatchup from "./FeaturedMatchup";
 import type { FixtureRow } from "@/lib/schedule/types";
 
@@ -28,8 +28,6 @@ const clips = [
     viewCount: 10,
   },
 ];
-
-afterEach(() => cleanup());
 
 describe("FeaturedMatchup", () => {
   it("keeps the Twitch preview collapsed until the viewer opens it", () => {

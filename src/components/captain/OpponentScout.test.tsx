@@ -1,13 +1,11 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import { LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
 import { championIconUrl } from "@/lib/match-draft/champions";
 import type { MatchDraftAction } from "@/lib/match-draft/types";
 import type { ScoutSource } from "@/lib/scouting/types";
 import type { TeamAggRow } from "@/lib/stats/types";
 import OpponentScout from "./OpponentScout";
-
-afterEach(cleanup);
 
 const actions = (): MatchDraftAction[] => LCS_DRAFT_STEPS.map((step) => ({
   stepIndex: step.index, side: step.side, kind: step.kind, slot: step.slot,

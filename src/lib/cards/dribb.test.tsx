@@ -1,12 +1,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { DRIBB_CHANCE, DRIBB_COPIES, DRIBB_LOOK, DRIBB_SLUG, DRIBB_TIER, dribbCard, dribbLabel, dribbLook, rollDribb } from "./dribb";
 import { canDust, dustValueOf, PACK_SIZE } from "@/lib/packs/config";
-
-afterEach(cleanup);
 
 describe("the Dribb card", () => {
   it("is one in ten thousand packs, five ever, filed under its own tier", () => {

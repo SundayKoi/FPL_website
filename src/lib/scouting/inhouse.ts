@@ -1,6 +1,5 @@
-import { normalizeCanonicalName } from "@/lib/players/canonicalMatch";
-import { linkedAccountUrls } from "@/lib/players/linkedAccounts";
-import { normalizeBasePlayerName } from "@/lib/players/normalize";
+import { playerAccountNames, riotIdKey, riotIdKeys } from "@/lib/players/accountNames";
+import { normalizePlayerName as normalizeCanonicalName } from "@/lib/players/normalize";
 import type { LolRole } from "@/lib/draft/types";
 import type { DraftSide } from "@/lib/match-draft/types";
 import {
@@ -112,46 +111,16 @@ const INHOUSE_NAME_ALIASES: Record<string, string> = {
   slimpimpin: "slimpimpin77",
 };
 
-function linkedAccountNames(url: string): string[] {
-  try {
-    const parsed = new URL(url);
-    const multisearch = parsed.searchParams.get("summoners");
-    if (multisearch) return multisearch.split(",").map((account) => account.trim()).filter(Boolean);
-    const slug = decodeURIComponent(parsed.pathname.split("/").pop() ?? "");
-    const separator = slug.lastIndexOf("-");
-    return separator > 0 ? [`${slug.slice(0, separator)}#${slug.slice(separator + 1)}`] : [];
-  } catch {
-    return [];
-  }
-}
-
 function playerMatchNames(player: RosterPlayer): string[] {
-  const displayName = player.displayName;
   return [
-    displayName,
-    INHOUSE_NAME_ALIASES[normalizeCanonicalName(displayName)] ?? "",
-    ...linkedAccountUrls(displayName).flatMap(linkedAccountNames),
-    ...(player.opggUrl ? linkedAccountNames(player.opggUrl) : []),
-  ]
-    .filter(Boolean);
+    ...playerAccountNames(player),
+    INHOUSE_NAME_ALIASES[normalizeCanonicalName(player.displayName)] ?? "",
+  ].filter(Boolean);
 }
 
 function playerMatchKeys(player: RosterPlayer): Set<string> {
   const names = playerMatchNames(player);
   return new Set(names.map(normalizeCanonicalName));
-}
-
-function riotIdKey(gameName: string, tag: string): string {
-  const whitespaceInsensitiveName = normalizeBasePlayerName(gameName).replace(/\s+/g, "");
-  return `${whitespaceInsensitiveName}#${tag.trim().toLocaleLowerCase()}`;
-}
-
-function playerMatchRiotIds(player: RosterPlayer): Set<string> {
-  return new Set(playerMatchNames(player).flatMap((value) => {
-    const separator = value.lastIndexOf("#");
-    if (separator <= 0 || separator === value.length - 1) return [];
-    return [riotIdKey(value.slice(0, separator), value.slice(separator + 1))];
-  }));
 }
 
 interface RosterPlayerMap {
@@ -170,7 +139,7 @@ function rosterPlayerMap(roster: RosterPlayer[]): RosterPlayerMap {
   };
   for (const player of roster) {
     for (const key of playerMatchKeys(player)) add(byName, key, player);
-    for (const key of playerMatchRiotIds(player)) {
+    for (const key of riotIdKeys(playerMatchNames(player))) {
       playerIdsWithRiotIds.add(player.id);
       add(byRiotId, key, player);
     }

@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import TopCards from "./TopCards";
 import type { PlayerCardData } from "@/lib/cards/build";
 
@@ -16,7 +16,6 @@ const card = (name: string, overall: number, over: Partial<PlayerCardData> = {})
   }) as PlayerCardData;
 
 describe("TopCards", () => {
-  afterEach(cleanup);
 
   it("ranks by overall rather than trusting the caller's order", () => {
     render(<TopCards cards={[card("Bo", 71), card("Ari", 92), card("Cy", 80)]} />);

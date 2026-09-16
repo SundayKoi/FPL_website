@@ -1,31 +1,8 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useSecondClock } from "@/hooks/useSecondClock";
 import { getCountdownParts } from "@/lib/home/seasonState";
 import { formatEasternDateTime } from "@/lib/draft/schedule";
-
-let currentTime = 0;
-
-function subscribeToClock(onChange: () => void) {
-  const update = () => {
-    currentTime = Date.now();
-    onChange();
-  };
-  const immediate = window.setTimeout(update, 0);
-  const timer = window.setInterval(update, 1000);
-  return () => {
-    window.clearTimeout(immediate);
-    window.clearInterval(timer);
-  };
-}
-
-function getClockSnapshot() {
-  return currentTime;
-}
-
-function getServerClockSnapshot() {
-  return 0;
-}
 
 function CountdownUnit({ value, label, accent = false }: { value: string; label: string; accent?: boolean }) {
   return (
@@ -43,7 +20,7 @@ export default function DraftScheduleCountdown({
   startsAt: string | null;
   label?: string;
 }) {
-  const clock = useSyncExternalStore(subscribeToClock, getClockSnapshot, getServerClockSnapshot);
+  const clock = useSecondClock();
   const now = clock === 0 ? null : new Date(clock);
 
   if (!startsAt) {

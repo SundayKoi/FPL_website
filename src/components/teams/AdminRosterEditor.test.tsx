@@ -174,7 +174,7 @@ describe("AdminRosterEditor", () => {
     fireEvent.drop(screen.getByText("Support B").closest("li")!);
 
     expect(rpc).not.toHaveBeenCalled();
-    expect((await screen.findByRole("status")).textContent).toMatch(/same position/i);
+    await waitFor(() => expect((screen.getByRole("status")).textContent).toMatch(/same position/i));
   });
 
   it("offers only same-position destinations from the keyboard action", async () => {

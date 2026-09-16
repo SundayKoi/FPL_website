@@ -1,8 +1,8 @@
-import { expect, test } from "@playwright/test";
-import { execSync } from "node:child_process";
+import { expect } from "@playwright/test";
+import { seedFixture, test } from "./fixtures";
 
 test("seeded Premier and Academy puzzles can be solved", async ({ page }) => {
-  execSync("npx tsx e2e/seed-fpldle.ts", { stdio: "inherit" });
+  seedFixture("fpldle");
 
   for (const puzzle of [
     { path: "/fpldle", name: "Premier Smoke" },

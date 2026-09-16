@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import HigherLowerBoard from "./HigherLowerBoard";
 import type { HigherLowerGame } from "@/lib/higher-lower/types";
 
@@ -46,8 +46,6 @@ const correctRevealGame = {
   challengerCard: { name: "Challenger", overall: 91, editionWeek: "2026-08-17" },
   lastCorrect: true,
 } as unknown as HigherLowerGame;
-
-afterEach(() => cleanup());
 
 describe("HigherLowerBoard", () => {
   it("does not put the concealed challenger OVR in the DOM or accessible label", () => {

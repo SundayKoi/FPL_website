@@ -1,5 +1,5 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useUrlState } from "./useUrlState";
 
 const { search } = vi.hoisted(() => ({ search: { value: "" } }));
@@ -28,7 +28,6 @@ beforeEach(() => {
   search.value = "";
   window.history.replaceState(null, "", "/cards/collection?week=2026-08-24");
 });
-afterEach(cleanup);
 
 describe("useUrlState", () => {
   it("starts from the URL when it has something to say", () => {

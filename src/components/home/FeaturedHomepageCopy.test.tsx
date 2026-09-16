@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import RegularSeasonHomePage from "./RegularSeasonHomePage";
 import AcademyHomePage from "./AcademyHomePage";
 
@@ -64,8 +64,6 @@ beforeEach(() => {
       : { fixtureId: "fixture-1", title: "Academy spotlight", description: "Academy supporting copy", twitchUrl: null },
   );
 });
-
-afterEach(() => cleanup());
 
 describe("featured homepage copy", () => {
   it("renders Premier settings in the regular-season featured matchup", async () => {

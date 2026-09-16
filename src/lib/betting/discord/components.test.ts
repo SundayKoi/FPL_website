@@ -23,18 +23,17 @@ import { componentHandlers, modalHandlers } from "./registry";
 import type { DiscordInteraction } from "./registry";
 import "./components";
 
-const ORIGINAL_ENV = { ...process.env };
-const ORIGINAL_FETCH = global.fetch;
-
 beforeEach(() => {
   rpcImpl.current = vi.fn(() => Promise.resolve({ data: null, error: null }));
   fromImpl.current = makeSupabaseFrom({});
-  process.env = { ...ORIGINAL_ENV, SITE_URL: "https://fplexchange.com", DISCORD_BOT_TOKEN: "bot-token" };
+  vi.stubEnv("SITE_URL", "https://fplexchange.com");
+  vi.stubEnv("DISCORD_BOT_TOKEN", "bot-token");
 });
 
 afterEach(() => {
-  process.env = { ...ORIGINAL_ENV };
-  global.fetch = ORIGINAL_FETCH;
+  vi.unstubAllEnvs();
+
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -91,7 +90,7 @@ describe("bet amount modal (modalHandlers.betmodal)", () => {
   }
 
   it("strips commas/$ and calls place_bet with the parsed integer amount", async () => {
-    global.fetch = vi.fn(() => Promise.resolve({ ok: true, status: 200 } as Response));
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: true, status: 200 } as Response)));
     rpcImpl.current = vi.fn((fn: string) => {
       if (fn === "place_bet") return Promise.resolve({ data: 8500, error: null });
       return Promise.resolve({ data: null, error: null });
@@ -148,7 +147,7 @@ describe("bet amount modal (modalHandlers.betmodal)", () => {
       if (fn === "place_bet") return Promise.resolve({ data: 500, error: null });
       return Promise.resolve({ data: null, error: null });
     });
-    global.fetch = vi.fn(() => Promise.resolve({ ok: true, status: 200 } as Response));
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: true, status: 200 } as Response)));
 
     await modalHandlers.betmodal(
       modalInteraction("500", {
@@ -183,7 +182,7 @@ describe("bet amount modal (modalHandlers.betmodal)", () => {
       if (fn === "place_bet") return Promise.resolve({ data: 500, error: null });
       return Promise.resolve({ data: null, error: null });
     });
-    global.fetch = vi.fn(() => Promise.resolve({ ok: true, status: 200 } as Response));
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: true, status: 200 } as Response)));
 
     // no nick, no global_name, no avatar — falls all the way back to username
     await modalHandlers.betmodal(modalInteraction("500"));
@@ -198,7 +197,7 @@ describe("bet amount modal (modalHandlers.betmodal)", () => {
       if (fn === "place_bet") return Promise.resolve({ data: 500, error: null });
       return Promise.resolve({ data: null, error: null });
     });
-    global.fetch = vi.fn(() => Promise.reject(new Error("network down")));
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("network down"))));
 
     const res = (await modalHandlers.betmodal(modalInteraction("500"))) as {
       data: { flags?: number; embeds: Array<{ description: string }> };

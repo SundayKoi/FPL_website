@@ -35,19 +35,18 @@ vi.mock("./service-client", () => ({
 
 import { _clearMemberCache, bettingAccess, fetchGuildMember, requireBettingOwner, requireBettingStaff } from "./access";
 
-const ORIGINAL_ENV = { ...process.env };
-
 function jsonResponse(status: number, body: unknown): Response {
   return { status, json: async () => body } as Response;
 }
 
 beforeEach(() => {
   _clearMemberCache();
-  process.env = { ...ORIGINAL_ENV, DISCORD_GUILD_ID: "g1", DISCORD_BOT_TOKEN: "BTOKEN" };
+  vi.stubEnv("DISCORD_GUILD_ID", "g1");
+  vi.stubEnv("DISCORD_BOT_TOKEN", "BTOKEN");
 });
 
 afterEach(() => {
-  process.env = { ...ORIGINAL_ENV };
+
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -155,8 +154,8 @@ describe("fetchGuildMember", () => {
 
 describe("bettingAccess", () => {
   beforeEach(() => {
-    process.env.DISCORD_REQUIRED_ROLE_ID = "required-role";
-    process.env.DISCORD_STAFF_ROLE_ID = "staff-role";
+    vi.stubEnv("DISCORD_REQUIRED_ROLE_ID", "required-role");
+    vi.stubEnv("DISCORD_STAFF_ROLE_ID", "staff-role");
   });
 
   it("allows and marks staff when the member holds both roles", async () => {
@@ -210,7 +209,7 @@ describe("bettingAccess", () => {
   });
 
   it("opens the gate entirely when DISCORD_REQUIRED_ROLE_ID is unset", async () => {
-    delete process.env.DISCORD_REQUIRED_ROLE_ID;
+    vi.stubEnv("DISCORD_REQUIRED_ROLE_ID", undefined);
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => jsonResponse(200, { roles: [] })),
@@ -220,8 +219,8 @@ describe("bettingAccess", () => {
   });
 
   it("opens the gate entirely (no Discord call) when guild/bot token aren't configured", async () => {
-    delete process.env.DISCORD_GUILD_ID;
-    delete process.env.DISCORD_BOT_TOKEN;
+    vi.stubEnv("DISCORD_GUILD_ID", undefined);
+    vi.stubEnv("DISCORD_BOT_TOKEN", undefined);
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -234,7 +233,7 @@ describe("bettingAccess", () => {
   });
 
   it("BETTING_GATE_DISABLED=1 bypasses the gate without contacting Discord (non-production dev escape hatch)", async () => {
-    process.env.BETTING_GATE_DISABLED = "1";
+    vi.stubEnv("BETTING_GATE_DISABLED", "1");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -244,7 +243,7 @@ describe("bettingAccess", () => {
 
   it("ignores BETTING_GATE_DISABLED=1 in production — falls through to the real guild-role check", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    process.env.BETTING_GATE_DISABLED = "1";
+    vi.stubEnv("BETTING_GATE_DISABLED", "1");
     // beforeEach already configures DISCORD_REQUIRED_ROLE_ID/DISCORD_STAFF_ROLE_ID; roles: []
     // means "not holding the required role" if the real check actually ran.
     vi.stubGlobal(
@@ -258,7 +257,7 @@ describe("bettingAccess", () => {
 
 describe("requireBettingStaff", () => {
   beforeEach(() => {
-    process.env.DISCORD_STAFF_ROLE_ID = "staff-role";
+    vi.stubEnv("DISCORD_STAFF_ROLE_ID", "staff-role");
     getUser.mockReset();
     serviceSingle.mockReset();
     serviceFrom.mockClear();
@@ -320,7 +319,7 @@ describe("requireBettingStaff", () => {
 
 describe("requireBettingOwner", () => {
   beforeEach(() => {
-    process.env.DISCORD_STAFF_ROLE_ID = "staff-role";
+    vi.stubEnv("DISCORD_STAFF_ROLE_ID", "staff-role");
     getUser.mockReset();
     serviceSingle.mockReset();
     serviceFrom.mockClear();

@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WeekTeamSet } from "@/lib/cards/sets";
 
 const claimTeamSetAction = vi.fn();
@@ -53,7 +53,6 @@ function renderSection(over: Partial<Parameters<typeof TeamSetsSection>[0]> = {}
   );
 }
 
-afterEach(cleanup);
 beforeEach(() => {
   claimTeamSetAction.mockReset();
   refresh.mockReset();

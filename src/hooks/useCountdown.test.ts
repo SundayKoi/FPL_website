@@ -1,10 +1,13 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { cleanup, renderHook, act } from "@testing-library/react";
 import { useCountdown } from "./useCountdown";
 
 describe("useCountdown", () => {
   beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
 
   it("counts down and flags expiry", () => {
     vi.setSystemTime(0);

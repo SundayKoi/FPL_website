@@ -61,7 +61,7 @@ export default async function SeasonsEndPage({
         <p className="text-xs uppercase tracking-[.3em] text-gold">The season, in good company</p>
         <h1 className="type-display text-4xl sm:text-6xl">Season&apos;s End</h1>
         <p className="max-w-3xl text-sm text-steel">
-          Regular-season honors, calculated from recorded matches. Each accolade uses the original champion-art archive card treatment; cumulative Season Cards retain their normal card treatment.
+          Regular-season honors, calculated from recorded matches. Player-only accolades are awarded separately to Solari and Lunari; the sun and moon marks identify each division. Team honors and cumulative Season Cards retain their existing treatment.
         </p>
         <form className="flex flex-wrap items-end gap-3" action="/admin/seasons-end">
           <label className="flex flex-col gap-1 text-sm">League<select name="league" defaultValue={league} className="rounded border border-line bg-panel p-2"><option value="premier">Premier</option><option value="academy">Academy</option></select></label>
@@ -77,7 +77,7 @@ export default async function SeasonsEndPage({
           <p className="text-sm text-gold">{result.complete ? "All scheduled regular-season series are complete. Results reflect currently ingested stats." : "Provisional leaders — regular-season fixtures are unfinished or unavailable."}</p>
           <p className="text-sm text-steel">Rate and performance awards require {result.minGames} measured games (at least five and half the busiest player’s appearances). Speedrunners requires three wins. Missing required observations leave an award unavailable.</p>
           {result.warnings.map((warning) => <p key={warning} className="text-sm text-coral">{warning}</p>)}
-          <details className="text-sm text-steel"><summary className="cursor-pointer text-white">Scoring & mapping notes</summary><p className="mt-3">Performance is the mean of five same-role, per-game percentile scores: KDA, champion damage/min, CS/min, vision/min and kill participation. Late Bloomer uses the final third of league games in chronological order. Metronome requires a mean of 60 and a per-game floor of 40. Chronological ties use match ID. Streaks follow each player’s appearances. Team standings use series wins, then losses; tied teams remain tied.</p></details>
+          <details className="text-sm text-steel"><summary className="cursor-pointer text-white">Scoring & mapping notes</summary><p className="mt-3">Performance is the mean of five same-role, per-game percentile scores: KDA, champion damage/min, CS/min, vision/min and kill participation. Late Bloomer uses the final third of league games in chronological order. Metronome requires a mean of 60 and a per-game floor of 40. Chronological ties use match ID. Bloodline follows each player’s appearances. Team standings use series wins, then losses; tied teams remain tied.</p></details>
         </section>
 
         <nav aria-label="Award groups" className="flex flex-wrap gap-3 text-sm">

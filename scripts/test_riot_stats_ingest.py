@@ -2,8 +2,11 @@
 Tests for scripts/riot_stats_ingest.py's mapper (extract_stats and helpers).
 
 Runnable two ways:
-    python scripts/test_riot_stats_ingest.py     (plain stdlib asserts, no deps)
-    python -m pytest scripts/ -q                 (if pytest is installed)
+    python scripts/test_riot_stats_ingest.py
+    python -m unittest discover -s scripts -p "test_*.py"
+
+Requires the ingester dependencies: requests and python-dotenv.
+The existing test functions also remain compatible with pytest.
 
 No network calls -- builds a synthetic match_data dict (2 participants) plus
 synthetic timeline outputs and runs them through the real mapper.
@@ -12,6 +15,7 @@ synthetic timeline outputs and runs them through the real mapper.
 import os
 import re
 import sys
+import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -1518,19 +1522,15 @@ def test_load_history_map():
 # plain-python entry point
 # ============================================================
 
-if __name__ == "__main__":
-    ok = (
-        run_tests()
-        and run_team_map_tests()
-        and run_resolve_season_phase_tests()
-        and run_resolve_sides_tests()
-        and run_rollup_report_status_tests()
-        and run_compute_score_warning_tests()
-        and run_from_reports_bypasses_league_settings_test()
-        and run_sync_fixture_score_tests()
-        and run_ingest_report_empty_games_test()
-        and run_ingest_report_declared_forfeit_test()
-        and run_ingest_report_stale_ingested_status_test()
-        and run_load_history_map_tests()
+def load_tests(loader, tests, pattern):
+    """Include the function-style mapper tests in standard unittest discovery."""
+    tests.addTests(
+        unittest.FunctionTestCase(test)
+        for name, test in sorted(globals().items())
+        if name.startswith("test_") and callable(test)
     )
-    sys.exit(0 if ok else 1)
+    return tests
+
+
+if __name__ == "__main__":
+    unittest.main(buffer=True)

@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getUser, signOut, single, getBettingUserMock } = vi.hoisted(() => ({
   getUser: vi.fn(),
@@ -31,8 +31,6 @@ beforeEach(() => {
   single.mockResolvedValue({ data: { display_name: "Member" } });
   getBettingUserMock.mockResolvedValue(null);
 });
-
-afterEach(() => cleanup());
 
 describe("AuthButton", () => {
   it("links to the login page when signed out", async () => {

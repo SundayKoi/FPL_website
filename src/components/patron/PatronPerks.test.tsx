@@ -1,8 +1,6 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import PatronPerks from "./PatronPerks";
-
-afterEach(cleanup);
 
 describe("PatronPerks", () => {
   it("shows the recurring reward headline and fairness note in the full card", () => {

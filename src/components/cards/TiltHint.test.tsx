@@ -1,8 +1,6 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import TiltHint from "./TiltHint";
-
-afterEach(cleanup);
 
 /** jsdom ships no matchMedia, so each test states its own answer. */
 function stubHover(hasHover: boolean) {
@@ -13,6 +11,8 @@ function stubHover(hasHover: boolean) {
     removeEventListener: () => {},
   }));
 }
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("TiltHint", () => {
   it("tells a phone to tilt, not to hover", () => {

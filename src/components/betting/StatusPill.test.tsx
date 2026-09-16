@@ -1,10 +1,6 @@
-import { afterEach, describe, it, expect } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
 import { StatusPill } from "./StatusPill";
-
-afterEach(() => {
-  cleanup();
-});
 
 describe("StatusPill", () => {
   it.each(["OPEN", "LOCKED", "RESOLVED", "CANCELLED"])("renders the %s status text", (status) => {

@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabase: vi.fn(async () => ({
@@ -16,7 +16,6 @@ vi.mock("@/lib/supabase/server", () => ({
 import RulebookPage from "./page";
 
 describe("RulebookPage", () => {
-  afterEach(cleanup);
 
   it("renders the standalone Rulebook document", async () => {
     render(await RulebookPage());

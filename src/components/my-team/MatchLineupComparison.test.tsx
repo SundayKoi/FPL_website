@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import type { Player } from "@/lib/draft/types";
 import { buildLineupSlots } from "@/lib/my-team/presentation";
 import { MatchLineupComparison } from "./MatchLineupComparison";
@@ -7,8 +7,6 @@ import { MatchLineupComparison } from "./MatchLineupComparison";
 function player(role: Player["role"], display_name: string, canonical_player_id: string | null = null): Player {
   return { id: role, draft_id: "draft", display_name, role, rank: null, opgg_url: null, notes: null, canonical_player_id, team_id: null, price: null, acquisition: null };
 }
-
-afterEach(cleanup);
 
 describe("MatchLineupComparison", () => {
   it("renders five canonical role rows with both team names and the viewer marker", () => {

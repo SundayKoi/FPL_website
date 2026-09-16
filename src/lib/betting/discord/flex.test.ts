@@ -324,7 +324,7 @@ describe("the /flex handler", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.SITE_URL = "https://fpl.example";
+    vi.stubEnv("SITE_URL", "https://fpl.example");
     vi.stubGlobal("fetch", fetchMock);
     fetchMock.mockResolvedValue({ ok: true });
     fetchCardSeasonMock.mockResolvedValue("2026");
@@ -334,8 +334,9 @@ describe("the /flex handler", () => {
   });
 
   afterEach(() => {
+  vi.unstubAllEnvs();
     vi.unstubAllGlobals();
-    delete process.env.SITE_URL;
+
   });
 
   it("registers itself into the shared registry", () => {
@@ -477,7 +478,6 @@ describe("the /flex handler", () => {
     expect(body.content).toContain("Something went wrong");
   });
 });
-
 
 describe("the /flex picker", () => {
   function typing(

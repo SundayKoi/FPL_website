@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PlayerPoolAdmin, { type PlayerPoolRow } from "./PlayerPoolAdmin";
 import { createClient } from "@/lib/supabase/client";
@@ -11,7 +11,6 @@ vi.mock("@/lib/players/identityActions", () => ({
   revokePlayerIdentity: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-afterEach(cleanup);
 
 const player: PlayerPoolRow = {
   id: "player-1",
@@ -21,6 +20,8 @@ const player: PlayerPoolRow = {
   rank: "M10",
   opgg_url: "https://op.gg/lol/summoners/na/Canny-rip",
 };
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("PlayerPoolAdmin", () => {
   it("shows validation before writing an incomplete player", async () => {

@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Profile, Team } from "@/lib/draft/types";
 import AdminTeamEditor from "./AdminTeamEditor";
 
@@ -47,12 +47,6 @@ const teamQuery: {
   select: vi.fn(),
   then: (onFulfilled, onRejected) => Promise.resolve(teamUpdateResult).then(onFulfilled, onRejected),
 };
-
-teamQuery.update.mockReturnValue(teamQuery);
-teamQuery.eq.mockReturnValue(teamQuery);
-teamQuery.select.mockReturnValue(teamQuery);
-from.mockReturnValue(teamQuery);
-rpc.mockResolvedValue({ data: null, error: null });
 
 const teams: Team[] = [
   {
@@ -106,8 +100,7 @@ function configuredUpdate(result: TeamUpdateResult) {
   teamUpdateResult = result;
 }
 
-afterEach(() => {
-  cleanup();
+beforeEach(() => {
   from.mockClear();
   rpc.mockReset();
   rpc.mockResolvedValue({ data: null, error: null });
@@ -120,9 +113,9 @@ afterEach(() => {
   remove.mockReset();
   remove.mockResolvedValue({ error: null });
   refresh.mockClear();
-  teamQuery.update.mockClear();
-  teamQuery.eq.mockClear();
-  teamQuery.select.mockClear();
+  teamQuery.update.mockClear().mockReturnValue(teamQuery);
+  teamQuery.eq.mockClear().mockReturnValue(teamQuery);
+  teamQuery.select.mockClear().mockReturnValue(teamQuery);
   from.mockReturnValue(teamQuery);
   configuredUpdate({ data: [{ id: "team-a" }], error: null });
 });
@@ -157,12 +150,12 @@ describe("AdminTeamEditor", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save all" }));
 
-    expect((await within(screen.getByRole("form", { name: "Edit Team A" })).findByRole("status")).textContent).toContain(
+    await waitFor(() => expect((within(screen.getByRole("form", { name: "Edit Team A" })).getByRole("status")).textContent).toContain(
       "Team saved.",
-    );
-    expect((await within(screen.getByRole("form", { name: "Edit Team B" })).findByRole("status")).textContent).toContain(
+    ));
+    await waitFor(() => expect((within(screen.getByRole("form", { name: "Edit Team B" })).getByRole("status")).textContent).toContain(
       "Team B failed",
-    );
+    ));
     expect(screen.getByRole("region", { name: "Edit teams" })).toBeTruthy();
     // Neither team's name/captain/division changed, so the owner-only write
     // is never attempted.
@@ -181,9 +174,9 @@ describe("AdminTeamEditor", () => {
     });
     fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
 
-    expect((await within(form).findByRole("status")).textContent).toContain(
+    await waitFor(() => expect((within(form).getByRole("status")).textContent).toContain(
       "Enter a team name, an abbreviation of 1–5 characters, a hex banner color, and an allowed image file."
-    );
+    ));
     expect(upload).not.toHaveBeenCalled();
 
     fireEvent.change(within(form).getByLabelText("Team A name"), { target: { value: "Alpha" } });
@@ -195,9 +188,9 @@ describe("AdminTeamEditor", () => {
     });
     fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
 
-    expect((await within(form).findByRole("status")).textContent).toContain(
+    await waitFor(() => expect((within(form).getByRole("status")).textContent).toContain(
       "Images must be PNG, JPEG, WebP, or GIF files up to 2 MiB."
-    );
+    ));
     expect(upload).not.toHaveBeenCalled();
   });
 
@@ -244,7 +237,7 @@ describe("AdminTeamEditor", () => {
     expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(teamQuery.update.mock.invocationCallOrder[0]);
     expect(remove).toHaveBeenCalledWith(["draft-1/team-a"]);
     expect(teamQuery.update.mock.invocationCallOrder[0]).toBeLessThan(remove.mock.invocationCallOrder[0]);
-    expect((await within(form).findByRole("status")).textContent).toContain("Team saved.");
+    await waitFor(() => expect((within(form).getByRole("status")).textContent).toContain("Team saved."));
     expect(refresh).toHaveBeenCalled();
   });
 
@@ -273,7 +266,7 @@ describe("AdminTeamEditor", () => {
     });
     fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
 
-    expect((await within(form).findByRole("status")).textContent).toContain("Update denied");
+    await waitFor(() => expect((within(form).getByRole("status")).textContent).toContain("Update denied"));
     const replacementPath = upload.mock.calls[0][0] as string;
     expect(replacementPath).toMatch(/^draft-1\/team-a\/[^/]+$/);
     expect(remove).toHaveBeenCalledWith([replacementPath]);
@@ -302,7 +295,7 @@ describe("AdminTeamEditor", () => {
     );
     await waitFor(() => expect(remove).toHaveBeenCalledWith(["draft-1/team-a"]));
     expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(remove.mock.invocationCallOrder[0]);
-    expect((await within(form).findByRole("status")).textContent).toContain("Picture removed.");
+    await waitFor(() => expect((within(form).getByRole("status")).textContent).toContain("Picture removed."));
     expect(refresh).toHaveBeenCalled();
   });
 
@@ -314,7 +307,7 @@ describe("AdminTeamEditor", () => {
 
     fireEvent.click(within(form).getByRole("button", { name: "Remove picture" }));
 
-    expect((await within(form).findByRole("status")).textContent).toContain("Update denied");
+    await waitFor(() => expect((within(form).getByRole("status")).textContent).toContain("Update denied"));
     expect(remove).not.toHaveBeenCalled();
     expect(within(form).getByRole("button", { name: "Remove picture" })).toBeTruthy();
     expect(refresh).not.toHaveBeenCalled();
@@ -334,7 +327,7 @@ describe("AdminTeamEditor", () => {
         expect.objectContaining({ p_abbreviation: "ZZZ" }),
       )
     );
-    expect((await within(form).findByRole("status")).textContent).toContain("Team saved.");
+    await waitFor(() => expect((within(form).getByRole("status")).textContent).toContain("Team saved."));
     // name/captain/division are unchanged, so no owner-only write is attempted
     // and a plain admin still gets a normal success for their cosmetic edit.
     expect(teamQuery.update).not.toHaveBeenCalled();
@@ -353,9 +346,9 @@ describe("AdminTeamEditor", () => {
     fireEvent.change(within(form).getByLabelText("Team A abbreviation"), { target: { value: "zzz" } });
     fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
 
-    expect((await within(form).findByRole("status")).textContent).toContain(
+    await waitFor(() => expect((within(form).getByRole("status")).textContent).toContain(
       "Renaming a team, reassigning a captain, or changing division is owner-only.",
-    );
+    ));
     // The identity RPC (cosmetic, admin-allowed) already ran and succeeded
     // before the owner-only write was attempted and refused — a plain
     // admin's abbreviation change is saved server-side even though this
@@ -385,9 +378,9 @@ describe("AdminTeamEditor", () => {
     });
     fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
 
-    expect((await within(form).findByRole("status")).textContent).toContain(
+    await waitFor(() => expect(within(form).getByRole("status").textContent).toContain(
       "Renaming a team, reassigning a captain, or changing division is owner-only.",
-    );
+    ));
     const objectPath = upload.mock.calls[0][0] as string;
     await waitFor(() => expect(remove).toHaveBeenCalledWith(["draft-1/team-a"]));
     expect(remove).not.toHaveBeenCalledWith([objectPath]);
@@ -406,7 +399,7 @@ describe("AdminTeamEditor", () => {
       "set_team_identity",
       expect.objectContaining({ p_abbreviation: "T1" }),
     ));
-    expect((await within(form).findByRole("status")).textContent).toContain("Team saved.");
+    await waitFor(() => expect((within(form).getByRole("status")).textContent).toContain("Team saved."));
   });
 
   it("accepts a typed hex banner color", async () => {
@@ -421,7 +414,7 @@ describe("AdminTeamEditor", () => {
       "set_team_identity",
       expect.objectContaining({ p_banner_color: "#abcdef" }),
     ));
-    expect((await within(form).findByRole("status")).textContent).toContain("Team saved.");
+    await waitFor(() => expect((within(form).getByRole("status")).textContent).toContain("Team saved."));
   });
 
   it("resets form state when rerendered for a different draft", () => {

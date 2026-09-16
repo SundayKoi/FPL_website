@@ -1,4 +1,4 @@
-import { PLAYER_NAME_ALIASES, normalizeBasePlayerName } from "./normalize";
+import { normalizeBasePlayerName, normalizePlayerName as normalizeCanonicalName } from "./normalize";
 import { PLAYER_SEASONS, type SeasonKey } from "./seasonData";
 import type { LolRole } from "@/lib/draft/types";
 
@@ -23,10 +23,7 @@ export interface CanonicalSeedPlayer {
   opgg_url: string | null;
 }
 
-export function normalizeCanonicalName(name: string): string {
-  const normalized = normalizeBasePlayerName(name);
-  return PLAYER_NAME_ALIASES[normalized] ?? normalized;
-}
+export { normalizeCanonicalName };
 
 export function buildCanonicalSeedPlayers(seasonKey: SeasonKey): CanonicalSeedPlayer[] {
   return PLAYER_SEASONS[seasonKey].flatMap(({ key, players }) =>

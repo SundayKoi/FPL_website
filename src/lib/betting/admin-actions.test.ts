@@ -597,17 +597,14 @@ describe("rejectProp", () => {
 });
 
 describe("registerDiscordCommands", () => {
-  const ORIGINAL_ENV = { ...process.env };
-  const ORIGINAL_FETCH = global.fetch;
-
   beforeEach(() => {
-    process.env.DISCORD_BOT_TOKEN = "bot-token";
-    process.env.DISCORD_GUILD_ID = "guild-1";
+    vi.stubEnv("DISCORD_BOT_TOKEN", "bot-token");
+    vi.stubEnv("DISCORD_GUILD_ID", "guild-1");
   });
 
   afterEach(() => {
-    process.env = { ...ORIGINAL_ENV };
-    global.fetch = ORIGINAL_FETCH;
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it("resolves the app id from the token, PUTs the command list, and reports the names", async () => {
@@ -618,7 +615,7 @@ describe("registerDiscordCommands", () => {
       const body = JSON.parse(String(init?.body)) as Array<{ name: string }>;
       return new Response(JSON.stringify(body), { status: 200 });
     });
-    global.fetch = fetchMock as typeof fetch;
+    vi.stubGlobal("fetch", fetchMock as typeof fetch);
 
     const result = await registerDiscordCommands();
 
@@ -630,12 +627,12 @@ describe("registerDiscordCommands", () => {
   });
 
   it("surfaces a friendly error when Discord refuses the PUT (e.g. bot not in the guild)", async () => {
-    global.fetch = vi.fn(async (url: string | URL) => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string | URL) => {
       if (String(url).endsWith("/applications/@me")) {
         return new Response(JSON.stringify({ id: "app-1" }), { status: 200 });
       }
       return new Response("Missing Access", { status: 403 });
-    }) as typeof fetch;
+    }) as typeof fetch);
 
     const result = await registerDiscordCommands();
 
@@ -644,9 +641,9 @@ describe("registerDiscordCommands", () => {
   });
 
   it("fails without touching Discord when the bot env is missing", async () => {
-    delete process.env.DISCORD_BOT_TOKEN;
+    vi.stubEnv("DISCORD_BOT_TOKEN", undefined);
     const fetchMock = vi.fn();
-    global.fetch = fetchMock as typeof fetch;
+    vi.stubGlobal("fetch", fetchMock as typeof fetch);
 
     const result = await registerDiscordCommands();
 

@@ -17,12 +17,12 @@ select plan(11);
 
 -- Fixtures, all named apart from real data so the rollback is belt and
 -- braces rather than the only thing keeping them out.
-insert into public.betting_profiles (discord_id, balance)
-  values ('t_rescue', 5000) on conflict (discord_id) do nothing;
+insert into public.betting_profiles (discord_id, username, balance)
+  values ('t_rescue', 'Rescue Test', 5000) on conflict (discord_id) do nothing;
 
-insert into public.card_inventory (discord_id, season, slug, player_name, tier, card)
-  values ('t_rescue', 'T', 't-gone', 'Gone', 'gold', '{}'::jsonb),
-         ('t_rescue', 'T', 't-home', 'Home', 'gold', '{}'::jsonb);
+insert into public.card_inventory (discord_id, season, edition_week, slug, player_name, role, tier, card)
+  values ('t_rescue', 'T', '2026-08-24', 't-gone', 'Gone', 'Top', 'gold', '{}'::jsonb),
+         ('t_rescue', 'T', '2026-08-24', 't-home', 'Home', 'Top', 'gold', '{}'::jsonb);
 
 -- ── A hold whose deadline has passed, with a rescue still in the field ──
 insert into public.expedition_runs (discord_id, season, tier, squad, resolves_at, target)

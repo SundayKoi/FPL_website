@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import CardCopyPreview from "./CardCopyPreview";
 
@@ -62,8 +62,6 @@ async function click(el: HTMLElement) {
 function renderedCards() {
   return screen.queryAllByRole("button", { name: /player card/ });
 }
-
-afterEach(cleanup);
 
 describe("CardCopyPreview", () => {
   it("stays shut until the trigger is clicked", () => {

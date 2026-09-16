@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import ListCardForm, { parseAsk, unavailableReason } from "./ListCardForm";
 import type { TradeCardOption } from "./TradeBuilder";
 
@@ -34,8 +34,6 @@ beforeEach(() => {
   fetchInventoryCardAction.mockReset().mockResolvedValue({ ok: false, error: "no" });
   refresh.mockReset();
 });
-
-afterEach(cleanup);
 
 describe("parseAsk", () => {
   it("takes digits and nothing else — a price is not a sentence", () => {

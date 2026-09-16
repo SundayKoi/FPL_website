@@ -1,12 +1,11 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import PlayersDirectory, { mergeScopedPlayerPoolRows } from "./PlayersDirectory";
 import { PLAYER_SEASONS } from "@/lib/players/seasonData";
 import type { PlayerPoolRow } from "./PlayerPoolAdmin";
 import type { FreeAgencyCaptain } from "@/lib/players/freeAgencyData";
 import { createClient } from "@/lib/supabase/client";
 
-afterEach(cleanup);
 vi.mock("@/lib/supabase/client", () => ({ createClient: vi.fn() }));
 
 const freeAgencyCaptains: FreeAgencyCaptain[] = [

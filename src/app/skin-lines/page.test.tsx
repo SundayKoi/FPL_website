@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { fetchStaffTier, redirect, fetchAllCardSeasons, fetchCardEditionWeeks, fetchEditionCards, readViewerDiscordId, fetchPatronActive } =
   vi.hoisted(() => ({
@@ -47,7 +47,6 @@ vi.mock("@/components/cards/PlayerCard3D", () => ({
 
 const SkinLinesPreviewPage = (await import("./page")).default;
 
-afterEach(cleanup);
 beforeEach(() => {
   redirect.mockClear();
   fetchPatronActive.mockClear();

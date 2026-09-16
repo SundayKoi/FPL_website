@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getBettingUser } = vi.hoisted(() => ({ getBettingUser: vi.fn() }));
 vi.mock("@/lib/betting/wallet", () => ({ getBettingUser }));
@@ -41,8 +41,6 @@ beforeEach(() => {
   getBettingUser.mockReset();
   fetchCardSeason.mockReset().mockResolvedValue("S5");
 });
-
-afterEach(cleanup);
 
 describe("MarketPageView", () => {
   it("asks a signed-out visitor to sign in, and links back to the league they were on", async () => {

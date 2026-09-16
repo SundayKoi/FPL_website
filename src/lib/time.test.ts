@@ -1,8 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { easternStamp, relativeTime } from "./time";
+import { easternStamp, formatCountdown, relativeTime } from "./time";
 
 const NOW = new Date("2026-09-03T20:00:00Z");
 const ago = (ms: number) => new Date(NOW.getTime() - ms).toISOString();
+
+describe("formatCountdown", () => {
+  it.each([
+    [-1000, "00:00:00"],
+    [999, "00:00:00"],
+    [59_999, "00:00:59"],
+    [60_000, "00:01:00"],
+    [3_661_000, "01:01:01"],
+    [90_000_000, "25:00:00"],
+  ])("formats %i milliseconds as %s", (milliseconds, expected) => {
+    expect(formatCountdown(milliseconds)).toBe(expected);
+  });
+});
 
 describe("relativeTime", () => {
   it("rounds to the unit a row has room for", () => {

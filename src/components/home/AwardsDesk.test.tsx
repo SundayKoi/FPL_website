@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import AwardsDesk from "./AwardsDesk";
 import type { HomepageAwardsData } from "@/lib/home/awards";
 
@@ -30,8 +30,6 @@ const awards: HomepageAwardsData = {
     award("Team of the Week", null, "MetaShift League", "100%"),
   ],
 };
-
-afterEach(() => cleanup());
 
 describe("AwardsDesk", () => {
   it("renders the featured awards and the four team honors", () => {

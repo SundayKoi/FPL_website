@@ -1,9 +1,7 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import type { Draft } from "@/lib/draft/types";
 import UpcomingDraftCard from "./UpcomingDraftCard";
-
-afterEach(cleanup);
 
 const draft: Draft = {
   id: "draft-academy",

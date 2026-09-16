@@ -1,15 +1,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { PACK_SIZE } from "@/lib/packs/config";
 import { AETHER_VARIANTS, DRIBB_COPIES, DRIBB_LOOKS, DRIBB_RATES, dribbPacksPerPull } from "./dribbMockups";
 
 const ALL_LOOKS = [...DRIBB_LOOKS, ...AETHER_VARIANTS];
 import { sampleCard } from "./samples";
-
-afterEach(cleanup);
 
 describe("the Dribb card mockups", () => {
   it("are four distinct looks, each stamped 1 of 5", () => {

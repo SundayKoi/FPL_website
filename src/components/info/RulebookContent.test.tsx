@@ -1,9 +1,8 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import RulebookContent from "./RulebookContent";
 
 describe("RulebookContent", () => {
-  afterEach(cleanup);
 
   it("renders the Split 5 title and major section anchors", () => {
     render(<RulebookContent />);

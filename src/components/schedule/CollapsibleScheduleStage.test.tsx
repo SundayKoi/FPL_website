@@ -1,10 +1,8 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import CollapsibleScheduleStage from "./CollapsibleScheduleStage";
 
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams() }));
-
-afterEach(() => cleanup());
 
 describe("CollapsibleScheduleStage", () => {
   it("renders its content when the stage is initially open", () => {

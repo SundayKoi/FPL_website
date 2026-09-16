@@ -61,7 +61,7 @@ describe("ripFollowup", () => {
   });
 
   it("shows each card's picture with its tier's color", () => {
-    process.env.SITE_URL = "https://fpl.example";
+    vi.stubEnv("SITE_URL", "https://fpl.example");
     const body = ripFollowup(ok([pull("Doug", 82), pull("Spies", 61)]), "Doug") as {
       embeds: { image?: { url: string }; color: number }[];
     };
@@ -71,7 +71,7 @@ describe("ripFollowup", () => {
     expect(body.embeds[2].image?.url).toBe("https://fpl.example/card/spies/card.png?w=2026-08-24");
     // Both test pulls are gold; the stripes should say so.
     expect(body.embeds[1].color).toBe(0xe8c14b);
-    delete process.env.SITE_URL;
+    vi.stubEnv("SITE_URL", undefined);
   });
 
   it("mentions the streak only once it is a streak", () => {
@@ -102,22 +102,20 @@ describe("ripFollowup", () => {
   });
 
   it("never gives a moment an image — moments have no card page", () => {
-    process.env.SITE_URL = "https://fpl.example";
+    vi.stubEnv("SITE_URL", "https://fpl.example");
     const body = ripFollowup(ok([pull("TheSteal", 99, { moment: true }), pull("Doug", 82)]), "Doug") as {
       embeds: { image?: { url: string }; description?: string }[];
     };
     expect(body.embeds[1].image).toBeUndefined();
     expect(body.embeds[1].description).toContain("MOMENT");
     expect(body.embeds[2].image?.url).toBe("https://fpl.example/card/doug/card.png?w=2026-08-24");
-    delete process.env.SITE_URL;
+    vi.stubEnv("SITE_URL", undefined);
   });
 });
 
-
 describe("the picture is the print that was pulled", () => {
   // pullEmbed only draws a picture when it knows where the site lives.
-  beforeEach(() => { process.env.SITE_URL = "https://fpl.example"; });
-  afterEach(() => { delete process.env.SITE_URL; });
+  beforeEach(() => { vi.stubEnv("SITE_URL", "https://fpl.example"); });
 
   // Two bugs, one URL. The image is the card as it stood TODAY rather than
   // in the week the pack minted from — and because Discord's proxy caches by
@@ -150,3 +148,5 @@ describe("the picture is the print that was pulled", () => {
     expect(urlFor("2026-08-24")).not.toBe(urlFor("2026-08-31"));
   });
 });
+
+afterEach(() => vi.unstubAllEnvs());

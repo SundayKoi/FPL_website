@@ -1,7 +1,7 @@
 # Season's End cards
 
 Open **Admin → Season's End** (`/admin/seasons-end`). Admins and owners can
-calculate all 68 accolade cards for either league and a selected season, plus
+calculate all 60 accolade cards for either league and a selected season, plus
 the normal cumulative Season Cards for contributors with more than five games.
 This is a read-only awards desk, not a collectible mint or a season-closing
 operation. The former `/admin/season-end` route redirects here for existing
@@ -13,6 +13,11 @@ statistic, evidence line and archive seal. Team honors use the roster-card data
 to choose a champion background when a complete team is available. Season Cards
 remain the ordinary cumulative player cards for contributors with more than
 five games.
+
+Player-only accolades are calculated separately inside Solari and Lunari, so
+each such accolade has one card per division. The card marks Solari with a sun
+and Lunari with a moon. Team and player-pair honors remain single awards, as do
+the ordinary cumulative Season Cards.
 
 The server checks staff access before fetching data through the cookie-bound
 Supabase client. Reads are scoped to the selected season and `Regular` phase,
@@ -39,15 +44,13 @@ exist, their team names also constrain the data. No migrations are required.
   results). A single-game win is not a sweep.
 - Final standings use series wins, then fewest series losses, matching the
   existing standings ordering without using alphabetical order to break ties.
-  Giant Slayer and The Starting Five wait for all regular-season fixtures to
-  finish. Other cards show provisional leaders while fixtures remain open.
+- The Starting Five waits for all regular-season fixtures to finish. Other cards
+  show provisional leaders while fixtures remain open.
 - The Starting Five commemorates the winning team's most-played complete
   five-player lineup from actual games, including substitutes when they were
   part of that lineup. Tied teams and equally frequent lineups are retained.
-- Streaks follow a player's appearances, ordered by game time then numeric
-  match ID. Revenge Tour counts distinct opposing teams beaten after losing
-  the player's first game against them. Giant Slayer credits the player's
-  team at the time of each win.
+- Bloodline follows a player's appearances, ordered by game time then numeric
+  match ID.
 - Performance is the mean of same-role midrank percentiles for per-game KDA,
   champion damage/minute, CS/minute, vision/minute and kill participation.
   Late Bloomer takes the highest mean in the final chronological third of
@@ -73,7 +76,7 @@ figure. Rate awards also display the actual winning rate explicitly.
 
 World Tour uses that associated faction as the region, rather than inventing
 birthplaces or multi-region lore affiliations. `unaffiliated` maps to an empty
-region list. Full Arsenal counts every listed class for a winning champion.
+region list.
 Unknown mappings withhold the affected award until the snapshot is updated.
 The page performs no runtime requests to Riot.
 

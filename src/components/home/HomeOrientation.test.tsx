@@ -1,9 +1,7 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import HomeOrientation from "./HomeOrientation";
 import type { FixtureRow } from "@/lib/schedule/types";
-
-afterEach(() => cleanup());
 
 const fixture: FixtureRow = {
   id: "f1",

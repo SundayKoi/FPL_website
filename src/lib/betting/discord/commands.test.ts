@@ -23,18 +23,15 @@ import { commandHandlers } from "./registry";
 import type { DiscordInteraction } from "./registry";
 import "./commands";
 
-const ORIGINAL_ENV = { ...process.env };
-const ORIGINAL_FETCH = global.fetch;
-
 beforeEach(() => {
   rpcImpl.current = vi.fn(() => Promise.resolve({ data: null, error: null }));
   fromImpl.current = makeSupabaseFrom({});
-  process.env = { ...ORIGINAL_ENV };
 });
 
 afterEach(() => {
-  process.env = { ...ORIGINAL_ENV };
-  global.fetch = ORIGINAL_FETCH;
+  vi.unstubAllEnvs();
+
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -185,9 +182,9 @@ describe("/tip", () => {
 
 describe("/buy", () => {
   it("refunds the purchase when granting a discord_role fails", async () => {
-    process.env.DISCORD_GUILD_ID = "guild-1";
-    process.env.DISCORD_BOT_TOKEN = "bot-token";
-    global.fetch = vi.fn(() => Promise.resolve({ ok: false, status: 403 } as Response));
+    vi.stubEnv("DISCORD_GUILD_ID", "guild-1");
+    vi.stubEnv("DISCORD_BOT_TOKEN", "bot-token");
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: false, status: 403 } as Response)));
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     rpcImpl.current = vi.fn((fn: string, args: Record<string, unknown>) => {
@@ -223,9 +220,9 @@ describe("/buy", () => {
   });
 
   it("does not claim a refund and logs both failures when the refund RPC itself fails", async () => {
-    process.env.DISCORD_GUILD_ID = "guild-1";
-    process.env.DISCORD_BOT_TOKEN = "bot-token";
-    global.fetch = vi.fn(() => Promise.resolve({ ok: false, status: 500 } as Response));
+    vi.stubEnv("DISCORD_GUILD_ID", "guild-1");
+    vi.stubEnv("DISCORD_BOT_TOKEN", "bot-token");
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: false, status: 500 } as Response)));
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     rpcImpl.current = vi.fn((fn: string) => {

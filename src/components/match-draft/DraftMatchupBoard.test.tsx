@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { DraftMatchupBoard } from "./DraftMatchupBoard";
 import { createDraftMatchupView } from "@/lib/match-draft/presentation";
 import type { MatchDraftAction } from "@/lib/match-draft/types";
@@ -36,8 +36,6 @@ const view = createDraftMatchupView({
     action(15, "blue", 5, "Sett"),
   ],
 });
-
-afterEach(cleanup);
 
 describe("DraftMatchupBoard", () => {
   it("keeps all five bans in mirrored DOM order with explicit phase gaps", () => {

@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import type { MyTeamReadyDashboard } from "@/lib/my-team/types";
 import { MyTeamDashboard } from "./MyTeamDashboard";
 
@@ -29,8 +29,6 @@ function dashboard(overrides: Partial<MyTeamReadyDashboard> = {}): MyTeamReadyDa
 function follows(first: Element, second: Element): boolean {
   return Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
 }
-
-afterEach(cleanup);
 
 describe("MyTeamDashboard", () => {
   it("keeps the approved first-look hierarchy in document order", () => {

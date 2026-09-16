@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import MarketBoard, { byPrice, expiryLabel, type BoardCopy, type BoardListing } from "./MarketBoard";
 
 const { buyListing } = vi.hoisted(() => ({ buyListing: vi.fn() }));
@@ -47,8 +47,6 @@ beforeEach(() => {
   fetchInventoryCardAction.mockReset().mockResolvedValue({ ok: false, error: "no" });
   refresh.mockReset();
 });
-
-afterEach(cleanup);
 
 describe("expiryLabel", () => {
   it("rounds up, so a listing with hours left does not read as gone", () => {

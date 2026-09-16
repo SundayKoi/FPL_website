@@ -1,9 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import CampaignPanel from "./CampaignPanel";
 import type { CampaignState } from "@/lib/expeditions/campaigns";
-
-afterEach(cleanup);
 
 const open: CampaignState = {
   id: 7,

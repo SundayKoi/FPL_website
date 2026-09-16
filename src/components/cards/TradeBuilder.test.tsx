@@ -1,5 +1,5 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import TradeBuilder, { type TradeCardOption } from "./TradeBuilder";
 
@@ -113,8 +113,6 @@ beforeEach(() => {
   createTradeAction.mockReset().mockResolvedValue({ ok: true, id: 42 });
   refresh.mockReset();
 });
-
-afterEach(cleanup);
 
 describe("TradeBuilder", () => {
   it("lists everyone but the viewer, with their card counts", () => {
