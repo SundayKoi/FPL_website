@@ -234,6 +234,13 @@ export interface PlayerCardData {
   live?: { label: string } | null;
   /** Stamped on the FIRST copy to match a week's chase. */
   chase?: { title: string } | null;
+  /** The Send-off: a playoff-edition print, stamped with how far the
+   *  player's team got. Set by the edition builder on the week a team's
+   *  split ended (src/lib/cards/sendoff.ts) and frozen on pulled copies
+   *  like every other stamp. Never read by pricing; the renderer draws the
+   *  stamp and, for a champion, the frame. Inline type import for the same
+   *  reason as `team`: sendoff.ts imports PlayerCardData from here. */
+  sendoff?: import("./sendoff").SendoffMark | null;
   /** The finishes — src/lib/packs/rarities.ts rolls them at mint, over the
    *  parallel and the ink, and freezes them here like every other stamp.
    *  Shiny: the art hue-shifted, priced ×SHINY_DUST_MULT. */

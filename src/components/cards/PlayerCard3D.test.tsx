@@ -883,3 +883,98 @@ describe("provenance stamps", () => {
     expect(container.querySelector("[data-testid='wayfarer-frame']")).toBeNull();
   });
 });
+
+describe("the send-off", () => {
+  const mark = {
+    stage: "semifinalist",
+    exit: "semifinals",
+    team: "Gamblers",
+    series: "1–3",
+    week: "2026-09-14",
+  } as const;
+
+  it("coins the stamp with the whole story and spells it out on the back", () => {
+    const { container } = render(<PlayerCard3D card={{ ...card, sendoff: mark }} />);
+
+    const stamp = container.querySelector("[data-testid='sendoff-stamp']");
+    expect(stamp?.textContent).toBe("◆");
+    expect(stamp?.getAttribute("title")).toBe(
+      "The Send-off — Out in the Semifinals. Gamblers fell 1–3 in the Semifinals.",
+    );
+    // The coin leads the strip — the edition before anything that happened
+    // to the copy afterwards.
+    const strip = container.querySelector("[data-testid='card-stamps']");
+    expect([...strip!.querySelectorAll("[data-testid]")][0]?.getAttribute("data-testid")).toBe("sendoff-stamp");
+    expect(container.querySelector("[data-testid='card-stamps-back']")?.textContent).toContain("Send-off · Semifinalist");
+  });
+
+  it("names the Champion's win rather than a fall", () => {
+    // Four of the five stages went out; one did not, and the coin must not
+    // tell the Champion it fell.
+    const { container } = render(
+      <PlayerCard3D card={{ ...card, sendoff: { ...mark, stage: "champion", exit: "finals", series: "3–1" } }} />,
+    );
+    expect(container.querySelector("[data-testid='sendoff-stamp']")?.getAttribute("title")).toBe(
+      "The Send-off — Champion of the split. Gamblers took the Finals 3–1.",
+    );
+  });
+
+  it("drops the series from the line when the fixture carried no scores", () => {
+    const { container } = render(<PlayerCard3D card={{ ...card, sendoff: { ...mark, series: null } }} />);
+    expect(container.querySelector("[data-testid='sendoff-stamp']")?.getAttribute("title")).toBe(
+      "The Send-off — Out in the Semifinals. Gamblers went out in the Semifinals.",
+    );
+  });
+
+  it("flies the ribbon on the front, above the Card of the Week pill", () => {
+    const { container } = render(<PlayerCard3D card={{ ...card, sendoff: mark, standout: true }} />);
+
+    const ribbon = container.querySelector("[data-testid='sendoff-ribbon']");
+    expect(ribbon?.textContent).toContain("SEMIFINALIST");
+    expect(ribbon?.textContent).toContain("Out in the Semifinals");
+    // The edition names the card before the crown qualifies it.
+    const pill = screen.getByText(/Bot of the Week/i);
+    expect(ribbon!.compareDocumentPosition(pill) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("gives the Champion a frame of its own and everyone else only the ribbon", () => {
+    const champ = render(<PlayerCard3D card={{ ...card, sendoff: { ...mark, stage: "champion", exit: "finals" } }} />);
+    expect(champ.container.querySelector(".card-frame-champion")).toBeTruthy();
+    expect(champ.container.querySelector(".card-glow-champion")).toBeTruthy();
+    champ.unmount();
+
+    // A finalist reached the same week and prints the same edition. Only the
+    // title buys the frame.
+    const runnerUp = render(<PlayerCard3D card={{ ...card, sendoff: { ...mark, stage: "finalist", exit: "finals" } }} />);
+    expect(runnerUp.container.querySelector(".card-frame-champion")).toBeNull();
+    expect(runnerUp.container.querySelector("[data-testid='sendoff-ribbon']")?.textContent).toContain("FINALIST");
+  });
+
+  it("ranks the Champion frame over Card of the Week and under Eclipse", () => {
+    const crowned = render(
+      <PlayerCard3D card={{ ...card, standout: true, sendoff: { ...mark, stage: "champion", exit: "finals" } }} />,
+    );
+    expect(crowned.container.querySelector(".card-frame-champion")).toBeTruthy();
+    expect(crowned.container.querySelector(".card-frame-standout")).toBeNull();
+    crowned.unmount();
+
+    // A one-of-one is rarer than a title, and nothing outranks it.
+    const eclipsed = render(
+      <PlayerCard3D
+        card={{ ...card, standout: true, sendoff: { ...mark, stage: "champion", exit: "finals" } }}
+        forceFoil
+        foilType="eclipse"
+      />,
+    );
+    expect(eclipsed.container.querySelector(".card-frame-eclipse")).toBeTruthy();
+    expect(eclipsed.container.querySelector(".card-frame-champion")).toBeNull();
+    expect(eclipsed.container.querySelector(".card-glow-champion")).toBeNull();
+  });
+
+  it("stamps nothing on a card that never went to the playoffs", () => {
+    const { container } = render(<PlayerCard3D card={card} />);
+    expect(container.querySelector("[data-testid='sendoff-stamp']")).toBeNull();
+    expect(container.querySelector("[data-testid='sendoff-ribbon']")).toBeNull();
+    expect(container.querySelector(".card-frame-champion")).toBeNull();
+  });
+});

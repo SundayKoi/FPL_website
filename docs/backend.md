@@ -731,9 +731,9 @@ change and update their local state.
 | Weekly match stats and betting settlement | `.github/workflows/ingest-stats.yml` → `scripts/riot_stats_ingest.py --from-reports` → `scripts/settle-betting-from-stats.py` | Tuesday at 07:23 UTC and manual runs. Ingests queued reports, then scans all linked Premier/Academy fixture markets—including older fixtures—and uses raw-stats evidence to settle markets and ready pick'ems. The settlement pass runs after partial ingest results too; each fixture is independently validated and the workflow remains non-zero for ingest failures, settlement failures, or evidence conflicts. |
 | Weekly Premier brief | `.github/workflows/weekly-brief-premier.yml` → `scripts/generate-homepage-brief.ts --league premier` | Computes facts from Supabase, asks Anthropic for constrained prose, cleans it, and writes `homepage_briefs`. |
 | Weekly Academy brief | `.github/workflows/weekly-brief-academy.yml` → same script with `--league academy` | Same flow, narrowed to the Academy season and teams. |
-| Weekly cards | `.github/workflows/weekly-card-drop.yml` → `scripts/weekly-card-drop.ts` | Reads current ratings, writes `card_snapshots`/`card_rating_history`, and posts movement/showcase content to Discord. |
+| Weekly cards | `.github/workflows/weekly-card-drop.yml` → `scripts/weekly-card-drop.ts` | Reads current ratings, writes `card_snapshots`/`card_rating_history`, archives the week's edition through `buildEditionForWeek` (a **Send-off** in a playoff week, announced with its own embed ahead of the Eclipse board), and posts movement/showcase content to Discord. |
 | Weekly Draw | `.github/workflows/weekly-draw.yml` → `scripts/weekly-draw.ts` | Runs `run_weekly_draw` for every card season half an hour after the card drop, then posts each winner to Discord. The RPC does the writing (`weekly_draws`, the stamped copy, the ledger pot, the pack comp), so reruns and the `/schedule` admin fallback are safe. |
-| Card edition archive | `.github/workflows/archive-card-edition.yml` → `scripts/archive-card-edition.ts` | Manual. Rebuilds one week (or every week, with `all_weeks`) into `card_editions` from that week's `raw_stats`. Run it after any change to the rating formula — see the pitfall below. |
+| Card edition archive | `.github/workflows/archive-card-edition.yml` → `scripts/archive-card-edition.ts` | Manual. Rebuilds one week (or every week, with `all_weeks`) into `card_editions` through `buildEditionForWeek` — the week's own `raw_stats` for an ordinary week, or a season-rated **Send-off** for a playoff week, exactly as the drop would have written it. Run it after any change to the rating formula, and to fill in a playoff week the drop met before its fixtures were scored — see the pitfall below and "The Send-off". |
 | Betting lifecycle | Supabase cron migrations → `supabase/functions/discord-announcer/index.ts` | Locks/resolves/announces betting markets and pick'ems, posts Discord messages, and runs a ledger-drift watchdog. |
 | Weekly betting markets | Supabase Cron (`weekly-betting-markets-edt` / `weekly-betting-markets-est`) → `run_weekly_betting_market_cron()` → `generate_weekly_betting_markets()` | Runs Tuesday at 1:00 AM Eastern (05:00 UTC during EDT, 06:00 UTC during EST), reads the following Monday's Premier and Academy fixtures, validates every event/team mapping, and inserts only missing fixture-linked markets. The wrapper's Eastern-time guard makes the DST jobs safe and retries idempotent. |
 
@@ -1534,6 +1534,78 @@ pure `describeProvenance` turning rows into lines. The server action is
 `fetchInventoryCardAction` and for the same reason: the chain of a copy you
 are being offered names people who are not you, which is precisely what you
 want to see before agreeing.
+
+### The Send-off
+
+Playoff weeks do not print a weekly edition. A weekly edition rates each
+player against the players who played that week (`fetchWeekCards` →
+`buildSeasonCards`, percentile bars against the same-role cohort), and the
+bracket thins that cohort to 40, then 20, then 10 — so a semifinal print
+ranks people among a handful and the losing finalists print as bad cards for
+reaching the final.
+
+**The rule.** Each player's playoff card prints **once**, in the week their
+team's split ended, rated on the whole split (the season-to-date build
+`fetchSeasonCards` already produces, against the whole league) and stamped
+with how far they got: `gauntlet`, `quarterfinalist`, `semifinalist`,
+`finalist`, `champion`. The gauntlet week prints the teams the gauntlet
+knocked out, the quarterfinals week its four losers, the semis their two, and
+the finals week prints the runner-up and the Champion — every player in the
+league exactly once, in the order they fell.
+
+**The rules module.** `src/lib/cards/sendoff.ts` is pure and owns all of it:
+`eliminationsInWeek` (the loser of each decided playoff fixture in an Eastern
+week, plus the winner of the finals as `champion`; one entry per team, later
+exit wins), `isPlayoffWeek`, `planSendoff` (the week's roster, stamped with
+`withSendoff` and crowned with `crownSendoff`), `sendoffVaultClosesAt` /
+`isSendoffVaulted`, and `sendoffLedger` for the admin page. Fixtures come
+from `public.fixtures` through `fetchSeasonFixtures` (`queries.ts`), which
+returns `[]` on error; team names are matched with `normalizeTeamName`
+because fixtures carry `league_teams.name` while a card's `teamName` is
+`raw_stats.team_name`, and nothing enforces that the two spell a team
+identically. Teams a plan could not match land in `plan.unmatched` and are
+logged with `[WARN]` by both scripts.
+
+**The stamp.** `PlayerCardData.sendoff` (`{ stage, exit, team, series, week }`)
+rides on the card json, frozen on the `card_editions` row and on every pulled
+copy, exactly like `live`, `chase` and `champWin`. **No migration:**
+`card_editions.card` and `card_inventory.card` are jsonb and already carry
+every other stamp. The renderer draws the coin, the ribbon and the champion
+frame off the json, `copyEditionLabel` names a copy "Send-off · Champion"
+rather than by its Monday, and everything else that consumes editions
+(packs, print runs, Eclipse, sets, team cards, Higher or Lower, moments)
+keeps reading `PlayerCardData` from the archive unchanged.
+
+**The builder.** `src/lib/cards/editionBuilder.ts` `buildEditionForWeek`
+decides per week whether the edition is a weekly print or a send-off, so the
+Tuesday drop (`scripts/weekly-card-drop.ts`) and the manual archiver
+(`scripts/archive-card-edition.ts`) always agree. The season build is passed
+in as a thunk: the drop already holds it, and an ordinary week must not pay
+for a whole-season read it will not use.
+
+**The vault.** Send-off editions close `SENDOFF_VAULT_DAYS` (14) after the
+finals fixture's `scheduled_at`. `openPackFor` reads the fixtures alongside
+the edition weeks — before anything is charged — and refuses an explicitly
+requested vaulted week; an unqualified open falls back to the newest week
+still on sale rather than shutting the shop. `fetchEditionWeekInfo` leaves
+vaulted send-offs out of the shop's picker entirely and labels the rest
+("Week 3 · Sep 8" counting weekly prints only, or "Send-off · Finals" with
+the closing date). With no dated finals the vault reads as open — refusing to
+sell on a date nobody has set would close the shop over a scheduling gap.
+
+**The admin page.** `/admin/sendoff` (staff-gated, mints and writes nothing)
+previews the five stamps on real cards, dry-runs what Tuesday's drop would
+print for the current week, shows the bracket ledger and prints the shop
+picker's rows as plain text.
+
+**Pitfall: a playoff week with unscored fixtures prints nothing.** An
+undecided fixture eliminates nobody, so the week's edition is empty and
+`archiveEdition` leaves the week alone. That is deliberate — the alternative
+is stamping somebody's one playoff card with a result that has not happened,
+and editions freeze at mint. Once the scores are entered, re-run
+`npx tsx scripts/archive-card-edition.ts YYYY-MM-DD` for that week (or wait
+for the next drop if the week is still the current one) and the edition
+appears.
 
 ### Market
 

@@ -327,6 +327,40 @@ describe("PackShop", () => {
     expect(openPackAction).toHaveBeenCalledWith("premier", "2026-08-24", expect.any(String));
   });
 
+  it("names a send-off edition by its round and says when the vault shuts", async () => {
+    // A send-off has a deadline, and the deadline is the whole promise the
+    // edition is sold on — so it belongs where the choice is made, not in a
+    // banner somewhere else on the page.
+    openPackAction.mockResolvedValue({ ok: true, cards: pulls, balance: 800 });
+    render(
+      <PackShop
+        league="premier"
+        balance={1000}
+        packCost={200}
+        openCount={3}
+        editionWeeks={["2026-09-07", "2026-08-31"]}
+        editionWeekInfo={[
+          { week: "2026-09-07", label: "Send-off · Finals", sendoff: { closesAt: "2026-09-22T00:00:00.000Z" } },
+          { week: "2026-08-31", label: "Week 2 · Aug 31", sendoff: null },
+        ]}
+      />,
+    );
+
+    const picker = screen.getByLabelText(/edition/i) as HTMLSelectElement;
+    expect(picker.value).toBe("2026-09-07");
+    expect(screen.getByRole("option", { name: "Send-off · Finals" })).toBeTruthy();
+    expect(screen.getByText("Vault shuts Sep 21")).toBeTruthy();
+
+    // The weekly week underneath has no deadline, so it says nothing.
+    await act(async () => {
+      fireEvent.change(picker, { target: { value: "2026-08-31" } });
+    });
+    expect(screen.queryByText(/vault shuts/i)).toBeNull();
+
+    await openPack();
+    expect(openPackAction).toHaveBeenCalledWith("premier", "2026-08-31", expect.any(String));
+  });
+
   it("hides the picker and asks for no week before the first archive exists", async () => {
     openPackAction.mockResolvedValue({ ok: true, cards: pulls, balance: 800 });
     renderShop();
