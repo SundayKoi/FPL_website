@@ -208,7 +208,6 @@ export function deriveSeasonEnd(
     r.ability_casts = combine(["spell1_casts_q", "spell2_casts_w", "spell3_casts_e", "spell4_casts_r"]);
     r.heal_shield = combine(["healing_on_teammates", "shielding_on_teammates"]);
     const deaths = number(r, "deaths"), assists = number(r, "assists");
-    r.low_deaths = deaths === null ? null : Number(deaths <= 2);
     r.deathless_games = deaths === null ? null : Number(deaths === 0);
     r.assist_games = assists === null ? null : Number(assists >= 10);
     const multi = all([r], "largest_multi_kill");
@@ -223,7 +222,6 @@ export function deriveSeasonEnd(
       r[key] = r.role && sameRole.length === 1 && own !== null && other !== null ? own - other : null;
     }
     r.ahead_10 = r.gold_diff_10 == null ? null : Number(Number(r.gold_diff_10) > 0);
-    r.comeback = r.gold_diff_15 == null ? null : Number(r.win && Number(r.gold_diff_15) < 0);
   }
   // Role-relative midrank percentiles make performance comparable across roles.
   // Fixed five-part score, shared by Late Bloomer and Metronome.
@@ -248,7 +246,7 @@ export function deriveSeasonEnd(
   const baseAwards = SEASON_AWARDS.map((def): SeasonAward => {
     if (!rows.length) return unavailable(def, "No regular-season games available for this league and season.");
     if (incompleteMatches.length || duplicateMatches.size || valid.length !== candidates.length) return unavailable(def, "Season contains incomplete or conflicting participant records. Repair ingestion before declaring winners.");
-    if (ambiguousTeams.length && ((def.group === "Teamwork" && def.id !== "clean-sweep") || ["giant-slayer", "revenge-tour"].includes(def.id))) return unavailable(def, "A game has conflicting team assignments; correct the match's team labels before awarding this card.");
+    if (ambiguousTeams.length && (def.group === "Teamwork" && def.id !== "clean-sweep")) return unavailable(def, "A game has conflicting team assignments; correct the match's team labels before awarding this card.");
     if (def.field) {
       const isRate = def.mode !== "total";
       const pool = isRate ? qualified : players;
@@ -256,7 +254,7 @@ export function deriveSeasonEnd(
       for (const p of pool) {
         // Short games cannot have a 15-minute snapshot. Every game reaching the
         // checkpoint must have an unambiguous observation before ranking anyone.
-        const checkpoint = ["gold_diff_15", "cs_diff_15", "comeback"].includes(def.field) ? 15 : def.field === "ahead_10" ? 10 : 0;
+        const checkpoint = ["gold_diff_15", "cs_diff_15"].includes(def.field) ? 15 : def.field === "ahead_10" ? 10 : 0;
         if (checkpoint && p.rows.some(r => number(r, "game_duration_min") === null)) return missing(def);
         const measured = checkpoint ? p.rows.filter(r => number(r, "game_duration_min")! >= checkpoint) : p.rows;
         const observations = all(measured, def.field);
@@ -274,17 +272,15 @@ export function deriveSeasonEnd(
       }
       return choose(def, values, def.lower, def.mode === "mean");
     }
-    if (["hot-streak", "bloodline", "unkillable-run", "revenge-tour", "late-bloomer"].includes(def.id) && !datesComplete) return missing(def);
-    if (["hot-streak", "bloodline", "unkillable-run"].includes(def.id)) {
-      const field = def.id === "hot-streak" ? "win" : def.id === "bloodline" ? "solo_kills" : "deaths";
-      if (players.some(p => !all(p.rows, field))) return missing(def);
-      return choose(def, players.map(p => winner(p, longest(all(p.rows, field)!.map(v => def.id === "unkillable-run" ? v === 0 : v > 0)))));
+    if (["bloodline", "late-bloomer"].includes(def.id) && !datesComplete) return missing(def);
+    if (def.id === "bloodline") {
+      if (players.some(p => !all(p.rows, "solo_kills"))) return missing(def);
+      return choose(def, players.map(p => winner(p, longest(all(p.rows, "solo_kills")!.map(v => v > 0)))));
     }
-    if (["world-tour", "full-arsenal"].includes(def.id)) {
-      const kind = def.id === "world-tour" ? "regions" : "classes";
-      if (rows.filter(r => r.win).some(r => !championCategories(r.champion, kind))) return unavailable(def, "Champion mapping missing for a winning pick; update the pinned Riot mapping.");
+    if (def.id === "world-tour") {
+      if (rows.filter(r => r.win).some(r => !championCategories(r.champion, "regions"))) return unavailable(def, "Champion mapping missing for a winning pick; update the pinned Riot mapping.");
       return choose(def, players.map(p => {
-        const categories = [...new Set(p.rows.filter(r => r.win).flatMap(r => championCategories(r.champion, kind)!))].sort();
+        const categories = [...new Set(p.rows.filter(r => r.win).flatMap(r => championCategories(r.champion, "regions")!))].sort();
         return winner(p, categories.length, categories.join(" · "));
       }));
     }
@@ -307,27 +303,6 @@ export function deriveSeasonEnd(
         values.push({ ...winner(p, value, `${average.toFixed(1)} mean performance · ${subset.length} games`), games: subset.length });
       }
       return choose(def, values, def.id === "metronome", true);
-    }
-    if (def.id === "giant-slayer" || def.id === "revenge-tour") {
-      if (def.id === "giant-slayer" && !complete) return unavailable(def, "Waiting for all regular-season fixtures to finish.");
-      const values: AwardWinner[] = [];
-      for (const p of players) {
-        let count = 0; const first = new Map<string, boolean>(); const revenge = new Set<string>();
-        for (const r of p.rows) {
-          const opponents = [...new Set(matches.get(r.match_id)!.filter(o => o.team_side !== r.team_side).map(o => teamKey(o.team_name)))];
-          if (opponents.length !== 1) return missing(def);
-          const opponent = opponents[0];
-          if (!first.has(opponent)) first.set(opponent, r.win);
-          else if (!first.get(opponent) && r.win) revenge.add(opponent);
-          const own = records.get(teamKey(r.team_name)), other = records.get(opponent);
-          if (def.id === "giant-slayer") {
-            if (!own || !other) return missing(def);
-            if (r.win && rankCompare(other, own) < 0) count++;
-          }
-        }
-        values.push(winner(p, def.id === "giant-slayer" ? count : revenge.size));
-      }
-      return choose(def, values);
     }
     if (def.id === "clean-sweep") {
       if (!regularFixtures.length) return unavailable(def, "No regular-season fixtures available.");

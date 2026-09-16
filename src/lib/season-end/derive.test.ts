@@ -56,7 +56,6 @@ describe("season-end winners", () => {
   it("withholds ambiguous team awards without discarding valid individual stats", () => {
     const rows = season(); rows[0].team_name = "Bears";
     expect(award(rows, "dragon-hoard").status).toBe("unavailable");
-    expect(award(rows, "giant-slayer").status).toBe("unavailable");
     expect(award(rows, "body-count").winners[0].total).toBe(36);
     expect(award(rows, "clean-sweep").winners[0].value).toBe(1);
   });
@@ -68,21 +67,17 @@ describe("season-end winners", () => {
     const short = season(); short.filter(r => r.match_id === "match1").forEach(r => { r.game_duration_min = 12; r.gold_at_15 = null; });
     expect(award(short, "lane-landlord").winners[0]).toMatchObject({ games: 5, value: 1000 });
   });
-  it("uses strictly positive/negative lane leads and double-digit assist games", () => {
+  it("uses strictly positive lane leads and double-digit assist games", () => {
     expect(award(season(), "fast-starter").winners[0].value).toBe(6);
-    const rows = season(); rows.filter(r => r.team_side === "Blue").forEach(r => { r.gold_at_15 = 3000; });
-    expect(award(rows, "comeback-artist").winners[0].value).toBe(6);
-    expect(award(rows, "human-highlight-reel").winners[0].value).toBe(6);
-    expect(award(rows, "everybody-eats").winners[0].value).toBe(6);
+    expect(award(season(), "human-highlight-reel").winners[0].value).toBe(6);
+    expect(award(season(), "everybody-eats").winners[0].value).toBe(6);
   });
-  it("sorts streaks chronologically and breaks them on a failing game", () => {
+  it("sorts Bloodline chronologically and breaks it on a failing game", () => {
     const rows = [game(6), game(3, false), game(1), game(5), game(2), game(4)].flat();
-    expect(award(rows, "hot-streak").winners[0]).toMatchObject({ value: 3 });
     rows.forEach(r => { r.deaths = r.match_id === "match3" ? 1 : 0; r.solo_kills = r.match_id === "match3" ? 0 : 1; });
-    expect(award(rows, "unkillable-run").winners[0].value).toBe(3);
     expect(award(rows, "bloodline").winners[0].value).toBe(3);
     rows[0].game_date = "unknown";
-    expect(award(rows, "hot-streak").status).toBe("unavailable");
+    expect(award(rows, "bloodline").status).toBe("unavailable");
   });
   it("requires three speedrun wins and strictly over forty minutes for marathon wins", () => {
     const rows = season(); rows.forEach(r => { r.game_duration_min = r.match_id === "match1" ? 40 : 41; });
@@ -95,17 +90,10 @@ describe("season-end winners", () => {
     expect(award(season(), "clean-sweep", fixtures({ best_of: 1, score_a: 1 })).status).toBe("unearned");
     expect(award(season(), "the-starting-five").winners[0].detail).toContain("A4#NA1");
     expect(award(season(), "the-starting-five", fixtures({score_a: null, score_b: null})).status).toBe("unavailable");
-    expect(award(season(), "giant-slayer", fixtures({score_a: 1})).status).toBe("unavailable");
   });
   it("commemorates the most-played actual five, including tied lineups", () => {
     const rows = season(); rows.filter(r => r.summoner_name === "A0" && ["match4","match5","match6"].includes(r.match_id)).forEach(r => { r.summoner_name = "Sub"; });
     expect(award(rows, "the-starting-five").winners).toHaveLength(2);
-  });
-  it("counts player upsets by their team at the time and distinct revenge opponents", () => {
-    const rows = [game(1, false), game(2), game(3)].flat();
-    const upset = award(rows, "giant-slayer", fixtures({ score_a: 0, score_b: 2 }));
-    expect(upset.winners[0]).toMatchObject({ name: "A0#NA1", value: 2 });
-    expect(award(rows, "revenge-tour").winners[0]).toMatchObject({ name: "A0#NA1", value: 1 });
   });
   it("has explicit no-achievement and minimum-games results", () => {
     const rows = season(); rows.forEach(r => { r.penta_kills = 0; });
@@ -121,22 +109,30 @@ describe("season-end winners", () => {
     expect(award(rows, "metronome").winners[0].value).toBeCloseTo(0);
     expect(award(rows, "late-bloomer").winners[0].games).toBe(3);
   });
-  it("uses verified mappings, counts all classes, and does not invent regions", () => {
+  it("uses verified mappings and does not invent regions", () => {
     expect(championCategories("Ahri", "regions")).toEqual(["ionia"]);
-    expect(championCategories("MonkeyKing", "classes")).toBeTruthy();
     expect(championCategories("Aatrox", "regions")).toEqual([]);
     expect(award(season(), "world-tour").winners[0].value).toBe(1);
     const rows = season(); rows[0].champion = "Unknown Future Champion";
     expect(award(rows, "world-tour").status).toBe("unavailable");
-    expect(award(rows, "full-arsenal").status).toBe("unavailable");
   });
   it("measures rare picks within the selected league and qualifies proportions", () => {
     const rows = Array.from({length:20}, (_,i) => game(i+1)).flat(); rows[0].champion = "Garen";
     expect(award(rows, "against-the-grain").winners).toMatchObject([{ name: "A0#NA1", value: 5 }]);
   });
-  it("keeps all requested cards visible, including the correctly named steal award", () => {
+  it("keeps the configured cards visible, including the correctly named steal award", () => {
     const result = deriveSeasonEnd(season(), fixtures(), "S5", "premier");
-    expect(result.awards).toHaveLength(68);
+    expect(result.awards).toHaveLength(60);
+    expect(result.awards.map((award) => award.title)).not.toEqual(expect.arrayContaining([
+      "Opening Act",
+      "Full Arsenal",
+      "Revenge Tour",
+      "Giant Slayer",
+      "Comeback Artist",
+      "Ironclad",
+      "Unkillable Run",
+      "Hot Streak",
+    ]));
     expect(result.awards.find(a => a.id === "grand-theft-objective")?.description).toContain("not recorded");
   });
 
