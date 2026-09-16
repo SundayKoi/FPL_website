@@ -5,7 +5,6 @@ import { DIVISIONS, type Division, type FixtureRow } from "@/lib/schedule/types"
 import { cardPlayerKey } from "@/lib/cards/build";
 import { assignChampions } from "@/lib/cards/seasonsEnd/assignment";
 import { championDisplayName } from "@/lib/match-draft/champions";
-import { BEST_OF_SCORE_FLOOR } from "./policy";
 
 /** Raw storage fields stay nullable. Missing observations must never become zero. */
 export interface SeasonRow {
@@ -318,23 +317,27 @@ export function deriveSeasonEnd(
             playerKey: playerKey(first),
           };
         }));
-      const eligibleCandidates = candidates.filter((candidate) => candidate.value >= BEST_OF_SCORE_FLOOR);
-      const eligiblePlayers = new Set(eligibleCandidates.map((candidate) => candidate.playerKey));
+      // Best of eligibility belongs to the player, not to an individual
+      // champion pick: a regular contributor may have spread five or more
+      // appearances across several champions. The candidate score remains
+      // the champion-specific overall used to choose among those picks.
+      const eligiblePlayers = new Set(qualified.map((player) => playerKey(player.rows[0])));
+      const eligibleCandidates = candidates.filter((candidate) => eligiblePlayers.has(candidate.playerKey));
       const assigned = assignChampions(eligibleCandidates);
       const assignedPlayers = new Set(assigned.map((candidate) => candidate.playerKey));
       const assignedWithDivisions = assigned.map((candidate) => {
         const division = playerDivisions.get(candidate.playerKey);
         return division ? { ...candidate, division } : candidate;
       });
-      const belowFloor = players
+      const belowMinimum = players
         .filter((player) => !eligiblePlayers.has(playerKey(player.rows[0])))
         .map((player) => player.name);
       const blockedByAssignment = players
         .filter((player) => eligiblePlayers.has(playerKey(player.rows[0])) && !assignedPlayers.has(playerKey(player.rows[0])))
         .map((player) => player.name);
       if (!options.division) {
-        if (belowFloor.length) warnings.push(`Best of Champion covers ${assigned.length}/${players.length} players. No champion performance reached ${BEST_OF_SCORE_FLOOR}/100 for: ${belowFloor.join(", ")}.`);
-        if (blockedByAssignment.length) warnings.push(`Best of Champion covers ${assigned.length}/${players.length} players. Qualifying performances had no unused champion after coverage-first assignment for: ${blockedByAssignment.join(", ")}.`);
+        if (belowMinimum.length) warnings.push(`Best of Champion covers ${assigned.length}/${qualified.length} eligible players. Players with fewer than ${minGames} games do not receive a card: ${belowMinimum.join(", ")}.`);
+        if (blockedByAssignment.length) warnings.push(`Best of Champion covers ${assigned.length}/${qualified.length} eligible players. Qualifying performances had no unused champion after coverage-first assignment for: ${blockedByAssignment.join(", ")}.`);
         const unassignedDivisions = assigned.filter((candidate) => !playerDivisions.has(candidate.playerKey)).length;
         if (unassignedDivisions && (divisions.byTeam.size > 0 || rows.some((row) => rowDivision(row, divisions)))) {
           warnings.push(`Best of Champion omitted division emblems for ${unassignedDivisions} assigned winner${unassignedDivisions === 1 ? "" : "s"} with unresolved season division metadata.`);
@@ -342,7 +345,7 @@ export function deriveSeasonEnd(
       }
       return assigned.length
         ? { ...def, winners: assignedWithDivisions, status: "ready" }
-        : { ...def, winners: [], status: "unearned", note: eligibleCandidates.length ? "No unused champion could be assigned." : `No champion performances reached ${BEST_OF_SCORE_FLOOR}/100.` };
+        : { ...def, winners: [], status: "unearned", note: eligibleCandidates.length ? "No unused champion could be assigned to an eligible player." : `No player has at least ${minGames} games.` };
     }
     if (def.field) {
       const isRate = def.mode !== "total";

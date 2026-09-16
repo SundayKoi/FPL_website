@@ -21,10 +21,12 @@ card. They are not substituted for an OVR. Weekly standout badges are disabled.
 - **Best of [champion]:** one played champion per player and one player per
   champion. The Hungarian assignment maximizes player coverage first, then total
   score (60% win rate + 40% mean role percentile of fantasy game score).
-  All players with recorded games participate; one champion appearance suffices.
-  This constrained assignment is not an independent leaderboard per champion.
-  If coverage is impossible, only real assignments render and unmatched players
-  are named in a warning. Ties are resolved deterministically.
+  Players need at least five complete regular-season games; there is no score
+  floor, and a champion can be selected even when its score is below 70. This
+  constrained assignment is not an independent leaderboard per champion. If
+  coverage is impossible, only real assignments render and unmatched players
+  are named in a warning. A contested champion favors the higher
+  champion-specific score, with deterministic tie resolution.
 - **Dynamic Duo:** the bot/support pairing with the highest cumulative combined
   fantasy-stat points in games played together. The win tariff is zero. At least
   four shared games are required; score ties share the award. The two normal

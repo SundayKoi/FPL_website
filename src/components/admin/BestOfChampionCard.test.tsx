@@ -116,7 +116,7 @@ describe("BestOfChampionCard", () => {
   it("keeps empty states neutral and omits a fake player, rating, signature, and collection label", () => {
     render(
       <BestOfChampionCard
-        award={award({ status: "unearned", note: "No champion performances reached 70/100." })}
+        award={award({ status: "unearned", note: "No player has at least 5 games." })}
         season="S5"
         league="premier"
         headingId="best-of-empty"
@@ -125,7 +125,7 @@ describe("BestOfChampionCard", () => {
 
     expect(screen.getByRole("heading", { name: "Best of Champion" })).toBeTruthy();
     expect(screen.getByText("Not earned yet")).toBeTruthy();
-    expect(screen.getByText("No champion performances reached 70/100.")).toBeTruthy();
+    expect(screen.getByText("No player has at least 5 games.")).toBeTruthy();
     expect(screen.queryByText("Best of Champions")).toBeNull();
     expect(screen.queryByLabelText(/overall/i)).toBeNull();
     expect(screen.queryByTestId("best-of-autograph")).toBeNull();

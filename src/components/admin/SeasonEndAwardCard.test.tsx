@@ -161,7 +161,7 @@ describe("SeasonEndAwardCard", () => {
           scope: "player",
           partition: "league",
           status: "unearned",
-          note: "No champion performances reached 70/100.",
+          note: "No player has at least 5 games.",
           winners: [],
         }}
         season="S5"
@@ -172,7 +172,7 @@ describe("SeasonEndAwardCard", () => {
     );
 
     expect(screen.getByText("Not earned yet")).toBeTruthy();
-    expect(screen.getByText("No champion performances reached 70/100.")).toBeTruthy();
+    expect(screen.getByText("No player has at least 5 games.")).toBeTruthy();
     expect(screen.getByText("This explanation should not be rendered on the card.")).toBeTruthy();
     expect(screen.queryByLabelText(/division$/)).toBeNull();
     expect(screen.queryByText("Season stories")).toBeNull();

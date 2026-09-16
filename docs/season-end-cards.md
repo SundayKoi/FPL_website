@@ -21,9 +21,11 @@ metadata leaves the face valid without a seal. Season Cards remain the ordinary
 cumulative player cards for contributors with more than five games.
 
 Best of Champion assigns one played champion to each player and one player to
-each champion, maximizing player coverage before the combined win-rate and
-role-relative performance score. Only candidates scoring at least 70/100 are
-eligible; the score floor is fixed rather than falling back per season. Each
+each champion, maximizing coverage across players with at least five
+regular-season games before the combined win-rate and role-relative
+performance score. There is no minimum score floor. The full-precision
+champion-specific score favors the stronger player when a champion is contested,
+while preserving the league-wide one-player/one-champion assignment. Each
 assigned winner is rendered with its per-champion title and assigned splash art
 inside the full-art Best of face; it does not use the separate cumulative
 Season Card layout. The live admin preview is deliberately unsigned: it does

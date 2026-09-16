@@ -8,7 +8,6 @@ import { fetchSeasonCards } from "@/lib/cards/queries";
 import { AWARD_GROUPS } from "@/lib/season-end/catalog";
 import type { SeasonEndResult } from "@/lib/season-end/derive";
 import { loadSeasonEnd } from "@/lib/season-end/queries";
-import { BEST_OF_SCORE_FLOOR } from "@/lib/season-end/policy";
 import { resolveLeagueView } from "@/lib/league/context";
 import { fetchLeagueSeasons, seasonBelongsToLeague } from "@/lib/league/season";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -77,9 +76,9 @@ export default async function SeasonsEndPage({
         <section aria-label="Season coverage" className="card-brand flex flex-col gap-3 p-5">
           <p className="font-semibold">{league === "premier" ? "Premier" : "Academy"} · {season} · {result.games} games · {result.players} players</p>
           <p className="text-sm text-gold">{result.complete ? "All scheduled regular-season series are complete. Results reflect currently ingested stats." : "Provisional leaders — regular-season fixtures are unfinished or unavailable."}</p>
-          <p className="text-sm text-steel">Rate and performance awards require {result.minGames} measured games. Speedrunners requires three wins. Best of Champion candidates must score at least {BEST_OF_SCORE_FLOOR}/100 before the league-wide one-player/one-champion assignment. Missing required observations leave an award unavailable.</p>
+          <p className="text-sm text-steel">Rate and performance awards require {result.minGames} measured games. Speedrunners requires three wins. Best of Champion is available to every player with at least {result.minGames} regular-season games before the league-wide one-player/one-champion assignment. Missing required observations leave an award unavailable.</p>
           {result.warnings.map((warning) => <p key={warning} className="text-sm text-coral">{warning}</p>)}
-          <details className="text-sm text-steel"><summary className="cursor-pointer text-white">Scoring & mapping notes</summary><p className="mt-3">Performance is the mean of five same-role, per-game percentile scores: KDA, champion damage/min, CS/min, vision/min and kill participation. Best of Champion uses 60 × champion win fraction + 0.4 × mean role-relative performance, with a fixed {BEST_OF_SCORE_FLOOR}/100 floor, then maximizes coverage before score while assigning each champion and player at most once. Late Bloomer uses the final third of league games in chronological order. Metronome requires a mean of 60 and a per-game floor of 40. Chronological ties use match ID. Bloodline follows each player’s appearances. Team standings use series wins, then losses; tied teams remain tied.</p></details>
+          <details className="text-sm text-steel"><summary className="cursor-pointer text-white">Scoring & mapping notes</summary><p className="mt-3">Performance is the mean of five same-role, per-game percentile scores: KDA, champion damage/min, CS/min, vision/min and kill participation. Best of Champion uses 60 × champion win fraction + 0.4 × mean role-relative performance for each played champion, then maximizes eligible-player coverage before champion-specific score while assigning each champion and player at most once. Late Bloomer uses the final third of league games in chronological order. Metronome requires a mean of 60 and a per-game floor of 40. Chronological ties use match ID. Bloodline follows each player’s appearances. Team standings use series wins, then losses; tied teams remain tied.</p></details>
         </section>
 
         <nav aria-label="Award groups" className="flex flex-wrap gap-3 text-sm">
