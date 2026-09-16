@@ -2,6 +2,7 @@ import { championSplashUrl } from "@/lib/match-draft/champions";
 import { cardPlayerKey, type PlayerCardData } from "@/lib/cards/build";
 import { buildTeamCards, teamToCard } from "@/lib/cards/teamCards";
 import type { AwardWinner, SeasonAward } from "@/lib/season-end/derive";
+import type { Division } from "@/lib/schedule/types";
 import styles from "./SeasonEndAwardCard.module.css";
 
 const format = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 2 });
@@ -88,6 +89,15 @@ function evidenceFor(award: SeasonAward, winner: AwardWinner): string {
   return winner.detail ? `${winner.detail} · ${team}${games}` : `${team}${games}`;
 }
 
+function DivisionMark({ division }: { division: Division }) {
+  return (
+    <span className={styles.divisionMark} aria-label={`${division} division`} title={`${division} division`}>
+      <span aria-hidden="true">{division === "Solari" ? "☀" : "☾"}</span>
+      <span>{division}</span>
+    </span>
+  );
+}
+
 function AwardVisualCard({
   award,
   winner,
@@ -95,6 +105,7 @@ function AwardVisualCard({
   season,
   league,
   winnerIndex,
+  division,
 }: {
   award: SeasonAward;
   winner: AwardWinner;
@@ -102,13 +113,14 @@ function AwardVisualCard({
   season: string;
   league: "premier" | "academy";
   winnerIndex: number;
+  division?: Division;
 }) {
   const family = familyFor(award);
   const champion = championFor(cards);
   const art = champion ? championSplashUrl(champion, 0) : null;
   const unit = unitFor(award);
   const roster = cards[0]?.team?.slots.filter((slot) => slot.slug).map((slot) => slot.name) ?? [];
-  const titleId = `title-${award.id}-${winnerIndex}`;
+  const titleId = `title-${award.id}-${division ?? "global"}-${winnerIndex}`;
 
   return (
     <article aria-labelledby={titleId} className={`${styles.card} ${styles[family]}`}>
@@ -118,7 +130,7 @@ function AwardVisualCard({
         aria-hidden="true"
         style={art ? { backgroundImage: `linear-gradient(180deg, transparent 10%, #101620 100%), url("${art}")` } : undefined}
       />
-      <div className={styles.topline}><span>{season} · {league}</span><span>REGULAR</span></div>
+      <div className={styles.topline}><span>{season} · {league}</span>{division ? <DivisionMark division={division} /> : <span>REGULAR</span>}</div>
       <div className={styles.content}>
         <p className={styles.collection}>{familyLabel(award)}</p>
         <h3 id={titleId} className={styles.title}>{award.title}</h3>
@@ -140,15 +152,30 @@ function AwardVisualCard({
   );
 }
 
-function EmptyAwardCard({ award, season, league }: { award: SeasonAward; season: string; league: "premier" | "academy" }) {
+function EmptyAwardCard({
+  award,
+  season,
+  league,
+  division,
+}: {
+  award: SeasonAward;
+  season: string;
+  league: "premier" | "academy";
+  division?: Division;
+}) {
+  const divisionStatus = division ? award.divisionStatuses?.[division] : undefined;
+  const status = divisionStatus?.status ?? award.status;
+  const note = divisionStatus?.note ?? award.note;
+  const titleId = `title-${award.id}-${division ?? "global"}`;
+
   return (
-    <article aria-labelledby={`title-${award.id}`} className={`${styles.card} ${styles[familyFor(award)]}`}>
-      <div className={styles.topline}><span>{season} · {league}</span><span>REGULAR</span></div>
+    <article aria-labelledby={titleId} className={`${styles.card} ${styles[familyFor(award)]}`}>
+      <div className={styles.topline}><span>{season} · {league}</span>{division ? <DivisionMark division={division} /> : <span>REGULAR</span>}</div>
       <div className={styles.content}>
         <p className={styles.collection}>{familyLabel(award)}</p>
-        <h3 id={`title-${award.id}`} className={styles.title}>{award.title}</h3>
-        <p className={styles.empty}>{award.status === "unearned" ? "Not earned yet" : "Awaiting evidence"}</p>
-        <p className={styles.evidence}>{award.note ?? award.description}</p>
+        <h3 id={titleId} className={styles.title}>{award.title}</h3>
+        <p className={styles.empty}>{status === "unearned" ? "Not earned yet" : "Awaiting evidence"}</p>
+        <p className={styles.evidence}>{note ?? award.description}</p>
         <div className={styles.seal}><span>SEASON ARCHIVE</span><span>ADMIN PREVIEW</span></div>
       </div>
     </article>
@@ -169,6 +196,29 @@ export default function SeasonEndAwardCard({
   cards: PlayerCardData[];
 }) {
   const cardsByPlayer = new Map(cards.map((card) => [cardPlayerKey(card.name, card.tag), card]));
+  const isDivisional = award.scope === "player" && award.divisionStatuses;
+
+  if (isDivisional) {
+    return (
+      <div className={styles.grid}>
+        {(["Solari", "Lunari"] as const).flatMap((division) => {
+          const winners = award.winners.filter((winner) => winner.division === division);
+          return winners.length ? winners.map((winner, winnerIndex) => (
+            <AwardVisualCard
+              key={`${division}-${winner.name}-${winnerIndex}`}
+              award={award}
+              winner={winner}
+              cards={cardsForWinner(winner, award, cards, cardsByPlayer, season)}
+              season={season}
+              league={league}
+              winnerIndex={winnerIndex}
+              division={division}
+            />
+          )) : [<EmptyAwardCard key={division} award={award} season={season} league={league} division={division} />];
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className={styles.grid}>
@@ -181,6 +231,7 @@ export default function SeasonEndAwardCard({
           season={season}
           league={league}
           winnerIndex={winnerIndex}
+          division={winner.division}
         />
       )) : <EmptyAwardCard award={award} season={season} league={league} />}
     </div>

@@ -61,7 +61,7 @@ export default async function SeasonsEndPage({
         <p className="text-xs uppercase tracking-[.3em] text-gold">The season, in good company</p>
         <h1 className="type-display text-4xl sm:text-6xl">Season&apos;s End</h1>
         <p className="max-w-3xl text-sm text-steel">
-          Regular-season honors, calculated from recorded matches. Each accolade uses the original champion-art archive card treatment; cumulative Season Cards retain their normal card treatment.
+          Regular-season honors, calculated from recorded matches. Player-only accolades are awarded separately to Solari and Lunari; the sun and moon marks identify each division. Team honors and cumulative Season Cards retain their existing treatment.
         </p>
         <form className="flex flex-wrap items-end gap-3" action="/admin/seasons-end">
           <label className="flex flex-col gap-1 text-sm">League<select name="league" defaultValue={league} className="rounded border border-line bg-panel p-2"><option value="premier">Premier</option><option value="academy">Academy</option></select></label>

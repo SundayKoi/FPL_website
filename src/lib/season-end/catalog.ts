@@ -1,29 +1,31 @@
 export type AwardGroup = "Teamwork" | "Meme inserts" | "Season stories" | "Support & survival" | "Record breakers";
+export type AwardScope = "player" | "pair" | "team";
 export type MetricMode = "total" | "mean" | "minute" | "gold";
 export interface AwardDefinition {
   id: string;
   title: string;
   description: string;
   group: AwardGroup;
+  scope: AwardScope;
   field?: string;
   mode?: MetricMode;
   unit?: string;
   lower?: boolean;
 }
 const metric = (group: AwardGroup, title: string, description: string, field: string, mode: MetricMode = "total", unit = "", lower = false): AwardDefinition =>
-  ({ id: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-$/, ""), title, description, group, field, mode, unit, lower });
-const special = (group: AwardGroup, title: string, description: string): AwardDefinition =>
-  ({ id: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-$/, ""), title, description, group });
+  ({ id: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-$/, ""), title, description, group, scope: "player", field, mode, unit, lower });
+const special = (group: AwardGroup, title: string, description: string, scope: AwardScope = "player"): AwardDefinition =>
+  ({ id: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-$/, ""), title, description, group, scope });
 export const AWARD_GROUPS: AwardGroup[] = ["Teamwork", "Meme inserts", "Season stories", "Support & survival", "Record breakers"];
 export const SEASON_AWARDS: AwardDefinition[] = [
-  special("Teamwork", "Jungle–Mid Connection", "Jungle/mid pair with the most wins together, on the same team."),
-  special("Teamwork", "Fortress", "Fewest towers lost per team game, measured from the opposing team's towers destroyed."),
-  special("Teamwork", "Dragon Hoard", "Most team dragons secured; counted once per team game."),
-  special("Teamwork", "Baron Society", "Most team Barons secured; counted once per team game."),
-  special("Teamwork", "Speedrunners", "Shortest average game duration in wins; at least three wins."),
-  special("Teamwork", "Marathon Winners", "Most wins in games lasting strictly over 40 minutes."),
-  special("Teamwork", "Clean Sweep", "Most completed, undefeated best-of-three or best-of-five series."),
-  special("Teamwork", "The Starting Five", "Regular-season winning team: most series wins, then fewest losses. Commemorates its most-played complete five-player lineup; tied teams and lineups share the award."),
+  special("Teamwork", "Jungle–Mid Connection", "Jungle/mid pair with the most wins together, on the same team.", "pair"),
+  special("Teamwork", "Fortress", "Fewest towers lost per team game, measured from the opposing team's towers destroyed.", "team"),
+  special("Teamwork", "Dragon Hoard", "Most team dragons secured; counted once per team game.", "team"),
+  special("Teamwork", "Baron Society", "Most team Barons secured; counted once per team game.", "team"),
+  special("Teamwork", "Speedrunners", "Shortest average game duration in wins; at least three wins.", "team"),
+  special("Teamwork", "Marathon Winners", "Most wins in games lasting strictly over 40 minutes.", "team"),
+  special("Teamwork", "Clean Sweep", "Most completed, undefeated best-of-three or best-of-five series.", "team"),
+  special("Teamwork", "The Starting Five", "Regular-season winning team: most series wins, then fewest losses. Commemorates its most-played complete five-player lineup; tied teams and lineups share the award.", "team"),
   metric("Meme inserts", "Question Mark Enthusiast", "Most enemy-missing pings. A little curiosity never hurt.", "enemy_missing_pings"),
   metric("Meme inserts", "On My Way", "Most on-my-way pings. Be there in a second.", "on_my_way_pings"),
   metric("Meme inserts", "Button Masher", "Most Q, W, E and R casts per minute.", "ability_casts", "minute", "casts/min"),

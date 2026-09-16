@@ -14,6 +14,11 @@ to choose a champion background when a complete team is available. Season Cards
 remain the ordinary cumulative player cards for contributors with more than
 five games.
 
+Player-only accolades are calculated separately inside Solari and Lunari, so
+each such accolade has one card per division. The card marks Solari with a sun
+and Lunari with a moon. Team and player-pair honors remain single awards, as do
+the ordinary cumulative Season Cards.
+
 The server checks staff access before fetching data through the cookie-bound
 Supabase client. Reads are scoped to the selected season and `Regular` phase,
 paged in primary-key order until exhaustion, and fail together on query errors.

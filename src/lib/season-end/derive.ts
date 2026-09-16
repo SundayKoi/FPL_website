@@ -1,7 +1,7 @@
 import { SEASON_AWARDS, type AwardDefinition } from "./catalog";
 import championMap from "./champion-map.json";
 import { seasonBelongsToLeague, type LeagueSeasons } from "@/lib/league/season";
-import type { FixtureRow } from "@/lib/schedule/types";
+import { DIVISIONS, type Division, type FixtureRow } from "@/lib/schedule/types";
 
 /** Raw storage fields stay nullable. Missing observations must never become zero. */
 export interface SeasonRow {
@@ -12,6 +12,7 @@ export interface SeasonRow {
   season: string;
   season_phase: string;
   team_name: string;
+  division?: Division | null;
   team_side: string;
   role: string;
   game_date: string;
@@ -26,11 +27,18 @@ export interface AwardWinner {
   total?: number;
   perGame?: number;
   detail?: string;
+  division?: Division;
+}
+export type AwardStatus = "ready" | "unavailable" | "unearned";
+export interface DivisionAwardStatus {
+  status: AwardStatus;
+  note?: string;
 }
 export interface SeasonAward extends AwardDefinition {
   winners: AwardWinner[];
-  status: "ready" | "unavailable" | "unearned";
+  status: AwardStatus;
   note?: string;
+  divisionStatuses?: Record<Division, DivisionAwardStatus>;
 }
 export interface SeasonEndResult {
   awards: SeasonAward[];
@@ -41,6 +49,9 @@ export interface SeasonEndResult {
   warnings: string[];
 }
 type Group = { name: string; team: string; rows: SeasonRow[] };
+type DeriveOptions = {
+  division?: Division;
+};
 const identity = (r: SeasonRow) => `${r.summoner_name}#${r.tag}`;
 const normalized = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 const teamKey = (s: string) => s.trim().toLowerCase();
@@ -74,12 +85,87 @@ function completeFixture(f: FixtureRow): boolean {
     Math.min(f.score_a, f.score_b) >= 0 && Math.min(f.score_a, f.score_b) < Math.ceil(f.best_of / 2);
 }
 
-export function deriveSeasonEnd(input: SeasonRow[], fixtures: FixtureRow[], season: string, league: keyof LeagueSeasons): SeasonEndResult {
+function divisionMap(fixtures: FixtureRow[]): { byTeam: Map<string, Division>; conflicts: Set<string> } {
+  const byTeam = new Map<string, Division>();
+  const conflicts = new Set<string>();
+  for (const fixture of fixtures) {
+    if (!/^week_\d+$/.test(fixture.stage) || !fixture.division) continue;
+    for (const team of [fixture.team_a, fixture.team_b]) {
+      if (!team) continue;
+      const key = teamKey(team);
+      const previous = byTeam.get(key);
+      if (previous && previous !== fixture.division) conflicts.add(key);
+      else if (!conflicts.has(key)) byTeam.set(key, fixture.division);
+    }
+  }
+  return { byTeam, conflicts };
+}
+
+function rowDivision(row: SeasonRow, divisions: ReturnType<typeof divisionMap>): Division | null {
+  if (row.division === "Solari" || row.division === "Lunari") return row.division;
+  const key = teamKey(row.team_name);
+  return divisions.conflicts.has(key) ? null : divisions.byTeam.get(key) ?? null;
+}
+
+function fixtureIsInDivision(fixture: FixtureRow, division: Division, divisions: ReturnType<typeof divisionMap>): boolean {
+  if (fixture.division) return fixture.division === division;
+  const a = fixture.team_a ? divisions.byTeam.get(teamKey(fixture.team_a)) : null;
+  const b = fixture.team_b ? divisions.byTeam.get(teamKey(fixture.team_b)) : null;
+  return a === division && (b === null || b === division);
+}
+
+function mergeDivisionalAwards(
+  awards: SeasonAward[],
+  divisionalResults: Map<Division, SeasonEndResult>,
+): SeasonAward[] {
+  return awards.map((award) => {
+    if (award.scope !== "player") return award;
+
+    const divisionStatuses = Object.fromEntries(DIVISIONS.map((division) => {
+      const divisionalAward = divisionalResults.get(division)!.awards.find((candidate) => candidate.id === award.id)!;
+      return [division, { status: divisionalAward.status, note: divisionalAward.note }];
+    })) as Record<Division, DivisionAwardStatus>;
+    const divisionalAwards = DIVISIONS.map((division) => divisionalResults.get(division)!.awards.find((candidate) => candidate.id === award.id)!);
+    const winners = divisionalAwards.flatMap((divisionalAward, index) => divisionalAward.winners.map((winner) => ({
+      ...winner,
+      division: DIVISIONS[index],
+    })));
+    const statuses = divisionalAwards.map((divisionalAward) => divisionalAward.status);
+    const status = winners.length
+      ? "ready"
+      : statuses.every((candidate) => candidate === "unearned")
+        ? "unearned"
+        : "unavailable";
+
+    return {
+      ...award,
+      winners,
+      status,
+      note: status === "ready" ? undefined : divisionalAwards.find((candidate) => candidate.note)?.note,
+      divisionStatuses,
+    };
+  });
+}
+
+export function deriveSeasonEnd(
+  input: SeasonRow[],
+  fixtures: FixtureRow[],
+  season: string,
+  league: keyof LeagueSeasons,
+  options: DeriveOptions = {},
+): SeasonEndResult {
   if (!seasonBelongsToLeague(season, league)) throw new Error("Season does not belong to this league.");
   const warnings: string[] = [];
-  const regularFixtures = fixtures.filter(f => f.season === season && /^week_\d+$/.test(f.stage));
+  const seasonFixtures = fixtures.filter(f => f.season === season);
+  const divisions = divisionMap(seasonFixtures);
+  const regularFixtures = seasonFixtures
+    .filter(f => /^week_\d+$/.test(f.stage))
+    .filter(f => !options.division || fixtureIsInDivision(f, options.division, divisions));
+  const scopedInput = options.division
+    ? input.filter((row) => rowDivision(row, divisions) === options.division)
+    : input;
   const fixtureTeams = new Set(regularFixtures.flatMap(f => [f.team_a, f.team_b]).filter((s): s is string => !!s).map(teamKey));
-  const candidates = input.filter(r => r.season === season && r.season_phase === "Regular");
+  const candidates = scopedInput.filter(r => r.season === season && r.season_phase === "Regular");
   const valid = candidates.filter(r => r.match_id && r.summoner_name && r.tag && r.team_name &&
     ["Blue", "Red"].includes(r.team_side) && typeof r.win === "boolean" &&
     (!fixtureTeams.size || fixtureTeams.has(teamKey(r.team_name))));
@@ -159,7 +245,7 @@ export function deriveSeasonEnd(input: SeasonRow[], fixtures: FixtureRow[], seas
   };
   const winner = (g: Group, value: number, detail?: string): AwardWinner => ({ name: g.name, team: g.team, games: g.rows.length, value, detail });
   const missing = (def: AwardDefinition) => unavailable(def, "Required observations are missing or ambiguous; no winner declared from incomplete data.");
-  const awards = SEASON_AWARDS.map((def): SeasonAward => {
+  const baseAwards = SEASON_AWARDS.map((def): SeasonAward => {
     if (!rows.length) return unavailable(def, "No regular-season games available for this league and season.");
     if (incompleteMatches.length || duplicateMatches.size || valid.length !== candidates.length) return unavailable(def, "Season contains incomplete or conflicting participant records. Repair ingestion before declaring winners.");
     if (ambiguousTeams.length && ((def.group === "Teamwork" && def.id !== "clean-sweep") || ["giant-slayer", "revenge-tour"].includes(def.id))) return unavailable(def, "A game has conflicting team assignments; correct the match's team labels before awarding this card.");
@@ -308,5 +394,13 @@ export function deriveSeasonEnd(input: SeasonRow[], fixtures: FixtureRow[], seas
     }
     return choose(def, values, ["fortress", "speedrunners"].includes(def.id));
   });
-  return { awards, games: matches.size, players: players.length, minGames, complete, warnings };
+  const result = { awards: baseAwards, games: matches.size, players: players.length, minGames, complete, warnings };
+  const hasDivisionData = !options.division && DIVISIONS.some((division) => rows.some((row) => rowDivision(row, divisions) === division));
+  if (!hasDivisionData) return result;
+
+  const divisionalResults = new Map<Division, SeasonEndResult>(DIVISIONS.map((division) => [
+    division,
+    deriveSeasonEnd(input, fixtures, season, league, { division }),
+  ]));
+  return { ...result, awards: mergeDivisionalAwards(baseAwards, divisionalResults) };
 }

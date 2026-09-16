@@ -139,4 +139,24 @@ describe("season-end winners", () => {
     expect(result.awards).toHaveLength(68);
     expect(result.awards.find(a => a.id === "grand-theft-objective")?.description).toContain("not recorded");
   });
+
+  it("calculates singular-player accolades independently for Solari and Lunari", () => {
+    const solari = game(1).map((row) => ({ ...row, match_id: "solari", division: "Solari" as const }));
+    const lunari = game(2).map((row) => ({
+      ...row,
+      match_id: "lunari",
+      team_name: row.team_name === "Wolves" ? "Comets" : "Falcons",
+      division: "Lunari" as const,
+    }));
+    const splitFixtures = [
+      { ...fixtures()[0], id: "solari", division: "Solari" as const },
+      { ...fixtures()[0], id: "lunari", division: "Lunari" as const, team_a: "Comets", team_b: "Falcons" },
+    ];
+
+    const result = deriveSeasonEnd([...solari, ...lunari], splitFixtures, "S5", "premier");
+    const winners = result.awards.find((candidate) => candidate.id === "body-count")!.winners;
+    expect(winners).toHaveLength(10);
+    expect(new Set(winners.map((winner) => winner.division))).toEqual(new Set(["Solari", "Lunari"]));
+    expect(result.awards.find((candidate) => candidate.id === "dragon-hoard")!.winners[0].division).toBeUndefined();
+  });
 });
