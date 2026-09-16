@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { SENDOFF_LOOKS } from "@/lib/cards/sendoffLooks";
 import { mondayOf } from "@/lib/packs/week";
 
 const {
@@ -32,8 +33,25 @@ vi.mock("@/lib/cards/queries", () => ({
   fetchEditionWeekInfo,
 }));
 vi.mock("@/components/cards/PlayerCard3D", () => ({
-  default: ({ card }: { card: { name: string; sendoff?: { stage: string } | null } }) => (
-    <div data-testid="card" data-stage={card.sendoff?.stage ?? ""}>{card.name}</div>
+  // The overlay comes back out as attributes so the look wall can be
+  // checked for what it actually hands the renderer — the chip line and
+  // the layer stack — without rendering any CSS.
+  default: ({
+    card,
+    overlay,
+  }: {
+    card: { name: string; sendoff?: { stage: string } | null };
+    overlay?: { front: string[]; chip?: string; accent: string } | null;
+  }) => (
+    <div
+      data-testid="card"
+      data-stage={card.sendoff?.stage ?? ""}
+      data-chip={overlay?.chip ?? ""}
+      data-front={overlay?.front.join("|") ?? ""}
+      data-accent={overlay?.accent ?? ""}
+    >
+      {card.name}
+    </div>
   ),
 }));
 
@@ -97,7 +115,8 @@ describe("the send-off preview", () => {
     expect(screen.getByText("Champion of the split")).toBeTruthy();
     expect(screen.getByText("Out in the Semifinals")).toBeTruthy();
     // The card the mockup draws on really wears the mark.
-    const stages = [...screen.getAllByTestId("card")].map((node) => node.dataset.stage);
+    const wall = screen.getByLabelText("The five exits");
+    const stages = [...wall.querySelectorAll<HTMLElement>("[data-testid='card']")].map((node) => node.dataset.stage);
     expect(stages).toEqual(["gauntlet", "quarterfinalist", "semifinalist", "finalist", "champion"]);
     // Fewer cards than stamps is a fresh split, not an error — the wall wraps.
     expect(screen.getAllByText("Doug").length).toBeGreaterThan(0);
@@ -192,6 +211,51 @@ describe("the send-off preview", () => {
     expect(fetchSeasonCards).toHaveBeenCalledWith(expect.anything(), "A5");
     expect(screen.getByTestId("league-academy").getAttribute("aria-current")).toBe("page");
     expect(screen.getByTestId("league-premier").getAttribute("aria-current")).toBeNull();
+  });
+
+  it("draws six prototype looks, three stages each, over the shipped send-off", async () => {
+    staff();
+    fetchAllCardSeasons.mockResolvedValue([{ league: "premier", season: "S5" }]);
+    fetchSeasonCards.mockResolvedValue([
+      card("Doug", "Gamblers", 92, "Top"),
+      card("Ana", "Mocha", 88, "Mid"),
+      card("Bo", "Untouched", 84, "Jungle"),
+    ]);
+    fetchSeasonFixtures.mockResolvedValue([]);
+    fetchEditionWeekInfo.mockResolvedValue([]);
+
+    render(await SendoffPreviewPage(params()));
+    const section = screen.getByLabelText("Looks");
+    expect(section).toBeTruthy();
+
+    for (const key of SENDOFF_LOOKS.map((look) => look.key)) {
+      const row = screen.getByTestId(`look-${key}`);
+      const figures = [...row.querySelectorAll<HTMLElement>("[data-look-stage]")];
+      // The same three faces, in the same order, in every row — a look can
+      // only be compared against another look like for like.
+      expect(figures.map((figure) => figure.dataset.lookStage), key).toEqual([
+        "quarterfinalist",
+        "finalist",
+        "champion",
+      ]);
+      const drawn = [...row.querySelectorAll<HTMLElement>("[data-testid='card']")];
+      expect(drawn.map((node) => node.textContent), key).toEqual(["Doug", "Ana", "Bo"]);
+      // Each card is stamped AND overlaid: the mockup sits on a real mark.
+      expect(drawn.map((node) => node.dataset.stage), key).toEqual(["quarterfinalist", "finalist", "champion"]);
+      for (const node of drawn) expect(node.dataset.front, key).toBeTruthy();
+      expect(drawn[2].dataset.chip).toBe("CHAMPION · 3–1 · FINALS");
+      // ...and the Champion is not the Finalist with a different word on it.
+      expect(drawn[2].dataset.front, key).not.toBe(drawn[1].dataset.front);
+    }
+
+    // The reference row: the same real card three ways, for scale.
+    for (const id of ["reference-season", "reference-line", "reference-sendoff"]) {
+      const figure = screen.getByTestId(id);
+      expect(figure.textContent, id).toContain("Doug");
+    }
+    expect(screen.getByTestId("reference-sendoff").querySelector<HTMLElement>("[data-testid='card']")?.dataset.stage).toBe(
+      "semifinalist",
+    );
   });
 
   it("promises in its own copy that it writes nothing", async () => {
