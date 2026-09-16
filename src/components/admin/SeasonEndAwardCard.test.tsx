@@ -108,7 +108,7 @@ describe("SeasonEndAwardCard", () => {
     expect(screen.getByText("Lunari fixtures are incomplete.")).toBeTruthy();
   });
 
-  it("uses the assigned champion and per-champion title in the normal Season's End card", () => {
+  it("routes Best of through the full-art renderer without inheriting live autograph ink", () => {
     render(
       <SeasonEndAwardCard
         award={{
@@ -138,10 +138,13 @@ describe("SeasonEndAwardCard", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Best of Azir" })).toBeTruthy();
-    expect(screen.getByTestId("award-card-art").getAttribute("style")).toContain("Azir_0.jpg");
-    expect(screen.queryByText("One unique played champion per player.")).toBeNull();
+    expect(screen.getByTestId("best-of-card-art").getAttribute("style")).toContain("Azir_0.jpg");
+    expect(screen.getByLabelText("Overall unavailable")).toBeTruthy();
+    expect(screen.getByText("S5 Premier")).toBeTruthy();
     expect(screen.getByText(/2–0 · 8 KDA · 88\/100 score · Wolves · 6 games/)).toBeTruthy();
-    expect(screen.getByText("SEASON ARCHIVE")).toBeTruthy();
+    expect(screen.getByText("One unique played champion per player.")).toBeTruthy();
+    expect(screen.queryByTestId("best-of-autograph")).toBeNull();
+    expect(screen.queryByText("Season stories")).toBeNull();
   });
 
   it("keeps Best of empty states actionable without repeating the assignment description", () => {
@@ -167,7 +170,32 @@ describe("SeasonEndAwardCard", () => {
 
     expect(screen.getByText("Not earned yet")).toBeTruthy();
     expect(screen.getByText("No champion performances reached 70/100.")).toBeTruthy();
-    expect(screen.queryByText("This explanation should not be rendered on the card.")).toBeNull();
+    expect(screen.getByText("This explanation should not be rendered on the card.")).toBeTruthy();
     expect(screen.queryByLabelText(/division$/)).toBeNull();
+    expect(screen.queryByText("Season stories")).toBeNull();
+  });
+
+  it("keeps the generic Season stories face treatment for non-best-of awards", () => {
+    render(
+      <SeasonEndAwardCard
+        award={{
+          id: "late-bloomer",
+          title: "Late Bloomer",
+          description: "Highest performance in the final third.",
+          group: "Season stories",
+          scope: "player",
+          partition: "division",
+          status: "ready",
+          winners: [{ name: "Alice#NA1", team: "Wolves", value: 84, games: 6, division: "Solari" }],
+        }}
+        season="S5"
+        league="premier"
+        index={0}
+        cards={[card]}
+      />,
+    );
+
+    expect(screen.getByText("Season stories")).toBeTruthy();
+    expect(screen.getByText("Highest performance in the final third.")).toBeTruthy();
   });
 });

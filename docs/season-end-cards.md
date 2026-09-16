@@ -7,20 +7,26 @@ This is a read-only awards desk, not a collectible mint or a season-closing
 operation. The former `/admin/season-end` route redirects here for existing
 admin bookmarks.
 
-Accolade entries use the original Season's End archive-card treatment: a tall,
+Accolade entries use the Season's End archive-card treatment: a tall,
 family-colored card with the winner's champion splash art, award title, winning
 statistic, evidence line and archive seal. Team honors use the roster-card data
-to choose a champion background when a complete team is available. Season Cards
-remain the ordinary cumulative player cards for contributors with more than
-five games.
+to choose a champion background when a complete team is available. Best of
+Champion is the visual exception: its face is a 5:7 full-bleed champion splash
+with a fine inset gold frame, the player name in the lower title region, an OVR
+badge sourced from the resolved player card, and the selected season/league in
+the lower-left footer. Its score and evidence remain in the compact details
+below the face. Season Cards remain the ordinary cumulative player cards for
+contributors with more than five games.
 
 Best of Champion assigns one played champion to each player and one player to
 each champion, maximizing player coverage before the combined win-rate and
 role-relative performance score. Only candidates scoring at least 70/100 are
 eligible; the score floor is fixed rather than falling back per season. Each
-assigned winner is rendered with its per-champion title and splash art inside
-the same Season's End archive-card layout; it does not use the separate
-cumulative Season Card layout.
+assigned winner is rendered with its per-champion title and assigned splash art
+inside the full-art Best of face; it does not use the separate cumulative
+Season Card layout. The live admin preview is deliberately unsigned: it does
+not read or display a player's saved autograph. A future frozen signed pull may
+supply ink explicitly without changing the preview or award calculation.
 
 Ordinary player, player-pair, and Teamwork accolades are calculated separately
 inside Solari and Lunari, so each such accolade has one card per division. The

@@ -1,6 +1,7 @@
 import { championSplashUrl } from "@/lib/match-draft/champions";
 import { cardPlayerKey, type PlayerCardData } from "@/lib/cards/build";
 import { buildTeamCards, teamToCard } from "@/lib/cards/teamCards";
+import BestOfChampionCard from "./BestOfChampionCard";
 import type { AwardWinner, SeasonAward } from "@/lib/season-end/derive";
 import { formatAwardPresentation } from "@/lib/season-end/presentation";
 import type { Division } from "@/lib/schedule/types";
@@ -192,6 +193,38 @@ export default function SeasonEndAwardCard({
 }) {
   const cardsByPlayer = new Map(cards.map((card) => [cardPlayerKey(card.name, card.tag), card]));
   const isDivisional = Boolean(award.divisionStatuses);
+
+  if (award.id === "best-of-champion") {
+    const bestOfCard = (winner: AwardWinner | null, winnerIndex: number, division?: Division) => (
+      <BestOfChampionCard
+        key={`${division ?? "global"}-${winner?.name ?? "empty"}-${winnerIndex}`}
+        award={award}
+        winner={winner}
+        playerCard={winner ? cardsForWinner(winner, award, cards, cardsByPlayer, season)[0] ?? null : null}
+        season={season}
+        league={league}
+        headingId={`title-${award.id}-${division ?? "global"}-${winner ? winnerIndex : "empty"}`}
+        division={division}
+      />
+    );
+
+    if (isDivisional) {
+      return (
+        <div className={styles.cardGroup}>
+          {(["Solari", "Lunari"] as const).flatMap((division) => {
+            const winners = award.winners.filter((winner) => winner.division === division);
+            return winners.length ? winners.map((winner, winnerIndex) => bestOfCard(winner, winnerIndex, division)) : [bestOfCard(null, 0, division)];
+          })}
+        </div>
+      );
+    }
+
+    return (
+      <div className={styles.cardGroup}>
+        {award.winners.length ? award.winners.map((winner, winnerIndex) => bestOfCard(winner, winnerIndex)) : bestOfCard(null, 0)}
+      </div>
+    );
+  }
 
   if (isDivisional) {
     return (
