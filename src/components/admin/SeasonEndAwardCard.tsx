@@ -1,33 +1,27 @@
 import { championSplashUrl } from "@/lib/match-draft/champions";
 import { cardPlayerKey, type PlayerCardData } from "@/lib/cards/build";
 import { buildTeamCards, teamToCard } from "@/lib/cards/teamCards";
+import BestOfChampionCard from "./BestOfChampionCard";
 import type { AwardWinner, SeasonAward } from "@/lib/season-end/derive";
+import { formatAwardPresentation } from "@/lib/season-end/presentation";
 import type { Division } from "@/lib/schedule/types";
 import styles from "./SeasonEndAwardCard.module.css";
 
-const format = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 2 });
-
 type AwardFamily = "record" | "guardian" | "wild" | "story" | "team";
-
-function unitFor(award: SeasonAward): string {
-  if (award.unit === "gold") return "$";
-  if (award.unit) return award.unit;
-  if (award.id === "speedrunners") return "minutes";
-  if (award.id === "fortress") return "towers/game";
-  return "";
-}
 
 function familyFor(award: SeasonAward): AwardFamily {
   switch (award.group) {
     case "Teamwork": return "team";
     case "Meme inserts": return "wild";
     case "Season stories": return "story";
+    case "Best of Champions": return "story";
     case "Support & survival": return "guardian";
     case "Record breakers": return "record";
   }
 }
 
 function familyLabel(award: SeasonAward): string {
+  if (award.group === "Best of Champions") return "Best of Champions";
   switch (familyFor(award)) {
     case "record": return "Record breakers";
     case "guardian": return "Support & survival";
@@ -87,13 +81,6 @@ function championFor(cards: PlayerCardData[]): string | null {
   return null;
 }
 
-function evidenceFor(award: SeasonAward, winner: AwardWinner): string {
-  const games = `${winner.games} ${award.id === "clean-sweep" ? "series" : "games"}`;
-  const team = winner.name !== winner.team ? `${winner.team} · ` : "";
-  const total = winner.total === undefined ? "" : `${format(winner.total)} total`;
-  return [winner.detail, total, `${team}${games}`].filter(Boolean).join(" · ");
-}
-
 function DivisionMark({ division }: { division: Division }) {
   return (
     <span className={styles.divisionMark} aria-label={`${division} division`} title={`${division} division`}>
@@ -123,7 +110,7 @@ function AwardVisualCard({
   const family = familyFor(award);
   const champion = championFor(cards);
   const art = champion ? championSplashUrl(champion, 0) : null;
-  const unit = unitFor(award);
+  const display = formatAwardPresentation(award, winner);
   const roster = cards[0]?.team?.slots.filter((slot) => slot.slug).map((slot) => slot.name) ?? [];
   const titleId = `title-${award.id}-${division ?? "global"}-${winnerIndex}`;
   const title = winner.title ?? award.title;
@@ -140,13 +127,13 @@ function AwardVisualCard({
       <div className={styles.content}>
         <p className={styles.collection}>{familyLabel(award)}</p>
         <h3 id={titleId} className={styles.title}>{title}</h3>
-        <p className={styles.description}>{award.description}</p>
+        {award.id !== "best-of-champion" ? <p className={styles.description}>{award.description}</p> : null}
         <p className={styles.name}>{winner.name}</p>
         <div className={styles.value}>
-          {unit === "$" ? "$" : ""}{format(winner.value)}
-          {unit && unit !== "$" ? <span className={styles.unit}>{unit}</span> : null}
+          {display.unit === "$" ? "$" : ""}{display.headline}
+          {display.unit && display.unit !== "$" ? <span className={styles.unit}>{display.unit}</span> : null}
         </div>
-        <p className={styles.evidence}>{evidenceFor(award, winner)}</p>
+        <p className={styles.evidence}>{display.evidence}</p>
         {roster.length ? (
           <details className={styles.details}>
             <summary>Season roster · {roster.length} contributors</summary>
@@ -174,6 +161,7 @@ function EmptyAwardCard({
   const status = divisionStatus?.status ?? award.status;
   const note = divisionStatus?.note ?? award.note;
   const titleId = `title-${award.id}-${division ?? "global"}`;
+  const statusNote = note ?? (award.id === "best-of-champion" ? "No qualifying champion assignment yet." : award.description);
 
   return (
     <article aria-labelledby={titleId} className={`${styles.card} ${styles[familyFor(award)]}`}>
@@ -181,9 +169,9 @@ function EmptyAwardCard({
       <div className={styles.content}>
         <p className={styles.collection}>{familyLabel(award)}</p>
         <h3 id={titleId} className={styles.title}>{award.title}</h3>
-        <p className={styles.description}>{award.description}</p>
+        {award.id !== "best-of-champion" ? <p className={styles.description}>{award.description}</p> : null}
         <p className={styles.empty}>{status === "unearned" ? "Not earned yet" : "Awaiting evidence"}</p>
-        <p className={styles.evidence}>{note ?? award.description}</p>
+        <p className={styles.evidence}>{statusNote}</p>
         <div className={styles.seal}><span>SEASON ARCHIVE</span><span>ADMIN PREVIEW</span></div>
       </div>
     </article>
@@ -204,7 +192,39 @@ export default function SeasonEndAwardCard({
   cards: PlayerCardData[];
 }) {
   const cardsByPlayer = new Map(cards.map((card) => [cardPlayerKey(card.name, card.tag), card]));
-  const isDivisional = award.scope === "player" && award.divisionStatuses;
+  const isDivisional = Boolean(award.divisionStatuses);
+
+  if (award.id === "best-of-champion") {
+    const bestOfCard = (winner: AwardWinner | null, winnerIndex: number, division?: Division) => (
+      <BestOfChampionCard
+        key={`${division ?? "global"}-${winner?.name ?? "empty"}-${winnerIndex}`}
+        award={award}
+        winner={winner}
+        playerCard={winner ? cardsForWinner(winner, award, cards, cardsByPlayer, season)[0] ?? null : null}
+        season={season}
+        league={league}
+        headingId={`title-${award.id}-${division ?? "global"}-${winner ? winnerIndex : "empty"}`}
+        division={division ?? winner?.division}
+      />
+    );
+
+    if (isDivisional) {
+      return (
+        <div className={styles.cardGroup}>
+          {(["Solari", "Lunari"] as const).flatMap((division) => {
+            const winners = award.winners.filter((winner) => winner.division === division);
+            return winners.length ? winners.map((winner, winnerIndex) => bestOfCard(winner, winnerIndex, division)) : [bestOfCard(null, 0, division)];
+          })}
+        </div>
+      );
+    }
+
+    return (
+      <div className={styles.cardGroup}>
+        {award.winners.length ? award.winners.map((winner, winnerIndex) => bestOfCard(winner, winnerIndex)) : bestOfCard(null, 0)}
+      </div>
+    );
+  }
 
   if (isDivisional) {
     return (
@@ -239,7 +259,7 @@ export default function SeasonEndAwardCard({
           season={season}
           league={league}
           winnerIndex={winnerIndex}
-          division={winner.division}
+          division={award.partition === "division" ? winner.division : undefined}
         />
       )) : <EmptyAwardCard award={award} season={season} league={league} />}
     </div>

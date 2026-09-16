@@ -10,6 +10,10 @@ describe("unique champion allocation",()=>{
     expect(assignChampions([c("A","Ahri",100),c("A","Azir",99),c("B","Ahri",98),c("B","Azir",1)]))
       .toEqual([c("A","Azir",99),c("B","Ahri",98)]);
   });
+  it("gives a contested champion to the higher-scoring player",()=>{
+    expect(assignChampions([c("lower","Ahri",70),c("lower","Azir",60),c("higher","Ahri",80),c("higher","Zed",1)]))
+      .toEqual([c("higher","Ahri",80),c("lower","Azir",60)]);
+  });
   it("returns only real assignments when coverage is impossible and is order-independent",()=>{
     const input=[c("A","Ahri",50),c("B","Ahri",50),c("C","Ahri",40)];
     expect(assignChampions(input)).toHaveLength(1);

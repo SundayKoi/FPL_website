@@ -37,7 +37,7 @@ beforeEach(() => {
     minGames: 5,
     complete: false,
     warnings: [],
-    awards: [{ id: "body-count", title: "Body Count", description: "Most kills", group: "Record breakers", mode: "total", unit: "kills", status: "ready", winners: [{ name: "Alice#NA1", team: "Wolves", games: 6, value: 60, total: 60, perGame: 10 }] }],
+    awards: [{ id: "body-count", title: "Body Count", description: "Most kills", group: "Record breakers", scope: "player", partition: "division", mode: "total", unit: "kills", status: "ready", winners: [{ name: "Alice#NA1", team: "Wolves", games: 6, value: 60, total: 60, perGame: 10 }] }],
   });
   fetchCards.mockResolvedValue([{ slug: "alice", name: "Alice", tag: "NA1", teamName: "Wolves", level: 6, signature: { champion: "Ahri", games: 4 } }]);
 });
@@ -57,6 +57,9 @@ describe("Season's End admin page", () => {
     expect(screen.queryByText(/Season total/)).toBeNull();
     expect(screen.getByTestId("award-card").dataset.cardCount).toBe("1");
     expect(screen.getByRole("heading", { name: "Season Cards" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Best of Champions" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Best of Champions" })).toBeTruthy();
+    expect(screen.getByText("07")).toBeTruthy();
     expect(screen.getByTestId("season-card").textContent).toBe("Alice");
   });
 
@@ -70,5 +73,28 @@ describe("Season's End admin page", () => {
     render(await Page({ searchParams: Promise.resolve({ league: "academy", season: "S5" }) }));
     expect(load).not.toHaveBeenCalled();
     expect(screen.getByRole("alert")).toBeTruthy();
+  });
+
+  it("renders Best of Champions as its own category after Season stories", async () => {
+    load.mockResolvedValueOnce({
+      games: 6,
+      players: 10,
+      minGames: 5,
+      complete: true,
+      warnings: [],
+      awards: [
+        { id: "late-bloomer", title: "Late Bloomer", description: "Late", group: "Season stories", scope: "player", partition: "division", status: "unearned", winners: [] },
+        { id: "best-of-champion", title: "Best of Champion", description: "Assignment", group: "Best of Champions", scope: "player", partition: "league", status: "ready", winners: [{ name: "Alice#NA1", team: "Wolves", games: 6, value: 85 }] },
+      ],
+    });
+    render(await Page({ searchParams: Promise.resolve({}) }));
+
+    const stories = screen.getByRole("region", { name: "Season stories" });
+    const bestOf = screen.getByRole("region", { name: "Best of Champions" });
+    expect(stories.querySelector("h2")?.textContent).toBe("Season stories");
+    expect(stories.querySelector("h3")?.textContent).not.toBe("Best of Champion");
+    expect(bestOf.querySelector("h2")?.textContent).toBe("Best of Champions");
+    expect(bestOf.querySelector("h3")?.textContent).toBe("Best of Champion");
+    expect(bestOf.querySelector('[data-testid="award-card"]')?.textContent).toContain("85");
   });
 });

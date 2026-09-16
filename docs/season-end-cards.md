@@ -1,29 +1,55 @@
 # Season's End cards
 
 Open **Admin → Season's End** (`/admin/seasons-end`). Admins and owners can
-calculate all 61 accolade cards for either league and a selected season, plus
+calculate all 56 accolade cards for either league and a selected season, plus
 the normal cumulative Season Cards for contributors with more than five games.
 This is a read-only awards desk, not a collectible mint or a season-closing
 operation. The former `/admin/season-end` route redirects here for existing
 admin bookmarks.
 
-Accolade entries use the original Season's End archive-card treatment: a tall,
+Accolade entries use the Season's End archive-card treatment: a tall,
 family-colored card with the winner's champion splash art, award title, winning
 statistic, evidence line and archive seal. Team honors use the roster-card data
-to choose a champion background when a complete team is available. Season Cards
-remain the ordinary cumulative player cards for contributors with more than
-five games.
+to choose a champion background when a complete team is available. Best of
+Champion is the visual exception: its face is a 5:7 full-bleed champion splash
+with a clean continuous double gold edge frame, a manually calibrated crop, the
+player name in the lower title region, and the selected season/league in the
+lower-left footer. A resolved division adds one small Solari or Lunari seal in
+the upper-right; there is no OVR or replacement rating. Its score and evidence
+remain in the compact details below the face. Missing or conflicting division
+metadata leaves the face valid without a seal. Season Cards remain the ordinary
+cumulative player cards for contributors with more than five games.
 
 Best of Champion assigns one played champion to each player and one player to
-each champion, maximizing player coverage before the combined win-rate and
-role-relative performance score. Each assigned winner is rendered with its
-per-champion title and splash art inside the same Season's End archive-card
-layout; it does not use the separate cumulative Season Card layout.
+each champion, maximizing coverage across players with at least five
+regular-season games before the combined win-rate and role-relative
+performance score. There is no minimum score floor. The full-precision
+champion-specific score favors the stronger player when a champion is contested,
+while preserving the league-wide one-player/one-champion assignment. Each
+assigned winner is rendered with its per-champion title and assigned splash art
+inside the full-art Best of face; it does not use the separate cumulative
+Season Card layout. The live admin preview is deliberately unsigned: it does
+not read or display a player's saved autograph. A future frozen signed pull may
+supply ink explicitly without changing the preview or award calculation.
 
-Player-only accolades are calculated separately inside Solari and Lunari, so
-each such accolade has one card per division. The card marks Solari with a sun
-and Lunari with a moon. Team and player-pair honors remain single awards, as do
-the ordinary cumulative Season Cards.
+Ordinary player, player-pair, and Teamwork accolades are calculated separately
+inside Solari and Lunari, so each such accolade has one card per division. The
+card marks Solari with a sun and Lunari with a moon. Best of Champions is the
+exception: it is assigned once across the selected league, so Premier has at
+most one Best of Ahri, one Best of Azir, and so on across both divisions.
+Academy is calculated independently. The ordinary cumulative Season Cards
+remain outside this division policy. Division seals are presentation metadata
+resolved from every selected-season regular-season appearance; conflicting or
+unresolved team/row divisions do not receive an invented default.
+
+Best of face crops use the curated base-skin registry in
+`src/lib/season-end/championArt.ts`. It stores CSS crop positions rather than
+source-image face coordinates, currently matching the approved Milio (48%),
+Senna (53%), Maokai (70%), and Jhin (64%) horizontal positions with 50%
+vertical positioning and no additional zoom. Unreviewed champions, new
+aliases, and alternate skins use a centered cover fallback until explicitly
+reviewed. The design decision and acceptance criteria are recorded in [the Best
+of prototype adoption plan](plans/2026-09-16-best-of-prototype-adoption.md).
 
 The server checks staff access before fetching data through the cookie-bound
 Supabase client. Reads are scoped to the selected season and `Regular` phase,
@@ -70,10 +96,17 @@ exist, their team names also constrain the data. No migrations are required.
 - Grand Theft Objective uses all objective steals. Stored data does not prove
   Baron-specific steals, so it does not use the Grand Theft Baron title.
 
-Volume-based cards display the normalized per-game figure or event rate as the
-headline, while retaining the winner's season numerator total and game count
-in the evidence line. Per-minute and damage-per-gold cards continue to display
-their actual winning rate explicitly.
+Card headlines are rounded to whole numbers with half-away-from-zero rounding.
+Percentages are percentage points, and signed means, ratios, scores, and
+durations keep their ordinary units. Volume-based cards display the normalized
+per-game figure or event rate as the headline, while retaining the winner's
+season numerator total and game count in the evidence line. When an explicitly
+configured additive count average or rate is below one, the headline switches
+to the observed season numerator as a labelled total and removes `/game` or
+`/min`; the raw value used for ranking is unchanged. Missing totals never
+become zero, and percentages, ratios, durations, and non-additive means do not
+receive count-total fallbacks. Best of evidence shows an integer score, record,
+appearances, and KDA without decimal formatting.
 
 ## Champion mappings
 

@@ -3,6 +3,7 @@ import { championCategories, deriveSeasonEnd, type SeasonRow } from "./derive";
 import type { FixtureRow } from "@/lib/schedule/types";
 
 const roles = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"];
+const weekStages = ["week_1", "week_2", "week_3", "week_4", "week_5"] as const;
 export function game(n: number, aWins = true): SeasonRow[] {
   return ["Blue", "Red"].flatMap((side, s) => roles.map((role, i) => ({
     match_id: `match${n}`, summoner_name: `${s ? "B" : "A"}${i}`, tag: "NA1", season: "S5", season_phase: "Regular",
@@ -30,7 +31,6 @@ describe("season-end winners", () => {
   });
   it("counts team objectives once per game and measures towers lost from the opponent", () => {
     expect(award(season(), "dragon-hoard").winners).toMatchObject([{ name: "Wolves", value: 3, total: 18, games: 6 }]);
-    expect(award(season(), "baron-society").winners[0]).toMatchObject({ value: 2, total: 12, games: 6 });
     expect(award(season(), "fortress").winners).toMatchObject([{ name: "Wolves", value: 2 }]);
     expect(award(season(), "jungle-mid-connection").winners).toMatchObject([{ name: "A1#NA1 + A2#NA1", value: 100, total: 6, games: 6 }]);
   });
@@ -61,7 +61,6 @@ describe("season-end winners", () => {
   });
   it("uses unique opposing roles and excludes short games from lane checkpoints", () => {
     expect(award(season(), "lane-landlord").winners[0].value).toBe(1000);
-    expect(award(season(), "farm-gap").winners[0].value).toBe(20);
     const ambiguous = season(); ambiguous[6].role = "TOP";
     expect(award(ambiguous, "lane-landlord").status).toBe("unavailable");
     const short = season(); short.filter(r => r.match_id === "match1").forEach(r => { r.game_duration_min = 12; r.gold_at_15 = null; });
@@ -138,7 +137,7 @@ describe("season-end winners", () => {
   });
   it("keeps the configured cards visible, including the correctly named steal award", () => {
     const result = deriveSeasonEnd(season(), fixtures(), "S5", "premier");
-    expect(result.awards).toHaveLength(61);
+    expect(result.awards).toHaveLength(56);
     expect(result.awards.map((award) => award.title)).not.toEqual(expect.arrayContaining([
       "Opening Act",
       "Full Arsenal",
@@ -148,6 +147,11 @@ describe("season-end winners", () => {
       "Ironclad",
       "Unkillable Run",
       "Hot Streak",
+      "Baron Society",
+      "Value Engine",
+      "Four Horsemen",
+      "Low Budget, High Impact",
+      "Farm Gap",
     ]));
     expect(result.awards.find(a => a.id === "grand-theft-objective")?.description).toContain("not recorded");
   });
@@ -165,6 +169,67 @@ describe("season-end winners", () => {
     expect(new Set(bestOf.winners.map((winner) => winner.playerKeys?.[0])).size).toBe(10);
     expect(new Set(bestOf.winners.map((winner) => winner.champion)).size).toBe(10);
     expect(bestOf.winners.every((winner) => winner.title === `Best of ${winner.champion}`)).toBe(true);
+  });
+
+  it("annotates league-wide Best of winners after assignment without changing the assignment", () => {
+    const champions = ["Ahri", "Azir", "Braum", "Caitlyn", "Darius", "Ekko", "Fiora", "Garen", "Jinx", "Lulu"];
+    const baseRows = season().map((row) => ({
+      ...row,
+      champion: champions[(row.summoner_name.startsWith("B") ? 5 : 0) + Number(row.summoner_name.slice(1))],
+    }));
+    const dividedRows = baseRows.map((row) => row.team_name === "Wolves"
+      ? { ...row, division: row.summoner_name === "A4" ? "Lunari" as const : "Solari" as const }
+      : row);
+    const base = deriveSeasonEnd(baseRows, fixtures(), "S5", "premier").awards.find((award) => award.id === "best-of-champion")!;
+    const divided = deriveSeasonEnd(dividedRows, fixtures(), "S5", "premier").awards.find((award) => award.id === "best-of-champion")!;
+    const project = (winner: typeof base.winners[number]) => ({
+      name: winner.name,
+      team: winner.team,
+      value: winner.value,
+      games: winner.games,
+      champion: winner.champion,
+      championGames: winner.championGames,
+      title: winner.title,
+      evidence: winner.evidence,
+    });
+
+    expect(divided.winners.map(project)).toEqual(base.winners.map(project));
+    expect(divided.partition).toBe("league");
+    expect(divided.winners.find((winner) => winner.name === "A4#NA1")?.division).toBe("Lunari");
+    expect(divided.winners.filter((winner) => winner.division === "Solari")).toHaveLength(4);
+  });
+
+  it("resolves Best of division metadata from fixtures, team changes, and conservative fallbacks", () => {
+    const inferredFixtures = Array.from({ length: 6 }, (_, i) => ({
+      ...fixtures()[0],
+      id: `inferred-${i + 1}`,
+      stage: weekStages[i % weekStages.length],
+      division: "Solari" as const,
+    }));
+    const inferred = award(season(), "best-of-champion", inferredFixtures);
+    expect(inferred.winners.every((winner) => winner.division === "Solari")).toBe(true);
+
+    const changedRows = season().map((row) => row.summoner_name === "A0" && row.match_id === "match6"
+      ? { ...row, team_name: "Wolves II" }
+      : row);
+    const changedFixtures = [
+      ...inferredFixtures,
+      { ...inferredFixtures[0], id: "changed-team", team_a: "Wolves II" },
+    ];
+    const changed = award(changedRows, "best-of-champion", changedFixtures);
+    expect(changed.winners.find((winner) => winner.name === "A0#NA1")?.division).toBe("Solari");
+
+    const unresolved = award(season(), "best-of-champion");
+    expect(unresolved.winners[0].division).toBeUndefined();
+
+    const conflictingFixtures = [
+      { ...inferredFixtures[0], id: "conflict-a", division: "Solari" as const },
+      { ...inferredFixtures[0], id: "conflict-b", division: "Lunari" as const, team_a: "Wolves" },
+    ];
+    const conflictingResult = deriveSeasonEnd(season(), conflictingFixtures, "S5", "premier");
+    const conflicting = conflictingResult.awards.find((candidate) => candidate.id === "best-of-champion")!;
+    expect(conflicting.winners.every((winner) => winner.division === undefined)).toBe(true);
+    expect(conflictingResult.warnings.some((warning) => warning.includes("omitted division emblems"))).toBe(true);
   });
 
   it("calculates singular-player accolades independently for Solari and Lunari", () => {
@@ -185,6 +250,146 @@ describe("season-end winners", () => {
     const winners = result.awards.find((candidate) => candidate.id === "body-count")!.winners;
     expect(winners).toHaveLength(10);
     expect(new Set(winners.map((winner) => winner.division))).toEqual(new Set(["Solari", "Lunari"]));
-    expect(result.awards.find((candidate) => candidate.id === "dragon-hoard")!.winners[0].division).toBeUndefined();
+    expect(result.awards.find((candidate) => candidate.id === "dragon-hoard")!.winners).toHaveLength(2);
+    expect(new Set(result.awards.find((candidate) => candidate.id === "dragon-hoard")!.winners.map((winner) => winner.division))).toEqual(new Set(["Solari", "Lunari"]));
+  });
+
+  it("partitions every Teamwork award, including pairs and fixture-based honors", () => {
+    const rows = [
+      ...Array.from({ length: 5 }, (_, i) => game(i + 1).map((row) => ({ ...row, match_id: `solari-${i + 1}`, division: "Solari" as const }))).flat(),
+      ...Array.from({ length: 5 }, (_, i) => game(i + 6).map((row) => ({ ...row, match_id: `lunari-${i + 1}`, division: "Lunari" as const }))).flat(),
+    ];
+    const splitFixtures = Array.from({ length: 5 }, (_, i) => [
+      { ...fixtures()[0], id: `solari-${i + 1}`, stage: weekStages[i], division: "Solari" as const },
+      { ...fixtures()[0], id: `lunari-${i + 1}`, stage: weekStages[i], division: "Lunari" as const },
+    ]).flat();
+
+    const result = deriveSeasonEnd(rows, splitFixtures, "S5", "premier");
+    const teamwork = result.awards.filter((candidate) => candidate.group === "Teamwork");
+
+    expect(teamwork).toHaveLength(7);
+    expect(teamwork.every((candidate) => candidate.divisionStatuses && candidate.winners.every((winner) => winner.division))).toBe(true);
+    expect(teamwork.find((candidate) => candidate.id === "jungle-mid-connection")?.winners.length).toBeGreaterThan(0);
+
+    const tiedRows = rows.map((row) => ({ ...row, kills: 3 }));
+    const bodyCount = deriveSeasonEnd(tiedRows, splitFixtures, "S5", "premier").awards.find((candidate) => candidate.id === "body-count")!;
+    expect(bodyCount.winners.filter((winner) => winner.division === "Solari")).toHaveLength(10);
+    expect(bodyCount.winners.filter((winner) => winner.division === "Lunari")).toHaveLength(10);
+  });
+
+  it("keeps a valid division when the other division is empty, and infers it from fixtures", () => {
+    const solariRows = Array.from({ length: 5 }, (_, i) => game(i + 1).map((row) => ({ ...row, match_id: `solari-${i + 1}`, division: "Solari" as const }))).flat();
+    const solariFixtures = Array.from({ length: 5 }, (_, i) => ({ ...fixtures()[0], id: `solari-${i + 1}`, stage: weekStages[i], division: "Solari" as const }));
+    const emptyDivision = deriveSeasonEnd(solariRows, solariFixtures, "S5", "premier").awards.find((candidate) => candidate.id === "body-count")!;
+    expect(emptyDivision.winners.every((winner) => winner.division === "Solari")).toBe(true);
+    expect(emptyDivision.divisionStatuses?.Lunari.status).toBe("unavailable");
+
+    const inferredRows = season();
+    const inferredFixtures = Array.from({ length: 5 }, (_, i) => ({ ...fixtures()[0], id: `inferred-${i + 1}`, stage: weekStages[i], division: "Solari" as const }));
+    const inferred = deriveSeasonEnd(inferredRows, inferredFixtures, "S5", "premier").awards.find((candidate) => candidate.id === "body-count")!;
+    expect(inferred.winners[0].division).toBe("Solari");
+  });
+
+  it("falls back to one global result without usable division data and warns on conflicts", () => {
+    const global = award(season(), "body-count");
+    expect(global.divisionStatuses).toBeUndefined();
+    expect(global.winners[0].division).toBeUndefined();
+
+    const conflictingFixtures = [
+      { ...fixtures()[0], id: "solari", division: "Solari" as const },
+      { ...fixtures()[0], id: "lunari", division: "Lunari" as const, team_a: "Wolves", team_b: "Comets" },
+    ];
+    const conflicting = deriveSeasonEnd(season(), conflictingFixtures, "S5", "premier");
+    expect(conflicting.awards.find((candidate) => candidate.id === "body-count")?.winners).toHaveLength(0);
+    expect(conflicting.warnings.some((warning) => warning.includes("no unambiguous division"))).toBe(true);
+  });
+
+  it("uses division-specific fixture completion for Starting Five and Clean Sweep", () => {
+    const solari = Array.from({ length: 5 }, (_, i) => game(i + 1).map((row) => ({ ...row, match_id: `solari-${i + 1}`, division: "Solari" as const }))).flat();
+    const lunari = Array.from({ length: 5 }, (_, i) => game(i + 6).map((row) => ({ ...row, match_id: `lunari-${i + 1}`, division: "Lunari" as const }))).flat();
+    const splitFixtures = Array.from({ length: 5 }, (_, i) => [
+      { ...fixtures()[0], id: `solari-${i + 1}`, stage: weekStages[i], division: "Solari" as const },
+      { ...fixtures()[0], id: `lunari-${i + 1}`, stage: weekStages[i], division: "Lunari" as const, score_a: i === 0 ? null : 2, score_b: i === 0 ? null : 0 },
+    ]).flat();
+    const result = deriveSeasonEnd([...solari, ...lunari], splitFixtures, "S5", "premier");
+    const startingFive = result.awards.find((candidate) => candidate.id === "the-starting-five")!;
+    const cleanSweep = result.awards.find((candidate) => candidate.id === "clean-sweep")!;
+    expect(startingFive.divisionStatuses?.Solari.status).toBe("ready");
+    expect(startingFive.divisionStatuses?.Lunari.status).toBe("unavailable");
+    expect(cleanSweep.divisionStatuses?.Solari.status).toBe("ready");
+    expect(cleanSweep.divisionStatuses?.Lunari.status).toBe("ready");
+    expect(cleanSweep.winners.find((winner) => winner.division === "Lunari")).toMatchObject({ games: 4, total: 4 });
+  });
+
+  it("keeps Best of Champion league-wide and isolates Academy", () => {
+    const premierRows = [
+      ...Array.from({ length: 5 }, (_, i) => game(i + 1).map((row) => ({ ...row, match_id: `solari-${i + 1}`, division: "Solari" as const }))).flat(),
+      ...Array.from({ length: 5 }, (_, i) => game(i + 6).map((row) => ({ ...row, match_id: `lunari-${i + 1}`, division: "Lunari" as const }))).flat(),
+    ];
+    const premierFixtures = Array.from({ length: 5 }, (_, i) => [
+      { ...fixtures()[0], id: `solari-${i + 1}`, stage: weekStages[i], division: "Solari" as const },
+      { ...fixtures()[0], id: `lunari-${i + 1}`, stage: weekStages[i], division: "Lunari" as const },
+    ]).flat();
+    const academyRows = premierRows.map((row) => ({ ...row, season: "A1" }));
+    const academyFixtures = premierFixtures.map((fixture) => ({ ...fixture, season: "A1" }));
+
+    const premierBestOf = deriveSeasonEnd(premierRows, premierFixtures, "S5", "premier").awards.find((candidate) => candidate.id === "best-of-champion")!;
+    const academyBestOf = deriveSeasonEnd(academyRows, academyFixtures, "A1", "academy").awards.find((candidate) => candidate.id === "best-of-champion")!;
+    expect(premierBestOf.winners).toHaveLength(1);
+    expect(academyBestOf.winners).toHaveLength(1);
+    expect(premierBestOf.divisionStatuses).toBeUndefined();
+    expect(academyBestOf.divisionStatuses).toBeUndefined();
+    expect(premierBestOf.winners[0].division).toBeUndefined();
+    expect(academyBestOf.winners[0].division).toBeUndefined();
+  });
+
+  it("awards every player with five games regardless of score and excludes shorter contributors", () => {
+    const rows = season();
+    const swap = (matchId: string, leftName: string, rightName: string) => {
+      const leftIndex = rows.findIndex((row) => row.match_id === matchId && row.summoner_name === leftName);
+      const rightIndex = rows.findIndex((row) => row.match_id === matchId && row.summoner_name === rightName);
+      const left = rows[leftIndex], right = rows[rightIndex];
+      rows[leftIndex] = { ...left, summoner_name: right.summoner_name, tag: right.tag };
+      rows[rightIndex] = { ...right, summoner_name: left.summoner_name, tag: left.tag };
+    };
+    swap("match6", "A0", "B0"); // A0: 5/6 wins, exactly 70 with the fixture performance baseline.
+    swap("match5", "A1", "B1");
+    swap("match6", "A1", "B1"); // A1: 4/6 wins, below the old score floor.
+    const champions: Record<string, string> = { A0: "Ahri", A1: "Azir", A2: "Braum", A3: "Caitlyn", A4: "Darius", B0: "Ekko", B1: "Fiora", B2: "Garen", B3: "Jinx", B4: "Lulu" };
+    rows.forEach((row) => { row.champion = champions[row.summoner_name] ?? "Ahri"; });
+
+    const shortIndex = rows.findIndex((row) => row.match_id === "match6" && row.summoner_name === "A0");
+    rows[shortIndex] = { ...rows[shortIndex], summoner_name: "PartTimer" };
+
+    const bestOf = award(rows, "best-of-champion");
+    expect(bestOf.winners).toHaveLength(10);
+    expect(bestOf.winners.map((winner) => winner.name)).toEqual(expect.arrayContaining(["A0#NA1", "A1#NA1", "A2#NA1", "A3#NA1", "A4#NA1"]));
+    expect(bestOf.winners.find((winner) => winner.name === "A1#NA1")?.value).toBeLessThan(70);
+    expect(bestOf.winners.map((winner) => winner.name)).not.toContain("PartTimer#NA1");
+  });
+
+  it("reports an unearned Best of card when no player reaches five games", () => {
+    const rows = Array.from({ length: 4 }, (_, i) => game(i + 1, i < 3)).flat();
+    const bestOf = award(rows, "best-of-champion");
+    expect(bestOf.status).toBe("unearned");
+    expect(bestOf.winners).toHaveLength(0);
+    expect(bestOf.note).toBe("No player has at least 5 games.");
+  });
+
+  it("keeps Best of unavailable when performance observations are missing", () => {
+    const rows = season();
+    rows[0].kda = null;
+    expect(award(rows, "best-of-champion").status).toBe("unavailable");
+  });
+
+  it("selects by raw values even when rounded headlines would tie", () => {
+    const rows = season();
+    rows.forEach((row) => {
+      if (row.summoner_name === "A0") row.kills = 7;
+      if (row.summoner_name === "A1") row.kills = row.match_id === "match1" || row.match_id === "match2" ? 8 : 7;
+    });
+    const bodyCount = award(rows, "body-count");
+    expect(bodyCount.winners[0].name).toBe("A1#NA1");
+    expect(bodyCount.winners[0].value).toBeGreaterThan(bodyCount.winners.find((winner) => winner.name === "A0#NA1")?.value ?? 0);
   });
 });
