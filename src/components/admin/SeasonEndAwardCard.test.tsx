@@ -34,6 +34,7 @@ describe("SeasonEndAwardCard", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Body Count" })).toBeTruthy();
+    expect(screen.getByText("Most kills")).toBeTruthy();
     expect(screen.getByText("Record breakers")).toBeTruthy();
     expect(screen.getByText("SEASON ARCHIVE")).toBeTruthy();
     expect(screen.getByTestId("award-card-art").getAttribute("style")).toContain("Ahri_0.jpg");

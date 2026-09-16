@@ -134,6 +134,7 @@ function AwardVisualCard({
       <div className={styles.content}>
         <p className={styles.collection}>{familyLabel(award)}</p>
         <h3 id={titleId} className={styles.title}>{award.title}</h3>
+        <p className={styles.description}>{award.description}</p>
         <p className={styles.name}>{winner.name}</p>
         <div className={styles.value}>
           {unit === "$" ? "$" : ""}{format(winner.value)}
@@ -174,6 +175,7 @@ function EmptyAwardCard({
       <div className={styles.content}>
         <p className={styles.collection}>{familyLabel(award)}</p>
         <h3 id={titleId} className={styles.title}>{award.title}</h3>
+        <p className={styles.description}>{award.description}</p>
         <p className={styles.empty}>{status === "unearned" ? "Not earned yet" : "Awaiting evidence"}</p>
         <p className={styles.evidence}>{note ?? award.description}</p>
         <div className={styles.seal}><span>SEASON ARCHIVE</span><span>ADMIN PREVIEW</span></div>
