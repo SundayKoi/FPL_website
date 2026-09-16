@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import UpcomingSchedule from "./UpcomingSchedule";
 import type { HomepageScheduleData } from "@/lib/home/schedule";
 import type { FixtureRow } from "@/lib/schedule/types";
@@ -31,8 +31,6 @@ function schedule(overrides: Partial<HomepageScheduleData> = {}): HomepageSchedu
     ...overrides,
   };
 }
-
-afterEach(() => cleanup());
 
 describe("UpcomingSchedule", () => {
   it("renders the active week fixtures and links to that Schedule section", () => {

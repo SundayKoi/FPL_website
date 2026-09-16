@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { Player } from "@/lib/draft/types";
 import PlayerPoolEditor from "./PlayerPoolEditor";
 
@@ -22,8 +22,6 @@ function player(overrides: Partial<Player> = {}): Player {
     ...overrides,
   };
 }
-
-afterEach(() => cleanup());
 
 describe("PlayerPoolEditor", () => {
   it("shows the current player point value during draft setup", () => {

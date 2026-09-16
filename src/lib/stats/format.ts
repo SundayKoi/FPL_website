@@ -4,8 +4,9 @@
 
 /** `m:ss` from a fractional-minutes duration (e.g. 31.5 -> "31:30"). */
 export function formatDuration(min: number): string {
-  const m = Math.floor(min);
-  const s = Math.round((min - m) * 60);
+  const totalSeconds = Math.round(min * 60);
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 

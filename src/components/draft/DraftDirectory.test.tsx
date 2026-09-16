@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import type { Draft } from "@/lib/draft/types";
 import DraftDirectory from "./DraftDirectory";
 
@@ -18,8 +18,6 @@ function draft(overrides: Partial<Draft> = {}): Draft {
     ...overrides,
   };
 }
-
-afterEach(cleanup);
 
 describe("DraftDirectory", () => {
   it("links each draft card to its existing board", () => {

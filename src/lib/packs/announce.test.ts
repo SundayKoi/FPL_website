@@ -7,17 +7,16 @@ const { postCardsWebhook } = await import("./announce");
 const embed = { title: "Test", description: "A committed event", color: 1 };
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-  delete process.env.DISCORD_CARDS_WEBHOOK_URL;
-  delete process.env.DISCORD_BOT_TOKEN;
-  delete process.env.DISCORD_CARDS_CHANNEL_ID;
 });
 
 describe("postCardsWebhook", () => {
   it("bounds delivery and records a sanitized HTTP failure", async () => {
-    process.env.DISCORD_CARDS_WEBHOOK_URL = "https://discord.example/webhook/secret";
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => ({ ok: false, status: 503 }));
+    vi.stubEnv("DISCORD_CARDS_WEBHOOK_URL", "https://discord.example/webhook/secret");
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<{ ok: boolean; status: number }>>()
+      .mockResolvedValue({ ok: false, status: 503 });
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
     vi.stubGlobal("fetch", fetchMock);
 
@@ -30,7 +29,7 @@ describe("postCardsWebhook", () => {
   });
 
   it("keeps timeout failures soft and does not expose the destination", async () => {
-    process.env.DISCORD_CARDS_WEBHOOK_URL = "https://discord.example/webhook/secret";
+    vi.stubEnv("DISCORD_CARDS_WEBHOOK_URL", "https://discord.example/webhook/secret");
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
     vi.stubGlobal("fetch", vi.fn(async () => { throw new DOMException("timed out", "TimeoutError"); }));
 

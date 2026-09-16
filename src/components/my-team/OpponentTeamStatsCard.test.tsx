@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import type { MyTeamOpponent } from "@/lib/my-team/types";
 import type { TeamAggRow } from "@/lib/stats/types";
 import { OpponentTeamStatsCard } from "./OpponentTeamStatsCard";
@@ -22,8 +22,6 @@ function opponent(overrides: Partial<MyTeamOpponent> = {}): MyTeamOpponent {
     ...overrides,
   };
 }
-
-afterEach(cleanup);
 
 describe("OpponentTeamStatsCard", () => {
   it("keeps the graphic profile and emphasizes the canonical scouting route", () => {

@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { BroadcasterMatchupPlayer, BroadcasterRoleMatchup } from "@/lib/broadcaster/matchups";
 import type { ScoutSource } from "@/lib/scouting/types";
@@ -10,8 +10,6 @@ vi.mock("@/components/cards/PlayerCard3D", () => ({
     <div data-testid={`spotlight-card-${card.slug}`}>player card: {card.name}</div>
   ),
 }));
-
-afterEach(cleanup);
 
 const card = (slug: string, name: string): PlayerCardData => ({ slug, name } as PlayerCardData);
 

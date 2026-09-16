@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import type { FixtureRow } from "@/lib/schedule/types";
 import { MyTeamMatchHero } from "./MyTeamMatchHero";
 
@@ -19,7 +19,6 @@ const fixture: FixtureRow = {
 };
 
 describe("MyTeamMatchHero", () => {
-  afterEach(cleanup);
 
   it("gives ordinary members only the spectator draft link", () => {
     render(<MyTeamMatchHero fixture={fixture} myTeamName="Meridian" canOpenCaptainDraft={false} />);

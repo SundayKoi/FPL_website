@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import MyTeamGate from "./MyTeamGate";
 import type { MyTeamDashboardResult } from "@/lib/my-team/types";
 
@@ -103,8 +103,6 @@ beforeEach(() => {
     value: { writeText: vi.fn().mockResolvedValue(undefined) },
   });
 });
-
-afterEach(cleanup);
 
 describe("MyTeamGate", () => {
   it("offers a signed-out visitor a safe return-to-page sign in", () => {

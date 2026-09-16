@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BRACKETS } from "@/lib/showdown/config";
 import { emptyPublic, newSeat } from "@/lib/showdown/engine";
 import type { TableView } from "@/lib/showdown/server";
@@ -20,8 +20,6 @@ vi.mock("@/lib/supabase/client", () => ({
     removeChannel: vi.fn(),
   }),
 }));
-
-afterEach(cleanup);
 
 const hole = [
   { id: "c1", name: "Doug", role: "Mid" as const, team: "Gamblers", tier: "diamond" as const, overall: 88, foil: false },

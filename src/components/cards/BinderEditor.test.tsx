@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { setSlot, setTitle } = vi.hoisted(() => ({
   setSlot: vi.fn(async () => ({ ok: true as const })),
@@ -26,7 +26,6 @@ describe("BinderEditor", () => {
     setSlot.mockClear();
     setTitle.mockClear();
   });
-  afterEach(cleanup);
 
   it("labels a copy well enough to tell two prints apart", () => {
     renderEditor();

@@ -26,6 +26,7 @@ const props = { draftId: "d1", teams, picks: [] as NemesisPick[], myTeamId: null
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   rpc.mockClear();
   rpc.mockResolvedValue({ error: null });
   onError.mockClear();

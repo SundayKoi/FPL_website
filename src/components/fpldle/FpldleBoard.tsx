@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCountdown } from "@/lib/time";
 import Link from "next/link";
 import BalanceChip from "@/components/BalanceChip";
 import { DAILY_REWARD_SENTENCE } from "@/lib/betting/daily";
@@ -107,14 +108,6 @@ function clueLabel(label: string, feedback: FpldleFeedback): string {
   }
   if (feedback.division === "unavailable") return `${label}: unavailable for this league`;
   return `${label}: ${feedback.divisionName ?? "unassigned"}; ${exactLabel(feedback.division)}`;
-}
-
-function formatCountdown(milliseconds: number): string {
-  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
 function formatLocalResetTime(iso: string): string | null {

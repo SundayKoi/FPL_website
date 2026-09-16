@@ -1,9 +1,7 @@
-import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import DraftBoard from "./DraftBoard";
 import { useDraftState } from "@/hooks/useDraftState";
-
-afterEach(cleanup);
 
 vi.mock("@/hooks/useDraftState", () => ({ useDraftState: vi.fn() }));
 vi.mock("./DraftChat", () => ({

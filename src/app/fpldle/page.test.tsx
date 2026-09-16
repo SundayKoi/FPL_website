@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import FpldlePage from "./page";
 import { FpldleError } from "@/lib/fpldle/server";
 
@@ -22,8 +22,6 @@ vi.mock("@/lib/fpldle/actions", () => ({
   submitFpldleGuessAction: vi.fn(),
   revealFpldleAnswerAction: vi.fn(),
 }));
-
-afterEach(() => cleanup());
 
 describe("FpldlePage", () => {
   it("walls non-premium callers instead of bouncing them to Premium HQ", async () => {

@@ -98,6 +98,13 @@ export default async function AdminPage() {
 
   const cards = [
     {
+      label: "Season’s End",
+      stat: "Admin preview",
+      statTone: "text-gold",
+      description: "Twelve regular-season award families on real stats: unique champion picks, cumulative season cards, bot-lane stats, and undefeated teams.",
+      href: "/admin/seasons-end",
+    },
+    {
       label: "Signups",
       stat: `${signupCount} total · ${settings?.signups_open ? "OPEN" : "CLOSED"}`,
       statTone: settings?.signups_open ? "text-mint" : "text-red-400",
@@ -152,6 +159,13 @@ export default async function AdminPage() {
       statTone: "text-gold",
       description: "Expeditions with forks and risk, and the five mutations a card can come home with, on real cards. Mints nothing.",
       href: "/admin/mutations",
+    },
+    {
+      label: "Season's End",
+      stat: "Regular-season honors",
+      statTone: "text-gold",
+      description: "Real season leaders, team achievements, meme inserts, record breakers, and cumulative season cards for Premier and Academy.",
+      href: "/admin/seasons-end",
     },
     {
       label: "Card overlays",

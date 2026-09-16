@@ -1,5 +1,5 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { CardSubStat, PlayerCardData } from "@/lib/cards/build";
 import CompareClient from "./CompareClient";
 
@@ -64,8 +64,6 @@ function statRow(label: string): HTMLElement {
 function rowCells(label: string): string[] {
   return within(statRow(label)).getAllByRole("cell").map((td) => td.textContent ?? "");
 }
-
-afterEach(cleanup);
 
 describe("CompareClient", () => {
   it("matches stat rows by key when the two cards play different roles", () => {

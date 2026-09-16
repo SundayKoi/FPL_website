@@ -1,10 +1,8 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { rarityGuide } from "./rarityGuide";
 import { sampleCard, sampleFor } from "./samples";
-
-afterEach(cleanup);
 
 describe("rarity samples", () => {
   const entries = rarityGuide("S5").flatMap((section) => section.entries);

@@ -1,8 +1,6 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import TeamColumn from "./TeamColumn";
-
-afterEach(cleanup);
 
 describe("TeamColumn", () => {
   it("labels a directly assigned player with the admin badge", () => {

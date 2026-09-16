@@ -1,10 +1,8 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import DrawLaurel from "./DrawLaurel";
 import PlayerCard3D from "./PlayerCard3D";
-
-afterEach(cleanup);
 
 /** A plain player card, no draw win — the control for every case below. */
 const card: PlayerCardData = {

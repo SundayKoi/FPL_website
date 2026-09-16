@@ -1,13 +1,11 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import PremiumHub from "./PremiumHub";
 import type { PlayerCardData } from "@/lib/cards/build";
 
 vi.mock("@/components/cards/PlayerCard3D", () => ({
   default: ({ card }: { card: PlayerCardData }) => <div data-testid="player-card-preview">{card.name}</div>,
 }));
-
-afterEach(() => cleanup());
 
 const snapshot = {
   league: "premier" as const,

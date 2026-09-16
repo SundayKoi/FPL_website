@@ -1,5 +1,5 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import TradeInbox, { type InboxCard, type InboxTrade } from "./TradeInbox";
 
@@ -92,8 +92,6 @@ beforeEach(() => {
   respondTradeAction.mockReset().mockResolvedValue({ ok: true });
   refresh.mockReset();
 });
-
-afterEach(cleanup);
 
 describe("TradeInbox", () => {
   it("says so when both lists are empty", () => {

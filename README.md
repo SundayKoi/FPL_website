@@ -23,8 +23,17 @@ The site now also includes:
   [docs/backend.md](docs/backend.md));
 - Premium daily games: FPL'dle, the 45-round Higher or Lower card run with unlimited attempts, and the admin-testing Guess the Card game share one daily betting-dollar reward.
 
-See [docs/backend.md](docs/backend.md) for the backend architecture and the
-source-file map intended for agents picking up work.
+## Documentation
+
+- [AGENTS.md](AGENTS.md) — repository constraints and task-specific guidance.
+- [Backend](docs/backend.md) — architecture, domain contracts, and source locations.
+- [Testing](docs/testing.md) — check selection, fixtures, and focused commands.
+- [Releases](docs/releases.md) — migration ordering and database rollout requirements.
+- [Domain glossary](CONTEXT.md) — daily-game terminology.
+- [Plans and designs](docs/superpowers/README.md) — historical implementation context.
+- [Maintaining agent guidance](docs/agent-guidance.md) — where instructions belong and how to review them.
+
+Use the sections relevant to the task; setup and operations are documented below.
 
 ## Navigation
 
@@ -181,33 +190,22 @@ update profiles set is_admin = true where id = '<your auth user uuid>';
 
 ```sh
 npm run lint             # ESLint
+npm run typecheck        # generate Next.js route types, then check TypeScript
 npm test                 # Vitest unit/component suite
+npm run test:python      # Python mapper and settlement suites
 npm run build            # production Next.js build
 npm run test:db          # pgTAP suite; local Supabase must be running
 npm run e2e              # Playwright auction + betting smoke tests
 ```
 
-Notes on `npm run e2e`:
-- Requires the local Supabase stack running (`npx supabase start`) and the
-  dev server reachable at `http://localhost:3000` (Playwright's
-  `webServer` config will start `npm run dev` for you if it isn't already
-  running).
-- Both specs seed themselves — no manual `npm run seed:demo` needed first:
-  `draft.spec.ts` shells out to `npx tsx e2e/seed.ts`, which builds a fresh
-  "E2E Draft" with two captains and a small player pool, and
-  `betting.spec.ts` shells out to `npx tsx e2e/seed-betting.ts`, which
-  builds a member + admin dev-login user and a two-team betting market
-  (`scripts/betting-fixture.ts`). Both resolve the local Supabase
-  **service_role** key themselves by calling `npx supabase status -o json`
-  (no need to set anything by hand, unless you've already exported
-  `SUPABASE_SERVICE_ROLE_KEY` in your shell).
-- Playwright is configured single-worker / not fully parallel
-  (`playwright.config.ts`), since the test drives two real browser
-  contexts against one shared draft — do not raise the worker count.
+Python tests require Python 3 with `requests` and `python-dotenv` installed
+in an active virtual environment. See [docs/testing.md](docs/testing.md)
+for test discovery, fixtures, cleanup conventions, and focused commands.
 
-For database or authorization changes, run the pgTAP suite as well as the
-relevant Vitest tests. For realtime or multi-user changes, run the auction or
-match-draft Playwright coverage when the local stack is available.
+Choose checks using [Testing](docs/testing.md#choose-checks-by-change).
+Documentation-only edits need link, command, and diff review; they do not need
+application tests or a production build. Browser tests use self-seeding local
+fixtures; see the [Playwright setup](docs/testing.md#playwright).
 
 ### Branches and releases
 
@@ -256,10 +254,10 @@ The wrapper does not repair history or mark missing SQL applied.
 
 
 `.github/workflows/ci.yml` runs the type-check, ESLint and the Vitest suite
-on every pull request and every push to `main`. Make it a required check on
-`main`; once it is, `typescript.ignoreBuildErrors: true` in `next.config.ts`
-takes the type-check out of the Vercel build minute, since CI has already
-run it.
+on every pull request and every push to `develop` or `main`. The shared
+`npm run typecheck` command generates Next.js route types before checking
+TypeScript, so it also works on a fresh checkout. Production builds retain
+Next.js type checking; `next.config.ts` does not enable `ignoreBuildErrors`.
 
 Vercel builds are billed per CPU-minute rounded up, and most builds here
 were building nothing anyone looked at, so `vercel.json` points the Ignored
@@ -275,6 +273,10 @@ Build Step at `scripts/vercel-ignore.sh`:
 
 ## Deploy runbook
 
+This section covers initial provisioning. For an existing FPL deployment, use
+[Branches and releases](#branches-and-releases) and the
+[migration release contracts](docs/releases.md).
+
 This app needs its own Supabase cloud project, a Discord OAuth app, and a
 Vercel deployment. Each step below needs a human logged into that
 service's dashboard in a browser.
@@ -282,7 +284,7 @@ service's dashboard in a browser.
 > **Do not touch the existing "ocepp" Supabase project.** This app must
 > get a **brand-new, separate** Supabase project — the free tier allows
 > up to 2 active projects, so create a second one rather than linking or
-> pushing migrations into "ocepp". Before running `supabase db push` (or
+> pushing migrations into "ocepp". Before running a migration push (or
 > any destructive command), re-check `npx supabase projects list` / the
 > project ref you passed to `supabase link` and confirm it is the **new**
 > project, not "ocepp".
@@ -303,10 +305,13 @@ service's dashboard in a browser.
    "ocepp", before continuing.
 
    ```powershell
-   npx supabase db push
+   node scripts/supabase-migrations.mjs list
+   node scripts/supabase-migrations.mjs push --dry-run
+   node scripts/supabase-migrations.mjs push
    ```
 
-   This applies every migration in `supabase/migrations/`.
+   Review the dry run before the final push. The wrapper applies pending SQL
+   while handling the legacy duplicate versions described above.
 3. Verify in the cloud project's SQL editor:
 
    ```sql

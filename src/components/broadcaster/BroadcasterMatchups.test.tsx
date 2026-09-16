@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { BroadcasterPlayerDetails } from "@/lib/broadcaster/types";
 import { LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
@@ -11,8 +11,6 @@ vi.mock("@/components/cards/PlayerCard3D", () => ({
     <div data-testid={`premium-card-${card.slug}`}>premium card: {card.name}</div>
   ),
 }));
-
-afterEach(cleanup);
 
 const fixture = (id: string, season = "S5") => ({
   id,

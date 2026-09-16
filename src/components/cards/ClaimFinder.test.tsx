@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import { toClaimFinderCards, type ClaimFinderCard } from "@/lib/cards/claimFinder";
 import ClaimFinder from "./ClaimFinder";
 
@@ -12,8 +12,6 @@ const cards: ClaimFinderCard[] = [
 function type(value: string) {
   fireEvent.change(screen.getByLabelText("Find your card"), { target: { value } });
 }
-
-afterEach(cleanup);
 
 describe("ClaimFinder", () => {
   it("lists nothing until something is typed", () => {

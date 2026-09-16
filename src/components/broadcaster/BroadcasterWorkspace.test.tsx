@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { HomepageFeaturedSettings } from "@/lib/home/homepageSettings";
 import type { FixtureRow } from "@/lib/schedule/types";
 import type { ScoutSource } from "@/lib/scouting/types";
@@ -25,8 +25,6 @@ vi.mock("./BroadcasterMatchups", () => ({
 vi.mock("@/components/captain/OpponentScout", () => ({
   default: ({ source, perspective, showExtendedPatterns }: { source: ScoutSource; perspective?: string; showExtendedPatterns?: boolean }) => <p>{perspective} scout: {source.teamName}{showExtendedPatterns ? " · extended" : ""}</p>,
 }));
-
-afterEach(cleanup);
 
 const fixture: FixtureRow = {
   id: "fixture-1",

@@ -1,8 +1,6 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import MatchDraftSummary, { sideRows, type DraftSummaryGame } from "./MatchDraftSummary";
-
-afterEach(cleanup);
 
 const game = (over: Partial<DraftSummaryGame> = {}): DraftSummaryGame => ({
   gameNumber: 1,

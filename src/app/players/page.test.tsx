@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PlayersPage from "./page";
 
@@ -21,7 +21,6 @@ function orderableQuery(result: unknown) {
 }
 
 describe("PlayersPage", () => {
-  afterEach(cleanup);
   afterEach(() => {
     createServerSupabase.mockReset();
   });

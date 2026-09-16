@@ -248,8 +248,6 @@ beforeEach(() => {
   refresh.mockReset();
 });
 
-afterEach(cleanup);
-
 describe("ExpeditionBoard — the day's brief", () => {
   it("posts today's brief with what fielding it is worth", () => {
     renderBoard();

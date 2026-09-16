@@ -1,34 +1,11 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useSecondClock } from "@/hooks/useSecondClock";
 import { DRAFT_DAY_LABEL, getCountdownParts } from "@/lib/home/seasonState";
-
-let currentTime = 0;
-
-function subscribeToClock(onChange: () => void) {
-  const update = () => {
-    currentTime = Date.now();
-    onChange();
-  };
-  const immediate = window.setTimeout(update, 0);
-  const timer = window.setInterval(update, 1000);
-  return () => {
-    window.clearTimeout(immediate);
-    window.clearInterval(timer);
-  };
-}
-
-function getClockSnapshot() {
-  return currentTime;
-}
-
-function getServerClockSnapshot() {
-  return 0;
-}
 
 export default function PreseasonCountdown({ targetAt }: { targetAt: string }) {
   const target = new Date(targetAt);
-  const clock = useSyncExternalStore(subscribeToClock, getClockSnapshot, getServerClockSnapshot);
+  const clock = useSecondClock();
   const now = clock === 0 ? null : new Date(clock);
 
   const countdown = getCountdownParts(target, now ?? target);

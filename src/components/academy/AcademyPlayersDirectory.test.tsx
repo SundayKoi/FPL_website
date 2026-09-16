@@ -1,12 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { PlayerPoolRow } from "@/components/players/PlayerPoolAdmin";
 import { createClient } from "@/lib/supabase/client";
 import AcademyPlayersDirectory from "./AcademyPlayersDirectory";
 
 vi.mock("@/lib/supabase/client", () => ({ createClient: vi.fn() }));
-
-afterEach(cleanup);
 
 const fallbackPlayer = {
   name: "Sheet Fallback",

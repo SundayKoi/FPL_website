@@ -6,6 +6,12 @@ describe("formatDuration", () => {
     expect(formatDuration(31.5)).toBe("31:30");
     expect(formatDuration(7)).toBe("7:00");
   });
+
+  it("carries rounded seconds into the next minute", () => {
+    expect(formatDuration(31.999)).toBe("32:00");
+    expect(formatDuration(59.999)).toBe("60:00");
+    expect(formatDuration(0)).toBe("0:00");
+  });
 });
 
 describe("formatDate", () => {

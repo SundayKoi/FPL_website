@@ -81,8 +81,8 @@ function createSupabase(): SupabaseClient {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-09-07T12:00:00.000Z"));
-  process.env.SKIP_INGEST_CHECK = "true";
-  delete process.env.SHOWCASE;
+  vi.stubEnv("SKIP_INGEST_CHECK", "true");
+  vi.stubEnv("SHOWCASE", undefined);
   archiveEdition.mockReset();
   buildEditionForWeek.mockReset();
   fetchAllCardSeasons.mockReset();
@@ -107,7 +107,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  delete process.env.SKIP_INGEST_CHECK;
+  vi.unstubAllEnvs();
+
   vi.restoreAllMocks();
   vi.useRealTimers();
 });

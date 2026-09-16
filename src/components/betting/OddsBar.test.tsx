@@ -1,10 +1,6 @@
-import { afterEach, describe, it, expect } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
 import { OddsBar } from "./OddsBar";
-
-afterEach(() => {
-  cleanup();
-});
 
 const team = { id: 1, name: "New Origins", short_code: "NOA", color: "#3b82f6", logo_url: null };
 

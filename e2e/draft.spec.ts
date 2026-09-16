@@ -1,5 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-import { execSync } from "node:child_process";
+import { expect, type Page } from "@playwright/test";
+import { seedFixture, signIn, test } from "./fixtures";
 import { readFileSync } from "node:fs";
 
 /**
@@ -17,25 +17,12 @@ import { readFileSync } from "node:fs";
  *      and the center stage returns to a "waiting to nominate" state.
  */
 
-async function signIn(page: Page, email: string) {
-  await page.goto("/login");
-  await page.getByPlaceholder("email").fill(email);
-  await page.getByPlaceholder("password").fill("password123");
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await page.waitForURL("/");
-}
-
-test("two captains run one auction to settlement", async ({ browser }) => {
-  execSync("npx tsx e2e/seed.ts", { stdio: "inherit" });
+test("two captains run one auction to settlement", async ({ captains: [cap1, cap2] }) => {
+  seedFixture("draft");
   const draftId = readFileSync("e2e/.draft-id", "utf8").trim();
 
-  const ctx1 = await browser.newContext();
-  const ctx2 = await browser.newContext();
-  const cap1 = await ctx1.newPage();
-  const cap2 = await ctx2.newPage();
-
-  await signIn(cap1, "e2e-cap1@test.local");
-  await signIn(cap2, "e2e-cap2@test.local");
+  await signIn(cap1, "e2e-cap1@test.local", "password123");
+  await signIn(cap2, "e2e-cap2@test.local", "password123");
 
   await cap1.goto(`/draft/${draftId}`);
   await cap2.goto(`/draft/${draftId}`);

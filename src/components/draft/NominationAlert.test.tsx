@@ -1,10 +1,6 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import NominationAlert from "./NominationAlert";
-
-afterEach(() => {
-  cleanup();
-});
 
 describe("NominationAlert", () => {
   it("announces the turn with the round's minimum bid", () => {

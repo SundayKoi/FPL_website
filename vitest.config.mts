@@ -1,8 +1,8 @@
 import { configDefaults, defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
-import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const nodeTests = ["src/lib/**/*.test.ts", "scripts/**/*.test.ts"];
+const nodeTests = ["src/lib/**/*.{test,spec}.ts", "scripts/**/*.{test,spec}.ts"];
 const exclude = [...configDefaults.exclude, "e2e/**", ".worktrees/**", ".claude/worktrees/**"];
 
 export default defineConfig({
@@ -15,9 +15,15 @@ export default defineConfig({
       },
       {
         extends: true,
-        test: { name: "dom", environment: "jsdom", exclude: [...exclude, ...nodeTests] },
+        test: {
+          name: "dom",
+          environment: "jsdom",
+          include: ["src/**/*.{test,spec}.{ts,tsx}"],
+          exclude: [...exclude, ...nodeTests],
+          setupFiles: ["./src/test-utils/setup-dom.ts"],
+        },
       },
     ],
   },
-  resolve: { alias: { "@": path.resolve(__dirname, "src") } },
+  resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
 });

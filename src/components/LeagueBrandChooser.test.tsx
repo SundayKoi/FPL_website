@@ -1,9 +1,8 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import LeagueBrandChooser from "./LeagueBrandChooser";
 
 describe("LeagueBrandChooser", () => {
-  afterEach(cleanup);
   it("shows the FPL brand and sends the active Premier league home", () => {
     render(<LeagueBrandChooser pathname="/stats" search="tab=Players" onNavigate={vi.fn()} />);
 

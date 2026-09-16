@@ -27,7 +27,7 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
         with:
@@ -50,18 +50,35 @@ jobs:
         if: steps.diff.outputs.commits != '0'
         env:
           GH_TOKEN: ${{ github.token }}
+          CI_WAIT_SECONDS: 1200
         run: |
+          set -euo pipefail
           sha=$(git rev-parse origin/develop)
-          # The CI workflow's job is named "checks". Its latest run for this
-          # exact commit must have succeeded; anything else blocks the
-          # release and says why.
-          conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}/check-runs?check_name=checks" \
-            --jq '.check_runs | sort_by(.completed_at) | last | .conclusion // "none"')
-          echo "CI on develop (${sha:0:7}): ${conclusion}"
-          if [ "$conclusion" != "success" ]; then
-            echo "::error::Refusing to release: CI on develop is '${conclusion}', not 'success'."
-            exit 1
-          fi
+          deadline=$((SECONDS + CI_WAIT_SECONDS))
+
+          # The CI workflow's job is named "checks". A release can start
+          # immediately after the develop push, before that check run exists
+          # or while it is still running, so wait for this exact commit rather
+          # than treating a pending conclusion as a failure.
+          while true; do
+            read -r status conclusion details_url <<<"$(gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.name == "checks" and .app.slug == "github-actions")] | sort_by(.started_at) | last | if . == null then ["queued", "", ""] else [.status, (.conclusion // ""), (.details_url // "")] end | @tsv')"
+            echo "CI on develop (${sha:0:7}): ${status}${conclusion:+ (${conclusion})} ${details_url}"
+
+            if [ "$status" = "completed" ]; then
+              if [ "$conclusion" != "success" ]; then
+                echo "::error::Refusing to release: CI on develop completed with '${conclusion}', not 'success'."
+                exit 1
+              fi
+              break
+            fi
+
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error::Refusing to release: CI on develop did not complete within ${CI_WAIT_SECONDS}s."
+              exit 1
+            fi
+            sleep 10
+          done
 
       - name: Merge develop into main
         if: steps.diff.outputs.commits != '0'

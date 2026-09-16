@@ -1,16 +1,9 @@
 "use client";
 
+import { formatCountdown } from "@/lib/time";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 const subscribeNever = () => () => {};
-
-function formatCountdown(milliseconds: number): string {
-  const total = Math.max(0, Math.floor(milliseconds / 1000));
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const seconds = total % 60;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
 
 /**
  * "Next puzzle · 04:12:09 · midnight Eastern, 9:00 PM for you". Every daily

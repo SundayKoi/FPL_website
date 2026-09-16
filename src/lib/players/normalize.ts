@@ -25,3 +25,9 @@ export function normalizeBasePlayerName(name: string): string {
     .replace(/\s+/g, " ")
     .toLocaleLowerCase();
 }
+
+/** Canonical matching also follows the league's known player renames. */
+export function normalizePlayerName(name: string): string {
+  const normalized = normalizeBasePlayerName(name);
+  return PLAYER_NAME_ALIASES[normalized] ?? normalized;
+}

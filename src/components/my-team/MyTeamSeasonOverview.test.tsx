@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import type { FixtureRow } from "@/lib/schedule/types";
 import { MyTeamSeasonOverview } from "./MyTeamSeasonOverview";
 
@@ -10,8 +10,6 @@ function fixture(overrides: Partial<FixtureRow> = {}): FixtureRow {
     created_at: "2026-08-01T00:00:00Z", ...overrides,
   };
 }
-
-afterEach(cleanup);
 
 describe("MyTeamSeasonOverview", () => {
   it("sorts upcoming and recent series, and limits recent form to three", () => {

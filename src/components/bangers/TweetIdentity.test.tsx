@@ -1,8 +1,6 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import TweetIdentity, { STUART_PROFILE_IMAGE_URL } from "./TweetIdentity";
-
-afterEach(cleanup);
 
 describe("TweetIdentity", () => {
   it("renders Stuart's X profile image beside the author identity", () => {

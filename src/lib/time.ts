@@ -10,6 +10,15 @@ export function remainingMs(closesAt: string, offsetMs: number, nowMs: number = 
   return Math.max(0, new Date(closesAt).getTime() - (nowMs + offsetMs));
 }
 
+/** Remaining milliseconds as HH:MM:SS, clamped at zero after expiry. */
+export function formatCountdown(milliseconds: number): string {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
+}
+
 /**
  * "just now", "12m ago", "3h ago", "2d ago", then the date — how long ago
  * something happened, in the two or three characters a row has room for.

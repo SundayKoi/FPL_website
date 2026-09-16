@@ -1,11 +1,7 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen, fireEvent } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import type { LeaderboardRow } from "@/lib/betting/types";
 import { LeaderboardTable } from "./LeaderboardTable";
-
-afterEach(() => {
-  cleanup();
-});
 
 const byBalance: LeaderboardRow[] = [
   { rank: 1, discord_id: "1", username: "Rich", avatar_url: null, balance: 9000, profit: 200, badges: ["🔥3"], flame: "royal" },
