@@ -53,6 +53,9 @@ describe("BestOfChampionCard", () => {
 
     expect(screen.getByRole("heading", { name: "Best of Azir" })).toBeTruthy();
     expect(screen.getByTestId("best-of-card-art").getAttribute("style")).toContain("Azir_0.jpg");
+    expect(screen.getByTestId("best-of-card-art").getAttribute("style")).toContain("background-size: cover");
+    expect(screen.getByTestId("best-of-card-foil")).toBeTruthy();
+    expect(screen.getByTestId("best-of-card-ornament").getAttribute("aria-hidden")).toBe("true");
     expect(screen.getByText("Alice")).toBeTruthy();
     expect(screen.queryByText("OVR")).toBeNull();
     expect(screen.queryByLabelText(/overall/i)).toBeNull();
@@ -165,5 +168,22 @@ describe("BestOfChampionCard", () => {
     expect(screen.getByText("LUNARI")).toBeTruthy();
     expect(screen.queryByText("☀")).toBeNull();
     expect(screen.queryByText("☾")).toBeNull();
+  });
+
+  it("keeps a crop override local to the rendered card", () => {
+    render(
+      <BestOfChampionCard
+        award={award({ winners: [winner()] })}
+        winner={winner()}
+        season="S5"
+        league="premier"
+        headingId="best-of-crop-override"
+        crop={{ cropPositionX: 80, cropPositionY: 42, zoom: 1.1 }}
+      />,
+    );
+
+    const art = screen.getByTestId("best-of-card-art");
+    expect(art.getAttribute("style")).toContain("background-position: 80% 42%");
+    expect(art.getAttribute("style")).toContain("--art-zoom: 1.1");
   });
 });

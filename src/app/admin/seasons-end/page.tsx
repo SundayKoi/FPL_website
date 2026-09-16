@@ -64,6 +64,7 @@ export default async function SeasonsEndPage({
         <p className="max-w-3xl text-sm text-steel">
           Regular-season honors, calculated from recorded matches. Ordinary player, pair, and Teamwork honors are awarded separately to Solari and Lunari; the sun and moon marks identify each division. Best of Champions is assigned once across the selected league, while cumulative Season Cards retain their existing treatment.
         </p>
+        <Link href="/admin/seasons-end/crop-audit" className="w-fit rounded border border-line px-3 py-2 text-xs uppercase tracking-[.16em] text-gold hover:border-gold">Developer crop audit</Link>
         <form className="flex flex-wrap items-end gap-3" action="/admin/seasons-end">
           <label className="flex flex-col gap-1 text-sm">League<select name="league" defaultValue={league} className="rounded border border-line bg-panel p-2"><option value="premier">Premier</option><option value="academy">Academy</option></select></label>
           <label className="flex flex-col gap-1 text-sm">Season<input name="season" defaultValue={season} placeholder={seasons[league]} className="w-28 rounded border border-line bg-panel p-2" required maxLength={32} /></label>

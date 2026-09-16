@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CHAMPION_ART_CROPS, championArtCrop, DEFAULT_CHAMPION_ART_CROP } from "./championArt";
+import { CHAMPIONS } from "@/lib/match-draft/champions";
+import { CHAMPION_ART_CROPS, championArtCrop, DEFAULT_CHAMPION_ART_CROP, exportChampionArtCrops, isChampionArtReviewed } from "./championArt";
 
 describe("championArtCrop", () => {
   it("uses the reviewed base-skin crops", () => {
@@ -17,6 +18,23 @@ describe("championArtCrop", () => {
   it("falls back safely for unknown champions and unreviewed skins", () => {
     expect(championArtCrop("Unknown Future Champion", 0)).toEqual(DEFAULT_CHAMPION_ART_CROP);
     expect(championArtCrop("Milio", 1)).toEqual(DEFAULT_CHAMPION_ART_CROP);
+    expect(isChampionArtReviewed("Unknown Future Champion", 0)).toBe(false);
+    expect(isChampionArtReviewed("Milio", 1)).toBe(false);
+  });
+
+  it("covers every supported champion's base skin explicitly", () => {
+    expect(Object.keys(CHAMPION_ART_CROPS)).toHaveLength(CHAMPIONS.length);
+    for (const champion of CHAMPIONS) {
+      expect(isChampionArtReviewed(champion.name, 0)).toBe(true);
+      expect(CHAMPION_ART_CROPS[`${champion.id}:0`]).toEqual(championArtCrop(champion.name, 0));
+    }
+  });
+
+  it("exports readable champion names without losing the curated values", () => {
+    const exported = exportChampionArtCrops();
+    expect(exported.Senna).toEqual({ cropPositionX: 53, cropPositionY: 50, zoom: 1 });
+    expect(exported.Diana).toEqual({ cropPositionX: 80, cropPositionY: 50, zoom: 1 });
+    expect(Object.keys(exported)).toHaveLength(CHAMPIONS.length);
   });
 
   it("keeps every reviewed entry within CSS percentage and zoom bounds", () => {
