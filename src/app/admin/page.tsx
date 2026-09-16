@@ -98,6 +98,13 @@ export default async function AdminPage() {
 
   const cards = [
     {
+      label: "Season’s End",
+      stat: "Admin preview",
+      statTone: "text-gold",
+      description: "Twelve regular-season award families on real stats: unique champion picks, cumulative season cards, bot-lane stats, and undefeated teams.",
+      href: "/admin/seasons-end",
+    },
+    {
       label: "Signups",
       stat: `${signupCount} total · ${settings?.signups_open ? "OPEN" : "CLOSED"}`,
       statTone: settings?.signups_open ? "text-mint" : "text-red-400",

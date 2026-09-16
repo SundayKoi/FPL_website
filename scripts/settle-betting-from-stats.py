@@ -50,6 +50,36 @@ def _result(status: str, reason: str | None = None, **fields: Any) -> dict[str, 
     return row
 
 
+# The statuses settle_betting_market_from_stats() can answer with when it is
+# handed a conflict candidate for a market that is already RESOLVED.
+#
+#   conflict         the market WAS settled from stats and the evidence no
+#                    longer agrees. The RPC audited it; the flag is recorded.
+#   already_resolved the market carries no settlement evidence at all, so the
+#                    automation never settled it — somebody resolved it by
+#                    hand. There is nothing to flag and nothing is wrong.
+#
+# Treating already_resolved as a failure is what turned five ordinary
+# hand-resolved markets into a red workflow on 2026-09-15, which in turn
+# blocked every card job downstream of the ingest.
+CONFLICT_FLAG_OK = ("conflict", "already_resolved")
+
+
+def conflict_flag_failure(response: Any) -> str | None:
+    """The failure reason for a conflict-flag response, or None if it is fine.
+
+    A non-dict response carries no status to judge, so it passes: the RPC
+    layer raises on a genuine transport error, and inventing a failure from a
+    shape we did not expect to parse would be guessing.
+    """
+    if not isinstance(response, Mapping):
+        return None
+    status = response.get("status")
+    if status in CONFLICT_FLAG_OK:
+        return None
+    return f"conflict flag RPC returned unexpected status {status!r}"
+
+
 def derive_series_winner(
     fixture: Mapping[str, Any],
     market: Mapping[str, Any],
@@ -475,8 +505,9 @@ def run_settlement(
                             "p_run_id": automation_run_id,
                         },
                     )
-                    if isinstance(response, dict) and response.get("status") != "conflict":
-                        result["markets"]["failures"].append({"market_id": market_id, "reason": "conflict flag RPC returned an unexpected status"})
+                    flag_failure = conflict_flag_failure(response)
+                    if flag_failure:
+                        result["markets"]["failures"].append({"market_id": market_id, "reason": flag_failure})
                 except SettlementRequestError as exc:
                     item = {"market_id": market_id, "fixture_id": fixture_id, "reason": str(exc)}
                     result["markets"]["failures"].append(item)

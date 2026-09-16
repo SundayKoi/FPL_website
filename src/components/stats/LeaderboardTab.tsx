@@ -44,6 +44,9 @@ type ColumnKey =
   | "avg_gold_diff_20"
   | "avg_xp_diff_20"
   | "avg_solo_kills"
+  | "total_kills"
+  | "total_deaths"
+  | "total_assists"
   | "total_solo_kills"
   | "total_plates"
   | "first_blood_involvements"
@@ -223,6 +226,27 @@ const COLUMNS: Column[] = [
     display: (r) => r.avg_solo_kills.toFixed(2),
   },
   {
+    key: "total_kills",
+    label: "K",
+    numeric: true,
+    sortValue: (r) => r.total_kills,
+    display: (r) => String(r.total_kills),
+  },
+  {
+    key: "total_deaths",
+    label: "D",
+    numeric: true,
+    sortValue: (r) => r.total_deaths,
+    display: (r) => String(r.total_deaths),
+  },
+  {
+    key: "total_assists",
+    label: "A",
+    numeric: true,
+    sortValue: (r) => r.total_assists,
+    display: (r) => String(r.total_assists),
+  },
+  {
     key: "total_solo_kills",
     label: "Solo",
     numeric: true,
@@ -306,7 +330,7 @@ const PINNED_COLUMNS: ColumnKey[] = ["player", "role_mode"];
  *  than one run of sixteen chips. */
 const COLUMN_GROUPS: { title: string; keys: ColumnKey[] }[] = [
   { title: "Core", keys: ["games", "winrate_pct", "kda", "kda_avg", "avg_game_duration"] },
-  { title: "Combat", keys: ["avg_kills", "avg_deaths", "avg_assists", "avg_kp_pct", "avg_solo_kills", "total_solo_kills", "first_blood_involvements"] },
+  { title: "Combat", keys: ["total_kills", "total_deaths", "total_assists", "avg_kills", "avg_deaths", "avg_assists", "avg_kp_pct", "avg_solo_kills", "total_solo_kills", "first_blood_involvements"] },
   { title: "Damage", keys: ["avg_dmg_per_min", "avg_dmg_share_pct", "avg_dmg_taken_per_min"] },
   { title: "Economy", keys: ["avg_cs_per_min", "avg_gold_per_min", "total_plates"] },
   {
