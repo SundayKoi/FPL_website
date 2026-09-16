@@ -24,6 +24,8 @@ import {
   type SendoffExitStage,
   type SendoffStage,
 } from "@/lib/cards/sendoff";
+import { SENDOFF_LOOKS, sendoffLookOverlay } from "@/lib/cards/sendoffLooks";
+import { CURRENT_LINE, LINE_TIERS, lineTierLabel, skinLineByKey, type LineTier, type SkinLine } from "@/lib/cards/skinLines";
 import { mondayOf } from "@/lib/packs/week";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -43,6 +45,24 @@ const MOCKUP_EXIT: Record<SendoffStage, SendoffExitStage> = {
   champion: "finals",
 };
 
+/** The three the look wall draws, least to most: one exit, one runner-up,
+ *  one winner. Three is enough to see a ladder and few enough that six
+ *  looks still fit on a screen the owner can compare across. */
+const LOOK_STAGES: SendoffStage[] = ["quarterfinalist", "finalist", "champion"];
+
+/** The skin-line preview the reference row shows, built the way
+ *  /skin-lines builds it — the same shape PlayerCard3D's `preview` takes. */
+function previewOf(line: SkinLine, tier: LineTier) {
+  return {
+    label: lineTierLabel(line, tier),
+    className: line.className,
+    modifier: tier.modifier,
+    blend: line.blend,
+    accent: line.accent,
+    layers: tier.layers,
+  };
+}
+
 /** A day, in Eastern, the way every other card date on the site reads. */
 function day(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -53,14 +73,19 @@ function day(iso: string): string {
 }
 
 /**
- * STAFF ONLY. PREVIEW ONLY. Two jobs, and neither of them writes anything:
+ * STAFF ONLY. PREVIEW ONLY. Three jobs, and none of them writes anything:
  *
  * 1. Show the five send-off stamps on real cards, through the same
  *    PlayerCard3D the shop renders, so the stamps can be judged as objects
  *    rather than as a spec. The Champion's frame is the one thing on this
  *    page that cannot be checked any other way — five cards a season wear
  *    it and the first of them ships to a real person.
- * 2. Dry-run what Tuesday's drop would print for the current week, off the
+ * 2. Put six candidate LOOKS for the print side by side on the same three
+ *    cards (src/lib/cards/sendoffLooks.ts), so the league can pick what a
+ *    playoff keepsake should be rather than argue about it in words.
+ *    Mockups: they ride PlayerCard3D's admin-only `overlay` prop and
+ *    nothing minted can reach their layers.
+ * 3. Dry-run what Tuesday's drop would print for the current week, off the
  *    real fixtures and the real season cards, so a bracket typo or a team
  *    name that does not match `raw_stats.team_name` is caught BEFORE the
  *    edition is archived rather than after somebody's only playoff card
@@ -107,6 +132,11 @@ export default async function SendoffPreviewPage({
   // rather than dropping stamps nobody could then judge.
   const best = [...cards].sort((a, b) => b.overall - a.overall).slice(0, SENDOFF_STAGES.length);
 
+  // The reference row's third way of drawing the same card: this season's
+  // skin line at its Chroma rung, exactly as /skin-lines draws it.
+  const currentLine = skinLineByKey(CURRENT_LINE) ?? null;
+  const chromaTier = LINE_TIERS.find((tier) => tier.key === "chroma") ?? null;
+
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-12 px-6 py-16">
       <header className="flex flex-col gap-3">
@@ -117,8 +147,8 @@ export default async function SendoffPreviewPage({
         <p className="max-w-3xl text-sm text-steel">
           Playoff cards print by elimination: a player&apos;s playoff card prints once, in the week their team&apos;s
           split ended, rated on the whole split rather than on the handful of people still in the bracket, and stamped
-          with how far they got. This page shows the five stamps on real cards and dry-runs what Tuesday&apos;s drop
-          would print for {week}.
+          with how far they got. This page shows the five stamps on real cards, puts six candidate looks for the print
+          side by side, and dry-runs what Tuesday&apos;s drop would print for {week}.
         </p>
         <p className="max-w-3xl text-sm text-gold">
           Preview only. Nothing on this page mints, archives, prices or writes anything — it reads the season&apos;s
@@ -193,6 +223,127 @@ export default async function SendoffPreviewPage({
               );
             })}
           </div>
+        )}
+      </section>
+
+      <section aria-label="Looks" className="flex flex-col gap-8">
+        <div className="flex flex-col gap-2">
+          <h2 className="type-display border-b border-line pb-2 text-2xl">
+            Six looks <span className="text-sm text-gold">· prototypes</span>
+          </h2>
+          <p className="max-w-3xl text-sm text-steel">
+            A playoff keepsake should not look like a season card with a ribbon on it. These are six different ideas of
+            what the print could BE — a newspaper, a plaque, a banner in the rafters, a stage, a blueprint, a
+            photograph — drawn on the same three cards so they compare like for like. Pick one and it becomes the
+            treatment <code className="px-1 text-white">card.sendoff</code> turns on.
+          </p>
+          <p className="max-w-3xl text-sm text-steel">
+            Mockups, and only mockups: every card below still wears the SHIPPED send-off underneath — the ribbon, the
+            coin, and the Champion&apos;s frame — because nothing has replaced them yet. The look that wins takes over
+            the header, the stamp and the frame; until then they show through. The corner chip carries the line the CSS
+            cannot know on its own: the stamp, the series and the round.
+          </p>
+        </div>
+
+        {best.length === 0 ? (
+          <p className="text-sm text-steel">No season cards yet — nothing to draw the looks on.</p>
+        ) : (
+          <>
+            <div className="flex flex-col gap-3">
+              <h3 className="label-dash text-gold">What we are already printing</h3>
+              <p className="max-w-3xl text-sm text-steel">
+                The same real card three ways, for scale: what it looks like today, what a foil of it looks like in
+                this season&apos;s skin line, and what the shipped send-off adds. Everything under this row has to be
+                different from all three at a glance.
+              </p>
+              <div className="flex flex-wrap gap-8">
+                <figure data-testid="reference-season" className="flex w-[20rem] flex-col items-center gap-2">
+                  <PlayerCard3D card={best[0]} interactive />
+                  <figcaption className="text-center text-xs text-steel">Season card</figcaption>
+                </figure>
+                <figure data-testid="reference-line" className="flex w-[20rem] flex-col items-center gap-2">
+                  {currentLine && chromaTier ? (
+                    <PlayerCard3D
+                      card={best[0]}
+                      interactive
+                      forceFoil
+                      foilType={chromaTier.replaces}
+                      preview={previewOf(currentLine, chromaTier)}
+                    />
+                  ) : (
+                    <PlayerCard3D card={best[0]} interactive forceFoil />
+                  )}
+                  <figcaption className="text-center text-xs text-steel">
+                    {season ?? "Season"} skin line
+                    {currentLine && chromaTier ? ` · ${lineTierLabel(currentLine, chromaTier)}` : ""}
+                  </figcaption>
+                </figure>
+                <figure data-testid="reference-sendoff" className="flex w-[20rem] flex-col items-center gap-2">
+                  <PlayerCard3D
+                    card={withSendoff(best[0], {
+                      stage: "semifinalist",
+                      exit: MOCKUP_EXIT.semifinalist,
+                      team: best[0].teamName ?? "—",
+                      series: "1–3",
+                      week,
+                    })}
+                    interactive
+                  />
+                  <figcaption className="text-center text-xs text-steel">Shipped send-off</figcaption>
+                </figure>
+              </div>
+            </div>
+
+            {SENDOFF_LOOKS.map((look) => (
+              <div
+                key={look.key}
+                data-testid={`look-${look.key}`}
+                className="flex flex-col gap-4 border-t border-line pt-8 lg:flex-row lg:items-start"
+              >
+                <div className="flex flex-wrap gap-6">
+                  {LOOK_STAGES.map((stage, index) => {
+                    const base = best[index % best.length];
+                    const mark = {
+                      stage,
+                      exit: MOCKUP_EXIT[stage],
+                      team: base.teamName ?? "—",
+                      // The Champion is the one team that did not fall, so
+                      // its line reads from the winning side.
+                      series: stage === "champion" ? "3–1" : "1–3",
+                      week,
+                    };
+                    return (
+                      <figure
+                        key={`${look.key}-${stage}`}
+                        data-look-stage={stage}
+                        className="flex w-[20rem] flex-col items-center gap-2"
+                      >
+                        <PlayerCard3D card={withSendoff(base, mark)} overlay={sendoffLookOverlay(look, mark)} interactive />
+                        <figcaption
+                          className="text-center text-xs font-black uppercase tracking-[0.18em]"
+                          style={{ color: SENDOFF_META[stage].accent }}
+                        >
+                          {SENDOFF_META[stage].label}
+                        </figcaption>
+                      </figure>
+                    );
+                  })}
+                </div>
+                <div className="card-brand flex max-w-md flex-col gap-2 p-4">
+                  <h3 className="type-display text-xl" style={{ color: look.accent }}>
+                    {look.title}
+                  </h3>
+                  <p className="text-sm text-white">{look.blurb}</p>
+                  <p className="text-xs text-steel">
+                    <b className="text-white">In the hand:</b> {look.feel}
+                  </p>
+                  <p className="text-xs text-steel">
+                    <b className="text-white">Down the ladder:</b> {look.ladder}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </>
         )}
       </section>
 
