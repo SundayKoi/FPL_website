@@ -7,10 +7,11 @@ This is a read-only awards desk, not a collectible mint or a season-closing
 operation. The former `/admin/season-end` route redirects here for existing
 admin bookmarks.
 
-Accolade cards are a single consistent treatment: their headline is the
-statistic that earned that specific honor, with no player-card OVR, tier, or
-sub-stat lines. Season Cards are the one exception: they use the ordinary
-cumulative player-card renderer, including its OVR, tier, and stat lines.
+Accolade entries use the normal player-card renderer, so the winner's champion
+art, OVR, tier, stat lines and flip remain visible; the award title and winning
+stat sit immediately above the card. Team honors use the roster-card renderer
+when a complete team is available. Season Cards remain the ordinary cumulative
+player cards for contributors with more than five games.
 
 The server checks staff access before fetching data through the cookie-bound
 Supabase client. Reads are scoped to the selected season and `Regular` phase,
