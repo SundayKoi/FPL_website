@@ -1,4 +1,7 @@
-import { gamePoints, type FantasyStatRow } from "@/lib/stats/fantasyPoints";
+import { gamePoints, FANTASY_TARIFF, type FantasyStatRow } from "@/lib/stats/fantasyPoints";
+
+import { championDisplayName } from "@/lib/match-draft/champions";
+import { assignChampions } from "./assignment";
 
 export type SeasonRow = FantasyStatRow & {
   id: number; season: string; season_phase: string; match_id: string | null;
@@ -10,7 +13,7 @@ export type SeasonFixture = {
   id: string; season: string; stage: string; division: string | null;
   team_a: string | null; team_b: string | null; score_a: number | null; score_b: number | null;
 };
-export type Winner = { key: string; name: string; champion: string | null; value: number; display: string; evidence: string; roster?: string[] };
+export type Winner = { key: string; name: string; champion: string | null; value: number; display: string; evidence: string; roster?: string[]; playerKeys?: string[]; title?: string; championGames?: number };
 export type Award = { id: string; title: string; family: "sovereign" | "record" | "guardian" | "wild" | "story" | "team"; rule: string; winners: Winner[]; unavailable?: string };
 const key = (r: SeasonRow) => `${r.summoner_name?.trim().toLowerCase()}#${r.tag?.trim().toLowerCase()}`;
 const name = (r: SeasonRow) => `${r.summoner_name}${r.tag ? `#${r.tag}` : ""}`;
@@ -25,7 +28,7 @@ const group = <T,>(rows: T[], by: (r: T) => string): Map<string, T[]> => {
 };
 const signature = (rows: SeasonRow[]) => [...group(rows.filter(r => r.champion), r => r.champion!).entries()].sort((a,b) => b[1].length-a[1].length || a[0].localeCompare(b[0]))[0]?.[0] ?? null;
 const record = (rows: SeasonRow[]) => `${rows.filter(r => r.win).length}–${rows.filter(r => !r.win).length}`;
-const player = (rows: SeasonRow[], value: number, display: string, evidence: string): Winner => ({ key: key(rows[0]), name: name(rows[0]), champion: signature(rows), value, display, evidence });
+const player = (rows: SeasonRow[], value: number, display: string, evidence: string): Winner => ({ key: key(rows[0]), name: name(rows[0]), playerKeys: [key(rows[0])], champion: signature(rows), value, display, evidence });
 const best = (candidates: Winner[]) => {
   const sorted = candidates.filter(c => Number.isFinite(c.value)).sort((a,b) => b.value-a.value || a.key.localeCompare(b.key));
   return sorted.filter(c => Math.abs(c.value-(sorted[0]?.value ?? 0)) < 1e-8);
@@ -34,7 +37,8 @@ const best = (candidates: Winner[]) => {
 /** Pure preview calculation. Never consumes playoffs, another season, duplicate
  * player appearances, or incomplete matches as if they were complete games. */
 export function buildSeasonAwards(input: SeasonRow[], fixtures: SeasonFixture[], season: string) {
-  const scoped = input.filter(r => r.season === season && r.season_phase === "Regular");
+  const scoped = input.filter(r => r.season === season && r.season_phase === "Regular")
+    .map(r => ({...r,champion:r.champion ? championDisplayName(r.champion.trim()) : null}));
   const matches = group(scoped, r => r.match_id ?? "");
   const rows: SeasonRow[] = [];
   let excluded = 0;
@@ -79,19 +83,22 @@ export function buildSeasonAwards(input: SeasonRow[], fixtures: SeasonFixture[],
   const performance = (r: SeasonRow) => percentiles.get(r.id)!;
   const avg = (p: SeasonRow[]) => p.reduce((n,r)=>n+performance(r),0)/p.length;
   const champGroups = group(rows,r=>r.champion!);
-  const sovereigns: Winner[] = [];
+  const championCandidates: (Winner & {playerKey:string; champion:string})[] = [];
   const pockets: Winner[] = [];
   for (const [champ, games] of [...champGroups].sort(([a],[b])=>a.localeCompare(b))) {
-    const candidates = scoreCovered ? [...group(games,key).values()].filter(p=>p.length>=4).map(p=>{
+    const candidates = scoreCovered ? [...group(games,key).values()].map(p=>{
       const wins=p.filter(r=>r.win).length; const score=60*wins/p.length+0.4*avg(p);
-      return {...player(p,score,score.toFixed(1),`${champ} · ${record(p)} · ${p.length} games · ${((sum(p,"kills")+sum(p,"assists"))/Math.max(1,sum(p,"deaths"))).toFixed(2)} KDA`),key:`${key(p[0])}:${champ}`,champion:champ};
+      return {...player(p,score,score.toFixed(1),`${champ} · ${record(p)} · ${p.length} games · ${((sum(p,"kills")+sum(p,"assists"))/Math.max(1,sum(p,"deaths"))).toFixed(2)} KDA`),key:`${key(p[0])}:${champ}`,playerKey:key(p[0]),champion:champ,championGames:p.length,title:`Best of ${champ}`};
     }) : [];
-    sovereigns.push(...best(candidates));
-    if (games.length / Math.max(1,rows.length/10) <= 0.1) pockets.push(...candidates.filter(c=>c.value>=0 && games.filter(r=>`${key(r)}:${champ}`===c.key && r.win).length / games.filter(r=>`${key(r)}:${champ}`===c.key).length>=0.6));
+    championCandidates.push(...candidates);
+    if (games.length / Math.max(1,rows.length/10) <= 0.1) pockets.push(...candidates.filter(c=>c.championGames>=4 && c.value>=0 && games.filter(r=>`${key(r)}:${champ}`===c.key && r.win).length / games.filter(r=>`${key(r)}:${champ}`===c.key).length>=0.6));
   }
   const scoreUnavailable = scoreCovered ? undefined : "Missing role or performance fields; award withheld.";
-  add({id:"sovereigns",title:"Champion Sovereigns",family:"sovereign",rule:"One winner per champion, minimum 4 games. Score = 60% win rate + 40% mean role-adjusted fantasy percentile (0–100). Equal scores share a crown.",unavailable:scoreUnavailable},sovereigns,true);
-  add({id:"pocket-pick",title:"Pocket Pick",family:"wild",rule:"Highest Sovereign score on a champion picked in ≤10% of league games. Minimum 4 appearances and 60% win rate.",unavailable:scoreUnavailable},pockets);
+  const assigned = assignChampions(championCandidates);
+  const assignedKeys = new Set(assigned.map(c=>c.playerKey));
+  const unassigned = players.filter(p=>!assignedKeys.has(key(p[0]))).map(p=>name(p[0]));
+  add({id:"best-of-champion",title:"Best of Champion",family:"sovereign",rule:"One unique played champion per player. Assign as many players as possible, then maximize combined score (60% win rate + 40% role-adjusted fantasy percentile). At least one appearance; no repeated players or champions. This is a league-wide assignment, not independent champion leaderboards.",unavailable:scoreUnavailable},assigned,true);
+  add({id:"pocket-pick",title:"Pocket Pick",family:"wild",rule:"Highest champion score on a champion picked in ≤10% of league games. Minimum 4 appearances and 60% win rate.",unavailable:scoreUnavailable},pockets);
 
   const datesValid=rows.every(r=>r.game_date && Number.isFinite(Date.parse(r.game_date)));
   const dates=[...group(rows,r=>r.match_id!).values()].map(batch=>batch[0].game_date).filter((d): d is string=>Boolean(d)).sort((a,b)=>Date.parse(a)-Date.parse(b));
@@ -111,23 +118,33 @@ export function buildSeasonAwards(input: SeasonRow[], fixtures: SeasonFixture[],
     const k=`${key(adc[0])}|${key(support[0])}`;
     duos.set(k,[...(duos.get(k)??[]),adc[0],support[0]]);
   }
-  add({id:"dynamic-duo",title:"Dynamic Duo",family:"team",rule:"Bot/support pairing with the most wins together. Minimum 4 games together; ties share the award."},[...duos.entries()].filter(([,p])=>p.length>=8).map(([k,p])=>({key:k,name:`${name(p[0])} + ${name(p[1])}`,champion:signature(p),value:p.filter(r=>r.win).length/2,display:String(p.filter(r=>r.win).length/2),evidence:`wins together · ${p.length/2} games · ${record(p.filter((_,i)=>i%2===0))}`})).filter(c=>c.value>0));
+  const duoFields: (keyof SeasonRow)[] = ["kills","deaths","assists","cs_per_min","vision_score","damage_share_pct","kill_participation_pct"];
+  const duoCovered=complete(rows,duoFields);
+  add({id:"dynamic-duo",title:"Dynamic Duo",family:"team",rule:"Highest combined cumulative fantasy-stat points in games played together as bot and support, with the win bonus removed. Minimum 4 games together; ties share the award.", unavailable:duoCovered?undefined:"Missing bot-lane scoring data; award withheld."},duoCovered?[...duos.entries()].filter(([,p])=>p.length>=8).map(([k,p])=>{
+    const points=p.reduce((total,r)=>total+gamePoints(r,{...FANTASY_TARIFF,win:0}),0);
+    return {key:k,name:`${name(p[0])} + ${name(p[1])}`,playerKeys:[key(p[0]),key(p[1])],champion:signature(p),value:Math.round(points*100)/100,display:points.toFixed(2),evidence:`combined stat points · ${p.length/2} games · ${sum(p,"kills")} kills / ${sum(p,"deaths")} deaths / ${sum(p,"assists")} assists`};
+  }):[]);
   const regularFixtures=fixtures.filter(f=>f.season===season && /^week_\d+$/.test(f.stage));
   const fixturesComplete=regularFixtures.length>0 && regularFixtures.every(f=>f.team_a && f.team_b && f.score_a!==null && f.score_b!==null && f.score_a!==f.score_b);
   const teams=group(rows,r=>norm(r.team_name));
-  const ironmen=players.filter(p=>new Set(p.map(r=>norm(r.team_name))).size===1 && p.length>=8 && p.length===new Set(teams.get(norm(p[0].team_name))?.map(r=>r.match_id)).size).map(p=>player(p,p.length,`${p.length}/${p.length}`,`ingested team games · ${p[0].team_name} · ${record(p)}`));
-  add({id:"ironman",title:"Ironman",family:"story",rule:"Every ingested regular-season game for one team, minimum 8 games. All qualifying players receive a card. Forfeits have no player appearances."},ironmen,true);
-  const teamWinners:Winner[]=[];
-  if(fixturesComplete) for(const [division,fs] of group(regularFixtures,f=>f.division??"League")) {
-    const standings=new Map<string,{name:string;wins:number;losses:number}>();
-    for(const f of fs) for(const [team,won] of [[f.team_a!,f.score_a!>f.score_b!],[f.team_b!,f.score_b!>f.score_a!]] as const) {const k=norm(team);const entry=standings.get(k)??{name:team,wins:0,losses:0};if(won)entry.wins++;else entry.losses++;standings.set(k,entry);}
-    const candidates=[...standings].map(([k,t])=>({key:`${division}:${k}`,name:t.name,champion:signature(teams.get(k)??[]),value:t.wins,display:`${t.wins}–${t.losses}`,evidence:`${division} · series record · regular-season leader`,roster:[...new Set((teams.get(k)??[]).map(name))].sort()}));
-    teamWinners.push(...best(candidates));
+  add({id:"season-cards",title:"Season Cards",family:"story",rule:"A cumulative regular-season card for every player with more than 5 games, using the normal season-card rating engine and full league cohort."},players.filter(p=>p.length>5).map(p=>player(p,p.length,String(p.length),`${p.length} games · ${record(p)} · ${sum(p,"kills")} kills / ${sum(p,"deaths")} deaths / ${sum(p,"assists")} assists`)),true);
+  const undefeated:Winner[]=[];
+  if(fixturesComplete) {
+    const records=new Map<string,{name:string;wins:number;losses:number}>();
+    for(const f of regularFixtures) for(const [team,wins,losses] of [[f.team_a!,f.score_a!,f.score_b!],[f.team_b!,f.score_b!,f.score_a!]] as const) {
+      const k=norm(team);const entry=records.get(k)??{name:team,wins:0,losses:0};entry.wins+=wins;entry.losses+=losses;records.set(k,entry);
+    }
+    for(const [k,t] of records) {
+      const teamRows=teams.get(k)??[];
+      if(t.wins<=0 || t.losses!==0 || teamRows.some(r=>!r.win)) continue;
+      undefeated.push({key:k,name:t.name,champion:signature(teamRows),value:t.wins,display:`${t.wins}–0`,evidence:"undefeated regular-season game record · includes forfeits",roster:[...new Set(teamRows.map(name))].sort(),playerKeys:[...new Set(teamRows.map(key))]});
+    }
   }
-  add({id:"winning-roster",title:"Regular-Season Royalty",family:"team",rule:"Most series wins in each division from completed regular-season fixtures, including forfeits. Ties share honors; roster lists all observed contributors. Withheld until every regular-season fixture has a decisive result.",unavailable:fixturesComplete?undefined:"Regular-season fixtures are missing or unfinished; winner not yet confirmed."},teamWinners,true);
+  add({id:"undefeated",title:"Undefeated",family:"team",rule:"Only teams with at least one win and zero regular-season game losses. Fixture scores include forfeits; any observed game loss disqualifies the team. Withheld until all regular-season fixtures are complete.",unavailable:fixturesComplete?undefined:"Regular-season fixtures are missing or unfinished; undefeated teams not yet confirmed."},undefeated,true);
   const warnings:string[]=[];
+  if(unassigned.length)warnings.push(`Unique champion assignment covers ${assigned.length}/${players.length} players. No eligible unused played champion for: ${unassigned.join(", ")}.`);
   if(excluded)warnings.push(`${excluded} stat rows excluded: incomplete or inconsistent matches. All cards remain provisional.`);
   if(!fixturesComplete)warnings.push("Regular-season schedule is incomplete. Player awards reflect currently ingested games only.");
   if(rows.length===0)warnings.push("No complete regular-season games found for this season.");
-  return {awards, warnings, games:rows.length/10, players:players.length, excluded};
+  return {awards, warnings, games:rows.length/10, players:players.length, excluded, rows};
 }
