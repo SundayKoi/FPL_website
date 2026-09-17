@@ -41,7 +41,8 @@ describe("SeasonEndAwardCard", () => {
     expect(screen.getByText("60 total · Wolves · 6 games")).toBeTruthy();
     expect(screen.queryByText("SEASON ARCHIVE")).toBeNull();
     expect(screen.getByTestId("award-card-face").className).toContain("face");
-    expect(screen.getByTestId("award-card-art").getAttribute("style")).toContain("Ahri_0.jpg");
+    expect(screen.getByTestId("award-card-art").getAttribute("style")).toContain("/champion/centered/Ahri_0.jpg");
+    expect(screen.getByTestId("award-card-art").getAttribute("style")).toContain("/champion/splash/Ahri_0.jpg");
   });
 
   it("renders one marked accolade card for each division of a player award", () => {

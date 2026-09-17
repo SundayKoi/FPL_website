@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { championSplashUrl } from "@/lib/match-draft/champions";
+import { championCenteredUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import { cardPlayerKey, type PlayerCardData } from "@/lib/cards/build";
 import { buildTeamCards, teamToCard } from "@/lib/cards/teamCards";
 import BestOfChampionCard from "./BestOfChampionCard";
@@ -103,7 +103,7 @@ function AwardFace({
           className={styles.art}
           data-testid="award-card-art"
           aria-hidden="true"
-          style={art ? { backgroundImage: `url("${art}")` } : undefined}
+          style={art ? { backgroundImage: art } : undefined}
         />
         <div className={styles.artShade} aria-hidden="true" />
         <div className={styles.meta}>
@@ -139,7 +139,13 @@ function AwardVisualCard({
   division?: Division;
 }) {
   const champion = championFor(cards);
-  const art = champion ? championSplashUrl(champion, 0) : null;
+  const centeredArt = champion ? championCenteredUrl(champion, 0) : null;
+  const splashArt = champion ? championSplashUrl(champion, 0) : null;
+  const art = centeredArt || splashArt
+    ? [centeredArt, splashArt].filter((source, index, sources): source is string => Boolean(source) && sources.indexOf(source) === index)
+      .map((source) => `url("${source}")`)
+      .join(", ")
+    : null;
   const display = formatAwardPresentation(award, winner);
   const roster = cards[0]?.team?.slots.filter((slot) => slot.slug).map((slot) => slot.name) ?? [];
   const titleId = `title-${award.id}-${division ?? "global"}-${winnerIndex}`;
