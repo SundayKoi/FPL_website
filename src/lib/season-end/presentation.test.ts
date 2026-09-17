@@ -64,7 +64,7 @@ describe("season-end presentation", () => {
     expect(formatAwardPresentation(award({ id: "speedrunners", mode: undefined, unit: undefined }), winner(0.8, 8)).headline).toBe("1");
   });
 
-  it("keeps Best of score and KDA evidence free of decimals", () => {
+  it("keeps Best of record evidence free of decimals", () => {
     const display = formatAwardPresentation(award({
       id: "best-of-champion",
       title: "Best of Azir",
@@ -73,12 +73,22 @@ describe("season-end presentation", () => {
       mode: undefined,
       unit: undefined,
     }), {
-      ...winner(84.6),
-      evidence: { record: "2–0", kda: 8.5 },
+      ...winner(5),
+      games: 7,
+      evidence: {
+        bestOf: {
+          wins: 5,
+          losses: 2,
+          winRate: 100 * 5 / 7,
+          meanPerformance: 84.6,
+          seasonGames: 8,
+          championGames: 7,
+        },
+      },
     });
-    expect(display.headline).toBe("85");
-    expect(display.evidence).toContain("85/100 score");
-    expect(display.evidence).toContain("9 KDA");
+    expect(display.headline).toBe("5");
+    expect(display.evidence).toContain("5–2 · 71% WR · 7 games");
+    expect(display.evidence).not.toContain("score");
     expect(display.evidence).not.toMatch(/\d+\.\d/);
   });
 });

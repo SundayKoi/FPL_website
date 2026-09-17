@@ -4,7 +4,7 @@ import { championCenteredUrl, championDisplayName, championSplashUrl } from "@/l
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { AwardWinner, SeasonAward } from "@/lib/season-end/derive";
 import { championArtCrop, type ChampionArtCrop } from "@/lib/season-end/championArt";
-import { formatAwardPresentation } from "@/lib/season-end/presentation";
+import { formatAwardPresentation, formatInteger } from "@/lib/season-end/presentation";
 import type { Division } from "@/lib/schedule/types";
 import BestOfDivisionEmblem from "./BestOfDivisionEmblem";
 import styles from "./BestOfChampionCard.module.css";
@@ -73,6 +73,7 @@ export default function BestOfChampionCard({
   const identity = fullIdentity(winner, playerCard);
   const team = winner?.team ?? playerCard?.teamName ?? null;
   const display = winner ? formatAwardPresentation(award, winner) : null;
+  const bestOfEvidence = winner?.evidence?.bestOf;
   const status = winner ? null : (award.status === "unearned" ? "Not earned yet" : "Awaiting evidence");
   const statusNote = winner ? null : (award.note ?? "No qualifying champion assignment yet.");
   const splashArt = champion ? championSplashUrl(champion, 0) : null;
@@ -164,7 +165,17 @@ export default function BestOfChampionCard({
           <>
             <p className={styles.detailsLabel}>Best of Champion · Admin preview</p>
             <p className={styles.detailsIdentity}>{identity}{team ? ` · ${team}` : ""}{playerCard?.role ? ` · ${playerCard.role}` : ""}</p>
-            <p className={styles.evidence}>Assignment evidence · {display?.evidence}</p>
+            <p className={styles.evidence}>Award record · {display?.evidence}</p>
+            {bestOfEvidence ? (
+              <details className={styles.selectionDetails}>
+                <summary>Selection details</summary>
+                <p>Mean performance · {formatInteger(bestOfEvidence.meanPerformance)} / 100</p>
+                <p>Season eligibility · {formatInteger(bestOfEvidence.seasonGames)} total games</p>
+                {bestOfEvidence.capPromotion ? (
+                  <p>One-card cap promotion · {bestOfEvidence.capPromotion.unrestrictedLeaderName} led the unrestricted {championLabel ?? "champion"} ranking but already held another champion card.</p>
+                ) : null}
+              </details>
+            ) : null}
           </>
         ) : (
           <>

@@ -26,6 +26,9 @@
 .detailsIdentity,.evidence,.description { margin:0; color:#ccd5df; font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
 .detailsIdentity { color:#f5f1e8; font-weight:700; }
 .description { margin-top:2px; color:#9eacb9; }
+.selectionDetails { margin-top:2px; color:#9eacb9; font-size:11px; line-height:1.45; }
+.selectionDetails summary { cursor:pointer; color:#e7c780; font-weight:700; }
+.selectionDetails p { margin:4px 0 0; }
 .srOnly { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 .emptyState .face { background:#121920; }
 .emptyState .frame,.emptyState .ornament,.emptyState .gem { opacity:.72; }

@@ -122,13 +122,13 @@ describe("SeasonEndAwardCard", () => {
           winners: [{
             name: "Alice#NA1",
             team: "Wolves",
-            value: 88,
-            games: 6,
+            value: 5,
+            games: 7,
             division: "Solari",
             champion: "Azir",
-            championGames: 2,
+            championGames: 7,
             title: "Best of Azir",
-            evidence: { record: "2–0", kda: 8 },
+            evidence: { bestOf: { wins: 5, losses: 2, winRate: 100 * 5 / 7, meanPerformance: 88.4, seasonGames: 8, championGames: 7 } },
           }],
         }}
         season="S5"
@@ -144,7 +144,7 @@ describe("SeasonEndAwardCard", () => {
     expect(screen.getByLabelText("Solari division")).toBeTruthy();
     expect(screen.queryByText("☀")).toBeNull();
     expect(screen.getByText("S5 Premier")).toBeTruthy();
-    expect(screen.getByText(/2–0 · 8 KDA · 88\/100 score · Wolves · 6 games/)).toBeTruthy();
+    expect(screen.getByText(/Award record · 5–2 · 71% WR · 7 games/)).toBeTruthy();
     expect(screen.getByText("One unique played champion per player.")).toBeTruthy();
     expect(screen.queryByTestId("best-of-autograph")).toBeNull();
     expect(screen.queryByText("Season stories")).toBeNull();
