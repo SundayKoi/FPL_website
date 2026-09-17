@@ -23,6 +23,8 @@ export interface BestOfChampionCardProps {
   autograph?: string | null;
   /** Local-only override used by the developer crop-audit surface. */
   crop?: ChampionArtCrop | null;
+  /** Staff-only selection diagnostics are omitted from patron card views. */
+  showAdminDetails?: boolean;
 }
 
 function accountName(winner: AwardWinner | null | undefined, playerCard: PlayerCardData | null | undefined): string | null {
@@ -64,6 +66,7 @@ export default function BestOfChampionCard({
   division,
   autograph = null,
   crop = null,
+  showAdminDetails = true,
 }: BestOfChampionCardProps) {
   const champion = winner?.champion ?? playerCard?.signature?.champion ?? null;
   const championLabel = champion ? championDisplayName(champion) : null;
@@ -163,10 +166,10 @@ export default function BestOfChampionCard({
       <div className={styles.details}>
         {winner ? (
           <>
-            <p className={styles.detailsLabel}>Best of Champion · Admin preview</p>
+            <p className={styles.detailsLabel}>{showAdminDetails ? "Best of Champion · Admin preview" : "Best of Champion"}</p>
             <p className={styles.detailsIdentity}>{identity}{team ? ` · ${team}` : ""}{playerCard?.role ? ` · ${playerCard.role}` : ""}</p>
             <p className={styles.evidence}>Award record · {display?.evidence}</p>
-            {bestOfEvidence ? (
+            {showAdminDetails && bestOfEvidence ? (
               <details className={styles.selectionDetails}>
                 <summary>Selection details</summary>
                 <p>Mean performance · {formatInteger(bestOfEvidence.meanPerformance)} / 100</p>
@@ -179,7 +182,7 @@ export default function BestOfChampionCard({
           </>
         ) : (
           <>
-            <p className={styles.detailsLabel}>Admin preview</p>
+            <p className={styles.detailsLabel}>{showAdminDetails ? "Admin preview" : "Best of Champion"}</p>
             <p className={styles.evidence}>{statusNote}</p>
           </>
         )}

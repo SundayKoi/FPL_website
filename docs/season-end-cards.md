@@ -1,11 +1,13 @@
 # Season's End cards
 
-Open **Admin → Season's End** (`/admin/seasons-end`). Admins and owners can
-calculate all 56 accolade cards for either league and a selected season, plus
-the normal cumulative Season Cards for contributors with more than five games.
-This is a read-only awards desk, not a collectible mint or a season-closing
-operation. The former `/admin/season-end` route redirects here for existing
-admin bookmarks.
+Open **Season's End** (`/admin/seasons-end`). The page is pinned to Premier S5
+and Academy A1; use the league dropdown to swap between the two card sets.
+Admins and owners can view the card calculation diagnostics, while active
+patrons can open the shared URL to view the cards; they see the card collection
+without the staff controls, diagnostics, or developer crop audit. This is a
+read-only awards desk, not a collectible mint or a season-closing operation.
+The former `/admin/season-end` route redirects here for existing admin
+bookmarks.
 
 Ordinary accolade entries use a unified collectible treatment: a framed portrait
 face with an exact 63:88 ratio, champion splash art, season/league and known-
@@ -144,5 +146,6 @@ all fixtures are complete.
 
 Focused tests live in `src/lib/season-end/` and
 `src/app/admin/seasons-end/page.test.tsx`. They cover isolation, paginated reads,
-admin gating, ties, missing data, rates, timeline comparisons, chronological
-streaks, series completion, rosters, performance floors and champion mappings.
+staff/patron gating, the patron-safe card view, ties, missing data, rates,
+timeline comparisons, chronological streaks, series completion, rosters,
+performance floors and champion mappings.

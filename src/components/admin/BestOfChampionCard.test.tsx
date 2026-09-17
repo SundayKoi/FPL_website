@@ -78,6 +78,24 @@ describe("BestOfChampionCard", () => {
     expect(screen.queryByText("Season stories")).toBeNull();
   });
 
+  it("omits staff-only selection details in the patron card view", () => {
+    render(
+      <BestOfChampionCard
+        award={award({ winners: [winner()] })}
+        winner={winner()}
+        playerCard={card}
+        season="S5"
+        league="premier"
+        headingId="best-of-patron"
+        showAdminDetails={false}
+      />,
+    );
+
+    expect(screen.getByText("Best of Champion")).toBeTruthy();
+    expect(screen.queryByText(/Admin preview/)).toBeNull();
+    expect(screen.queryByText("Selection details")).toBeNull();
+  });
+
   it("keeps the assigned art and identity when the player card is missing", () => {
     render(
       <BestOfChampionCard

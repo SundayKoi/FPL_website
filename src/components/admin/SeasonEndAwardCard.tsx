@@ -248,12 +248,14 @@ export default function SeasonEndAwardCard({
   season,
   league,
   cards,
+  showAdminDetails = true,
 }: {
   award: SeasonAward;
   season: string;
   league: "premier" | "academy";
   index: number;
   cards: PlayerCardData[];
+  showAdminDetails?: boolean;
 }) {
   const cardsByPlayer = new Map(cards.map((card) => [cardPlayerKey(card.name, card.tag), card]));
   const isDivisional = Boolean(award.divisionStatuses);
@@ -269,6 +271,7 @@ export default function SeasonEndAwardCard({
         league={league}
         headingId={`title-${award.id}-${division ?? "global"}-${winner ? winnerIndex : "empty"}`}
         division={division ?? winner?.division}
+        showAdminDetails={showAdminDetails}
       />
     );
 

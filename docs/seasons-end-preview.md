@@ -1,15 +1,17 @@
-# Season’s End admin preview
+# Season’s End preview
 
-`/admin/seasons-end` is linked from Admin and checks the authenticated profile
-for admin or owner before querying data. Broadcaster alone does not grant access.
-It uses the cookie-bound Supabase client and existing read policies, with no
-new database objects, writes, pack entries, or minted cards.
+`/admin/seasons-end` is linked from Admin for staff and can also be opened by
+active patrons who receive the URL. Staff are checked through the authenticated
+profile; broadcaster alone does not grant access. Patron access uses the
+read-only patron window and shows only the card collection — no staff controls,
+selection diagnostics, or developer crop audit. It uses the cookie-bound
+Supabase client and existing read policies, with no new database objects,
+writes, pack entries, or minted cards.
 
-Select Premier or Academy and a historical season. Seasons are discovered from
-`stats_player_agg`; each raw query is restricted to one season and `Regular`.
+The league dropdown switches between the fixed Premier S5 and Academy A1
+snapshots. Each raw query is restricted to that league's season and `Regular`.
 Queries are paginated and ordered, and failures render an error rather than a
-partial collection. Invalid or cross-league season parameters fall back to the
-latest available season in the selected league.
+partial collection. A supplied `season` query parameter is ignored.
 
 All player awards use the normal `PlayerCard3D` renderer and `buildSeasonCards`
 engine. Complete regular-season rows are aggregated through the existing raw-row
@@ -54,4 +56,5 @@ Verification: `src/lib/season-end/best-of.test.ts` and
 `src/lib/season-end/derive.test.ts` cover thresholds, ranking, caps, ties,
 aliases, pagination and isolation; `src/lib/cards/seasonsEnd/*.test.ts` keeps
 the legacy assignment engine covered; `src/app/admin/seasons-end/page.test.tsx`
-covers the server gate and read-error/empty states. No migration is required.
+covers the staff/patron server gate, the patron-safe card view, and read-error/
+empty states. No migration is required.
