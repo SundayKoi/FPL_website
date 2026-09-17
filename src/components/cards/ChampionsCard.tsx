@@ -8,14 +8,15 @@
 //
 // Server-renderable — no hooks, no handlers. Foil parallels reuse the
 // exact overlay layers player cards wear (FOIL_LAYERS), held at a fixed
-// opacity since there is no pointer to chase. Ink is script type, not a
-// drawn PNG: S4 names may never sign in to draw one, and a relic's
-// autograph should read like a signing-day sharpie anyway.
+// opacity since there is no pointer to chase. A real frozen autograph is
+// player-drawn PNG ink; the owner-preview fallback remains script text when
+// no signed copy supplies that PNG.
 
 import { championSplashUrl } from "@/lib/match-draft/champions";
 import { mintOrdinal } from "@/lib/cards/moments";
 import { FOIL_TYPE_LABELS, foilTypeOf, type FoilType } from "@/lib/packs/config";
 import type { PlayerCardData } from "@/lib/cards/build";
+import AutographMark from "./AutographMark";
 import DrawLaurel from "./DrawLaurel";
 import ExpeditionMark from "./ExpeditionMark";
 
@@ -219,14 +220,11 @@ export default function ChampionsCard({
         // cards. The script fallback exists for the owner preview, where
         // no mint has happened.
         card.autograph ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <AutographMark
             src={card.autograph}
             alt={`${card.name}'s autograph`}
-            data-testid="champ-autograph"
-            decoding="async"
-            className="pointer-events-none absolute right-[8%] top-[7%] w-[45%] -rotate-[8deg] object-contain"
-            style={{ filter: "drop-shadow(0 1px 3px rgb(0 0 0 / 0.95)) drop-shadow(0 0 8px rgb(255 255 255 / 0.35))" }}
+            placement="champions"
+            imageTestId="champ-autograph"
           />
         ) : (
           <span className="champ-ink absolute right-[10%] top-[9%] -rotate-[8deg] text-[1.75rem]" aria-label="Autographed">

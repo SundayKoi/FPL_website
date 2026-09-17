@@ -27,6 +27,7 @@
 import { championCenteredUrl } from "@/lib/match-draft/champions";
 import { foilTypeOf, type FoilType } from "@/lib/packs/config";
 import type { TeamCardEntry, TeamPrint } from "@/lib/cards/teamCards";
+import AutographMark from "./AutographMark";
 import { hiResLogoUrl } from "./ChampionsCard";
 
 /** The same overlays player cards wear, held at a fixed opacity — there
@@ -99,13 +100,11 @@ function Panel({ slot, color }: { slot: TeamCardEntry["slots"][number]; color: s
           five have inked is a different object from one where nobody has,
           and this is the only place that difference can show. */}
       {slot.autograph ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <AutographMark
           src={slot.autograph}
           alt=""
-          aria-hidden
-          loading="lazy"
-          className="pointer-events-none absolute inset-x-[6%] bottom-[30%] z-[4] max-h-[18%] w-[88%] object-contain opacity-90 mix-blend-screen drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]"
+          placement="team"
+          imageTestId="team-autograph"
         />
       ) : null}
     </div>
