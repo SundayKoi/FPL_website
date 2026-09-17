@@ -19,8 +19,6 @@
 .footer { position:absolute; z-index:4; right:8%; bottom:6%; left:8%; display:flex; align-items:flex-end; gap:10px; }
 .seasonLeague { color:#d4d8d9; font-family:var(--font-body, sans-serif); font-size:clamp(10px, 3.4cqw, 13px); font-weight:700; letter-spacing:.1em; text-shadow:0 1px 5px #000; }
 .gem { position:absolute; z-index:4; bottom:2.8%; left:48.5%; width:3%; aspect-ratio:1; transform:rotate(45deg); border:1px solid var(--celestial-accent); background:#101923; box-shadow:0 0 9px color-mix(in srgb, var(--celestial-accent) 40%, transparent); pointer-events:none; }
-.autographBox { position:absolute; z-index:4; top:38%; right:8%; width:22%; height:7%; transform:rotate(-6deg); pointer-events:none; }
-.autograph { object-fit:contain; filter:drop-shadow(0 1px 3px rgb(0 0 0 / .95)) drop-shadow(0 0 8px rgb(255 255 255 / .35)); }
 .details { display:grid; gap:4px; padding:11px 3px 0; }
 .detailsLabel { margin:0; color:#e7c780; font-size:10px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
 .detailsIdentity,.evidence,.description { margin:0; color:#ccd5df; font-size:12px; line-height:1.45; overflow-wrap:anywhere; }

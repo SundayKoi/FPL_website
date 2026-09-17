@@ -155,6 +155,22 @@ describe("renderCardImage", () => {
     });
     expect(texts(tree).join(" | ")).toContain("SIGNED");
     expect(imageSources(tree)).toContain(INK);
+
+    const backing = nodes(tree).find((element) => (element.props.style as Record<string, unknown> | undefined)?.width === 224);
+    expect(backing?.props.style).toMatchObject({
+      width: 224,
+      height: 96,
+      background: "rgba(3,8,12,0.64)",
+      border: "1px solid rgba(248,248,255,0.18)",
+    });
+    const ink = nodes(tree).find((element) => element.type === "img" && element.props.src === INK);
+    expect(ink?.props).toMatchObject({ width: 212, height: 84 });
+  });
+
+  it("does not add a blank autograph backing to an unsigned image", () => {
+    const tree = renderCardImage({ card: playerCard(), ...plainInput });
+
+    expect(nodes(tree).some((element) => (element.props.style as Record<string, unknown> | undefined)?.width === 224)).toBe(false);
   });
 
   it("keeps a junk autograph away from satori", () => {
