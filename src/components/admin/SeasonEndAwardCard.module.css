@@ -22,8 +22,20 @@
   box-shadow:0 12px 30px rgb(0 0 0 / .24);
 }
 .artRegion { position:relative; display:flex; flex:1 0 auto; flex-direction:column; min-width:0; background:#101b24; }
-.art { position:absolute; inset:0; background-position:center; background-repeat:no-repeat; background-size:cover; }
+.art { position:absolute; inset:0; overflow:hidden; background:#101b24; }
+.artImage { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
 .artShade { position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg, rgb(16 27 36 / .45), transparent 28%, rgb(16 27 36 / .84) 72%, #101b24); }
+.pairArt { position:absolute; inset:0; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); min-width:0; overflow:hidden; background:#101b24; }
+.pairPanel { position:relative; min-width:0; overflow:hidden; background:#101b24; }
+.pairPanel + .pairPanel { border-left:1px solid rgb(232 198 135 / .55); }
+.pairPanelShade { position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg, rgb(16 27 36 / .12), transparent 34%, rgb(16 27 36 / .88) 100%); }
+.pairPanelLabel { position:absolute; z-index:2; right:clamp(8px, 3cqw, 14px); bottom:clamp(90px, 28cqw, 116px); left:clamp(8px, 3cqw, 14px); display:grid; gap:3px; min-width:0; color:#fff8eb; text-shadow:0 1px 5px #000; }
+.pairMemberName { min-width:0; font-size:clamp(10px, 3.2cqw, 14px); font-weight:800; line-height:1.15; overflow-wrap:anywhere; }
+.pairChampionLabel { min-width:0; color:#e8c687; font-size:clamp(9px, 2.7cqw, 11px); font-weight:700; letter-spacing:.03em; line-height:1.2; overflow-wrap:anywhere; }
+.teamArt { position:absolute; z-index:1; inset:0; display:grid; place-items:center; overflow:hidden; background:linear-gradient(135deg, color-mix(in srgb, var(--team-color) 38%, #101b24), #101b24 72%); box-shadow:inset 0 0 90px color-mix(in srgb, var(--team-color) 35%, transparent); }
+.teamLogo { position:absolute; inset:16% 18% 22%; z-index:1; width:64%; height:62%; object-fit:contain; }
+.teamMonogram { position:relative; z-index:0; color:#fff8eb; font-size:clamp(42px, 17cqw, 76px); font-weight:900; letter-spacing:.04em; line-height:1; text-align:center; text-shadow:0 5px 22px #0009; }
+.teamArtName { position:absolute; z-index:2; right:var(--award-inset); bottom:clamp(88px, 27cqw, 112px); left:var(--award-inset); color:#fff8eb; font-size:clamp(12px, 4cqw, 16px); font-weight:800; line-height:1.15; text-align:center; text-shadow:0 1px 6px #000; overflow-wrap:anywhere; }
 .meta { position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; padding:clamp(18px, 6cqw, 24px) var(--award-inset) 0; color:#f5f1e8; font-size:clamp(10px, 3.2cqw, 12px); font-weight:600; letter-spacing:.1em; line-height:1.25; text-transform:uppercase; text-shadow:0 1px 5px #000b; }
 .meta > span:first-child { min-width:0; overflow-wrap:anywhere; }
 .divisionMark { display:inline-flex; flex:0 0 auto; align-items:center; gap:5px; color:var(--award-accent); letter-spacing:.06em; }

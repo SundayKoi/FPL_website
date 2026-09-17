@@ -32,7 +32,28 @@ describe("season-end winners", () => {
   it("counts team objectives once per game and measures towers lost from the opponent", () => {
     expect(award(season(), "dragon-hoard").winners).toMatchObject([{ name: "Wolves", value: 3, total: 18, games: 6 }]);
     expect(award(season(), "fortress").winners).toMatchObject([{ name: "Wolves", value: 2 }]);
-    expect(award(season(), "jungle-mid-connection").winners).toMatchObject([{ name: "A1#NA1 + A2#NA1", value: 100, total: 6, games: 6 }]);
+    expect(award(season(), "jungle-mid-connection").winners).toMatchObject([
+      { name: "A1#NA1 + A2#NA1", value: 50, games: 6, playerKeys: ["a1#na1", "a2#na1"], evidence: { duo: { wins: 6, losses: 0, winRate: 100 } } },
+      { name: "B1#NA1 + B2#NA1", value: 50, games: 6, evidence: { duo: { wins: 0, losses: 6, winRate: 0 } } },
+    ]);
+    expect(award(season(), "bot-support-connection").winners).toHaveLength(2);
+  });
+
+  it("ranks Duo Impact independently of shared win rate", () => {
+    const rows = season().map((row) => {
+      const isAConnection = row.summoner_name === "A1" || row.summoner_name === "A2";
+      const isBConnection = row.summoner_name === "B1" || row.summoner_name === "B2";
+      const high = isAConnection ? 100 : isBConnection ? 0 : row.kill_participation_pct;
+      return {
+        ...row,
+        win: row.match_id === "match1" || row.match_id === "match2" ? row.team_name === "Wolves" : row.team_name === "Bears",
+        ...Object.fromEntries(["kill_participation_pct", "kda", "damage_per_min", "vision_score_per_min"].map((field) => [field, high])),
+      };
+    });
+    const result = award(rows, "jungle-mid-connection");
+    expect(result.winners).toHaveLength(1);
+    expect(result.winners[0]).toMatchObject({ name: "A1#NA1 + A2#NA1", evidence: { duo: { wins: 2, losses: 4, winRate: 100 / 3 } } });
+    expect(result.winners[0].value).toBeGreaterThan(75);
   });
   it("keeps ties and prints season totals/per-game figures for rate winners", () => {
     const result = award(season(), "relentless");
@@ -137,7 +158,7 @@ describe("season-end winners", () => {
   });
   it("keeps the configured cards visible, including the correctly named steal award", () => {
     const result = deriveSeasonEnd(season(), fixtures(), "S5", "premier");
-    expect(result.awards).toHaveLength(56);
+    expect(result.awards).toHaveLength(57);
     expect(result.awards.map((award) => award.title)).not.toEqual(expect.arrayContaining([
       "Opening Act",
       "Full Arsenal",
@@ -281,9 +302,10 @@ describe("season-end winners", () => {
     const result = deriveSeasonEnd(rows, splitFixtures, "S5", "premier");
     const teamwork = result.awards.filter((candidate) => candidate.group === "Teamwork");
 
-    expect(teamwork).toHaveLength(7);
+    expect(teamwork).toHaveLength(8);
     expect(teamwork.every((candidate) => candidate.divisionStatuses && candidate.winners.every((winner) => winner.division))).toBe(true);
     expect(teamwork.find((candidate) => candidate.id === "jungle-mid-connection")?.winners.length).toBeGreaterThan(0);
+    expect(teamwork.find((candidate) => candidate.id === "bot-support-connection")?.winners.length).toBeGreaterThan(0);
 
     const tiedRows = rows.map((row) => ({ ...row, kills: 3 }));
     const bodyCount = deriveSeasonEnd(tiedRows, splitFixtures, "S5", "premier").awards.find((candidate) => candidate.id === "body-count")!;
@@ -401,7 +423,7 @@ describe("season-end winners", () => {
     expect(award(rows, "best-of-champion").status).toBe("unavailable");
   });
 
-  it("requires champion-specific evidence in addition to the overall player threshold", () => {
+  it("expands Best of using shorter champion records after the original selection", () => {
     const rows = season();
     const a0Rows = rows.filter((row) => row.summoner_name === "A0");
     a0Rows.forEach((row, index) => {
@@ -410,10 +432,9 @@ describe("season-end winners", () => {
     const bestOf = award(rows, "best-of-champion");
 
     expect(bestOf.bestOfDiagnostics?.eligiblePlayers).toBe(10);
-    expect(bestOf.bestOfDiagnostics?.playersWithoutCard).toEqual(expect.arrayContaining([
-      expect.objectContaining({ playerName: "A0#NA1", reason: "champion-threshold" }),
-    ]));
-    expect(bestOf.winners.map((winner) => winner.name)).not.toContain("A0#NA1");
+    expect(bestOf.winners.find((winner) => winner.name === "A0#NA1")).toMatchObject({
+      champion: "Garen", championGames: 2, evidence: { bestOf: { selectionPass: "expansion" } },
+    });
   });
 
   it("selects by raw values even when rounded headlines would tie", () => {
