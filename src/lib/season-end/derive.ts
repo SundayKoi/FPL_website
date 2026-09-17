@@ -3,8 +3,14 @@ import championMap from "./champion-map.json";
 import { seasonBelongsToLeague, type LeagueSeasons } from "@/lib/league/season";
 import { DIVISIONS, type Division, type FixtureRow } from "@/lib/schedule/types";
 import { cardPlayerKey } from "@/lib/cards/build";
-import { assignChampions } from "@/lib/cards/seasonsEnd/assignment";
-import { championDisplayName } from "@/lib/match-draft/champions";
+import {
+  BEST_OF_MIN_PLAYER_GAMES,
+  BEST_OF_MIN_CHAMPION_GAMES,
+  canonicalChampion,
+  selectBestOf,
+  type BestOfCapPromotion,
+  type BestOfSelectionDiagnostics,
+} from "./best-of";
 
 /** Raw storage fields stay nullable. Missing observations must never become zero. */
 export interface SeasonRow {
@@ -33,6 +39,7 @@ export interface AwardWinner {
   division?: Division;
   champion?: string;
   championGames?: number;
+  championId?: string;
   playerKeys?: string[];
   title?: string;
   evidence?: AwardEvidence;
@@ -41,6 +48,17 @@ export interface AwardEvidence {
   record?: string;
   kda?: number;
   mean?: number;
+  bestOf?: BestOfEvidence;
+}
+export interface BestOfEvidence {
+  wins: number;
+  losses: number;
+  /** Percentage points (for example, 71.428... for a 5–2 record). */
+  winRate: number;
+  meanPerformance: number;
+  seasonGames: number;
+  championGames: number;
+  capPromotion?: BestOfCapPromotion;
 }
 export type AwardStatus = "ready" | "unavailable" | "unearned";
 export interface DivisionAwardStatus {
@@ -52,6 +70,7 @@ export interface SeasonAward extends AwardDefinition {
   status: AwardStatus;
   note?: string;
   divisionStatuses?: Record<Division, DivisionAwardStatus>;
+  bestOfDiagnostics?: BestOfSelectionDiagnostics;
 }
 export interface SeasonEndResult {
   awards: SeasonAward[];
@@ -229,7 +248,7 @@ export function deriveSeasonEnd(
   rows.sort(chronological);
   const players: Group[] = groups(rows, identity).map(rs => ({ name: identity(rs[0]), team: [...new Set(rs.map(r => r.team_name))].join(" / "), rows: rs }));
   const playerDivisions = playerDivisionMap(rows, divisions, options.currentPlayerDivisions);
-  const minGames = 5;
+  const minGames = BEST_OF_MIN_PLAYER_GAMES;
   const qualified = players.filter(p => p.rows.length >= minGames);
   const teamGames = groups(rows, r => `${r.match_id}|${teamKey(r.team_name)}`);
   const teams = groups(teamGames.map(g => g[0]), r => teamKey(r.team_name)).map(rs => ({ name: rs[0].team_name, team: rs[0].team_name, rows: rs }));
@@ -295,68 +314,77 @@ export function deriveSeasonEnd(
       if (!scoreCovered) return unavailable(def, "Required role or performance observations are missing; no champion cards declared.");
       if (rows.some((row) => !row.champion?.trim())) return unavailable(def, "Champion data is missing from one or more regular-season games; no champion cards declared.");
 
-      const byChampion = new Map<string, SeasonRow[]>();
-      for (const row of rows) {
-        const champion = championDisplayName(row.champion.trim());
-        byChampion.set(champion, [...(byChampion.get(champion) ?? []), row]);
-      }
-
-      const candidates = [...byChampion.entries()]
-        .sort(([left], [right]) => left.localeCompare(right))
-        .flatMap(([champion, championRows]) => groups(championRows, playerKey).map((playerRows) => {
-          const wins = playerRows.filter((row) => row.win).length;
-          const score = 60 * wins / playerRows.length + 0.4 * mean(playerRows.map(performance));
-          const first = playerRows[0];
-          const playerName = identity(first);
-          const kills = all(playerRows, "kills");
-          const deaths = all(playerRows, "deaths");
-          const assists = all(playerRows, "assists");
-          const kda = kills && deaths && assists
-            ? (sum(kills) + sum(assists)) / Math.max(1, sum(deaths))
-            : undefined;
-          return {
-            name: playerName,
-            team: [...new Set(playerRows.map((row) => row.team_name))].join(" / "),
-            value: score,
-            games: playerRows.length,
-            champion,
-            championGames: playerRows.length,
-            playerKeys: [playerKey(first)],
-            title: `Best of ${champion}`,
-            evidence: { record: `${wins}–${playerRows.length - wins}`, ...(kda === undefined ? {} : { kda }) },
-            key: `${playerKey(first)}:${champion}`,
-            playerKey: playerKey(first),
-          };
-        }));
-      // Best of eligibility belongs to the player, not to an individual
-      // champion pick: a regular contributor may have spread five or more
-      // appearances across several champions. The candidate score remains
-      // the champion-specific overall used to choose among those picks.
-      const eligiblePlayers = new Set(qualified.map((player) => playerKey(player.rows[0])));
-      const eligibleCandidates = candidates.filter((candidate) => eligiblePlayers.has(candidate.playerKey));
-      const assigned = assignChampions(eligibleCandidates);
-      const assignedPlayers = new Set(assigned.map((candidate) => candidate.playerKey));
-      const assignedWithDivisions = assigned.map((candidate) => {
+      const bestOfRows = new Map<string, SeasonRow[]>();
+      const bestOfSelection = selectBestOf(rows.map((row) => {
+        const champion = canonicalChampion(row.champion.trim());
+        const key = `${playerKey(row)}:${champion.id}`;
+        bestOfRows.set(key, [...(bestOfRows.get(key) ?? []), row]);
+        return {
+          playerKey: playerKey(row),
+          playerName: identity(row),
+          team: row.team_name,
+          champion: row.champion,
+          win: row.win,
+          performance: performance(row),
+        };
+      }));
+      const promotionByCandidate = new Map(bestOfSelection.diagnostics.capPromotions.map((promotion) => [promotion.candidateKey, promotion]));
+      const assigned = bestOfSelection.presentation.map((candidate) => {
+        const candidateRows = bestOfRows.get(`${candidate.playerKey}:${candidate.championId}`) ?? [];
+        const kills = all(candidateRows, "kills");
+        const deaths = all(candidateRows, "deaths");
+        const assists = all(candidateRows, "assists");
+        const kda = kills && deaths && assists
+          ? (sum(kills) + sum(assists)) / Math.max(1, sum(deaths))
+          : undefined;
         const division = playerDivisions.get(candidate.playerKey);
-        return division ? { ...candidate, division } : candidate;
+        const capPromotion = promotionByCandidate.get(`${candidate.playerKey}:${candidate.championId}`);
+        const winner: AwardWinner = {
+          name: candidate.playerName,
+          team: candidate.team,
+          value: candidate.wins,
+          games: candidate.championGames,
+          champion: candidate.champion,
+          championId: candidate.championId,
+          championGames: candidate.championGames,
+          playerKeys: [candidate.playerKey],
+          title: `Best of ${candidate.champion}`,
+          evidence: {
+            record: `${candidate.wins}–${candidate.championGames - candidate.wins}`,
+            ...(kda === undefined ? {} : { kda }),
+            bestOf: {
+              wins: candidate.wins,
+              losses: candidate.championGames - candidate.wins,
+              winRate: 100 * candidate.wins / candidate.championGames,
+              meanPerformance: candidate.meanPerformance,
+              seasonGames: candidate.seasonGames,
+              championGames: candidate.championGames,
+              ...(capPromotion ? { capPromotion } : {}),
+            },
+          },
+          ...(division ? { division } : {}),
+        };
+        return winner;
       });
-      const belowMinimum = players
-        .filter((player) => !eligiblePlayers.has(playerKey(player.rows[0])))
-        .map((player) => player.name);
-      const blockedByAssignment = players
-        .filter((player) => eligiblePlayers.has(playerKey(player.rows[0])) && !assignedPlayers.has(playerKey(player.rows[0])))
-        .map((player) => player.name);
       if (!options.division) {
-        if (belowMinimum.length) warnings.push(`Best of Champion covers ${assigned.length}/${qualified.length} eligible players. Players with fewer than ${minGames} games do not receive a card: ${belowMinimum.join(", ")}.`);
-        if (blockedByAssignment.length) warnings.push(`Best of Champion covers ${assigned.length}/${qualified.length} eligible players. Qualifying performances had no unused champion after coverage-first assignment for: ${blockedByAssignment.join(", ")}.`);
-        const unassignedDivisions = assigned.filter((candidate) => !playerDivisions.has(candidate.playerKey)).length;
+        const unassignedDivisions = assigned.filter((candidate) => !candidate.division).length;
         if (unassignedDivisions && (divisions.byTeam.size > 0 || rows.some((row) => rowDivision(row, divisions)))) {
           warnings.push(`Best of Champion omitted division emblems for ${unassignedDivisions} assigned winner${unassignedDivisions === 1 ? "" : "s"} with unresolved season division metadata.`);
         }
       }
       return assigned.length
-        ? { ...def, winners: assignedWithDivisions, status: "ready" }
-        : { ...def, winners: [], status: "unearned", note: eligibleCandidates.length ? "No unused champion could be assigned to an eligible player." : `No player has at least ${minGames} games.` };
+        ? { ...def, winners: assigned, status: "ready", bestOfDiagnostics: bestOfSelection.diagnostics }
+        : {
+          ...def,
+          winners: [],
+          status: "unearned",
+          bestOfDiagnostics: bestOfSelection.diagnostics,
+          note: bestOfSelection.diagnostics.eligiblePlayers === 0
+            ? `No player has at least ${BEST_OF_MIN_PLAYER_GAMES} regular-season games.`
+            : bestOfSelection.diagnostics.qualifyingCandidates === 0
+              ? `No eligible player has at least ${BEST_OF_MIN_CHAMPION_GAMES} games on a candidate champion.`
+              : "No eligible champion assignment is available.",
+        };
     }
     if (def.field) {
       const isRate = def.mode !== "total";

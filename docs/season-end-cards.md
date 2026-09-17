@@ -7,30 +7,39 @@ This is a read-only awards desk, not a collectible mint or a season-closing
 operation. The former `/admin/season-end` route redirects here for existing
 admin bookmarks.
 
-Accolade entries use the Season's End archive-card treatment: a tall,
-family-colored card with the winner's champion splash art, award title, winning
-statistic, evidence line and archive seal. Team honors use the roster-card data
+Ordinary accolade entries use a unified collectible treatment: a framed portrait
+face with an exact 63:88 ratio, champion splash art, season/league and known-
+division metadata, and the award title and description over a bottom-weighted
+art gradient. The lower result panel is an ivory 22% region for the winner
+identity, headline value/unit, and concise evidence. Long evidence, status notes,
+and team rosters remain available in keyboard-accessible disclosures below the
+fixed-ratio face; missing art uses a neutral art region and empty results keep
+the same frame and explanatory content. Team honors use the roster-card data
 to choose a champion background when a complete team is available. Best of
 Champion is the visual exception: its face is a 5:7 full-bleed champion splash
 with a clean continuous double gold edge frame, a manually calibrated crop, the
 player name in the lower title region, and the selected season/league in the
 lower-left footer. A resolved division adds one small Solari or Lunari seal in
-the upper-right; there is no OVR or replacement rating. Its score and evidence
-remain in the compact details below the face. Missing or conflicting division
-metadata leaves the face valid without a seal. Season Cards remain the ordinary
+the upper-right; there is no OVR or replacement rating. Its award record and
+supporting evidence remain in the compact details below the face. Missing or
+conflicting division metadata leaves the face valid without a seal. Season Cards remain the ordinary
 cumulative player cards for contributors with more than five games.
 
-Best of Champion assigns one played champion to each player and one player to
-each champion, maximizing coverage across players with at least five
-regular-season games before the combined win-rate and role-relative
-performance score. There is no minimum score floor. The full-precision
-champion-specific score favors the stronger player when a champion is contested,
-while preserving the league-wide one-player/one-champion assignment. Each
-assigned winner is rendered with its per-champion title and assigned splash art
-inside the full-art Best of face; it does not use the separate cumulative
-Season Card layout. The live admin preview is deliberately unsigned: it does
-not read or display a player's saved autograph. A future frozen signed pull may
-supply ink explicitly without changing the preview or award calculation.
+Best of Champion ranks qualifying player/champion records by champion wins,
+then unrounded win rate, then unrounded mean role-relative performance. A
+player needs at least five regular-season games overall and at least three on
+the candidate champion. A strongest-result-first allocation awards at most one
+card per player and per champion across the selected league; it does not reroute
+an earlier winner to improve coverage. There is no minimum win rate, win total,
+or performance floor. Cap-related promotions are identified in the award
+evidence so a promoted recipient is not silently presented as the unrestricted
+champion leaderboard leader. Each assigned winner is rendered with its
+per-champion title and assigned splash art inside the full-art Best of face; it
+does not use the separate cumulative Season Card layout. The live admin preview
+is deliberately unsigned: it does not read or display a player's saved
+autograph. A future frozen signed pull may supply ink explicitly without
+changing the preview or award calculation. See the [Best of results-ranking
+decision](plans/2026-09-16-best-of-results-ranking.md).
 
 Ordinary player, player-pair, and Teamwork accolades are calculated separately
 inside Solari and Lunari, so each such accolade has one card per division. The
@@ -97,7 +106,7 @@ exist, their team names also constrain the data. No migrations are required.
   Baron-specific steals, so it does not use the Grand Theft Baron title.
 
 Card headlines are rounded to whole numbers with half-away-from-zero rounding.
-Percentages are percentage points, and signed means, ratios, scores, and
+Percentages are percentage points, and signed means, ratios, and
 durations keep their ordinary units. Volume-based cards display the normalized
 per-game figure or event rate as the headline, while retaining the winner's
 season numerator total and game count in the evidence line. When an explicitly
@@ -105,8 +114,9 @@ configured additive count average or rate is below one, the headline switches
 to the observed season numerator as a labelled total and removes `/game` or
 `/min`; the raw value used for ranking is unchanged. Missing totals never
 become zero, and percentages, ratios, durations, and non-additive means do not
-receive count-total fallbacks. Best of evidence shows an integer score, record,
-appearances, and KDA without decimal formatting.
+receive count-total fallbacks. Best of evidence shows champion wins, record,
+win rate, champion appearances, and mean performance; display rounding never
+changes selection.
 
 ## Champion mappings
 

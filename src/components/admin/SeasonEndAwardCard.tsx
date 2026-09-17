@@ -1,35 +1,14 @@
-import { championSplashUrl } from "@/lib/match-draft/champions";
+import type { ReactNode } from "react";
+import { championCenteredUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import { cardPlayerKey, type PlayerCardData } from "@/lib/cards/build";
 import { buildTeamCards, teamToCard } from "@/lib/cards/teamCards";
 import BestOfChampionCard from "./BestOfChampionCard";
 import type { AwardWinner, SeasonAward } from "@/lib/season-end/derive";
-import { formatAwardPresentation } from "@/lib/season-end/presentation";
+import { formatAwardPresentation, formatInteger } from "@/lib/season-end/presentation";
 import type { Division } from "@/lib/schedule/types";
 import styles from "./SeasonEndAwardCard.module.css";
 
-type AwardFamily = "record" | "guardian" | "wild" | "story" | "team";
-
-function familyFor(award: SeasonAward): AwardFamily {
-  switch (award.group) {
-    case "Teamwork": return "team";
-    case "Meme inserts": return "wild";
-    case "Season stories": return "story";
-    case "Best of Champions": return "story";
-    case "Support & survival": return "guardian";
-    case "Record breakers": return "record";
-  }
-}
-
-function familyLabel(award: SeasonAward): string {
-  if (award.group === "Best of Champions") return "Best of Champions";
-  switch (familyFor(award)) {
-    case "record": return "Record breakers";
-    case "guardian": return "Support & survival";
-    case "wild": return "Wild cards";
-    case "story": return "Season stories";
-    case "team": return "Teamwork";
-  }
-}
+const FACE_EVIDENCE_LIMIT = 64;
 
 function winnerKey(name: string): string {
   const separator = name.lastIndexOf("#");
@@ -90,6 +69,58 @@ function DivisionMark({ division }: { division: Division }) {
   );
 }
 
+function compactEvidence(winner: AwardWinner): string {
+  const team = winner.name === winner.team ? null : winner.team;
+  const games = `${formatInteger(winner.games)} ${winner.games === 1 ? "game" : "games"}`;
+  return [team, games].filter(Boolean).join(" · ");
+}
+
+function AwardFace({
+  titleId,
+  title,
+  description,
+  category,
+  art,
+  season,
+  league,
+  division,
+  result,
+}: {
+  titleId: string;
+  title: string;
+  description: string;
+  category: SeasonAward["group"];
+  art: string | null;
+  season: string;
+  league: "premier" | "academy";
+  division?: Division;
+  result: ReactNode;
+}) {
+  return (
+    <div className={styles.face} data-testid="award-card-face">
+      <div className={styles.artRegion}>
+        <div
+          className={styles.art}
+          data-testid="award-card-art"
+          aria-hidden="true"
+          style={art ? { backgroundImage: art } : undefined}
+        />
+        <div className={styles.artShade} aria-hidden="true" />
+        <div className={styles.meta}>
+          <span>{season} · {league}</span>
+          {division ? <DivisionMark division={division} /> : null}
+        </div>
+        <div className={styles.overlay}>
+          <p className={styles.category}>{category}</p>
+          <h3 id={titleId} className={styles.title}>{title}</h3>
+          <p className={styles.description}>{description}</p>
+        </div>
+      </div>
+      {result}
+    </div>
+  );
+}
+
 function AwardVisualCard({
   award,
   winner,
@@ -107,41 +138,60 @@ function AwardVisualCard({
   winnerIndex: number;
   division?: Division;
 }) {
-  const family = familyFor(award);
   const champion = championFor(cards);
-  const art = champion ? championSplashUrl(champion, 0) : null;
+  const centeredArt = champion ? championCenteredUrl(champion, 0) : null;
+  const splashArt = champion ? championSplashUrl(champion, 0) : null;
+  const art = centeredArt || splashArt
+    ? [centeredArt, splashArt].filter((source, index, sources): source is string => Boolean(source) && sources.indexOf(source) === index)
+      .map((source) => `url("${source}")`)
+      .join(", ")
+    : null;
   const display = formatAwardPresentation(award, winner);
   const roster = cards[0]?.team?.slots.filter((slot) => slot.slug).map((slot) => slot.name) ?? [];
   const titleId = `title-${award.id}-${division ?? "global"}-${winnerIndex}`;
   const title = winner.title ?? award.title;
+  const hasExtendedEvidence = display.evidence.length > FACE_EVIDENCE_LIMIT;
 
   return (
-    <article aria-labelledby={titleId} className={`${styles.card} ${styles[family]}`}>
-      <div
-        className={styles.art}
-        data-testid="award-card-art"
-        aria-hidden="true"
-        style={art ? { backgroundImage: `linear-gradient(180deg, transparent 10%, #101620 100%), url("${art}")` } : undefined}
+    <article aria-labelledby={titleId} className={styles.card}>
+      <AwardFace
+        titleId={titleId}
+        title={title}
+        description={award.description}
+        category={award.group}
+        art={art}
+        season={season}
+        league={league}
+        division={division}
+        result={(
+          <div className={styles.resultPanel}>
+            <div className={styles.resultGrid}>
+              <p className={styles.name}>{winner.name}</p>
+              <div className={styles.value}>
+                {display.unit === "$" ? "$" : ""}{display.headline}
+                {display.unit && display.unit !== "$" ? (
+                  <span className={`${styles.unit} ${display.unit.length <= 2 ? styles.unitInline : ""}`}>
+                    {display.unit}
+                  </span>
+                ) : null}
+              </div>
+              <p className={styles.evidence}>{hasExtendedEvidence ? compactEvidence(winner) : display.evidence}</p>
+            </div>
+          </div>
+        )}
       />
-      <div className={styles.topline}><span>{season} · {league}</span>{division ? <DivisionMark division={division} /> : <span>REGULAR</span>}</div>
-      <div className={styles.content}>
-        <p className={styles.collection}>{familyLabel(award)}</p>
-        <h3 id={titleId} className={styles.title}>{title}</h3>
-        {award.id !== "best-of-champion" ? <p className={styles.description}>{award.description}</p> : null}
-        <p className={styles.name}>{winner.name}</p>
-        <div className={styles.value}>
-          {display.unit === "$" ? "$" : ""}{display.headline}
-          {display.unit && display.unit !== "$" ? <span className={styles.unit}>{display.unit}</span> : null}
-        </div>
-        <p className={styles.evidence}>{display.evidence}</p>
-        {roster.length ? (
-          <details className={styles.details}>
-            <summary>Season roster · {roster.length} contributors</summary>
-            <ul>{roster.map((name) => <li key={name}>{name}</li>)}</ul>
-          </details>
-        ) : null}
-        <div className={styles.seal}><span>SEASON ARCHIVE</span><span>ADMIN PREVIEW</span></div>
-      </div>
+      {hasExtendedEvidence ? (
+        <details className={styles.details}>
+          <summary>Full evidence</summary>
+          <p>{display.evidence}</p>
+        </details>
+      ) : null}
+      {roster.length ? (
+        <details className={styles.details}>
+          <summary>Season roster · {roster.length} contributors</summary>
+          <ul>{roster.map((name) => <li key={name}>{name}</li>)}</ul>
+        </details>
+      ) : null}
     </article>
   );
 }
@@ -162,23 +212,37 @@ function EmptyAwardCard({
   const note = divisionStatus?.note ?? award.note;
   const titleId = `title-${award.id}-${division ?? "global"}`;
   const statusNote = note ?? (award.id === "best-of-champion" ? "No qualifying champion assignment yet." : award.description);
+  const hasExtendedNote = statusNote.length > FACE_EVIDENCE_LIMIT;
 
   return (
-    <article aria-labelledby={titleId} className={`${styles.card} ${styles[familyFor(award)]}`}>
-      <div className={styles.topline}><span>{season} · {league}</span>{division ? <DivisionMark division={division} /> : <span>REGULAR</span>}</div>
-      <div className={styles.content}>
-        <p className={styles.collection}>{familyLabel(award)}</p>
-        <h3 id={titleId} className={styles.title}>{award.title}</h3>
-        {award.id !== "best-of-champion" ? <p className={styles.description}>{award.description}</p> : null}
-        <p className={styles.empty}>{status === "unearned" ? "Not earned yet" : "Awaiting evidence"}</p>
-        <p className={styles.evidence}>{statusNote}</p>
-        <div className={styles.seal}><span>SEASON ARCHIVE</span><span>ADMIN PREVIEW</span></div>
-      </div>
+    <article aria-labelledby={titleId} className={styles.card}>
+      <AwardFace
+        titleId={titleId}
+        title={award.title}
+        description={award.description}
+        category={award.group}
+        art={null}
+        season={season}
+        league={league}
+        division={division}
+        result={(
+          <div className={`${styles.resultPanel} ${styles.emptyPanel}`}>
+            <p className={styles.empty}>{status === "unearned" ? "Not earned yet" : "Awaiting evidence"}</p>
+            <p className={styles.evidence}>{hasExtendedNote ? "Full status note available below." : statusNote}</p>
+          </div>
+        )}
+      />
+      {hasExtendedNote ? (
+        <details className={styles.details}>
+          <summary>Full status note</summary>
+          <p>{statusNote}</p>
+        </details>
+      ) : null}
     </article>
   );
 }
 
-/** The original Season's End treatment: tall archive cards with champion splash art. */
+/** Midnight foil accolades with champion art and a stacked award result. */
 export default function SeasonEndAwardCard({
   award,
   season,

@@ -54,6 +54,7 @@ export default async function SeasonsEndPage({
       }
     }
   }
+  const bestOfDiagnostics = result?.awards.find((award) => award.id === "best-of-champion")?.bestOfDiagnostics;
 
   return (
     <main className={`${styles.preview} page-backdrop flex w-full flex-1 flex-col gap-10 px-3 py-8 sm:px-5 lg:px-7 2xl:px-10`}>
@@ -62,8 +63,9 @@ export default async function SeasonsEndPage({
         <p className="text-xs uppercase tracking-[.3em] text-gold">The season, in good company</p>
         <h1 className="type-display text-4xl sm:text-6xl">Season&apos;s End</h1>
         <p className="max-w-3xl text-sm text-steel">
-          Regular-season honors, calculated from recorded matches. Ordinary player, pair, and Teamwork honors are awarded separately to Solari and Lunari; the sun and moon marks identify each division. Best of Champions is assigned once across the selected league, while cumulative Season Cards retain their existing treatment.
+          Regular-season honors, calculated from recorded matches. Ordinary player, pair, and Teamwork honors are awarded separately to Solari and Lunari; the sun and moon marks identify each division. Best of Champions ranks results once across the selected league, while cumulative Season Cards retain their existing treatment.
         </p>
+        <p className="w-fit border border-line px-3 py-1 font-mono text-[10px] uppercase tracking-[.18em] text-gold">Admin preview · read-only</p>
         <Link href="/admin/seasons-end/crop-audit" className="w-fit rounded border border-line px-3 py-2 text-xs uppercase tracking-[.16em] text-gold hover:border-gold">Developer crop audit</Link>
         <form className="flex flex-wrap items-end gap-3" action="/admin/seasons-end">
           <label className="flex flex-col gap-1 text-sm">League<select name="league" defaultValue={league} className="rounded border border-line bg-panel p-2"><option value="premier">Premier</option><option value="academy">Academy</option></select></label>
@@ -77,9 +79,17 @@ export default async function SeasonsEndPage({
         <section aria-label="Season coverage" className="card-brand flex flex-col gap-3 p-5">
           <p className="font-semibold">{league === "premier" ? "Premier" : "Academy"} · {season} · {result.games} games · {result.players} players</p>
           <p className="text-sm text-gold">{result.complete ? "All scheduled regular-season series are complete. Results reflect currently ingested stats." : "Provisional leaders — regular-season fixtures are unfinished or unavailable."}</p>
-          <p className="text-sm text-steel">Rate and performance awards require {result.minGames} measured games. Speedrunners requires three wins. Best of Champion is available to every player with at least {result.minGames} regular-season games before the league-wide one-player/one-champion assignment. Missing required observations leave an award unavailable.</p>
+          <p className="text-sm text-steel">Rate and performance awards require {result.minGames} measured games. Speedrunners requires three wins. Best of Champion requires at least {result.minGames} regular-season games overall and {bestOfDiagnostics?.championThreshold ?? 3} games on the candidate champion, then ranks champion wins, win rate, and mean role-relative performance. A player and a champion can receive at most one card. Missing required observations leave an award unavailable.</p>
+          {bestOfDiagnostics ? (
+            <details className="text-sm text-steel">
+              <summary className="cursor-pointer text-white">Best of eligibility &amp; selection</summary>
+              <p className="mt-3">{bestOfDiagnostics.awardedPlayers} of {bestOfDiagnostics.eligiblePlayers} eligible players received a card from {bestOfDiagnostics.qualifyingCandidates} qualifying player/champion records. Champions with no qualifying record remain unawarded; the one-card cap can also leave a qualifying champion or player without a card.</p>
+              {bestOfDiagnostics.playersWithoutCard.length ? <p className="mt-2">Players without a Best of card ({bestOfDiagnostics.playersWithoutCard.length}): {bestOfDiagnostics.playersWithoutCard.map((player) => player.playerName).join(", ")}.</p> : null}
+              {bestOfDiagnostics.capPromotions.length ? <p className="mt-2">Cap-related promotions: {bestOfDiagnostics.capPromotions.map((promotion) => `${promotion.recipientName} received Best of ${promotion.champion} after ${promotion.unrestrictedLeaderName} was blocked by the player cap`).join("; ")}.</p> : null}
+            </details>
+          ) : null}
           {result.warnings.map((warning) => <p key={warning} className="text-sm text-coral">{warning}</p>)}
-          <details className="text-sm text-steel"><summary className="cursor-pointer text-white">Scoring & mapping notes</summary><p className="mt-3">Performance is the mean of five same-role, per-game percentile scores: KDA, champion damage/min, CS/min, vision/min and kill participation. Best of Champion uses 60 × champion win fraction + 0.4 × mean role-relative performance for each played champion, then maximizes eligible-player coverage before champion-specific score while assigning each champion and player at most once. Late Bloomer uses the final third of league games in chronological order. Metronome requires a mean of 60 and a per-game floor of 40. Chronological ties use match ID. Bloodline follows each player’s appearances. Team standings use series wins, then losses; tied teams remain tied.</p></details>
+          <details className="text-sm text-steel"><summary className="cursor-pointer text-white">Scoring &amp; mapping notes</summary><p className="mt-3">Performance is the mean of five same-role, per-game percentile scores: KDA, champion damage/min, CS/min, vision/min and kill participation. Best of Champion sorts qualifying champion records by wins, then unrounded win rate, then unrounded mean role-relative performance, with canonical champion ID and normalized player key resolving exact ties. The allocation walks that strongest-result-first order once and skips an already-awarded player or champion; it does not reroute a winner to improve coverage. Late Bloomer uses the final third of league games in chronological order. Metronome requires a mean of 60 and a per-game floor of 40. Chronological ties use match ID. Bloodline follows each player’s appearances. Team standings use series wins, then losses; tied teams remain tied.</p></details>
         </section>
 
         <nav aria-label="Award groups" className="flex flex-wrap gap-3 text-sm">
@@ -92,7 +102,7 @@ export default async function SeasonsEndPage({
           return (
             <section id={`group-${groupIndex}`} key={group} aria-label={group} className="scroll-mt-8">
               <div className="mb-5 flex items-baseline gap-4 border-b border-line pb-3"><span className="font-mono text-sm text-steel">{String(groupIndex + 1).padStart(2, "0")}</span><h2 className="type-display text-3xl text-gold">{group}</h2></div>
-              <div className={styles.cardRow}>
+              <div className={`${styles.cardRow} ${group === "Best of Champions" ? styles.bestOfCardRow : styles.ordinaryCardRow}`}>
                 {awards.map((award, index) => <SeasonEndAwardCard key={award.id} award={award} season={season} league={league} index={index} cards={allSeasonCards} />)}
               </div>
             </section>

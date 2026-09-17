@@ -12,7 +12,7 @@ const card = {
 } as PlayerCardData;
 
 describe("SeasonEndAwardCard", () => {
-  it("restores the tall champion-art archive card for an award winner", () => {
+  it("renders an ordinary winner as a collectible face", () => {
     render(
       <SeasonEndAwardCard
         award={{
@@ -39,8 +39,10 @@ describe("SeasonEndAwardCard", () => {
     expect(screen.getByText("Record breakers")).toBeTruthy();
     expect(screen.getByText("kills/game")).toBeTruthy();
     expect(screen.getByText("60 total · Wolves · 6 games")).toBeTruthy();
-    expect(screen.getByText("SEASON ARCHIVE")).toBeTruthy();
-    expect(screen.getByTestId("award-card-art").getAttribute("style")).toContain("Ahri_0.jpg");
+    expect(screen.queryByText("SEASON ARCHIVE")).toBeNull();
+    expect(screen.getByTestId("award-card-face").className).toContain("face");
+    expect(screen.getByTestId("award-card-art").getAttribute("style")).toContain("/champion/centered/Ahri_0.jpg");
+    expect(screen.getByTestId("award-card-art").getAttribute("style")).toContain("/champion/splash/Ahri_0.jpg");
   });
 
   it("renders one marked accolade card for each division of a player award", () => {
@@ -122,13 +124,13 @@ describe("SeasonEndAwardCard", () => {
           winners: [{
             name: "Alice#NA1",
             team: "Wolves",
-            value: 88,
-            games: 6,
+            value: 5,
+            games: 7,
             division: "Solari",
             champion: "Azir",
-            championGames: 2,
+            championGames: 7,
             title: "Best of Azir",
-            evidence: { record: "2–0", kda: 8 },
+            evidence: { bestOf: { wins: 5, losses: 2, winRate: 100 * 5 / 7, meanPerformance: 88.4, seasonGames: 8, championGames: 7 } },
           }],
         }}
         season="S5"
@@ -144,7 +146,7 @@ describe("SeasonEndAwardCard", () => {
     expect(screen.getByLabelText("Solari division")).toBeTruthy();
     expect(screen.queryByText("☀")).toBeNull();
     expect(screen.getByText("S5 Premier")).toBeTruthy();
-    expect(screen.getByText(/2–0 · 8 KDA · 88\/100 score · Wolves · 6 games/)).toBeTruthy();
+    expect(screen.getByText(/Award record · 5–2 · 71% WR · 7 games/)).toBeTruthy();
     expect(screen.getByText("One unique played champion per player.")).toBeTruthy();
     expect(screen.queryByTestId("best-of-autograph")).toBeNull();
     expect(screen.queryByText("Season stories")).toBeNull();
@@ -200,5 +202,34 @@ describe("SeasonEndAwardCard", () => {
 
     expect(screen.getByText("Season stories")).toBeTruthy();
     expect(screen.getByText("Highest performance in the final third.")).toBeTruthy();
+  });
+
+  it("keeps extended evidence accessible outside the fixed-ratio face", () => {
+    const detail = "This evidence includes the full structured context for a long award result.";
+    render(
+      <SeasonEndAwardCard
+        award={{
+          id: "body-count",
+          title: "Body Count",
+          description: "Most kills per game",
+          group: "Record breakers",
+          scope: "player",
+          partition: "division",
+          mode: "perGame",
+          unit: "kills/game",
+          status: "ready",
+          winners: [{ name: "Alice#NA1", team: "Wolves", value: 10, games: 6, detail }],
+        }}
+        season="S5"
+        league="premier"
+        index={0}
+        cards={[card]}
+      />,
+    );
+
+    const face = screen.getByTestId("award-card-face");
+    expect(screen.getByText("Full evidence")).toBeTruthy();
+    expect(screen.getByText(new RegExp(detail))).toBeTruthy();
+    expect(face.textContent).not.toContain(detail);
   });
 });

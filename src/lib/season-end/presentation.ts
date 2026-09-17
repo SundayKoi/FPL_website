@@ -41,13 +41,17 @@ function gamesLabel(award: AwardDefinition, games: number): string {
 
 function evidenceFor(award: AwardDefinition, winner: AwardWinner, usesTotal: boolean): string {
   const parts: string[] = [];
-  if (winner.evidence?.record) parts.push(winner.evidence.record);
+  const bestOf = winner.evidence?.bestOf;
+  if (award.id === "best-of-champion" && bestOf) {
+    parts.push(`${formatInteger(bestOf.wins)}–${formatInteger(bestOf.losses)} · ${formatInteger(bestOf.winRate)}% WR`);
+  } else if (winner.evidence?.record) {
+    parts.push(winner.evidence.record);
+  }
   if (winner.evidence?.mean !== undefined) parts.push(`${formatInteger(winner.evidence.mean)} mean performance`);
-  if (winner.evidence?.kda !== undefined) parts.push(`${formatInteger(winner.evidence.kda)} KDA`);
-  if (award.id === "best-of-champion") parts.push(`${formatInteger(winner.value)}/100 score`);
+  if (award.id !== "best-of-champion" && winner.evidence?.kda !== undefined) parts.push(`${formatInteger(winner.evidence.kda)} KDA`);
   if (winner.detail) parts.push(winner.detail);
   if (winner.total !== undefined && !usesTotal) parts.push(`${formatInteger(winner.total)} total`);
-  if (winner.name !== winner.team) parts.push(winner.team);
+  if (award.id !== "best-of-champion" && winner.name !== winner.team) parts.push(winner.team);
   parts.push(gamesLabel(award, winner.games));
   return parts.filter(Boolean).join(" · ");
 }
