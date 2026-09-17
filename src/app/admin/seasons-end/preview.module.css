@@ -8,7 +8,9 @@
 .entry { min-width:0; max-width:100%; }
 .awardHeader { display:flex; flex-direction:column; gap:6px; max-width:320px; margin-bottom:14px; overflow-wrap:anywhere; }
 .cardRow { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr)); gap:clamp(16px,1.4vw,24px); align-items:stretch; width:100%; }
+.bestOfCardRow { align-items:stretch; }
+.ordinaryCardRow { grid-template-columns:repeat(auto-fit,minmax(min(100%,18.75rem),1fr)); align-items:start; justify-content:start; }
 @media(max-width:370px) {
   .preview { padding-left:12px; padding-right:12px; }
-  .cardRow { zoom:.9; }
+  .ordinaryCardRow,.bestOfCardRow { zoom:.9; }
 }

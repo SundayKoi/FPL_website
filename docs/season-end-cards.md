@@ -7,9 +7,14 @@ This is a read-only awards desk, not a collectible mint or a season-closing
 operation. The former `/admin/season-end` route redirects here for existing
 admin bookmarks.
 
-Accolade entries use the Season's End archive-card treatment: a tall,
-family-colored card with the winner's champion splash art, award title, winning
-statistic, evidence line and archive seal. Team honors use the roster-card data
+Ordinary accolade entries use a unified collectible treatment: a framed portrait
+face with an exact 63:88 ratio, champion splash art, season/league and known-
+division metadata, and the award title and description over a bottom-weighted
+art gradient. The lower result panel is an ivory 22% region for the winner
+identity, headline value/unit, and concise evidence. Long evidence, status notes,
+and team rosters remain available in keyboard-accessible disclosures below the
+fixed-ratio face; missing art uses a neutral art region and empty results keep
+the same frame and explanatory content. Team honors use the roster-card data
 to choose a champion background when a complete team is available. Best of
 Champion is the visual exception: its face is a 5:7 full-bleed champion splash
 with a clean continuous double gold edge frame, a manually calibrated crop, the

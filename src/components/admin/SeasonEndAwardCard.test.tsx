@@ -12,7 +12,7 @@ const card = {
 } as PlayerCardData;
 
 describe("SeasonEndAwardCard", () => {
-  it("restores the tall champion-art archive card for an award winner", () => {
+  it("renders an ordinary winner as a collectible face", () => {
     render(
       <SeasonEndAwardCard
         award={{
@@ -36,10 +36,11 @@ describe("SeasonEndAwardCard", () => {
 
     expect(screen.getByRole("heading", { name: "Body Count" })).toBeTruthy();
     expect(screen.getByText("Most kills per game")).toBeTruthy();
-    expect(screen.getByText("Record breakers")).toBeTruthy();
+    expect(screen.queryByText("Record breakers")).toBeNull();
     expect(screen.getByText("kills/game")).toBeTruthy();
     expect(screen.getByText("60 total · Wolves · 6 games")).toBeTruthy();
-    expect(screen.getByText("SEASON ARCHIVE")).toBeTruthy();
+    expect(screen.queryByText("SEASON ARCHIVE")).toBeNull();
+    expect(screen.getByTestId("award-card-face").className).toContain("face");
     expect(screen.getByTestId("award-card-art").getAttribute("style")).toContain("Ahri_0.jpg");
   });
 
@@ -198,7 +199,36 @@ describe("SeasonEndAwardCard", () => {
       />,
     );
 
-    expect(screen.getByText("Season stories")).toBeTruthy();
+    expect(screen.queryByText("Season stories")).toBeNull();
     expect(screen.getByText("Highest performance in the final third.")).toBeTruthy();
+  });
+
+  it("keeps extended evidence accessible outside the fixed-ratio face", () => {
+    const detail = "This evidence includes the full structured context for a long award result.";
+    render(
+      <SeasonEndAwardCard
+        award={{
+          id: "body-count",
+          title: "Body Count",
+          description: "Most kills per game",
+          group: "Record breakers",
+          scope: "player",
+          partition: "division",
+          mode: "perGame",
+          unit: "kills/game",
+          status: "ready",
+          winners: [{ name: "Alice#NA1", team: "Wolves", value: 10, games: 6, detail }],
+        }}
+        season="S5"
+        league="premier"
+        index={0}
+        cards={[card]}
+      />,
+    );
+
+    const face = screen.getByTestId("award-card-face");
+    expect(screen.getByText("Full evidence")).toBeTruthy();
+    expect(screen.getByText(new RegExp(detail))).toBeTruthy();
+    expect(face.textContent).not.toContain(detail);
   });
 });

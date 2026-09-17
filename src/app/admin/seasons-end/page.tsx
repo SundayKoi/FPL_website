@@ -65,6 +65,7 @@ export default async function SeasonsEndPage({
         <p className="max-w-3xl text-sm text-steel">
           Regular-season honors, calculated from recorded matches. Ordinary player, pair, and Teamwork honors are awarded separately to Solari and Lunari; the sun and moon marks identify each division. Best of Champions ranks results once across the selected league, while cumulative Season Cards retain their existing treatment.
         </p>
+        <p className="w-fit border border-line px-3 py-1 font-mono text-[10px] uppercase tracking-[.18em] text-gold">Admin preview · read-only</p>
         <Link href="/admin/seasons-end/crop-audit" className="w-fit rounded border border-line px-3 py-2 text-xs uppercase tracking-[.16em] text-gold hover:border-gold">Developer crop audit</Link>
         <form className="flex flex-wrap items-end gap-3" action="/admin/seasons-end">
           <label className="flex flex-col gap-1 text-sm">League<select name="league" defaultValue={league} className="rounded border border-line bg-panel p-2"><option value="premier">Premier</option><option value="academy">Academy</option></select></label>
@@ -101,7 +102,7 @@ export default async function SeasonsEndPage({
           return (
             <section id={`group-${groupIndex}`} key={group} aria-label={group} className="scroll-mt-8">
               <div className="mb-5 flex items-baseline gap-4 border-b border-line pb-3"><span className="font-mono text-sm text-steel">{String(groupIndex + 1).padStart(2, "0")}</span><h2 className="type-display text-3xl text-gold">{group}</h2></div>
-              <div className={styles.cardRow}>
+              <div className={`${styles.cardRow} ${group === "Best of Champions" ? styles.bestOfCardRow : styles.ordinaryCardRow}`}>
                 {awards.map((award, index) => <SeasonEndAwardCard key={award.id} award={award} season={season} league={league} index={index} cards={allSeasonCards} />)}
               </div>
             </section>
