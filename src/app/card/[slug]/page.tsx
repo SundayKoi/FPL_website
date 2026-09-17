@@ -12,7 +12,8 @@ import ShareCardActions from "@/components/cards/ShareCardActions";
 import SkinPicker from "@/components/cards/SkinPicker";
 import BackLink from "@/components/site/BackLink";
 import { fetchAllCardSeasons, fetchCardBySlug, fetchRatingHistory, type RatingHistoryPoint } from "@/lib/cards/queries";
-import { fetchChampionSkinNums } from "@/lib/packs/skins";
+import { fetchPlayedChampions } from "@/lib/cards/artwork";
+import { fetchChampionSkinCatalog, type ChampionSkin } from "@/lib/packs/skins";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { patronActive } from "@/lib/patron/flames";
@@ -154,6 +155,10 @@ export default async function CardSharePage({
   // picker can render the real catalog instead of probing numbers blind.
   // Floors at `[0]` on any failure, same as everything else on this page.
   let skinNums: number[] = [0];
+  let skinCatalog: ChampionSkin[] = [{ num: 0, name: "Original" }];
+  let skinCatalogAvailable = false;
+  let eligibleChampions: { champion: string; games: number }[] = [];
+  let hasArtOverride = false;
   if (card) {
     const supabase = await createServerSupabase();
     // Five reads that need nothing from each other, and used to wait in a
@@ -188,16 +193,40 @@ export default async function CardSharePage({
     if (canEditArt) {
       // One narrow read, and only for the editor — a failure (the signature
       // migration not applied yet) just shows an empty pad.
-      const { data: prefs } = await supabase
+      const initialPrefs = await supabase
         .from("card_art_prefs")
-        .select("signature")
+        .select("signature, art_champion")
         .eq("season", card.season)
         .eq("summoner_name", card.name)
         .eq("tag", card.tag)
         .maybeSingle()
         .then((result) => result, () => ({ data: null }));
+      let prefs = initialPrefs.data as { signature: string | null; art_champion?: string | null } | null;
+      let prefsError = "error" in initialPrefs ? initialPrefs.error : null;
+      // Keep the page readable during a staggered deploy where the new
+      // cosmetic column is not present yet.
+      if (prefsError) {
+        const legacy = await supabase
+          .from("card_art_prefs")
+          .select("signature")
+          .eq("season", card.season)
+          .eq("summoner_name", card.name)
+          .eq("tag", card.tag)
+          .maybeSingle();
+        prefs = legacy.data as { signature: string | null; art_champion?: string | null } | null;
+        prefsError = legacy.error;
+      }
       signature = (prefs as { signature: string | null } | null)?.signature ?? null;
-      if (card.signature) skinNums = await fetchChampionSkinNums(card.signature.champion);
+      hasArtOverride = Boolean((prefs as { art_champion?: string | null } | null)?.art_champion);
+      const played = await fetchPlayedChampions(supabase, card.season, card.name, card.tag);
+      eligibleChampions = played.champions;
+      const artChampion = card.artChampion ?? card.signature?.champion ?? eligibleChampions[0]?.champion ?? null;
+      if (artChampion) {
+        const catalog = await fetchChampionSkinCatalog(artChampion);
+        skinCatalog = catalog.skins;
+        skinCatalogAvailable = catalog.available;
+        skinNums = catalog.skins.map((skin) => skin.num);
+      }
     }
 
     // Patron inks: the signature pad offers gold and crimson to an active
@@ -339,14 +368,19 @@ export default async function CardSharePage({
         claim={claim}
         highlight={highlightClaim}
       />
-      {canEditArt && card.signature ? (
+      {canEditArt ? (
         <SkinPicker
           season={card.season}
           summonerName={card.name}
           tag={card.tag}
-          champion={card.signature.champion}
+          champion={card.signature?.champion ?? eligibleChampions[0]?.champion ?? null}
           currentSkin={card.artSkin}
           skinNums={skinNums}
+          skinCatalog={skinCatalog}
+          skinCatalogAvailable={skinCatalogAvailable}
+          eligibleChampions={eligibleChampions}
+          currentArtChampion={card.artChampion ?? card.signature?.champion ?? eligibleChampions[0]?.champion ?? null}
+          hasArtOverride={hasArtOverride}
           currentMotto={card.motto}
           currentSignature={signature}
           initialOpen={openCustomizer}

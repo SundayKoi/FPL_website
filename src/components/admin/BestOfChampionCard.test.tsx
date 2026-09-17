@@ -255,4 +255,22 @@ describe("BestOfChampionCard", () => {
     expect(art.getAttribute("style")).toContain("background-position: 80% 42%");
     expect(art.getAttribute("style")).toContain("--art-zoom: 1.1");
   });
+
+  it("uses the selected skin's art and its own crop lookup", () => {
+    render(
+      <BestOfChampionCard
+        award={award({ winners: [winner()] })}
+        winner={winner()}
+        season="S5"
+        league="premier"
+        headingId="best-of-skin"
+        artSkin={64}
+      />,
+    );
+
+    const art = screen.getByTestId("best-of-card-art");
+    expect(art.getAttribute("data-art-skin")).toBe("64");
+    expect(art.getAttribute("style")).toContain("Azir_64.jpg");
+    expect(art.getAttribute("style")).toContain("Azir_0.jpg");
+  });
 });

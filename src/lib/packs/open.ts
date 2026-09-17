@@ -550,8 +550,14 @@ export async function openPackFor(
     // the autograph rides inside the card too, so this copy keeps the
     // signature it was pulled with even if the player redraws it later —
     // and the LIVE stamp rides the same way, frozen at mint.
+    // A live Season Card may have a cosmetic champion override, but a pulled
+    // copy rolls art for the calculated signature champion below. Do not carry
+    // the live-only override into frozen JSON or its rolled skin could point at
+    // a different champion's art.
+    const { artChampion: _liveArtChampion, ...frozenCard } = pull.card;
+    void _liveArtChampion;
     const card: PlayerCardData = {
-      ...pull.card,
+      ...frozenCard,
       autograph: pull.autograph,
       ...(liveLabel && !pull.card.moment ? { live: { label: liveLabel } } : {}),
     };

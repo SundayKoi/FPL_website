@@ -194,6 +194,9 @@ export interface PlayerCardData {
   tier: CardTier;
   archetype: string;
   signature: { champion: string; games: number } | null;
+  /** Explicit cosmetic art champion. Null/absent on older frozen copies; live
+   *  renderers fall back to the calculated signature champion. */
+  artChampion?: string | null;
   /** Chosen card-art skin number (card_art_prefs; 0 = base splash). Frozen
    *  pack copies override it with a print rolled at open time
    *  (src/lib/packs/skins.ts), so a pulled copy wears a random skin of the
@@ -987,6 +990,8 @@ export interface BuildCardInput {
   teamAbbrs?: Map<string, string>;
   /** Chosen art skin number (card_art_prefs), 0 = base. */
   artSkin?: number;
+  /** Chosen cosmetic champion. Null means use the calculated signature champ. */
+  artChampion?: string | null;
   /** Player-chosen motto line (card_art_prefs). */
   motto?: string | null;
   /** This week's Weekly Standout — Card of the Week. */
@@ -1009,6 +1014,7 @@ export function buildCard({
   teamImages,
   teamAbbrs,
   artSkin = 0,
+  artChampion = null,
   motto = null,
   standout = false,
   totalsByKey = new Map<string, GameTotals>(),
@@ -1128,6 +1134,7 @@ export function buildCard({
     tier: tierFor(overall),
     archetype: resolvedArchetype,
     signature: topChampions[0] ? { champion: topChampions[0].champion, games: topChampions[0].games } : null,
+    artChampion: artChampion ?? (topChampions[0]?.champion ?? null),
     artSkin,
     motto,
     serial: 0,
@@ -1157,8 +1164,8 @@ export interface BuildSeasonCardsInput {
   teamImages?: Map<string, string>;
   /** team name (lowercased) -> abbreviation, same keying as teamImages. */
   teamAbbrs?: Map<string, string>;
-  /** player key -> chosen art (skin + motto) from card_art_prefs. */
-  artPrefs?: Map<string, { skin: number; motto: string | null }>;
+  /** player key -> chosen art (champion, skin + motto) from card_art_prefs. */
+  artPrefs?: Map<string, { artChampion?: string | null; skin: number; motto: string | null }>;
 }
 
 /** The whole league's cards with league-wide scarce archetypes, best
@@ -1204,7 +1211,7 @@ export function buildSeasonCards({
     .map((row) => {
       const key = playerKey(row);
       const prefs = artPrefs?.get(key) ?? null;
-      return buildCard({
+      const card = buildCard({
         row,
         cohort,
         games: gamesByPlayer.get(key) ?? [],
@@ -1215,8 +1222,26 @@ export function buildSeasonCards({
         teamAbbrs,
         totalsByKey,
         artSkin: prefs?.skin ?? 0,
+        artChampion: prefs?.artChampion ?? null,
         motto: prefs?.motto ?? null,
       }, percentile);
+      const eligible = new Set(
+        (gamesByPlayer.get(key) ?? [])
+          .map((game) => game.champion?.trim())
+          .filter((champion): champion is string => Boolean(champion))
+          .map((champion) => championDisplayName(champion)),
+      );
+      // A null art champion is the legacy skin-only preference and belongs to
+      // the computed signature champion. A named override must still be
+      // played in this split; if match corrections make it invalid, reads fall
+      // back to the computed champion/base without mutating the saved row.
+      if (prefs?.artChampion && !eligible.has(championDisplayName(prefs.artChampion))) {
+        return { ...card, artChampion: card.signature?.champion ?? null, artSkin: 0 };
+      }
+      return {
+        ...card,
+        artChampion: prefs?.artChampion ? championDisplayName(prefs.artChampion) : card.signature?.champion ?? null,
+      };
     })
     .sort((a, b) => b.overall - a.overall || a.name.localeCompare(b.name))
     // Collector serials: rank in the sorted collection, best card = #001.

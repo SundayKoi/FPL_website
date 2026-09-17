@@ -1,11 +1,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-/** The one call the picker makes: from("card_art_prefs").upsert(row, opts). */
-const { upsert, from, refresh } = vi.hoisted(() => {
-  const upsert = vi.fn(async (row: Record<string, unknown>, options?: unknown) => {
-    void row;
-    void options;
+/** Motto saves still use the table directly; artwork pairs use the server action. */
+const { from, refresh } = vi.hoisted(() => {
+  const upsert = vi.fn(async (...args: unknown[]) => {
+    void args;
     return { error: null };
   });
   return { upsert, from: vi.fn(() => ({ upsert })), refresh: vi.fn() };
@@ -13,6 +12,13 @@ const { upsert, from, refresh } = vi.hoisted(() => {
 
 vi.mock("@/lib/supabase/client", () => ({ createClient: () => ({ from }) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+const { saveCardArtworkAction } = vi.hoisted(() => ({
+  saveCardArtworkAction: vi.fn(async (...args: unknown[]) => {
+    void args;
+    return { ok: true as const };
+  }),
+}));
+vi.mock("@/lib/cards/artwork-actions", () => ({ saveCardArtworkAction }));
 
 import SkinPicker from "./SkinPicker";
 
@@ -25,7 +31,7 @@ afterEach(() => {
 
 /** The picker is closed until asked for. */
 function open() {
-  fireEvent.click(screen.getByRole("button", { name: "Customize card" }));
+  fireEvent.click(screen.getByRole("button", { name: "Customize Season Card" }));
 }
 
 function thumbs(container: HTMLElement) {
@@ -58,7 +64,7 @@ describe("SkinPicker", () => {
 
     const srcs = thumbs(container).map((img) => img.getAttribute("src"));
     expect(srcs.some((src) => src?.includes("Jhin_37.jpg"))).toBe(true);
-    expect(screen.getByText("In use")).toBeTruthy();
+    expect(screen.getByText("Skin 37")).toBeTruthy();
   });
 
   it("falls a thumbnail back to the regular splash before dropping it", () => {
@@ -83,14 +89,49 @@ describe("SkinPicker", () => {
     expect(screen.getByRole("button", { name: "Close customizer" })).toBeTruthy();
   });
 
-  it("saves the picked skin against the card's Riot identity", async () => {
-    const { container } = render(<SkinPicker {...card} currentSkin={0} skinNums={[0, 64]} />);
+  it("saves the picked skin against the card's Riot identity only after Save", async () => {
+    const { container } = render(<SkinPicker {...card} currentSkin={0} skinNums={[0, 64]} eligibleChampions={[{ champion: "Jhin", games: 4 }]} />);
     open();
 
     const thumb = thumbs(container).find((img) => img.getAttribute("src")?.includes("_64")) as HTMLImageElement;
     fireEvent.click(thumb.closest("button")!);
 
-    await waitFor(() => expect(upsert).toHaveBeenCalledTimes(1));
-    expect(upsert.mock.calls[0][0]).toMatchObject({ season: "S5", summoner_name: "7gen", tag: "NA1", skin: 64 });
+    expect(saveCardArtworkAction).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Save artwork" }));
+    await waitFor(() => expect(saveCardArtworkAction).toHaveBeenCalledTimes(1));
+    expect(saveCardArtworkAction.mock.calls[0][0]).toMatchObject({ season: "S5", summonerName: "7gen", tag: "NA1", artChampion: "Jhin", skin: 64 });
+  });
+
+  it("loads the new champion's catalog without carrying the old skin, then clears the override", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      available: true,
+      skins: [{ num: 0, name: "Original" }, { num: 12, name: "Arcane" }],
+    }), { status: 200 })));
+    const { container } = render(
+      <SkinPicker
+        {...card}
+        currentSkin={64}
+        currentArtChampion="Jhin"
+        hasArtOverride
+        skinCatalog={[{ num: 0, name: "Original" }, { num: 64, name: "Jhin Skin" }]}
+        skinCatalogAvailable
+        eligibleChampions={[{ champion: "Jhin", games: 4 }, { champion: "Lux", games: 1 }]}
+      />,
+    );
+    open();
+    fireEvent.change(screen.getByRole("combobox", { name: "Champion played this split" }), { target: { value: "Lux" } });
+    const luxSkin = await screen.findByAltText("Lux — Arcane");
+    expect(luxSkin.getAttribute("src")).toContain("Lux_12.jpg");
+    fireEvent.click(luxSkin.closest("button")!);
+    fireEvent.click(screen.getByRole("button", { name: "Save artwork" }));
+    await waitFor(() => expect(saveCardArtworkAction).toHaveBeenCalledTimes(1));
+    expect(saveCardArtworkAction.mock.calls[0][0]).toMatchObject({ artChampion: "Lux", skin: 12 });
+
+    fireEvent.click(screen.getByRole("button", { name: "Use most-played champion" }));
+    expect((screen.getByRole("combobox", { name: "Champion played this split" }) as HTMLSelectElement).value).toBe("Jhin");
+    fireEvent.click(screen.getByRole("button", { name: "Save artwork" }));
+    await waitFor(() => expect(saveCardArtworkAction).toHaveBeenCalledTimes(2));
+    expect(saveCardArtworkAction.mock.calls[1][0]).toMatchObject({ artChampion: null, skin: 0 });
+    expect(container.querySelector('img[src*="Lux_64.jpg"]')).toBeNull();
   });
 });

@@ -35,7 +35,19 @@ import { ALT_SKIN_CHANCE } from "./config";
  */
 const DDRAGON_CACHE_SECONDS = 86_400;
 
-const skinNumsById = new Map<string, number[]>();
+export interface ChampionSkin {
+  num: number;
+  name: string;
+}
+
+export interface ChampionSkinCatalog {
+  champion: string;
+  skins: ChampionSkin[];
+  /** False means the CDN could not be read. The base entry is only a safe UI fallback. */
+  available: boolean;
+}
+
+const skinCatalogById = new Map<string, ChampionSkinCatalog>();
 
 /**
  * The skin numbers Riot publishes for a champion, base (0) included.
@@ -45,11 +57,11 @@ const skinNumsById = new Map<string, number[]>();
  * charges the wallet before it rolls, so this must never be the thing that
  * throws.
  */
-export async function fetchChampionSkinNums(championName: string): Promise<number[]> {
+export async function fetchChampionSkinCatalog(championName: string): Promise<ChampionSkinCatalog> {
   const champion = championByName(championName);
-  if (!champion) return [0];
+  if (!champion) return { champion: championName, skins: [{ num: 0, name: "Original" }], available: false };
 
-  const cached = skinNumsById.get(champion.id);
+  const cached = skinCatalogById.get(champion.id);
   if (cached) return cached;
 
   try {
@@ -62,20 +74,34 @@ export async function fetchChampionSkinNums(championName: string): Promise<numbe
       // skin list changes on patch day at most; a day is generous.
       { next: { revalidate: DDRAGON_CACHE_SECONDS } },
     );
-    if (!response.ok) return [0];
+    if (!response.ok) {
+      return { champion: champion.name, skins: [{ num: 0, name: "Original" }], available: false };
+    }
     const body = (await response.json()) as {
-      data?: Record<string, { skins?: { num?: number }[] } | undefined>;
+      data?: Record<string, { skins?: { num?: number; name?: string }[] } | undefined>;
     };
-    const nums = (body.data?.[champion.id]?.skins ?? [])
-      .map((skin) => skin?.num)
-      .filter((num): num is number => typeof num === "number");
-    if (nums.length === 0) return [0];
+    const skins = (body.data?.[champion.id]?.skins ?? [])
+      .map((skin) => (typeof skin?.num === "number" ? { num: skin.num, name: skin.name?.trim() || (skin.num === 0 ? "Original" : `Skin ${skin.num}`) } : null))
+      .filter((skin): skin is ChampionSkin => Boolean(skin));
+    if (skins.length === 0) {
+      return { champion: champion.name, skins: [{ num: 0, name: "Original" }], available: false };
+    }
 
-    skinNumsById.set(champion.id, nums);
-    return nums;
+    const catalog = {
+      champion: champion.name,
+      skins: [...new Map(skins.map((skin) => [skin.num, skin])).values()].sort((a, b) => a.num - b.num),
+      available: true,
+    } satisfies ChampionSkinCatalog;
+    skinCatalogById.set(champion.id, catalog);
+    return catalog;
   } catch {
-    return [0];
+    return { champion: champion.name, skins: [{ num: 0, name: "Original" }], available: false };
   }
+}
+
+/** Numeric compatibility wrapper used by pack randomness and relic rolls. */
+export async function fetchChampionSkinNums(championName: string): Promise<number[]> {
+  return (await fetchChampionSkinCatalog(championName)).skins.map((skin) => skin.num);
 }
 
 /** Uniform pick over a champion's skin nums — one rand per print. An empty

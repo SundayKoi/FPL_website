@@ -386,6 +386,58 @@ describe("archetype scarcity", () => {
     expect(mine.artSkin).toBe(7);
     expect(mine.motto).toBe("Lock in.");
   });
+
+  it("keeps cosmetic art champion separate from the calculated signature", () => {
+    const cohort = cohortOf(agg());
+    const playedGames = [
+      gameRow({ match_id: "ART_1", champion: "Jhin", win: true }),
+      gameRow({ match_id: "ART_2", champion: "Jhin", win: false }),
+      gameRow({ match_id: "ART_3", champion: "Jhin", win: true }),
+      gameRow({ match_id: "ART_4", champion: "Jinx", win: true }),
+      gameRow({ match_id: "ART_5", champion: "Kai'Sa", win: true }),
+    ];
+    const expandedGames = [
+      ...playedGames,
+      gameRow({ match_id: "ART_6", champion: "Lux", win: true }),
+    ];
+    const playedLog = logOf({ ART_1: 30, ART_2: 30, ART_3: 30, ART_4: 30, ART_5: 30, ART_6: 30 });
+    const cards = buildSeasonCards({
+      cohort,
+      gamesByPlayer: new Map([[
+        "player#na1",
+        expandedGames,
+      ]]),
+      gameLog: playedLog,
+      artPrefs: new Map([[
+        "player#na1",
+        { artChampion: "Lux", skin: 64, motto: null },
+      ]]),
+    });
+    const mine = cards.find((card) => card.slug === "player-na1")!;
+    expect(mine.signature?.champion).toBe("Jhin");
+    expect(mine.topChampions.map((entry) => entry.champion)).not.toContain("Lux");
+    expect(mine.artChampion).toBe("Lux");
+    expect(mine.artSkin).toBe(64);
+  });
+
+  it("falls back to computed champion base art when a saved override is no longer eligible", () => {
+    const cohort = cohortOf(agg());
+    const playedGames = [
+      gameRow({ match_id: "FALLBACK_1", champion: "Jhin", win: true }),
+      gameRow({ match_id: "FALLBACK_2", champion: "Jhin", win: false }),
+      gameRow({ match_id: "FALLBACK_3", champion: "Jhin", win: true }),
+    ];
+    const cards = buildSeasonCards({
+      cohort,
+      gamesByPlayer: new Map([["player#na1", playedGames]]),
+      gameLog: logOf({ FALLBACK_1: 30, FALLBACK_2: 30, FALLBACK_3: 30 }),
+      artPrefs: new Map([["player#na1", { artChampion: "Lux", skin: 64, motto: null }]]),
+    });
+    const mine = cards.find((card) => card.slug === "player-na1")!;
+    expect(mine.signature?.champion).toBe("Jhin");
+    expect(mine.artChampion).toBe("Jhin");
+    expect(mine.artSkin).toBe(0);
+  });
 });
 
 describe("archetypes fit the role they land on", () => {
