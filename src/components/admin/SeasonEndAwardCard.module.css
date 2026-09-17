@@ -2,7 +2,7 @@
    shared award with multiple winners can use adjacent page-level tracks. */
 .cardGroup { display:contents; }
 .card { min-width:0; width:min(100%, 22.5rem); color:#f5f1e8; }
-.face { --gold:#e7c780; container-type:inline-size; position:relative; isolation:isolate; display:grid; grid-template-rows:78% 22%; width:100%; aspect-ratio:63 / 88; box-sizing:border-box; min-width:0; min-height:0; overflow:hidden; border-radius:14px; background:#111a20; box-shadow:0 14px 32px #0005; }
+.face { --gold:#e7c780; container-type:inline-size; position:relative; isolation:isolate; display:grid; grid-template-rows:78% 22%; width:100%; aspect-ratio:63 / 88; box-sizing:border-box; min-width:0; min-height:0; overflow:hidden; border:6px solid transparent; border-radius:10px; background:linear-gradient(135deg,#f8d987 0%,#a96722 14%,#efbd58 36%,#fff0a9 51%,#b66e20 74%,#f4d27b 100%) border-box; box-shadow:0 14px 32px #0006,0 0 12px rgb(223 164 65 / .22); }
 .artRegion { position:relative; min-width:0; min-height:0; overflow:hidden; background:#17242c; }
 .art { position:absolute; z-index:0; inset:0; background-color:#17242c; background-position:center; background-repeat:no-repeat; background-size:cover; }
 .artShade { position:absolute; z-index:1; inset:0; pointer-events:none; background:linear-gradient(180deg, rgb(3 9 13 / .12) 0%, rgb(3 9 13 / .08) 32%, rgb(3 9 13 / .48) 57%, rgb(3 9 13 / .97) 100%); }
@@ -21,14 +21,19 @@
 .evidence { grid-area:evidence; min-width:0; margin:0; color:#405148; font-size:clamp(9px, 2.8cqw, 12px); line-height:1.2; overflow-wrap:anywhere; }
 .emptyPanel { justify-content:center; }
 .empty { margin:0 0 4px; color:#185d39; font-family:Georgia,serif; font-size:clamp(17px, 5.3cqw, 26px); font-weight:700; line-height:1; }
-.frame { position:absolute; z-index:4; inset:6px; border:1px solid var(--gold); border-radius:10px; box-shadow:0 0 4px rgb(231 199 128 / .35); pointer-events:none; }
-.frame::after { position:absolute; inset:4px; border:1px solid rgb(231 199 128 / .5); border-radius:7px; content:""; }
+.frame { position:absolute; z-index:4; inset:7px; border:1px solid #f8dc91; border-radius:4px; box-shadow:0 0 4px rgb(231 199 128 / .55); pointer-events:none; }
+.frame::after { position:absolute; inset:4px; border:1px solid rgb(148 86 24 / .8); border-radius:2px; content:""; }
 .ornaments { position:absolute; z-index:5; inset:0; pointer-events:none; }
-.corner { position:absolute; width:16px; height:16px; border-color:#f1cd7d; border-style:solid; filter:drop-shadow(0 0 2px rgb(231 199 128 / .55)); }
-.cornerTopLeft { top:5px; left:5px; border-width:2px 0 0 2px; border-radius:7px 0 0; }
-.cornerTopRight { top:5px; right:5px; border-width:2px 2px 0 0; border-radius:0 7px 0 0; }
-.cornerBottomLeft { bottom:5px; left:5px; border-width:0 0 2px 2px; border-radius:0 0 0 7px; }
-.cornerBottomRight { right:5px; bottom:5px; border-width:0 2px 2px 0; border-radius:0 0 7px; }
+.corner { position:absolute; width:22px; height:22px; border-color:#fff0a5; border-style:solid; filter:drop-shadow(0 0 3px rgb(231 199 128 / .7)); }
+.corner::after { position:absolute; width:8px; height:8px; border:1px solid #fff0a5; background:#a86621; content:""; transform:rotate(45deg); }
+.cornerTopLeft { top:2px; left:2px; border-width:3px 0 0 3px; border-radius:5px 0 0; }
+.cornerTopLeft::after { top:5px; left:5px; }
+.cornerTopRight { top:2px; right:2px; border-width:3px 3px 0 0; border-radius:0 5px 0 0; }
+.cornerTopRight::after { top:5px; right:5px; }
+.cornerBottomLeft { bottom:2px; left:2px; border-width:0 0 3px 3px; border-radius:0 0 0 5px; }
+.cornerBottomLeft::after { bottom:5px; left:5px; }
+.cornerBottomRight { right:2px; bottom:2px; border-width:0 3px 3px 0; border-radius:0 0 5px; }
+.cornerBottomRight::after { right:5px; bottom:5px; }
 .details { display:grid; gap:4px; margin-top:8px; padding:0 3px; color:#9eacb9; font-size:11px; line-height:1.45; }
 .details summary { cursor:pointer; color:#e7c780; font-weight:700; }
 .details p { margin:0; overflow-wrap:anywhere; }
