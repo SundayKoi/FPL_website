@@ -1,16 +1,20 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { staff, load, fetchCards, redirect } = vi.hoisted(() => ({
+const { staff, load, fetchCards, redirect, readViewerDiscordId, fetchPatronActive } = vi.hoisted(() => ({
   staff: vi.fn(),
   load: vi.fn(),
   fetchCards: vi.fn(),
   redirect: vi.fn(() => { throw new Error("redirect"); }),
+  readViewerDiscordId: vi.fn(),
+  fetchPatronActive: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase: async () => ({}) }));
 vi.mock("@/lib/auth/staffTier", () => ({ fetchStaffTier: staff }));
-vi.mock("@/lib/league/season", async (importOriginal) => ({ ...await importOriginal<object>(), fetchLeagueSeasons: async () => ({ premier: "S5", academy: "A1" }) }));
+vi.mock("@/lib/betting/service-client", () => ({ createBettingServiceClient: vi.fn(() => ({})) }));
+vi.mock("@/lib/cards/viewer", () => ({ readViewerDiscordId }));
+vi.mock("@/lib/patron/queries", () => ({ fetchPatronActive }));
 vi.mock("@/lib/season-end/queries", () => ({ loadSeasonEnd: load }));
 vi.mock("@/lib/cards/queries", () => ({ fetchSeasonCards: fetchCards }));
 vi.mock("@/components/admin/SeasonEndAwardCard", () => ({
@@ -31,6 +35,8 @@ import Page from "./page";
 beforeEach(() => {
   vi.clearAllMocks();
   staff.mockResolvedValue({ isAdmin: true, isOwner: false });
+  readViewerDiscordId.mockResolvedValue("patron-discord-id");
+  fetchPatronActive.mockResolvedValue(false);
   load.mockResolvedValue({
     games: 6,
     players: 10,
@@ -49,6 +55,21 @@ describe("Season's End admin page", () => {
     expect(load).not.toHaveBeenCalled();
   });
 
+  it("lets an active patron see the cards without admin sections", async () => {
+    staff.mockResolvedValue({ isAdmin: false, isOwner: false });
+    fetchPatronActive.mockResolvedValue(true);
+
+    render(await Page({ searchParams: Promise.resolve({}) }));
+
+    expect(redirect).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: "← Cards" }).getAttribute("href")).toBe("/cards");
+    expect(screen.getByRole("heading", { name: "Body Count" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Season coverage" })).toBeNull();
+    expect(screen.queryByText("Admin preview · read-only")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Developer crop audit" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Calculate cards" })).toBeNull();
+  });
+
   it("passes all season cards to the first-design honors renderer and keeps cumulative cards separate", async () => {
     render(await Page({ searchParams: Promise.resolve({}) }));
     expect(screen.getByRole("heading", { name: "Body Count" })).toBeTruthy();
@@ -63,16 +84,20 @@ describe("Season's End admin page", () => {
     expect(screen.getByTestId("season-card").textContent).toBe("Alice");
   });
 
-  it("defaults to the selected league's season", async () => {
+  it("uses the fixed season for the selected league", async () => {
     render(await Page({ searchParams: Promise.resolve({ league: "academy" }) }));
     expect(load).toHaveBeenCalledWith({}, "academy", "A1");
     expect(fetchCards).toHaveBeenCalledWith({}, "A1");
+    expect((screen.getByRole("combobox", { name: "League" }) as HTMLSelectElement).value).toBe("academy");
   });
 
-  it("never loads a season from the other league", async () => {
-    render(await Page({ searchParams: Promise.resolve({ league: "academy", season: "S5" }) }));
-    expect(load).not.toHaveBeenCalled();
-    expect(screen.getByRole("alert")).toBeTruthy();
+  it("ignores a supplied season and keeps Premier pinned to S5", async () => {
+    render(await Page({ searchParams: Promise.resolve({ league: "premier", season: "S4" }) }));
+    expect(load).toHaveBeenCalledWith({}, "premier", "S5");
+    expect(fetchCards).toHaveBeenCalledWith({}, "S5");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Season" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Calculate cards" })).toBeNull();
   });
 
   it("renders Best of Champions as its own category after Season stories", async () => {

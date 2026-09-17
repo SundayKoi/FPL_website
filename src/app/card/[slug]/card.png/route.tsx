@@ -61,9 +61,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   // so the whole chain the live card walks in the browser has to be resolved
   // here first: centered art for the skin, else its regular splash, else base
   // centered art. A url that 404s at render time breaks the whole unfurl.
-  const splash = card.signature
-    ? (await resolvePrintArtUrl(card.signature.champion, card.artSkin)) ??
-      championCenteredUrl(card.signature.champion)
+  const artChampion = card.artChampion ?? card.signature?.champion ?? null;
+  const splash = artChampion
+    ? (await resolvePrintArtUrl(artChampion, card.artSkin)) ??
+      (await resolvePrintArtUrl(artChampion, 0)) ??
+      championCenteredUrl(artChampion)
     : null;
 
   // The live card has no copy behind it: no foil flag, no parallel, no ink.

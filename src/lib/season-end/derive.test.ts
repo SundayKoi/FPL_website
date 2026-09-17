@@ -169,6 +169,12 @@ describe("season-end winners", () => {
     expect(new Set(bestOf.winners.map((winner) => winner.playerKeys?.[0])).size).toBe(10);
     expect(new Set(bestOf.winners.map((winner) => winner.champion)).size).toBe(10);
     expect(bestOf.winners.every((winner) => winner.title === `Best of ${winner.champion}`)).toBe(true);
+    expect(bestOf.winners.find((winner) => winner.name === "A0#NA1")).toMatchObject({
+      value: 6,
+      games: 6,
+      championGames: 6,
+      evidence: { bestOf: { wins: 6, losses: 0, winRate: 100 } },
+    });
   });
 
   it("annotates league-wide Best of winners after assignment without changing the assignment", () => {
@@ -344,6 +350,8 @@ describe("season-end winners", () => {
     const premierBestOf = deriveSeasonEnd(premierRows, premierFixtures, "S5", "premier").awards.find((candidate) => candidate.id === "best-of-champion")!;
     const academyBestOf = deriveSeasonEnd(academyRows, academyFixtures, "A1", "academy").awards.find((candidate) => candidate.id === "best-of-champion")!;
     expect(premierBestOf.winners).toHaveLength(1);
+    expect(premierBestOf.bestOfDiagnostics).toMatchObject({ awardedPlayers: 1, playersWithoutCard: expect.any(Array) });
+    expect(premierBestOf.bestOfDiagnostics?.playersWithoutCard).toHaveLength(9);
     expect(academyBestOf.winners).toHaveLength(1);
     expect(premierBestOf.divisionStatuses).toBeUndefined();
     expect(academyBestOf.divisionStatuses).toBeUndefined();
@@ -351,7 +359,7 @@ describe("season-end winners", () => {
     expect(academyBestOf.winners[0].division).toBeUndefined();
   });
 
-  it("awards every player with five games regardless of score and excludes shorter contributors", () => {
+  it("awards qualifying champion records regardless of win rate and excludes shorter contributors", () => {
     const rows = season();
     const swap = (matchId: string, leftName: string, rightName: string) => {
       const leftIndex = rows.findIndex((row) => row.match_id === matchId && row.summoner_name === leftName);
@@ -362,7 +370,7 @@ describe("season-end winners", () => {
     };
     swap("match6", "A0", "B0"); // A0: 5/6 wins, exactly 70 with the fixture performance baseline.
     swap("match5", "A1", "B1");
-    swap("match6", "A1", "B1"); // A1: 4/6 wins, below the old score floor.
+    swap("match6", "A1", "B1"); // A1: 4/6 wins; win rate is evidence, not a minimum floor.
     const champions: Record<string, string> = { A0: "Ahri", A1: "Azir", A2: "Braum", A3: "Caitlyn", A4: "Darius", B0: "Ekko", B1: "Fiora", B2: "Garen", B3: "Jinx", B4: "Lulu" };
     rows.forEach((row) => { row.champion = champions[row.summoner_name] ?? "Ahri"; });
 
@@ -372,7 +380,10 @@ describe("season-end winners", () => {
     const bestOf = award(rows, "best-of-champion");
     expect(bestOf.winners).toHaveLength(10);
     expect(bestOf.winners.map((winner) => winner.name)).toEqual(expect.arrayContaining(["A0#NA1", "A1#NA1", "A2#NA1", "A3#NA1", "A4#NA1"]));
-    expect(bestOf.winners.find((winner) => winner.name === "A1#NA1")?.value).toBeLessThan(70);
+    expect(bestOf.winners.find((winner) => winner.name === "A1#NA1")).toMatchObject({
+      value: 4,
+      evidence: { bestOf: { wins: 4, losses: 2 } },
+    });
     expect(bestOf.winners.map((winner) => winner.name)).not.toContain("PartTimer#NA1");
   });
 
@@ -381,13 +392,27 @@ describe("season-end winners", () => {
     const bestOf = award(rows, "best-of-champion");
     expect(bestOf.status).toBe("unearned");
     expect(bestOf.winners).toHaveLength(0);
-    expect(bestOf.note).toBe("No player has at least 5 games.");
+    expect(bestOf.note).toBe("No player has at least 5 regular-season games.");
   });
 
   it("keeps Best of unavailable when performance observations are missing", () => {
     const rows = season();
     rows[0].kda = null;
     expect(award(rows, "best-of-champion").status).toBe("unavailable");
+  });
+
+  it("expands Best of using shorter champion records after the original selection", () => {
+    const rows = season();
+    const a0Rows = rows.filter((row) => row.summoner_name === "A0");
+    a0Rows.forEach((row, index) => {
+      row.champion = index < 2 ? "Ahri" : index === 2 ? "Azir" : index === 3 ? "Lux" : "Garen";
+    });
+    const bestOf = award(rows, "best-of-champion");
+
+    expect(bestOf.bestOfDiagnostics?.eligiblePlayers).toBe(10);
+    expect(bestOf.winners.find((winner) => winner.name === "A0#NA1")).toMatchObject({
+      champion: "Garen", championGames: 2, evidence: { bestOf: { selectionPass: "expansion" } },
+    });
   });
 
   it("selects by raw values even when rounded headlines would tie", () => {

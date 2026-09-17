@@ -29,12 +29,21 @@ const award = (overrides: Partial<SeasonAward> = {}): SeasonAward => ({
 const winner = (overrides: Partial<SeasonAward["winners"][number]> = {}) => ({
   name: "Alice#NA1",
   team: "Wolves",
-  value: 88,
-  games: 6,
+  value: 5,
+  games: 7,
   champion: "Azir",
-  championGames: 2,
+  championGames: 7,
   title: "Best of Azir",
-  evidence: { record: "2–0", kda: 8 },
+  evidence: {
+    bestOf: {
+      wins: 5,
+      losses: 2,
+      winRate: 100 * 5 / 7,
+      meanPerformance: 88.4,
+      seasonGames: 8,
+      championGames: 7,
+    },
+  },
   ...overrides,
 });
 
@@ -62,9 +71,29 @@ describe("BestOfChampionCard", () => {
     expect(screen.queryByLabelText(/overall/i)).toBeNull();
     expect(screen.getByRole("article").getAttribute("aria-label")).toBe("Best of Azir — Alice#NA1");
     expect(screen.getByText("S5 Premier")).toBeTruthy();
-    expect(screen.getByText(/2–0 · 8 KDA · 88\/100 score · Wolves · 6 games/)).toBeTruthy();
+    expect(screen.getByText(/Award record · 5–2 · 71% WR · 7 games/)).toBeTruthy();
+    expect(screen.getByText("Selection details")).toBeTruthy();
+    expect(screen.getByText("Mean performance · 88 / 100")).toBeTruthy();
     expect(screen.getByText("One unique played champion per player.")).toBeTruthy();
     expect(screen.queryByText("Season stories")).toBeNull();
+  });
+
+  it("omits staff-only selection details in the patron card view", () => {
+    render(
+      <BestOfChampionCard
+        award={award({ winners: [winner()] })}
+        winner={winner()}
+        playerCard={card}
+        season="S5"
+        league="premier"
+        headingId="best-of-patron"
+        showAdminDetails={false}
+      />,
+    );
+
+    expect(screen.getByText("Best of Champion")).toBeTruthy();
+    expect(screen.queryByText(/Admin preview/)).toBeNull();
+    expect(screen.queryByText("Selection details")).toBeNull();
   });
 
   it("keeps the assigned art and identity when the player card is missing", () => {
@@ -82,6 +111,45 @@ describe("BestOfChampionCard", () => {
     expect(screen.getByText("Alice")).toBeTruthy();
     expect(screen.queryByLabelText(/overall/i)).toBeNull();
     expect(screen.getByText("A1 Academy")).toBeTruthy();
+  });
+
+  it("explains a cap-related promotion without calling it the unrestricted leader", () => {
+    const promoted = winner({
+      name: "Cara#NA1",
+      champion: "Lux",
+      title: "Best of Lux",
+      evidence: {
+        bestOf: {
+          wins: 3,
+          losses: 1,
+          winRate: 75,
+          meanPerformance: 62.4,
+          seasonGames: 6,
+          championGames: 4,
+          capPromotion: {
+            candidateKey: "cara#na1:Lux",
+            championId: "Lux",
+            champion: "Lux",
+            recipientPlayerKey: "cara#na1",
+            recipientName: "Cara#NA1",
+            unrestrictedLeaderPlayerKey: "alice#na1",
+            unrestrictedLeaderName: "Alice#NA1",
+          },
+        },
+      },
+    });
+    render(
+      <BestOfChampionCard
+        award={award({ winners: [promoted] })}
+        winner={promoted}
+        season="S5"
+        league="premier"
+        headingId="best-of-promoted"
+      />,
+    );
+
+    expect(screen.getByText(/One-card cap promotion · Alice#NA1 led the unrestricted Lux ranking/)).toBeTruthy();
+    expect(screen.queryByText(/unrestricted leader/)).toBeNull();
   });
 
   it("uses a neutral face when the winner has no champion", () => {
@@ -186,5 +254,23 @@ describe("BestOfChampionCard", () => {
     const art = screen.getByTestId("best-of-card-art");
     expect(art.getAttribute("style")).toContain("background-position: 80% 42%");
     expect(art.getAttribute("style")).toContain("--art-zoom: 1.1");
+  });
+
+  it("uses the selected skin's art and its own crop lookup", () => {
+    render(
+      <BestOfChampionCard
+        award={award({ winners: [winner()] })}
+        winner={winner()}
+        season="S5"
+        league="premier"
+        headingId="best-of-skin"
+        artSkin={64}
+      />,
+    );
+
+    const art = screen.getByTestId("best-of-card-art");
+    expect(art.getAttribute("data-art-skin")).toBe("64");
+    expect(art.getAttribute("style")).toContain("Azir_64.jpg");
+    expect(art.getAttribute("style")).toContain("Azir_0.jpg");
   });
 });

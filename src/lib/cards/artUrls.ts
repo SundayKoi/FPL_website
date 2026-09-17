@@ -43,7 +43,7 @@ export function cardArtUrls(card: PlayerCardData | null | undefined): string[] {
     return splash ? [splash] : [];
   }
 
-  const champion = card.signature?.champion ?? card.moment?.champion ?? null;
+  const champion = card.artChampion ?? card.signature?.champion ?? card.moment?.champion ?? null;
   if (!champion) return [];
   const url = championCenteredUrl(champion, skin);
   return url ? [url] : [];

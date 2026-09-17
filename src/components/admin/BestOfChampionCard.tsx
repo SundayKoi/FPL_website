@@ -4,7 +4,7 @@ import { championCenteredUrl, championDisplayName, championSplashUrl } from "@/l
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { AwardWinner, SeasonAward } from "@/lib/season-end/derive";
 import { championArtCrop, type ChampionArtCrop } from "@/lib/season-end/championArt";
-import { formatAwardPresentation } from "@/lib/season-end/presentation";
+import { formatAwardPresentation, formatInteger } from "@/lib/season-end/presentation";
 import type { Division } from "@/lib/schedule/types";
 import BestOfDivisionEmblem from "./BestOfDivisionEmblem";
 import styles from "./BestOfChampionCard.module.css";
@@ -21,8 +21,12 @@ export interface BestOfChampionCardProps {
   division?: Division;
   /** Reserved for frozen signed pulls; live admin previews omit it. */
   autograph?: string | null;
+  /** Read-only preview skin. Best Of's awarded champion never changes. */
+  artSkin?: number;
   /** Local-only override used by the developer crop-audit surface. */
   crop?: ChampionArtCrop | null;
+  /** Staff-only selection diagnostics are omitted from patron card views. */
+  showAdminDetails?: boolean;
 }
 
 function accountName(winner: AwardWinner | null | undefined, playerCard: PlayerCardData | null | undefined): string | null {
@@ -63,7 +67,9 @@ export default function BestOfChampionCard({
   headingId,
   division,
   autograph = null,
+  artSkin = 0,
   crop = null,
+  showAdminDetails = true,
 }: BestOfChampionCardProps) {
   const champion = winner?.champion ?? playerCard?.signature?.champion ?? null;
   const championLabel = champion ? championDisplayName(champion) : null;
@@ -73,11 +79,14 @@ export default function BestOfChampionCard({
   const identity = fullIdentity(winner, playerCard);
   const team = winner?.team ?? playerCard?.teamName ?? null;
   const display = winner ? formatAwardPresentation(award, winner) : null;
+  const bestOfEvidence = winner?.evidence?.bestOf;
   const status = winner ? null : (award.status === "unearned" ? "Not earned yet" : "Awaiting evidence");
   const statusNote = winner ? null : (award.note ?? "No qualifying champion assignment yet.");
-  const splashArt = champion ? championSplashUrl(champion, 0) : null;
-  const centeredArt = champion ? championCenteredUrl(champion, 0) : null;
-  const artCrop = crop ?? (champion ? championArtCrop(champion, 0) : null);
+  const splashArt = champion ? championSplashUrl(champion, artSkin) : null;
+  const centeredArt = champion ? championCenteredUrl(champion, artSkin) : null;
+  const baseSplashArt = champion && artSkin !== 0 ? championSplashUrl(champion, 0) : null;
+  const baseCenteredArt = champion && artSkin !== 0 ? championCenteredUrl(champion, 0) : null;
+  const artCrop = crop ?? (champion ? championArtCrop(champion, artSkin) : null);
   const leagueLabel = league === "premier" ? "Premier" : "Academy";
   const articleLabel = winner && identity
     ? `${title} — ${identity}`
@@ -94,8 +103,8 @@ export default function BestOfChampionCard({
     && artCrop.zoom === 1,
   );
   const artSources = usesCenteredArt
-    ? [centeredArt, splashArt].filter((url): url is string => Boolean(url))
-    : [splashArt].filter((url): url is string => Boolean(url));
+    ? [centeredArt, splashArt, baseCenteredArt, baseSplashArt].filter((url, index, urls): url is string => Boolean(url) && urls.indexOf(url) === index)
+    : [splashArt, baseSplashArt, baseCenteredArt].filter((url, index, urls): url is string => Boolean(url) && urls.indexOf(url) === index);
   const artStyle: CSSProperties | undefined = artSources.length && artCrop ? {
     backgroundImage: artSources.map((source) => `url("${source}")`).join(", "),
     backgroundPosition: `${artCrop.cropPositionX}% ${artCrop.cropPositionY}%`,
@@ -114,6 +123,7 @@ export default function BestOfChampionCard({
           className={styles.art}
           data-testid="best-of-card-art"
           data-champion={champion ?? undefined}
+          data-art-skin={artSkin}
           aria-hidden="true"
           style={artStyle}
         />
@@ -162,13 +172,23 @@ export default function BestOfChampionCard({
       <div className={styles.details}>
         {winner ? (
           <>
-            <p className={styles.detailsLabel}>Best of Champion · Admin preview</p>
+            <p className={styles.detailsLabel}>{showAdminDetails ? "Best of Champion · Admin preview" : "Best of Champion"}</p>
             <p className={styles.detailsIdentity}>{identity}{team ? ` · ${team}` : ""}{playerCard?.role ? ` · ${playerCard.role}` : ""}</p>
-            <p className={styles.evidence}>Assignment evidence · {display?.evidence}</p>
+            <p className={styles.evidence}>Award record · {display?.evidence}</p>
+            {showAdminDetails && bestOfEvidence ? (
+              <details className={styles.selectionDetails}>
+                <summary>Selection details</summary>
+                <p>Mean performance · {formatInteger(bestOfEvidence.meanPerformance)} / 100</p>
+                <p>Season eligibility · {formatInteger(bestOfEvidence.seasonGames)} total games</p>
+                {bestOfEvidence.capPromotion ? (
+                  <p>One-card cap promotion · {bestOfEvidence.capPromotion.unrestrictedLeaderName} led the unrestricted {championLabel ?? "champion"} ranking but already held another champion card.</p>
+                ) : null}
+              </details>
+            ) : null}
           </>
         ) : (
           <>
-            <p className={styles.detailsLabel}>Admin preview</p>
+            <p className={styles.detailsLabel}>{showAdminDetails ? "Admin preview" : "Best of Champion"}</p>
             <p className={styles.evidence}>{statusNote}</p>
           </>
         )}
