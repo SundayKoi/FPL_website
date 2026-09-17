@@ -79,6 +79,7 @@ function AwardFace({
   titleId,
   title,
   description,
+  category,
   art,
   season,
   league,
@@ -88,6 +89,7 @@ function AwardFace({
   titleId: string;
   title: string;
   description: string;
+  category: SeasonAward["group"];
   art: string | null;
   season: string;
   league: "premier" | "academy";
@@ -109,18 +111,12 @@ function AwardFace({
           {division ? <DivisionMark division={division} /> : null}
         </div>
         <div className={styles.overlay}>
+          <p className={styles.category}>{category}</p>
           <h3 id={titleId} className={styles.title}>{title}</h3>
           <p className={styles.description}>{description}</p>
         </div>
       </div>
       {result}
-      <span className={styles.frame} aria-hidden="true" />
-      <span className={styles.ornaments} aria-hidden="true">
-        <span className={`${styles.corner} ${styles.cornerTopLeft}`} />
-        <span className={`${styles.corner} ${styles.cornerTopRight}`} />
-        <span className={`${styles.corner} ${styles.cornerBottomLeft}`} />
-        <span className={`${styles.corner} ${styles.cornerBottomRight}`} />
-      </span>
     </div>
   );
 }
@@ -156,6 +152,7 @@ function AwardVisualCard({
         titleId={titleId}
         title={title}
         description={award.description}
+        category={award.group}
         art={art}
         season={season}
         league={league}
@@ -166,7 +163,11 @@ function AwardVisualCard({
               <p className={styles.name}>{winner.name}</p>
               <div className={styles.value}>
                 {display.unit === "$" ? "$" : ""}{display.headline}
-                {display.unit && display.unit !== "$" ? <span className={styles.unit}>{display.unit}</span> : null}
+                {display.unit && display.unit !== "$" ? (
+                  <span className={`${styles.unit} ${display.unit.length <= 2 ? styles.unitInline : ""}`}>
+                    {display.unit}
+                  </span>
+                ) : null}
               </div>
               <p className={styles.evidence}>{hasExtendedEvidence ? compactEvidence(winner) : display.evidence}</p>
             </div>
@@ -213,6 +214,7 @@ function EmptyAwardCard({
         titleId={titleId}
         title={award.title}
         description={award.description}
+        category={award.group}
         art={null}
         season={season}
         league={league}
@@ -234,7 +236,7 @@ function EmptyAwardCard({
   );
 }
 
-/** The original Season's End treatment: tall archive cards with champion splash art. */
+/** Midnight foil accolades with champion art and a stacked award result. */
 export default function SeasonEndAwardCard({
   award,
   season,

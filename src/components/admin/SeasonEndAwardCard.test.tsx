@@ -36,7 +36,7 @@ describe("SeasonEndAwardCard", () => {
 
     expect(screen.getByRole("heading", { name: "Body Count" })).toBeTruthy();
     expect(screen.getByText("Most kills per game")).toBeTruthy();
-    expect(screen.queryByText("Record breakers")).toBeNull();
+    expect(screen.getByText("Record breakers")).toBeTruthy();
     expect(screen.getByText("kills/game")).toBeTruthy();
     expect(screen.getByText("60 total · Wolves · 6 games")).toBeTruthy();
     expect(screen.queryByText("SEASON ARCHIVE")).toBeNull();
@@ -199,7 +199,7 @@ describe("SeasonEndAwardCard", () => {
       />,
     );
 
-    expect(screen.queryByText("Season stories")).toBeNull();
+    expect(screen.getByText("Season stories")).toBeTruthy();
     expect(screen.getByText("Highest performance in the final third.")).toBeTruthy();
   });
 
