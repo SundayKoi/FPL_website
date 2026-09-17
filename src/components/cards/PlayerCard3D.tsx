@@ -375,12 +375,13 @@ function PlayerCardFace({
   // skins — the uncropped splash of the same skin beats falling all the way
   // back to base art, so it sits in the middle. Deduped, so an artSkin of 0
   // doesn't retry the same url twice.
-  const artChain = card.signature
+  const artChampion = card.artChampion ?? card.signature?.champion ?? null;
+  const artChain = artChampion
     ? [...new Set(
         [
-          championCenteredUrl(card.signature.champion, card.artSkin),
-          championSplashUrl(card.signature.champion, card.artSkin),
-          championCenteredUrl(card.signature.champion),
+          championCenteredUrl(artChampion, card.artSkin),
+          championSplashUrl(artChampion, card.artSkin),
+          championCenteredUrl(artChampion),
         ].filter((url): url is string => Boolean(url)),
       )]
     : [];

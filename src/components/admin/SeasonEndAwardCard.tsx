@@ -3,6 +3,7 @@ import { championCenteredUrl, championSplashUrl } from "@/lib/match-draft/champi
 import { cardPlayerKey, type PlayerCardData } from "@/lib/cards/build";
 import { buildTeamCards, teamToCard } from "@/lib/cards/teamCards";
 import BestOfChampionCard from "./BestOfChampionCard";
+import BestOfVariantViewer from "./BestOfVariantViewer";
 import type { AwardWinner, SeasonAward } from "@/lib/season-end/derive";
 import { formatAwardPresentation, formatInteger } from "@/lib/season-end/presentation";
 import type { Division } from "@/lib/schedule/types";
@@ -248,29 +249,51 @@ export default function SeasonEndAwardCard({
   season,
   league,
   cards,
+  showAdminDetails = true,
 }: {
   award: SeasonAward;
   season: string;
   league: "premier" | "academy";
   index: number;
   cards: PlayerCardData[];
+  showAdminDetails?: boolean;
 }) {
   const cardsByPlayer = new Map(cards.map((card) => [cardPlayerKey(card.name, card.tag), card]));
   const isDivisional = Boolean(award.divisionStatuses);
 
   if (award.id === "best-of-champion") {
-    const bestOfCard = (winner: AwardWinner | null, winnerIndex: number, division?: Division) => (
-      <BestOfChampionCard
-        key={`${division ?? "global"}-${winner?.name ?? "empty"}-${winnerIndex}`}
-        award={award}
-        winner={winner}
-        playerCard={winner ? cardsForWinner(winner, award, cards, cardsByPlayer, season)[0] ?? null : null}
-        season={season}
-        league={league}
-        headingId={`title-${award.id}-${division ?? "global"}-${winner ? winnerIndex : "empty"}`}
-        division={division ?? winner?.division}
-      />
-    );
+    const bestOfCard = (winner: AwardWinner | null, winnerIndex: number, division?: Division) => {
+      const playerCard = winner ? cardsForWinner(winner, award, cards, cardsByPlayer, season)[0] ?? null : null;
+      const headingId = `title-${award.id}-${division ?? "global"}-${winner ? winnerIndex : "empty"}`;
+      const card = (
+        <BestOfChampionCard
+          key={`${division ?? "global"}-${winner?.name ?? "empty"}-${winnerIndex}`}
+          award={award}
+          winner={winner}
+          playerCard={playerCard}
+          season={season}
+          league={league}
+          headingId={headingId}
+          division={division ?? winner?.division}
+          showAdminDetails={showAdminDetails}
+        />
+      );
+      if (!winner?.champion) return card;
+      return (
+        <BestOfVariantViewer
+          key={`${division ?? "global"}-${winner.name}-${winnerIndex}`}
+          award={award}
+          winner={winner}
+          playerCard={playerCard}
+          season={season}
+          league={league}
+          headingId={headingId}
+          division={division ?? winner.division}
+        >
+          {card}
+        </BestOfVariantViewer>
+      );
+    };
 
     if (isDivisional) {
       return (

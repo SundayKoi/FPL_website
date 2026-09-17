@@ -1,11 +1,13 @@
 # Season's End cards
 
-Open **Admin → Season's End** (`/admin/seasons-end`). Admins and owners can
-calculate all 56 accolade cards for either league and a selected season, plus
-the normal cumulative Season Cards for contributors with more than five games.
-This is a read-only awards desk, not a collectible mint or a season-closing
-operation. The former `/admin/season-end` route redirects here for existing
-admin bookmarks.
+Open **Season's End** (`/admin/seasons-end`). The page is pinned to Premier S5
+and Academy A1; use the league dropdown to swap between the two card sets.
+Admins and owners can view the card calculation diagnostics, while active
+patrons can open the shared URL to view the cards; they see the card collection
+without the staff controls, diagnostics, or developer crop audit. This is a
+read-only awards desk, not a collectible mint or a season-closing operation.
+The former `/admin/season-end` route redirects here for existing admin
+bookmarks.
 
 Ordinary accolade entries use a unified collectible treatment: a framed portrait
 face with an exact 63:88 ratio, champion splash art, season/league and known-
@@ -35,11 +37,15 @@ or performance floor. Cap-related promotions are identified in the award
 evidence so a promoted recipient is not silently presented as the unrestricted
 champion leaderboard leader. Each assigned winner is rendered with its
 per-champion title and assigned splash art inside the full-art Best of face; it
-does not use the separate cumulative Season Card layout. The live admin preview
-is deliberately unsigned: it does not read or display a player's saved
-autograph. A future frozen signed pull may supply ink explicitly without
-changing the preview or award calculation. See the [Best of results-ranking
-decision](plans/2026-09-16-best-of-results-ranking.md).
+does not use the separate cumulative Season Card layout. A permitted viewer can
+open **View variants** to preview valid skins for the awarded champion and
+switch between unsigned and signed appearances. The default is base skin and
+unsigned; signed mode uses only the winner's saved autograph for the selected
+season, never a synthesized name or a different season's ink. Variant choices
+are local, read-only, and reset on navigation. Missing ink disables signed mode;
+catalog or signature-query failures keep the card readable and offer retry.
+Missing alternate art falls back to the champion's base art. See the [Best of
+results-ranking decision](plans/2026-09-16-best-of-results-ranking.md).
 
 Ordinary player, player-pair, and Teamwork accolades are calculated separately
 inside Solari and Lunari, so each such accolade has one card per division. The
@@ -64,7 +70,27 @@ The server checks staff access before fetching data through the cookie-bound
 Supabase client. Reads are scoped to the selected season and `Regular` phase,
 paged in primary-key order until exhaustion, and fail together on query errors.
 Season prefixes enforce the existing Premier/Academy boundary. When fixtures
-exist, their team names also constrain the data. No migrations are required.
+exist, their team names also constrain the data. Variant reads are on-demand and
+return only the selected winner's catalog and season-scoped signature.
+
+## Season Card customization
+
+An authorized Season Card editor can choose **Customize Season Card** from the
+Season's End shelf or the card detail page. The customizer lists every champion
+the exact Riot identity played in that split, including one-game appearances,
+with played-game counts. Choosing a champion loads that champion's real skin
+catalog and resets the pending skin to base art. **Save artwork** persists the
+champion/skin pair; **Cancel** leaves the saved appearance unchanged, and
+**Use most-played champion** clears the cosmetic override and returns to base art.
+
+The selected art champion is cosmetic only. The calculated Signature champion,
+`topChampions`, ratings, evidence, and award allocation remain unchanged. The
+database checks editor authorization, exact season/name/tag scope, played
+champion eligibility, and the skin range at the write boundary. Old skin-only
+preferences remain valid for the computed champion; if a saved champion becomes
+ineligible after a match correction, reads fall back to computed champion/base
+art without mutating the stored preference. Catalog outages do not overwrite a
+previous pair. Frozen collectible copies retain their minted artwork.
 
 ## Award rules
 
@@ -144,5 +170,6 @@ all fixtures are complete.
 
 Focused tests live in `src/lib/season-end/` and
 `src/app/admin/seasons-end/page.test.tsx`. They cover isolation, paginated reads,
-admin gating, ties, missing data, rates, timeline comparisons, chronological
-streaks, series completion, rosters, performance floors and champion mappings.
+staff/patron gating, the patron-safe card view, ties, missing data, rates,
+timeline comparisons, chronological streaks, series completion, rosters,
+performance floors and champion mappings.

@@ -278,7 +278,7 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
   const recordRows = recordsResult.error ? [] : ((recordsResult.data as Pick<RecordRow, "category" | "summoner_name" | "tag">[]) ?? []);
   const artRows = artResult.error
     ? []
-    : ((artResult.data as { summoner_name: string; tag: string; skin: number; motto?: string | null }[]) ?? []);
+    : ((artResult.data as { summoner_name: string; tag: string; art_champion?: string | null; skin: number; motto?: string | null }[]) ?? []);
 
   // The view emits one row per (season, phase) — merge Regular+Playoffs
   // into a single season row per player, same as the stats tabs do.
@@ -309,9 +309,13 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
     recordsByPlayer.set(key, list);
   }
 
-  const artPrefs = new Map<string, { skin: number; motto: string | null }>();
+  const artPrefs = new Map<string, { artChampion: string | null; skin: number; motto: string | null }>();
   for (const art of artRows) {
-    artPrefs.set(cardPlayerKey(art.summoner_name, art.tag), { skin: art.skin, motto: art.motto ?? null });
+    artPrefs.set(cardPlayerKey(art.summoner_name, art.tag), {
+      artChampion: art.art_champion ?? null,
+      skin: art.skin,
+      motto: art.motto ?? null,
+    });
   }
 
   return buildSeasonCards({
@@ -472,9 +476,13 @@ export async function fetchWeekCards(
     gameLog.set(log.match_id, { durationMin: log.duration_min, blueTeam: log.blue_team, redTeam: log.red_team });
   }
 
-  const artPrefs = new Map<string, { skin: number; motto: string | null }>();
-  for (const art of ((artResult.data as { summoner_name: string; tag: string; skin: number; motto?: string | null }[]) ?? [])) {
-    artPrefs.set(cardPlayerKey(art.summoner_name, art.tag), { skin: art.skin, motto: art.motto ?? null });
+  const artPrefs = new Map<string, { artChampion: string | null; skin: number; motto: string | null }>();
+  for (const art of ((artResult.data as { summoner_name: string; tag: string; art_champion?: string | null; skin: number; motto?: string | null }[]) ?? [])) {
+    artPrefs.set(cardPlayerKey(art.summoner_name, art.tag), {
+      artChampion: art.art_champion ?? null,
+      skin: art.skin,
+      motto: art.motto ?? null,
+    });
   }
 
   return buildSeasonCards({

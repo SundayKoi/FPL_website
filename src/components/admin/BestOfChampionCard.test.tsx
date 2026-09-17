@@ -78,6 +78,24 @@ describe("BestOfChampionCard", () => {
     expect(screen.queryByText("Season stories")).toBeNull();
   });
 
+  it("omits staff-only selection details in the patron card view", () => {
+    render(
+      <BestOfChampionCard
+        award={award({ winners: [winner()] })}
+        winner={winner()}
+        playerCard={card}
+        season="S5"
+        league="premier"
+        headingId="best-of-patron"
+        showAdminDetails={false}
+      />,
+    );
+
+    expect(screen.getByText("Best of Champion")).toBeTruthy();
+    expect(screen.queryByText(/Admin preview/)).toBeNull();
+    expect(screen.queryByText("Selection details")).toBeNull();
+  });
+
   it("keeps the assigned art and identity when the player card is missing", () => {
     render(
       <BestOfChampionCard
@@ -236,5 +254,23 @@ describe("BestOfChampionCard", () => {
     const art = screen.getByTestId("best-of-card-art");
     expect(art.getAttribute("style")).toContain("background-position: 80% 42%");
     expect(art.getAttribute("style")).toContain("--art-zoom: 1.1");
+  });
+
+  it("uses the selected skin's art and its own crop lookup", () => {
+    render(
+      <BestOfChampionCard
+        award={award({ winners: [winner()] })}
+        winner={winner()}
+        season="S5"
+        league="premier"
+        headingId="best-of-skin"
+        artSkin={64}
+      />,
+    );
+
+    const art = screen.getByTestId("best-of-card-art");
+    expect(art.getAttribute("data-art-skin")).toBe("64");
+    expect(art.getAttribute("style")).toContain("Azir_64.jpg");
+    expect(art.getAttribute("style")).toContain("Azir_0.jpg");
   });
 });
