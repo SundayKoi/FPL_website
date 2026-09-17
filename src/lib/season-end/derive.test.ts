@@ -401,7 +401,7 @@ describe("season-end winners", () => {
     expect(award(rows, "best-of-champion").status).toBe("unavailable");
   });
 
-  it("requires champion-specific evidence in addition to the overall player threshold", () => {
+  it("expands Best of using shorter champion records after the original selection", () => {
     const rows = season();
     const a0Rows = rows.filter((row) => row.summoner_name === "A0");
     a0Rows.forEach((row, index) => {
@@ -410,10 +410,9 @@ describe("season-end winners", () => {
     const bestOf = award(rows, "best-of-champion");
 
     expect(bestOf.bestOfDiagnostics?.eligiblePlayers).toBe(10);
-    expect(bestOf.bestOfDiagnostics?.playersWithoutCard).toEqual(expect.arrayContaining([
-      expect.objectContaining({ playerName: "A0#NA1", reason: "champion-threshold" }),
-    ]));
-    expect(bestOf.winners.map((winner) => winner.name)).not.toContain("A0#NA1");
+    expect(bestOf.winners.find((winner) => winner.name === "A0#NA1")).toMatchObject({
+      champion: "Garen", championGames: 2, evidence: { bestOf: { selectionPass: "expansion" } },
+    });
   });
 
   it("selects by raw values even when rounded headlines would tie", () => {

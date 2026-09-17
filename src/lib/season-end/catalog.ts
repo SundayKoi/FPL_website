@@ -62,7 +62,7 @@ export const SEASON_AWARDS: AwardDefinition[] = [
   special("Season stories", "Late Bloomer", "Highest mean role-relative performance in the final chronological third of league games; at least three games in that window."),
   special("Season stories", "Metronome", "Lowest performance standard deviation, with mean score at least 60 and every game at least 40 (out of 100)."),
   special("Season stories", "Bloodline", "Longest consecutive run of appearances with at least one solo kill."),
-  special("Best of Champions", "Best of Champion", "Highest qualifying champion wins, then champion win rate, then mean role-relative performance. One card per player and per champion across the selected league.", "player", "total", "wins", { partition: "league" }),
+  special("Best of Champions", "Best of Champion", "Champion wins, then win rate, then mean role-relative performance. Three passes preserve original picks, add two-game records with a win, then fill remaining players from unclaimed played champions. One card per player and per champion across the selected league.", "player", "total", "wins", { partition: "league" }),
   metric("Season stories", "Lane Landlord", "Highest mean gold lead at 15 against the unique opposing-role player.", "gold_diff_15", "mean", "gold"),
   metric("Season stories", "Fast Starter", "Highest rate of games strictly ahead of the opposing role in gold at 10.", "ahead_10", "rate", "%", false, { totalUnit: "games ahead at 10", totalFallback: true }),
   metric("Season stories", "Carry the Banner", "Highest average share of team champion damage.", "damage_share_pct", "mean", "%"),

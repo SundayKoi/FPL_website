@@ -29,11 +29,17 @@ cumulative player cards for contributors with more than five games.
 
 Best of Champion ranks qualifying player/champion records by champion wins,
 then unrounded win rate, then unrounded mean role-relative performance. A
-player needs at least five regular-season games overall and at least three on
-the candidate champion. A strongest-result-first allocation awards at most one
-card per player and per champion across the selected league; it does not reroute
-an earlier winner to improve coverage. There is no minimum win rate, win total,
-or performance floor. Cap-related promotions are identified in the award
+player needs at least five regular-season games overall. Assignment uses three
+passes, each ranked by the same results criteria: first the original selection
+requiring three champion games; then unclaimed champions with at least two games
+and one win; finally each remaining player's best available champion from any
+recorded appearance, including one-game and winless records. Each pass locks its
+player/champion pairs before the next begins. A strongest-result-first allocation
+awards at most one card per player and per champion across the selected league;
+it does not reroute an earlier winner to improve coverage. Players whose played
+champions are all claimed can still remain without a card. The original pass
+retains its lack of a minimum win rate, win total, or performance floor.
+Cap-related promotions are identified in the award
 evidence so a promoted recipient is not silently presented as the unrestricted
 champion leaderboard leader. Each assigned winner is rendered with its
 per-champion title and assigned splash art inside the full-art Best of face; it

@@ -5,10 +5,10 @@ import { DIVISIONS, type Division, type FixtureRow } from "@/lib/schedule/types"
 import { cardPlayerKey } from "@/lib/cards/build";
 import {
   BEST_OF_MIN_PLAYER_GAMES,
-  BEST_OF_MIN_CHAMPION_GAMES,
   canonicalChampion,
   selectBestOf,
   type BestOfCapPromotion,
+  type BestOfPass,
   type BestOfSelectionDiagnostics,
 } from "./best-of";
 
@@ -51,6 +51,7 @@ export interface AwardEvidence {
   bestOf?: BestOfEvidence;
 }
 export interface BestOfEvidence {
+  selectionPass?: BestOfPass;
   wins: number;
   losses: number;
   /** Percentage points (for example, 71.428... for a 5–2 record). */
@@ -353,6 +354,7 @@ export function deriveSeasonEnd(
             record: `${candidate.wins}–${candidate.championGames - candidate.wins}`,
             ...(kda === undefined ? {} : { kda }),
             bestOf: {
+              selectionPass: candidate.selectionPass,
               wins: candidate.wins,
               losses: candidate.championGames - candidate.wins,
               winRate: 100 * candidate.wins / candidate.championGames,
@@ -382,7 +384,7 @@ export function deriveSeasonEnd(
           note: bestOfSelection.diagnostics.eligiblePlayers === 0
             ? `No player has at least ${BEST_OF_MIN_PLAYER_GAMES} regular-season games.`
             : bestOfSelection.diagnostics.qualifyingCandidates === 0
-              ? `No eligible player has at least ${BEST_OF_MIN_CHAMPION_GAMES} games on a candidate champion.`
+              ? "No eligible player has a recorded champion appearance."
               : "No eligible champion assignment is available.",
         };
     }

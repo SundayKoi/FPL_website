@@ -8,6 +8,7 @@ import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchSeasonCards } from "@/lib/cards/queries";
 import { readViewerDiscordId } from "@/lib/cards/viewer";
+import { BEST_OF_MIN_CHAMPION_GAMES, BEST_OF_EXPANSION_MIN_GAMES, BEST_OF_EXPANSION_MIN_WINS } from "@/lib/season-end/best-of";
 import { AWARD_GROUPS } from "@/lib/season-end/catalog";
 import type { SeasonEndResult } from "@/lib/season-end/derive";
 import { loadSeasonEnd } from "@/lib/season-end/queries";
@@ -86,12 +87,13 @@ export default async function SeasonsEndPage({
       {staff && result ? <section aria-label="Season coverage" className="card-brand flex flex-col gap-3 p-5">
         <p className="font-semibold">{league === "premier" ? "Premier" : "Academy"} · {season} · {result.games} games · {result.players} players</p>
         <p className="text-sm text-gold">{result.complete ? "All scheduled regular-season series are complete. Results reflect currently ingested stats." : "Provisional leaders — regular-season fixtures are unfinished or unavailable."}</p>
-        <p className="text-sm text-steel">Rate and performance awards require {result.minGames} measured games. Speedrunners requires three wins. Best of Champion requires at least {result.minGames} regular-season games overall and {bestOfDiagnostics?.championThreshold ?? 3} games on the candidate champion, then ranks champion wins, win rate, and mean role-relative performance. A player and a champion can receive at most one card. Missing required observations leave an award unavailable.</p>
+        <p className="text-sm text-steel">Rate and performance awards require {result.minGames} measured games. Speedrunners requires three wins. Best of Champion requires at least {result.minGames} regular-season games overall. Selection first preserves winners with at least {BEST_OF_MIN_CHAMPION_GAMES} champion games, then adds unclaimed champions with at least {BEST_OF_EXPANSION_MIN_GAMES} games and {BEST_OF_EXPANSION_MIN_WINS} win. Remaining players can receive their best unclaimed champion from any recorded appearance, including winless records. Each pass ranks champion wins, win rate, and mean role-relative performance; earlier picks stay fixed. A player and a champion can receive at most one card. Missing required observations leave an award unavailable.</p>
         {bestOfDiagnostics ? (
           <details className="text-sm text-steel">
             <summary className="cursor-pointer text-white">Best of eligibility &amp; selection</summary>
             <p className="mt-3">{bestOfDiagnostics.awardedPlayers} of {bestOfDiagnostics.eligiblePlayers} eligible players received a card from {bestOfDiagnostics.qualifyingCandidates} qualifying player/champion records. Champions with no qualifying record remain unawarded; the one-card cap can also leave a qualifying champion or player without a card.</p>
             {bestOfDiagnostics.playersWithoutCard.length ? <p className="mt-2">Players without a Best of card ({bestOfDiagnostics.playersWithoutCard.length}): {bestOfDiagnostics.playersWithoutCard.map((player) => player.playerName).join(", ")}.</p> : null}
+            {bestOfDiagnostics.passCounts ? <p className="mt-2">Selection passes: {bestOfDiagnostics.passCounts.original} original, {bestOfDiagnostics.passCounts.expansion} two-game additions, {bestOfDiagnostics.passCounts.remaining} remaining-player additions.</p> : null}
             {bestOfDiagnostics.capPromotions.length ? <p className="mt-2">Cap-related promotions: {bestOfDiagnostics.capPromotions.map((promotion) => `${promotion.recipientName} received Best of ${promotion.champion} after ${promotion.unrestrictedLeaderName} was blocked by the player cap`).join("; ")}.</p> : null}
           </details>
         ) : null}
