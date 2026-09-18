@@ -289,6 +289,26 @@ describe("PlayerCard3D", () => {
     expect(container.querySelector('[data-testid="foil"]')).toBeTruthy();
   });
 
+  it("uses the season label only when a cumulative card opts into it", () => {
+    const { rerender } = render(<PlayerCard3D card={{ ...card, standout: true }} edition="season" />);
+    expect(screen.getByText("★ Bot of the Season ★")).toBeTruthy();
+    expect(screen.queryByText("★ Bot of the Week ★")).toBeNull();
+
+    rerender(<PlayerCard3D card={{ ...card, standout: true }} />);
+    expect(screen.getByText("★ Bot of the Week ★")).toBeTruthy();
+    expect(screen.queryByText("★ Bot of the Season ★")).toBeNull();
+
+    rerender(<PlayerCard3D card={{ ...card, standout: false }} edition="season" />);
+    expect(screen.queryByText(/of the Season/)).toBeNull();
+  });
+
+  it("keeps the longest season role label on one line", () => {
+    const { container } = render(<PlayerCard3D card={{ ...card, role: "Support", standout: true }} edition="season" />);
+    const badge = screen.getByText("★ Support of the Season ★");
+    expect(badge.className).toContain("whitespace-nowrap");
+    expect(container.querySelector('[data-testid="foil"]')).toBeTruthy();
+  });
+
   it("animates the top-tier frames", () => {
     const { container, rerender } = render(
       <PlayerCard3D card={{ ...card, tier: { key: "challenger", label: "Challenger" } }} />,

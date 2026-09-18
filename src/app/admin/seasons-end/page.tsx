@@ -109,7 +109,7 @@ export default async function SeasonsEndPage({
       {result ? <>
         <nav aria-label="Award groups" className="flex flex-wrap gap-3 text-sm">
           {AWARD_GROUPS.map((group, index) => <a key={group} href={`#group-${index}`} className="rounded-full border border-line px-4 py-2 hover:border-gold">{group}</a>)}
-          <a href="#season-cards" className="rounded-full border border-line px-4 py-2 hover:border-gold">Season Cards</a>
+          <a href="#season-cards" className="rounded-full border border-line px-4 py-2 hover:border-gold">Cards of the Season</a>
         </nav>
 
         {AWARD_GROUPS.map((group, groupIndex) => {
@@ -124,10 +124,10 @@ export default async function SeasonsEndPage({
           );
         })}
 
-        <section id="season-cards" aria-label="Season Cards" className="scroll-mt-8">
-          <div className="mb-5 flex items-baseline gap-4 border-b border-line pb-3"><span className="font-mono text-sm text-steel">{String(AWARD_GROUPS.length + 1).padStart(2, "0")}</span><h2 className="type-display text-3xl text-gold">Season Cards</h2></div>
+        <section id="season-cards" aria-label="Cards of the Season" className="scroll-mt-8">
+          <div className="mb-5 flex items-baseline gap-4 border-b border-line pb-3"><span className="font-mono text-sm text-steel">{String(AWARD_GROUPS.length + 1).padStart(2, "0")}</span><h2 className="type-display text-3xl text-gold">Cards of the Season</h2></div>
           <p className="mb-5 max-w-3xl text-sm text-steel">Cumulative player cards for regular contributors (more than five games). Unlike accolade cards, these retain their standard season OVR, tier, and stat lines.</p>
-          {seasonCardsError ? <p className="card-brand p-5 text-steel">Cumulative Season Cards could not be assembled, but the accolade results above are still available.</p> : seasonCards.length ? <div className="card-shelf flex flex-wrap justify-center gap-x-0 gap-y-4">{seasonCards.map((card) => <div key={card.slug} className="card-cell flex flex-col items-center gap-2"><PlayerCard3D card={card} /><Link href={`/card/${card.slug}?customize=1`} className="text-xs font-semibold uppercase tracking-wide text-action-text hover:text-coral">Customize Season Card →</Link></div>)}</div> : <p className="card-brand p-5 text-steel">No players have more than five recorded games for this season yet.</p>}
+          {seasonCardsError ? <p className="card-brand p-5 text-steel">Cumulative Season Cards could not be assembled, but the accolade results above are still available.</p> : seasonCards.length ? <div className="card-shelf flex flex-wrap justify-center gap-x-0 gap-y-4">{seasonCards.map((card) => <div key={card.slug} className="card-cell flex flex-col items-center gap-2"><PlayerCard3D card={card} edition="season" /><Link href={`/card/${card.slug}?customize=1&edition=season`} className="text-xs font-semibold uppercase tracking-wide text-action-text hover:text-coral">Customize Season Card →</Link></div>)}</div> : <p className="card-brand p-5 text-steel">No players have more than five recorded games for this season yet.</p>}
         </section>
       </> : null}
     </main>

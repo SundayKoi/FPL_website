@@ -27,7 +27,7 @@ vi.mock("@/components/admin/SeasonEndAwardCard", () => ({
   ),
 }));
 vi.mock("@/components/cards/PlayerCard3D", () => ({
-  default: ({ card }: { card: { name: string } }) => <div data-testid="season-card">{card.name}</div>,
+  default: ({ card, edition }: { card: { name: string }; edition?: string }) => <div data-testid="season-card" data-edition={edition ?? "weekly"}>{card.name}</div>,
 }));
 vi.mock("next/navigation", () => ({ redirect }));
 
@@ -79,11 +79,12 @@ describe("Season's End admin page", () => {
     expect(screen.getByText("kills")).toBeTruthy();
     expect(screen.queryByText(/Season total/)).toBeNull();
     expect(screen.getByTestId("award-card").dataset.cardCount).toBe("1");
-    expect(screen.getByRole("heading", { name: "Season Cards" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Cards of the Season" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Best of Champions" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Best of Champions" })).toBeTruthy();
     expect(screen.getByText("07")).toBeTruthy();
     expect(screen.getByTestId("season-card").textContent).toBe("Alice");
+    expect(screen.getByTestId("season-card").dataset.edition).toBe("season");
   });
 
   it("uses the fixed season for the selected league", async () => {

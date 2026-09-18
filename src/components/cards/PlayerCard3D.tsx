@@ -49,6 +49,7 @@ import { EXIT_LABELS, SENDOFF_META, type SendoffMark } from "@/lib/cards/sendoff
 
 /** What an overlay mockup hands the renderer: the layers and the accent. */
 export type OverlayPreview = Pick<OverlayMockup, "front" | "back" | "chip" | "artEcho" | "ink" | "accent">;
+export type CardEdition = "weekly" | "season";
 import { lineTreatmentFor } from "@/lib/cards/skinLines";
 import MomentPlate from "./MomentPlate";
 import TeamCard from "./TeamCard";
@@ -187,6 +188,7 @@ function PlayerCardFace({
   foilType,
   flame = null,
   print = null,
+  edition = "weekly",
   className = "",
   preview: previewProp = null,
   mutation: mutationProp = null,
@@ -246,6 +248,9 @@ function PlayerCardFace({
    *  therefore has no number to print. Only a surface holding a
    *  card_inventory row can pass it. */
   print?: { number: number; of: number; editionWeek: string } | null;
+  /** Controls the standout pill's edition wording. Existing callers render
+   *  weekly labels; cumulative season-card surfaces opt into season. */
+  edition?: CardEdition;
   className?: string;
 }) {
   // `hovering` is the only pointer state React still owns — it flips twice per
@@ -371,6 +376,7 @@ function PlayerCardFace({
       : card.standout
         ? "card-glow-standout"
         : style.glowClass ?? "";
+  const standoutEdition = edition === "season" ? "Season" : "Week";
   // The art the front tries, best first. Riot's centered crop is the one the
   // frame is designed around, but it's missing for a lot of otherwise valid
   // skins — the uncropped splash of the same skin beats falling all the way
@@ -798,8 +804,8 @@ function PlayerCardFace({
             ) : null}
             {card.standout ? (
               <div className="relative mt-1 flex justify-center">
-                <span className="rounded-full border border-gold/70 bg-black/70 px-3 py-0.5 text-[10px] font-black uppercase tracking-[0.22em] text-gold [text-shadow:0_0_10px_rgb(245_182_46/0.8)]">
-                  ★ {card.role} of the Week ★
+                <span className="whitespace-nowrap rounded-full border border-gold/70 bg-black/70 px-3 py-0.5 text-[10px] font-black uppercase tracking-[0.22em] text-gold [text-shadow:0_0_10px_rgb(245_182_46/0.8)]">
+                  ★ {card.role} of the {standoutEdition} ★
                 </span>
               </div>
             ) : null}
@@ -1392,6 +1398,8 @@ export default function PlayerCard3D(props: {
   /** This copy's serial and run size — see PlayerCardFace. Player cards
    *  only: a moment, a relic and a roster plate carry their own serials. */
   print?: { number: number; of: number; editionWeek: string } | null;
+  /** See PlayerCardFace: the standout pill defaults to the weekly edition. */
+  edition?: CardEdition;
   className?: string;
   /** See PlayerCardFace: a proposed treatment drawn as a parallel would be.
    *  Admin mockup pages only. */
