@@ -1757,6 +1757,60 @@ are pinned to one shared case table — the pgTAP suite owns it and
 and asserts the TypeScript agrees, so the implementations cannot drift apart
 silently. Add a case in the pgTAP file and both sides pick it up.
 
+### The schedule and the gauntlet
+
+`public.fixtures` is the calendar: one row per series, with `stage` (the
+rulebook's five weeks, two gauntlet rounds and three playoff rounds),
+`division` (null for every cross-division pairing), team names as plain text
+so a slot can be TBD, `best_of`, `sort_order`, `scheduled_at` and the paired
+scores. `src/lib/schedule/format.ts` holds the presentation contract for each
+stage, `STAGE_META`, which is also where `best_of` defaults come from when an
+admin changes a fixture's stage in the editor.
+
+**Series lengths.** Regular-season weeks are Bo3, **gauntlet round 1 is a Bo1
+and round 2 is a Bo3**, and the playoffs are Bo5. `best_of` is not decoration:
+`settle_betting_market_from_stats` and `scripts/settle-betting-from-stats.py`
+read it as the series threshold, so a round-2 row left at Bo1 settles a 2-1
+series wrongly. The Send-off (`src/lib/cards/sendoff.ts`) reads the same rows
+to print the gauntlet's losers, and skips a fixture with a missing team, so a
+round-2 placeholder with a TBD opponent is safe to leave in place.
+
+**The generators.** `/schedule`'s owner strip draws both phases rather than
+having an admin type fixtures in by hand. The regular season is
+`src/lib/schedule/generate.ts` behind `AdminGenerateSchedule`, which writes
+from the browser client. The gauntlet is `src/lib/schedule/gauntlet.ts` — pure
+seeding and pairing rules — behind the server actions in
+`gauntlet-actions.ts` and the `AdminGenerateGauntlet` panel. Those are server
+actions because the seeds come from `fetchHomepageStandings`, which composes
+the featured draft, the season's fixtures and the series durations that settle
+the standings' tiebreakers; `fetchStaffTier` gates the action and the writes
+still go through the caller's cookie-bound client, so `fixtures_admin_write`
+RLS remains the real gate. Drawing replaces only `gauntlet_r1`/`gauntlet_r2`
+for that season, seeds round 1 across the divisions (Solari #5 v Lunari #6,
+Lunari #5 v Solari #6) and leaves round 2 as Bo3 placeholders behind each 4th
+seed; `seedRoundTwoAction` fills those opponents in from round 1's results.
+
+**Where round 1's result comes from.** Both rounds are played the same
+evening and the stats ingest only runs the next morning, so on the night the
+round-1 fixtures are still unscored and the only record is what the captains
+filed. `resolveRoundOneResult` therefore takes the fixture's own
+`score_a`/`score_b` when it has them, and otherwise the newest `match_reports`
+row for that fixture with a usable status (`pending`, `needs_sides`,
+`ingested`, `forfeit`; `failed` is not evidence of anything). A report's
+`team_a` is whichever side the captain entered first, so its score is aligned
+to the FIXTURE's side order exactly the way `sync_fixture_score` does in
+`scripts/riot_stats_ingest.py` — swapped when the sides are reversed, and
+taken as NO result when the two cannot be matched by normalized name, because
+a silently reversed result sends the wrong team into round 2. A tie is not a
+result either. The preview reports each series' source and the panel says so
+on screen, so an admin can see when a pairing rests on an un-ingested report.
+Both `match_reports` and `league_teams` are world-readable
+(`using (true)` plus a select grant to `anon`/`authenticated`), so this read
+uses the caller's own cookie-bound client and no service-role key.
+
+Premier only — `ACADEMY_EXCLUDED_STAGES` in
+`src/lib/academy/filtering.ts` keeps the gauntlet off the Academy calendar.
+
 ### Forfeits
 
 A series can end without every game being played. `match_reports.forfeit_team_id`

@@ -416,6 +416,33 @@ service's dashboard in a browser.
     night to wake it up, and confirm the site loads, before everyone
     joins.
 
+## Schedule ops
+
+Owners get two generators in the admin strip on `/schedule`, above the
+fixtures editor:
+
+- **Generate regular season** draws the five intra-division weeks for the
+  featured draft's teams — everyone plays everyone in their own division
+  once, one match per week — from an optional week-1 kickoff.
+- **Generate gauntlet** draws the gauntlet from the season's final
+  standings: round 1 is a Bo1 (Solari #5 v Lunari #6 and Lunari #5 v Solari
+  #6), round 2 a Bo3 against the 4th seeds, all at the one kickoff you give
+  it because both rounds run on the same day. Round 2 goes in with the 4th
+  seed and a TBD opponent; once round 1 is reported, **Seed round 2 from
+  results** fills the opponents in following the rulebook (winners from
+  different divisions cross over; two winners from the same division send
+  the #6 to its own division's 4th seed and the #5 to the other's).
+
+Round 2 can be seeded on the night: the stats ingest does not run between the
+two rounds, so where a round-1 fixture has no score yet the panel reads the
+captains' match report instead and tells you which of the two each result came
+from. A report whose sides do not match the fixture's is ignored rather than
+guessed at.
+
+Both replace what they draw — generating twice does not double the season —
+and each is scoped to its own stages, so the gauntlet draw never touches the
+regular season or the playoffs.
+
 ## Draft data export
 
 Every pick and ban the league has recorded can be pulled out as a
