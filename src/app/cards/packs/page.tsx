@@ -3,6 +3,7 @@ import Link from "next/link";
 import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 import CardsGate, { PREMIUM_GATE_BODY, PREMIUM_GATE_TITLE } from "@/components/cards/CardsGate";
 import PackShop from "@/components/cards/PackShop";
+import SeasonEndPackShop from "@/components/cards/SeasonEndPackShop";
 import ThisWeekStrip from "@/components/cards/ThisWeekStrip";
 import { weekNotices } from "@/lib/packs/weekNotices";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -10,6 +11,7 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchPatronTenureDays } from "@/lib/patron/queries";
 import { fetchCardSeason, fetchEditionWeekInfo, type CardLeague, type EditionWeekInfo } from "@/lib/cards/queries";
 import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
+import { fetchSeasonEndCatalog, fetchSeasonEndOwnedDesignIds, fetchSeasonEndRelease, type SeasonEndRelease } from "@/lib/season-end/release-queries";
 import {
   fetchChampionsWindow,
   fetchChase,
@@ -74,6 +76,18 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
       ])
     : [[], 0, [], { left: 0, patron: false, flame: null }];
   const editionWeeks = editionWeekInfo.map((info) => info.week);
+  let seasonEndRelease: SeasonEndRelease | null = null;
+  let seasonEndCatalog: Awaited<ReturnType<typeof fetchSeasonEndCatalog>> = null;
+  let seasonEndOwned: string[] = [];
+  if (season) {
+    seasonEndRelease = await fetchSeasonEndRelease(service, league, season, { publicOnly: true });
+    if (seasonEndRelease) {
+      [seasonEndCatalog, seasonEndOwned] = await Promise.all([
+        fetchSeasonEndCatalog(service, seasonEndRelease),
+        fetchSeasonEndOwnedDesignIds(service, seasonEndRelease.id, user.discordId),
+      ]);
+    }
+  }
   // The banners above the shop: an open Live Drops window and this week's
   // chase. The chase is pinned to the NEWEST edition, matching the week a
   // pack mints by default — and it is league-wide, so the academy shop
@@ -137,6 +151,10 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         <span className="text-xs text-steel">How they work, and the real odds →</span>
       </Link>
       <ThisWeekStrip notices={weekNotices({ liveWindow, chase, championsWindow, championComps })} />
+
+      {seasonEndRelease && seasonEndCatalog ? (
+        <SeasonEndPackShop league={league} season={season!} release={seasonEndRelease} catalog={seasonEndCatalog} ownedDesignIds={seasonEndOwned} />
+      ) : null}
 
       <PackShop
         league={league}

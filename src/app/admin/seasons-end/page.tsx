@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import SeasonEndAwardCard from "@/components/admin/SeasonEndAwardCard";
 import SeasonEndLeagueSelect from "@/components/admin/SeasonEndLeagueSelect";
+import SeasonEndReleasePanel from "@/components/admin/SeasonEndReleasePanel";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -12,6 +13,7 @@ import { BEST_OF_MIN_CHAMPION_GAMES, BEST_OF_EXPANSION_MIN_GAMES, BEST_OF_EXPANS
 import { AWARD_GROUPS } from "@/lib/season-end/catalog";
 import type { SeasonEndResult } from "@/lib/season-end/derive";
 import { loadSeasonEnd, loadSeasonEndTeamIdentities, type SeasonEndTeamIdentityMap } from "@/lib/season-end/queries";
+import { fetchSeasonEndCatalog, fetchSeasonEndRelease } from "@/lib/season-end/release-queries";
 import { resolveLeagueView, type LeagueView } from "@/lib/league/context";
 import { fetchPatronActive } from "@/lib/patron/queries";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -72,6 +74,8 @@ export default async function SeasonsEndPage({
     }
   }
   const bestOfDiagnostics = result?.awards.find((award) => award.id === "best-of-champion")?.bestOfDiagnostics;
+  const release = await fetchSeasonEndRelease(createBettingServiceClient(), league, season);
+  const releaseCatalog = release ? await fetchSeasonEndCatalog(createBettingServiceClient(), release) : null;
 
   return (
     <main className={`${styles.preview} page-backdrop flex w-full flex-1 flex-col gap-10 px-3 py-8 sm:px-5 lg:px-7 2xl:px-10`}>
@@ -88,6 +92,8 @@ export default async function SeasonsEndPage({
           <Link href="/admin/seasons-end/crop-audit" className="w-fit rounded border border-line px-3 py-2 text-xs uppercase tracking-[.16em] text-gold hover:border-gold">Developer crop audit</Link>
         </> : null}
       </header>
+
+      {staff ? <SeasonEndReleasePanel league={league} season={season} release={release} catalog={releaseCatalog} /> : null}
 
       {error ? <p role="alert" className="card-brand p-5 text-coral">{error}</p> : null}
       {staff && result ? <section aria-label="Season coverage" className="card-brand flex flex-col gap-3 p-5">
