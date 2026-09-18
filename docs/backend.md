@@ -1570,11 +1570,32 @@ logged with `[WARN]` by both scripts.
 rides on the card json, frozen on the `card_editions` row and on every pulled
 copy, exactly like `live`, `chase` and `champWin`. **No migration:**
 `card_editions.card` and `card_inventory.card` are jsonb and already carry
-every other stamp. The renderer draws the coin, the ribbon and the champion
-frame off the json, `copyEditionLabel` names a copy "Send-off · Champion"
+every other stamp. The renderer draws the whole print off the json (below),
+`copyEditionLabel` names a copy "Send-off · Champion"
 rather than by its Monday, and everything else that consumes editions
 (packs, print runs, Eclipse, sets, team cards, Higher or Lower, moments)
 keeps reading `PlayerCardData` from the archive unchanged.
+
+**The print: Newsprint.** A send-off card is a page of the match-day
+programme, and `PlayerCard3D` draws it as real layout off `card.sendoff`
+(`globals.css`, "The Send-off (shipped)", beside `card-frame-champion`): a
+cream page gutter, a **masthead** band across the top — THE SEND-OFF over
+"PLAYOFF EDITION · {round} · {series}" under a black rule and a red press
+rule — a **photo block** screened into halftone dots with the art filtered
+to black ink, the **stage stamped** in rubber at the foot of it in the
+stage's own accent (`SENDOFF_META`, the only source of those colours), and a
+perforated **ticket stub** in the foot of the card carrying "ADMIT ONE" and
+the card's own record (`W–L · WR%`, `PENTA ×n`, `LVL n`) in ink instead of
+the dark footer row an ordinary card prints. The Champion's masthead is
+struck in gold foil and its photograph keeps its colour; every other stage
+prints in black. Because it is layout and not an overlay, the tier pill, the
+rating ring and the print number flow BELOW the masthead onto the photograph
+— the overlay mockup could only draw on top of them, which is how the
+masthead landed on the OVR ring and `#001/99` landed on the masthead's
+rules. A crowned send-off puts the Card of the Week pill on the coin strip's
+row, so the extra line cannot push the last stat bar under the stub. Nothing
+outside a send-off card changes: with no `card.sendoff`, the face renders
+exactly as before.
 
 **The builder.** `src/lib/cards/editionBuilder.ts` `buildEditionForWeek`
 decides per week whether the edition is a weekly print or a send-off, so the
@@ -1596,7 +1617,12 @@ sell on a date nobody has set would close the shop over a scheduling gap.
 **The admin page.** `/admin/sendoff` (staff-gated, mints and writes nothing)
 previews the five stamps on real cards, dry-runs what Tuesday's drop would
 print for the current week, shows the bracket ledger and prints the shop
-picker's rows as plain text.
+picker's rows as plain text. Its look wall keeps the six prototypes
+(`src/lib/cards/sendoffLooks.ts`): Newsprint is tagged **Shipped** and its
+row renders with no overlay at all — the card draws itself — while the other
+five (Plaque, Rafters, Curtain Call, Bracket, Yearbook) stay mockups on
+PlayerCard3D's admin-only `overlay` prop, drawn OVER the shipped print, so
+the alternatives can still be judged against what shipped.
 
 **Pitfall: a playoff week with unscored fixtures prints nothing.** An
 undecided fixture eliminates nobody, so the week's edition is empty and

@@ -569,6 +569,229 @@ body {
   opacity: 0.35;
   animation: cardGlowPulse 4.6s ease-in-out infinite;
 }
+/* ── The Send-off (shipped) ────────────────────────────────────────────
+   Newsprint: the treatment every playoff print wears. The league picked it
+   off /admin/sendoff (src/lib/cards/sendoffLooks.ts) and it is drawn by
+   PlayerCard3D off `card.sendoff` — real elements in the face, not an
+   overlay, which is the whole difference: the masthead is a BAND the rest
+   of the layout flows under, so the tier pill, the rating ring and the
+   serial sit below it on the photograph instead of on top of its rules.
+
+   Geometry is in pixels because the card is: PlayerCard3D pins itself to
+   20rem, so the face inside the 5px frame is exactly 310 × 438.
+
+     7px          the paper gutter, on every side
+     7 → 53       the masthead band (the tier row starts at 56)
+     53 → 213     the photo block, screened into ink dots
+     169 → 203    the stamp, at the right-hand foot of the photo block,
+                  clear of the name and the role over at the left and of
+                  the archetype band below (which starts at ~210)
+     393 → 431    the ticket stub, under the last stat bar (ends ~383)
+
+   The card's own dark ground is untouched under all of it: the stat block
+   stays white on black, and only the paper furniture is cream. */
+
+/* The page: a cream gutter all the way round, a fibre grain, and a paper
+   tint held to 10% so the name, the labels and the numbers keep their own
+   contrast. */
+@utility card-sendoff-paper {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 12px;
+  background-image:
+    repeating-linear-gradient(94deg, rgb(150 138 114 / 0.07) 0 1px, rgb(0 0 0 / 0) 1px 4px),
+    repeating-linear-gradient(3deg, rgb(150 138 114 / 0.05) 0 1px, rgb(0 0 0 / 0) 1px 7px),
+    linear-gradient(180deg, rgb(233 227 210 / 0.1), rgb(226 218 198 / 0.1));
+  box-shadow:
+    inset 0 0 0 7px #e9e3d2,
+    inset 0 0 0 8px rgb(62 54 40 / 0.6),
+    inset 0 0 18px 8px rgb(92 78 56 / 0.25);
+}
+
+/* The photograph, as a newspaper prints one: the ink screened into dots,
+   the paper strongest at the top of the picture and gone by the time it
+   reaches the name. */
+@utility card-sendoff-screen {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  top: 53px;
+  height: 160px;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgb(22 19 13 / 0.56) 0 0.78px, rgb(0 0 0 / 0) 1.12px),
+    linear-gradient(180deg,
+      rgb(236 230 214 / 0.3) 0 38%,
+      rgb(236 230 214 / 0.2) 58%,
+      rgb(236 230 214 / 0.04) 76%,
+      /* ...and the press ink gathers again at the foot of the block, so the
+         name and the role keep a dark ground of their own to sit on. */
+      rgb(14 12 8 / 0.22) 90%,
+      rgb(14 12 8 / 0.4) 100%);
+  background-size: 3px 3px, 100% 100%;
+}
+
+/* Black ink at press contrast. The Champion is the one print that keeps
+   its colour — it is the photograph on the front page. */
+@utility card-sendoff-ink {
+  filter: grayscale(1) contrast(1.6) brightness(1.02);
+}
+@utility card-sendoff-ink-colour {
+  filter: contrast(1.08);
+}
+
+/* The masthead. A band, not a label: everything else on the face is laid
+   out below it. The rules live in the background rather than in borders so
+   the black rule and the red press rule keep their exact weights. */
+@utility card-sendoff-masthead {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  top: 7px;
+  height: 46px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 0 8px 6px;
+  overflow: hidden;
+  background: linear-gradient(180deg,
+    #f4efe3 0 37px,
+    #e7dfcb 37px 41px,
+    #16130d 41px 43px,
+    rgb(0 0 0 / 0) 43px 44px,
+    #c0392b 44px 46px);
+}
+@utility card-sendoff-masthead-title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 800;
+  font-size: 21px;
+  line-height: 1;
+  letter-spacing: -0.015em;
+  color: #14110c;
+  white-space: nowrap;
+}
+@utility card-sendoff-masthead-sub {
+  max-width: 100%;
+  padding-top: 2px;
+  border-top: 1px solid rgb(62 54 40 / 0.45);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-body);
+  font-size: 6.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: #5c5140;
+}
+/* The Champion's masthead is struck in gold-foil ink. Clipped to the type,
+   so the paper it is printed on stays paper. */
+@utility card-sendoff-foil {
+  background-image: linear-gradient(101deg,
+    #8f6414 0%, #e9cf78 22%, #fff3c2 38%, #b9862a 54%, #f0d992 76%, #8f6414 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 0 rgb(62 54 40 / 0.55));
+}
+
+/* The print number, in ink: the top of the photograph is where the paper
+   wash is strongest, and white-on-dark has no dark left to sit on there. */
+@utility card-sendoff-serial {
+  color: #1b1710;
+  text-shadow:
+    0 0 3px rgb(240 234 219 / 0.95),
+    0 0 6px rgb(240 234 219 / 0.75),
+    0 1px 0 rgb(240 234 219 / 0.6);
+}
+
+/* The stage, in rubber and ink: a double-ruled box knocked askew, bled at
+   the edges, stamped on the paper at the foot of the photograph. Its
+   colour is the stage's own accent (SENDOFF_META), darkened into ink so it
+   reads on the cream. */
+@utility card-sendoff-stamp {
+  position: absolute;
+  right: 13px;
+  top: 173px;
+  z-index: 1;
+  transform: rotate(-5deg);
+  padding: 3px 8px 4px;
+  white-space: nowrap;
+  border: 3px double color-mix(in srgb, var(--so-ink, #c0392b) 68%, #2b1109);
+  border-radius: 3px;
+  background: rgb(240 234 219 / 0.78);
+  color: color-mix(in srgb, var(--so-ink, #c0392b) 68%, #2b1109);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 1.5px color-mix(in srgb, var(--so-ink, #c0392b) 40%, transparent);
+  box-shadow:
+    inset 0 0 8px color-mix(in srgb, var(--so-ink, #c0392b) 26%, transparent),
+    0 1px 4px rgb(0 0 0 / 0.4);
+  filter: blur(0.2px) contrast(1.1);
+}
+
+/* The stub: the foot of the card, perforated off the page. Punched holes
+   along the top edge let the card's own dark ground through, which is what
+   reads as a tear rather than a cream rectangle. */
+@utility card-sendoff-stub {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  bottom: 7px;
+  height: 38px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 9px 3px;
+  border-top: 1px dashed rgb(62 54 40 / 0.55);
+  background-image:
+    radial-gradient(circle at 6px 2px, rgb(0 0 0 / 0) 0 2.4px, #efe8d9 2.9px),
+    linear-gradient(180deg, #ece5d5, #ded5bd);
+  background-size: 12px 8px, 100% calc(100% - 8px);
+  background-position: left top, left bottom;
+  background-repeat: repeat-x, no-repeat;
+}
+@utility card-sendoff-stub-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-family: var(--font-body);
+  font-size: 6.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #4a4133;
+}
+@utility card-sendoff-admit {
+  padding: 1px 4px;
+  border: 1px solid rgb(62 54 40 / 0.65);
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  color: #332c21;
+}
+/* Row two: the card's own footer facts, printed in ink on the stub
+   instead of in white on the dark row this treatment replaces. */
+@utility card-sendoff-facts {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  color: #221f19;
+}
+
 /* The hallmark. On a real card the serial is what sells the rarity, so it is
    struck rather than printed: dark type on moving leaf, double-ruled. */
 @utility card-eclipse-seal {
@@ -3663,10 +3886,12 @@ body {
 }
 
 /* ── The Send-off looks. ────────────────────────────────────────────────
-   Six prototypes for the playoff print (src/lib/cards/sendoffLooks.ts),
-   drawn on real cards on /admin/sendoff through PlayerCard3D's `overlay`
-   prop. Mockups only: no minted copy can reach these layers, and when the
-   league picks one it becomes the treatment `card.sendoff` turns on.
+   The five ALTERNATIVES to the shipped playoff print
+   (src/lib/cards/sendoffLooks.ts), drawn on real cards on /admin/sendoff
+   through PlayerCard3D's `overlay` prop, over the treatment the league
+   picked. Mockups only: no minted copy can reach these layers. Newsprint
+   won and left this block — it is real layout in the card now, up beside
+   card-frame-champion under "The Send-off (shipped)".
 
    A layer is a bare <div> with a class on it, so its text can only be
    static and its ladder can only be a custom property. Two shared families
@@ -3678,7 +3903,7 @@ body {
 
    The metal of the ladder — pewter, bronze, silver, gold — arrives as
    --ov-accent from the stage's accent, which is the shipped stamp's own
-   colour, so a mockup and the ribbon under it can never disagree. */
+   colour, so a mockup and the print under it can never disagree. */
 
 @utility card-ov-so-word-gauntlet { &::before { content: "GAUNTLET"; } }
 @utility card-ov-so-word-quarterfinalist { &::before { content: "QUARTERFINALIST"; } }
@@ -3691,188 +3916,6 @@ body {
 @utility card-ov-so-rung-semifinalist { --so-fill: 58%; --so-crown: 0; }
 @utility card-ov-so-rung-finalist { --so-fill: 78%; --so-crown: 0; }
 @utility card-ov-so-rung-champion { --so-fill: 100%; --so-crown: 1; }
-
-/* ── 1. Newsprint — the match-day programme. ──────────────────────────── */
-
-/* The page: a cream gutter all the way round, a fibre grain, and a paper
-   tint held to 10% so the card's own name, labels and numbers stay white
-   on their own dark ground. The PAPER proper is the furniture — the
-   masthead, the photo block and the stub — not a wash over the face. */
-@utility card-ov-so-newsprint {
-  position: absolute;
-  inset: 0;
-  border-radius: 12px;
-  background-image:
-    repeating-linear-gradient(94deg, rgb(150 138 114 / 0.07) 0 1px, rgb(0 0 0 / 0) 1px 4px),
-    repeating-linear-gradient(3deg, rgb(150 138 114 / 0.05) 0 1px, rgb(0 0 0 / 0) 1px 7px),
-    linear-gradient(180deg, rgb(233 227 210 / 0.1), rgb(226 218 198 / 0.1));
-  box-shadow:
-    inset 0 0 0 7px #e9e3d2,
-    inset 0 0 0 8px rgb(62 54 40 / 0.6),
-    inset 0 0 18px 8px rgb(92 78 56 / 0.25);
-}
-
-/* The photograph, as a newspaper prints one: a block ruled off the page,
-   the ink screened into dots, the paper strongest at the top of the
-   picture and gone by the time it reaches the name. */
-@utility card-ov-so-newsprint-screen {
-  position: absolute;
-  left: 7px;
-  right: 7px;
-  top: 78px;
-  height: 140px;
-  background-image:
-    radial-gradient(circle at 50% 50%, rgb(22 19 13 / 0.56) 0 0.78px, rgb(0 0 0 / 0) 1.12px),
-    linear-gradient(180deg,
-      rgb(236 230 214 / 0.3) 0 38%,
-      rgb(236 230 214 / 0.2) 60%,
-      rgb(236 230 214 / 0.06) 82%,
-      rgb(236 230 214 / 0) 100%);
-  background-size: 3px 3px, 100% 100%;
-  box-shadow: inset 0 0 0 1px rgb(233 227 210 / 0.45);
-}
-
-/* The masthead, with a bite taken out of it for the rating ring so the
-   one number the card is rated on is not printed over. */
-@utility card-ov-so-newsprint-masthead {
-  position: absolute;
-  left: 0;
-  right: 0;
-  /* Below the chip, which every overlay pins at 10px: the two used to sit
-     on top of each other and neither could be read. */
-  top: 32px;
-  height: 46px;
-  /* The rules live in the background, not in a border or a shadow: the
-     mask below clips this element to its own box, so anything painted
-     outside it — the red press rule, a drop shadow — simply vanishes. */
-  background: linear-gradient(180deg,
-    #f2ece0 0 33px,
-    #e4dcc8 33px 39px,
-    #16130d 39px 41px,
-    rgb(0 0 0 / 0) 41px 42px,
-    #c0392b 42px 44px,
-    rgb(0 0 0 / 0.35) 44px 46px);
-  -webkit-mask-image: radial-gradient(circle 35px at calc(100% - 44px) 14px, rgb(0 0 0 / 0) 0 33px, #000 35px);
-  mask-image: radial-gradient(circle 35px at calc(100% - 44px) 14px, rgb(0 0 0 / 0) 0 33px, #000 35px);
-  &::before {
-    content: "THE SEND-OFF";
-    position: absolute;
-    left: 6px;
-    right: 78px;
-    top: 5px;
-    text-align: center;
-    font-family: var(--font-display);
-    font-style: italic;
-    font-weight: 800;
-    font-size: 21px;
-    line-height: 1;
-    letter-spacing: -0.015em;
-    color: #14110c;
-  }
-  &::after {
-    content: "PLAYOFF EDITION · ONE PRINT PER PLAYER";
-    position: absolute;
-    left: 6px;
-    right: 78px;
-    bottom: 10px;
-    padding-top: 2px;
-    border-top: 1px solid rgb(62 54 40 / 0.45);
-    text-align: center;
-    font-family: var(--font-body);
-    font-size: 6px;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    color: #5c5140;
-  }
-}
-
-/* The stage, in rubber and ink: rotated, bled, laid over the photograph. */
-@utility card-ov-so-newsprint-stamp {
-  position: absolute;
-  left: 50%;
-  top: 43%;
-  transform: translateX(-50%) rotate(-7deg);
-  padding: 5px 11px 6px;
-  white-space: nowrap;
-  border: 3px double color-mix(in srgb, var(--ov-accent, #c0392b) 82%, #3a1410);
-  border-radius: 4px;
-  background: rgb(243 238 224 / 0.22);
-  color: color-mix(in srgb, var(--ov-accent, #c0392b) 82%, #3a1410);
-  font-family: var(--font-display);
-  font-style: italic;
-  font-weight: 800;
-  font-size: 15px;
-  line-height: 1;
-  letter-spacing: 0.05em;
-  opacity: 0.9;
-  text-shadow: 0 0 2px color-mix(in srgb, var(--ov-accent, #c0392b) 45%, transparent);
-  box-shadow:
-    inset 0 0 9px color-mix(in srgb, var(--ov-accent, #c0392b) 30%, transparent),
-    0 1px 4px rgb(0 0 0 / 0.35);
-  filter: blur(0.25px) contrast(1.12);
-}
-
-/* The perforated stub along the foot, punched through to the card. */
-@utility card-ov-so-newsprint-stub {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 34px;
-  background-image:
-    radial-gradient(circle at 6px 3px, rgb(0 0 0 / 0) 0 2.4px, #efe8d9 2.9px),
-    linear-gradient(180deg, #ece5d5, #ded5bd);
-  background-size: 12px 8px, 100% calc(100% - 8px);
-  background-position: left top, left bottom;
-  background-repeat: repeat-x, no-repeat;
-  border-top: 1px dashed rgb(62 54 40 / 0.55);
-  &::before {
-    content: "THE SEND-OFF · PLAYOFF STUB";
-    position: absolute;
-    left: 10px;
-    bottom: 9px;
-    font-family: var(--font-body);
-    font-size: 7px;
-    font-weight: 800;
-    letter-spacing: 0.14em;
-    color: #3c3427;
-  }
-  &::after {
-    content: "ADMIT ONE";
-    position: absolute;
-    right: 10px;
-    bottom: 6px;
-    padding: 2px 5px;
-    border: 1px solid rgb(62 54 40 / 0.65);
-    font-family: var(--font-body);
-    font-size: 7px;
-    font-weight: 900;
-    letter-spacing: 0.16em;
-    color: #3c3427;
-  }
-}
-
-/* The Champion's masthead, printed in foil: `lighten` leaves the cream
-   paper alone and lifts only the black type into gold. */
-@utility card-ov-so-newsprint-foil {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 32px;
-  height: 42px;
-  background: linear-gradient(101deg, #a87a1e 0%, #f3dc8e 24%, #fff6cf 40%, #c8962f 56%, #f6e3a2 78%, #a87a1e 100%);
-  mix-blend-mode: lighten;
-  -webkit-mask-image: radial-gradient(circle 35px at calc(100% - 44px) 14px, rgb(0 0 0 / 0) 0 33px, #000 35px);
-  mask-image: radial-gradient(circle 35px at calc(100% - 44px) 14px, rgb(0 0 0 / 0) 0 33px, #000 35px);
-}
-
-/* Black ink at press contrast; the Champion's is hand-tinted. */
-@utility card-ov-so-newsprint-echo {
-  filter: grayscale(1) contrast(1.7) brightness(1.02);
-}
-@utility card-ov-so-newsprint-echo-tint {
-  filter: grayscale(0.4) sepia(0.32) saturate(1.45) brightness(1.04) contrast(1.4);
-}
 
 /* ── 2. The Plaque — the hall-of-fame wall. ───────────────────────────── */
 

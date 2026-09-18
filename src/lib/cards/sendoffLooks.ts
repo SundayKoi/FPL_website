@@ -1,9 +1,18 @@
-// PROPOSAL. Six looks for the Send-off print, as mockups on /admin/sendoff
-// and nowhere else, through PlayerCard3D's `overlay` prop — the road every
-// overlay proposal takes (src/lib/cards/overlayMockups.ts,
-// src/lib/cards/dribbMockups.ts). Nothing here mints, and no minted copy
-// can reach these layers. When the league picks one it becomes the
-// treatment `card.sendoff` turns on, and this file becomes its source.
+// Six looks for the Send-off print, on /admin/sendoff and nowhere else.
+//
+// The league picked NEWSPRINT. That entry is `shipped` and draws nothing
+// here any more: PlayerCard3D builds the masthead, the screened photo
+// block, the rubber stamp and the ticket stub as real elements off
+// `card.sendoff` (globals.css: "The Send-off (shipped)"), which is the
+// whole reason to ship it rather than keep it as an overlay — an overlay
+// draws ABOVE the card and cannot move anything, so its masthead landed on
+// the rating ring and the print number landed on the masthead's rules.
+//
+// The other five stay as mockups, through PlayerCard3D's `overlay` prop —
+// the road every overlay proposal takes (src/lib/cards/overlayMockups.ts,
+// src/lib/cards/dribbMockups.ts) — and are drawn OVER the shipped
+// treatment, so they still read as alternatives to it. Nothing here mints,
+// and no minted copy can reach these layers.
 //
 // Why they are six OBJECTS and not six tints: the tier frames are shifting
 // metal, Card of the Week is molten gold, Eclipse is leaf over obsidian,
@@ -25,7 +34,7 @@
 // why a `front` entry can hold more than one class name. The metal of the
 // ladder — pewter, bronze, silver, gold — arrives as `--ov-accent` from
 // the stage's `accent`, which is the shipped stamp's own colour
-// (SENDOFF_META), so the mockups and the ribbon agree.
+// (SENDOFF_META), so a mockup and the treatment under it agree.
 //
 // Every class name is spelled out in full: Tailwind only emits a utility
 // it can read verbatim in source, and a name built at runtime is one it
@@ -50,6 +59,10 @@ export interface SendoffLook {
   /** Stage-specific additions: extra front layers, a different echo, a
    *  different accent. The Champion always differs. */
   byStage?: Partial<Record<SendoffStage, { front?: string[]; artEcho?: string; accent?: string }>>;
+  /** The look the league picked. It draws NOTHING here: the renderer owns
+   *  it now, off `card.sendoff`, so it has no layers and the admin page
+   *  shows its row with no overlay at all. Exactly one look is shipped. */
+  shipped?: boolean;
 }
 
 /** The chip line: "SEMIFINALIST · 1–3 · SEMIFINALS". The one place a look
@@ -60,7 +73,9 @@ export function sendoffLookChip(mark: SendoffMark): string {
 }
 
 /** The overlay for one card in one look — the base layers plus the
- *  stage's, the stage's echo and accent when it has one. */
+ *  stage's, the stage's echo and accent when it has one. A shipped look
+ *  has none of those: the renderer draws it, so this comes back with
+ *  nothing to draw and the admin page passes no overlay at all. */
 export function sendoffLookOverlay(look: SendoffLook, mark: SendoffMark): OverlayPreview {
   const stage = look.byStage?.[mark.stage];
   const artEcho = stage?.artEcho ?? look.artEcho;
@@ -75,7 +90,7 @@ export function sendoffLookOverlay(look: SendoffLook, mark: SendoffMark): Overla
 }
 
 /** The ladder's metals, straight off the shipped stamp so a mockup can
- *  never drift from the ribbon it is drawn under. */
+ *  never drift from the treatment it is drawn over. */
 const PEWTER = SENDOFF_META.gauntlet.accent;
 const BRONZE = SENDOFF_META.quarterfinalist.accent;
 const SILVER = SENDOFF_META.semifinalist.accent;
@@ -87,30 +102,19 @@ export const SENDOFF_LOOKS: SendoffLook[] = [
     key: "newsprint",
     title: "Newsprint",
     blurb:
-      "The match-day programme. A cream page gutter, THE SEND-OFF across a masthead in condensed black type under a black rule and a red one, the art ruled off as a photo block and screened into ink dots, and a perforated ticket stub punched along the foot.",
+      "SHIPPED — the match-day programme, and the card draws it itself. A cream page gutter, THE SEND-OFF across a masthead in condensed black type under a black rule and a red one, the art ruled off as a photo block and screened into ink dots, the stage stamped in rubber at the foot of it, and a perforated ticket stub punched along the bottom.",
     feel:
       "Paper. Something that was printed the morning after and kept — the one card in the collection that is not made of light.",
     ladder:
-      "The rubber stamp's ink runs the ladder: grey, bronze, silver, gold. The Champion's masthead prints in gold-foil ink and the photograph is hand-tinted back toward colour.",
+      "The rubber stamp's ink runs the ladder: grey, bronze, silver, gold. The Champion's masthead prints in gold-foil ink and the photograph runs in colour.",
     accent: "#c0392b",
-    front: [
-      "card-ov-so-newsprint",
-      "card-ov-so-newsprint-screen",
-      "card-ov-so-newsprint-masthead",
-      "card-ov-so-newsprint-stub",
-    ],
-    artEcho: "card-ov-so-newsprint-echo",
-    byStage: {
-      gauntlet: { front: ["card-ov-so-newsprint-stamp card-ov-so-word-gauntlet"], accent: PEWTER },
-      quarterfinalist: { front: ["card-ov-so-newsprint-stamp card-ov-so-word-quarterfinalist"], accent: BRONZE },
-      semifinalist: { front: ["card-ov-so-newsprint-stamp card-ov-so-word-semifinalist"], accent: SILVER },
-      finalist: { front: ["card-ov-so-newsprint-stamp card-ov-so-word-finalist"], accent: GOLD },
-      champion: {
-        front: ["card-ov-so-newsprint-stamp card-ov-so-word-champion", "card-ov-so-newsprint-foil"],
-        artEcho: "card-ov-so-newsprint-echo-tint",
-        accent: CROWN_GOLD,
-      },
-    },
+    // No layers: this is not drawn over the card any more, it IS the card.
+    // PlayerCard3D builds the masthead, the screen, the stamp and the stub
+    // as real elements off `card.sendoff` (globals.css: "The Send-off
+    // (shipped)"), which is what let the masthead stop landing on the
+    // rating ring and the print number stop landing on the masthead.
+    shipped: true,
+    front: [],
   },
   {
     key: "plaque",
