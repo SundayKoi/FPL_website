@@ -53,7 +53,7 @@ export function weekNotices({ liveWindow, chase, championsWindow, championComps 
       key: "live",
       title: "Live drops",
       text: liveWindow.label,
-      detail: `Foil odds boosted until ${easternTime(liveWindow.until)} ET · every card stamped LIVE`,
+      detail: `Foil odds boosted until ${easternTime(liveWindow.until)} ET · every card stamped LIVE · the casters are in the pool`,
       tone: "live",
     });
   }

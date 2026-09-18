@@ -184,16 +184,20 @@ export function isProtected(copy: CardCopy): boolean {
     Boolean(copy.card?.champWin) ||
     Boolean(copy.card?.team) ||
     Boolean(copy.card?.campaign) ||
-    Boolean(copy.card?.dribb)
+    Boolean(copy.card?.dribb) ||
+    Boolean(copy.card?.onAir)
   );
 }
 
 /** What a protected copy is called: an Eclipse is the one-of-one, the
- *  Dribb card is one of five, and a moment, a plate or a champions relic
- *  is a relic. All are kept off the routes that can lose a card. */
-export function protectedNoun(copy: CardCopy): "one of one" | "one of five" | "a relic" {
+ *  Dribb card is one of five, an On Air card is a caster's print that only
+ *  exists because somebody was in the room, and a moment, a plate or a
+ *  champions relic is a relic. All are kept off the routes that can lose a
+ *  card. */
+export function protectedNoun(copy: CardCopy): "one of one" | "one of five" | "an On Air print" | "a relic" {
   if (copy.foilType === "eclipse") return "one of one";
   if (copy.card?.dribb) return "one of five";
+  if (copy.card?.onAir) return "an On Air print";
   return "a relic";
 }
 
@@ -277,8 +281,10 @@ const RELIC_SHINE = 6;
 export function shineOf(copy: CardCopy): number {
   if (copy.card?.dribb) return DRIBB_SHINE;
   // Relics and moments price flat, exactly as they dust flat — see
-  // dustValueOf in packs/config.ts for the same branch.
-  if (copy.card?.champWin || copy.card?.moment || copy.card?.team || copy.card?.campaign) return RELIC_SHINE;
+  // dustValueOf in packs/config.ts for the same branch. An On Air print is
+  // one of them: twenty-five a caster a season is a relic's scarcity, not
+  // the Dribb's, so it carries a relic's shine rather than the Dribb's 16.
+  if (copy.card?.champWin || copy.card?.moment || copy.card?.team || copy.card?.campaign || copy.card?.onAir) return RELIC_SHINE;
   const index = TIER_LADDER.indexOf(copy.tier as (typeof TIER_LADDER)[number]);
   let shine = (index < 0 ? 0 : index) + 1;
   // foilTypeOf() rather than a raw read: foil_type is plain text and every

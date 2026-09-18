@@ -42,6 +42,7 @@ import { mutationByKey, mutationOverlay, type MutationOverlay } from "@/lib/card
 import { isWayfarer, milesOf, trailLine, trailTitleOf } from "@/lib/expeditions/trail";
 import { CAMPAIGNS } from "@/lib/expeditions/campaigns";
 import { dribbLabel, dribbLook } from "@/lib/cards/dribb";
+import { ON_AIR_ACCENT, onAirLabel, onAirLook } from "@/lib/cards/onAir";
 import type { OverlayMockup } from "@/lib/cards/overlayMockups";
 import { secretSerialLabel, stattrakLabel } from "@/lib/packs/rarities";
 import { gradeOf, isSlabbed, wearOf } from "@/lib/cards/wear";
@@ -299,10 +300,18 @@ function PlayerCardFace({
   // passes the prop, and a minted mutation is the card's own fact.
   const worn = card.mutation ? mutationByKey(card.mutation.key) : undefined;
   const mutation = worn ? mutationOverlay(worn) : mutationProp;
-  // The Dribb card wears its look off its own stamp — the one overlay a
-  // minted copy can reach. The prop, which only the admin mockup pages
-  // pass, still wins so they can show any look on the specimen.
-  const overlay = overlayProp ?? (card.dribb ? dribbLook(card.dribb) : null);
+  // The Dribb card and the On Air print wear their looks off their own
+  // stamps — the two overlays a minted copy can reach. The prop, which only
+  // the admin mockup pages pass, still wins so they can show any look on
+  // the specimen. An On Air copy whose caster set no champion has no art
+  // for the bars to bleed over, so the look adds the test pattern instead.
+  const overlay =
+    overlayProp ??
+    (card.dribb
+      ? dribbLook(card.dribb)
+      : card.onAir
+        ? onAirLook(card.onAir, Boolean(card.artChampion ?? card.signature?.champion))
+        : null);
   // The bench, decided on the client only: the server snapshot says "not
   // mounted", so the HTML never has to know whether 4pm has passed for the
   // reader, and the hydrated browser reads the clock once it is in charge.
@@ -327,6 +336,9 @@ function PlayerCardFace({
     ...(card.chase ? [{ key: "chase", testId: "chase-stamp", glyph: "★", accent: "#f5b62e", title: `First to the chase: ${card.chase.title}`, label: "Chase", detail: card.chase.title }] : []),
     ...(card.dribb
       ? [{ key: "dribb", testId: "dribb-stamp", glyph: "✦", accent: "#d27dff", title: `The Dribb card — ${dribbLabel(card.dribb)}. Five will ever exist.`, label: "Dribb", detail: dribbLabel(card.dribb) }]
+      : []),
+    ...(card.onAir
+      ? [{ key: "onair", testId: "onair-stamp", glyph: "◉", accent: ON_AIR_ACCENT, title: `On Air — ${card.onAir.name}, printed live during ${card.onAir.window}. ${card.onAir.number} of ${card.onAir.of} this season.`, label: "On Air", detail: onAirLabel(card.onAir) }]
       : []),
     ...(card.autograph ? [{ key: "signed", testId: "signed-stamp", glyph: "✍", accent: "#f5b62e", title: "Signed — the player's own ink", label: "Signed", detail: null }] : []),
     ...(card.shiny ? [{ key: "shiny", testId: "shiny-stamp", glyph: "✦", accent: "#ff9be7", title: "Shiny — the art in the wrong colours. One print in sixty-four.", label: "Shiny", detail: null }] : []),
@@ -608,7 +620,7 @@ function PlayerCardFace({
   // is paused at rest (globals.css: [data-motion="rest"]) and runs while the
   // pointer is on the card, so a forty-card shelf idles for free. Eclipse is
   // the one exception: the one-of-one is always live.
-  const motion = isEclipse || Boolean(card.dribb) || hovering ? "live" : "rest";
+  const motion = isEclipse || Boolean(card.dribb) || Boolean(card.onAir) || hovering ? "live" : "rest";
 
   return (
     <div data-motion={motion} className={`relative [perspective:1100px] ${className}`} style={{ width: "20rem" }}>
@@ -633,7 +645,7 @@ function PlayerCardFace({
         ref={frameRef}
         role={interactive ? "button" : undefined}
         tabIndex={interactive ? 0 : undefined}
-        aria-label={`${card.name} player card — ${card.overall} overall, ${card.tier.label}${forceFoil ? `, ${preview ? preview.label : FOIL_TYPE_LABELS[parallel]} foil` : ""}${card.dribb ? `, the Dribb card ${dribbLabel(card.dribb)}` : ""}${card.shiny ? ", shiny" : ""}${card.secret ? `, secret ${secretSerialLabel(card.secret)}` : ""}${card.stattrak ? `, StatTrak ${stattrakLabel(card.stattrak.points)}` : ""}${slabbed ? `, slabbed ${grade.label}` : wear > 0 ? `, ${grade.label}` : ""}.${interactive ? " Activate to flip." : ""}`}
+        aria-label={`${card.name} player card — ${card.overall} overall, ${card.tier.label}${forceFoil ? `, ${preview ? preview.label : FOIL_TYPE_LABELS[parallel]} foil` : ""}${card.dribb ? `, the Dribb card ${dribbLabel(card.dribb)}` : ""}${card.onAir ? `, the On Air card ${onAirLabel(card.onAir)}` : ""}${card.shiny ? ", shiny" : ""}${card.secret ? `, secret ${secretSerialLabel(card.secret)}` : ""}${card.stattrak ? `, StatTrak ${stattrakLabel(card.stattrak.points)}` : ""}${slabbed ? `, slabbed ${grade.label}` : wear > 0 ? `, ${grade.label}` : ""}.${interactive ? " Activate to flip." : ""}`}
         onPointerMove={onPointerMove}
         onPointerEnter={onPointerEnter}
         onPointerLeave={reset}

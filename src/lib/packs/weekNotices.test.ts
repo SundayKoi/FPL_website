@@ -31,6 +31,13 @@ describe("weekNotices", () => {
     expect(notice.detail).toContain("9:30 PM ET");
   });
 
+  it("says the casters are in the pool while the window runs", () => {
+    // The On Air card only prints inside the window, and it is not a
+    // secret: the shop's notice is where most people will first hear it.
+    const [notice] = weekNotices({ liveWindow: live, chase: null, championsWindow: null, championComps: 0 });
+    expect(notice.detail).toContain("the casters are in the pool");
+  });
+
   it("counts a tribute in plain words", () => {
     const [one] = weekNotices({ liveWindow: null, chase: null, championsWindow: null, championComps: 1 });
     expect(one.text).toBe("1 free Faceless Pack is yours for the S4 title.");

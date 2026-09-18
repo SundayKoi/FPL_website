@@ -125,6 +125,10 @@ export interface PulledStats {
   /** Dribb copies minted — counted apart from `cards`, which are the
    *  player cards a pack's per-card rates are measured against. */
   dribb: number;
+  /** On Air copies minted — counted apart for the same reason: a caster's
+   *  print is not a player card and would skew every per-card rate it was
+   *  counted into. */
+  onAir: number;
   since: string | null;
 }
 
@@ -145,6 +149,7 @@ interface MintRow {
     team?: boolean;
     champ?: boolean;
     dribb?: boolean;
+    onAir?: boolean;
   } | null;
 }
 
@@ -160,6 +165,7 @@ export function pulledStats(mints: MintRow[]): PulledStats {
     stattrak: 0,
     secret: 0,
     dribb: 0,
+    onAir: 0,
     since: null,
   };
   for (const mint of mints) {
@@ -168,6 +174,10 @@ export function pulledStats(mints: MintRow[]): PulledStats {
     if (!stats.since || mint.at < stats.since) stats.since = mint.at;
     if (print.dribb) {
       stats.dribb += 1;
+      continue;
+    }
+    if (print.onAir) {
+      stats.onAir += 1;
       continue;
     }
     if (print.moment || print.team || print.champ) continue;
