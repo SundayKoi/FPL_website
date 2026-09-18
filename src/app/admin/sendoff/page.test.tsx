@@ -64,6 +64,12 @@ const week = mondayOf(new Date());
  *  side of the offset, so the planner's week match is not a coin flip. */
 const inWeek = `${week}T16:00:00.000Z`;
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** A Monday two weeks out: unambiguously in the future whatever day of the
+ *  current week — and whatever hour of it — the suite happens to run on. */
+const futureWeek = mondayOf(new Date(Date.now() + 14 * DAY_MS));
+const inFutureWeek = `${futureWeek}T16:00:00.000Z`;
+
 const card = (name: string, team: string, overall: number, role = "Bot") =>
   ({
     slug: name.toLowerCase(),
@@ -85,7 +91,12 @@ const fx = (
 ) => ({ stage, team_a: teamA, team_b: teamB, score_a: scoreA, score_b: scoreB, scheduled_at: at }) as never;
 
 const staff = () => fetchStaffTier.mockResolvedValue({ isAdmin: true, isOwner: false, isBroadcaster: false });
-const params = (league?: string) => ({ searchParams: Promise.resolve(league ? { league } : {}) });
+const params = (league?: string, weekParam?: string) => ({
+  searchParams: Promise.resolve({
+    ...(league ? { league } : {}),
+    ...(weekParam ? { week: weekParam } : {}),
+  }),
+});
 
 describe("the send-off preview", () => {
   it("turns away anyone who isn't staff", async () => {
@@ -178,6 +189,101 @@ describe("the send-off preview", () => {
 
     render(await SendoffPreviewPage(params()));
     expect(screen.getByTestId("not-playoff").textContent).toContain("Tuesday prints a weekly edition");
+  });
+
+  it("opens a bracket week that hasn't happened yet on ?week=", async () => {
+    // The reason the picker exists: check the gauntlet's team names against
+    // the cards BEFORE the gauntlet is played, without waiting for the
+    // week to arrive.
+    staff();
+    fetchAllCardSeasons.mockResolvedValue([{ league: "premier", season: "S5" }]);
+    fetchSeasonCards.mockResolvedValue([card("Ana", "Mocha", 88)]);
+    fetchSeasonFixtures.mockResolvedValue([fx("gauntlet_r1", "Mocha", "Gamblers", null, null, inFutureWeek)]);
+    fetchEditionWeekInfo.mockResolvedValue([]);
+
+    render(await SendoffPreviewPage(params(undefined, futureWeek)));
+    // The bracket's own week is offered, named by its round, and selected.
+    const pill = screen.getByTestId(`week-${futureWeek}`);
+    expect(pill.getAttribute("aria-current")).toBe("page");
+    expect(pill.textContent).toContain("Gauntlet");
+    expect(pill.getAttribute("href")).toBe(`/admin/sendoff?week=${futureWeek}`);
+    // This week is still one click away, and still says which one it is.
+    const current = screen.getByTestId(`week-${week}`);
+    expect(current.textContent).toContain("this week");
+    expect(current.getAttribute("aria-current")).toBeNull();
+    // The heading no longer calls a future week "this week".
+    expect(screen.getByLabelText("Send-off dry run").textContent).toContain("Send-off · week of");
+    // Nothing prints — because nobody has played, NOT because a score is missing.
+    expect(screen.getByTestId("scheduled").textContent).toContain("not been played yet");
+    expect(screen.getByTestId("undecided").textContent).not.toContain("scores land");
+    expect(screen.queryByTestId("printed-ana")).toBeNull();
+  });
+
+  it("falls back to the current week when ?week= isn't a Monday", async () => {
+    // An admin URL people hand-edit: junk lands on this week rather than
+    // on an error page.
+    staff();
+    fetchAllCardSeasons.mockResolvedValue([{ league: "premier", season: "S5" }]);
+    fetchSeasonCards.mockResolvedValue([card("Ana", "Mocha", 88)]);
+    fetchSeasonFixtures.mockResolvedValue([fx("gauntlet_r1", "Mocha", "Gamblers", null, null, inFutureWeek)]);
+    fetchEditionWeekInfo.mockResolvedValue([]);
+
+    render(await SendoffPreviewPage(params(undefined, "next monday")));
+    expect(screen.getByTestId(`week-${week}`).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByTestId(`week-${futureWeek}`).getAttribute("aria-current")).toBeNull();
+    expect(screen.getByTestId("not-playoff")).toBeTruthy();
+
+    // A real date that is not a Monday is just as unusable as junk.
+    cleanup();
+    const tuesday = new Date(new Date(`${futureWeek}T12:00:00Z`).getTime() + DAY_MS).toISOString().slice(0, 10);
+    render(await SendoffPreviewPage(params(undefined, tuesday)));
+    expect(screen.getByTestId(`week-${week}`).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByTestId(`week-${futureWeek}`).getAttribute("aria-current")).toBeNull();
+  });
+
+  it("prints all four gauntlet losers once both rounds of that week are decided", async () => {
+    // The check the owner runs the morning after the gauntlet: two rounds
+    // on one Monday, the round-one winners playing again in round two, and
+    // every team that fell — in either round — printing exactly once.
+    staff();
+    fetchAllCardSeasons.mockResolvedValue([{ league: "premier", season: "S5" }]);
+    fetchSeasonCards.mockResolvedValue([
+      card("Ana", "Mocha", 88, "Mid"),
+      card("Doug", "Gamblers", 92, "Top"),
+      card("Bo", "Sharks", 84, "Jungle"),
+      card("Cy", "Bolts", 80, "Bot"),
+      card("Ray", "Ravens", 90, "Sup"),
+    ]);
+    fetchSeasonFixtures.mockResolvedValue([
+      fx("gauntlet_r1", "Mocha", "Gamblers", 3, 1, inFutureWeek),
+      fx("gauntlet_r1", "Sharks", "Bolts", 2, 0, inFutureWeek),
+      fx("gauntlet_r2", "Mocha", "Ravens", 1, 3, inFutureWeek),
+      fx("gauntlet_r2", "Sharks", "Comets", 0, 2, inFutureWeek),
+    ]);
+    fetchEditionWeekInfo.mockResolvedValue([]);
+
+    render(await SendoffPreviewPage(params(undefined, futureWeek)));
+    const rows = [
+      ...screen.getByLabelText("Send-off dry run").querySelectorAll<HTMLElement>("[data-testid^='elimination-']"),
+    ];
+    expect(rows.map((row) => row.dataset.testid)).toEqual([
+      "elimination-Bolts",
+      "elimination-Gamblers",
+      "elimination-Mocha",
+      "elimination-Sharks",
+    ]);
+    // One stamp for the whole round, whichever half of it ended a split.
+    for (const row of rows) expect(row.textContent, row.dataset.testid).toContain("Gauntlet");
+    // A team that won round one and lost round two is stamped for the
+    // later exit, with that fixture's series line.
+    expect(screen.getByTestId("elimination-Mocha").textContent).toContain("1–3");
+    expect(screen.getByTestId("elimination-Mocha").textContent).toContain("Ravens");
+    // Four losers, four cards — and the teams still standing print nothing.
+    for (const slug of ["ana", "doug", "bo", "cy"]) expect(screen.getByTestId(`printed-${slug}`)).toBeTruthy();
+    expect(screen.queryByTestId("printed-ray")).toBeNull();
+    expect(screen.queryByTestId("unmatched")).toBeNull();
+    expect(screen.queryByTestId("scheduled")).toBeNull();
+    expect(screen.queryByTestId("undecided")).toBeNull();
   });
 
   it("names a team the fixtures spell differently from the cards", async () => {
