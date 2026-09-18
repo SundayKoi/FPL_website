@@ -12,9 +12,11 @@ import {
 } from "@/lib/cards/queries";
 import {
   EXIT_LABELS,
+  SENDOFF_EXIT_STAGES,
   SENDOFF_META,
   SENDOFF_STAGES,
   SENDOFF_VAULT_DAYS,
+  exitsInWeek,
   isPlayoffWeek,
   planSendoff,
   sendoffLedger,
@@ -22,6 +24,7 @@ import {
   sendoffWeekLabel,
   withSendoff,
   type SendoffExitStage,
+  type SendoffFixture,
   type SendoffStage,
 } from "@/lib/cards/sendoff";
 import { SENDOFF_LOOKS, sendoffLookOverlay } from "@/lib/cards/sendoffLooks";
@@ -72,6 +75,61 @@ function day(iso: string): string {
   });
 }
 
+/** A week's Monday as "Sep 21". Read off UTC NOON, because a date-only
+ *  week string is UTC midnight and projecting that onto Eastern would
+ *  print the Sunday before it. */
+function weekDay(week: string): string {
+  return day(`${week}T12:00:00.000Z`);
+}
+
+/**
+ * The `?week=` the URL asked for, or null.
+ *
+ * A usable week is a Monday on the Eastern calendar — the same check the
+ * drop's FANTASY_WEEK override makes — because every week key on the site
+ * is one. Junk is IGNORED rather than thrown on: this is an admin URL
+ * people hand-edit and paste to each other, and a typo should land on the
+ * current week, not on an error page.
+ */
+function requestedWeek(value: string | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const at = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(at.getTime())) return null;
+  return mondayOf(at) === value ? value : null;
+}
+
+const EXIT_STAGE_SET: ReadonlySet<string> = new Set<string>(SENDOFF_EXIT_STAGES);
+
+/**
+ * The weeks the picker offers: this one, plus the Eastern week of every
+ * playoff fixture the season has scheduled, earliest first.
+ *
+ * Built off the fixtures the page already loaded, so the bracket's own
+ * dates decide what is pickable — the owner can open the gauntlet week
+ * BEFORE it is played, check the team names print, and come back after the
+ * scores land to check the losers.
+ */
+function pickableWeeks(fixtures: SendoffFixture[], currentWeek: string): string[] {
+  const weeks = new Set<string>([currentWeek]);
+  for (const fixture of fixtures) {
+    if (!EXIT_STAGE_SET.has(fixture.stage) || !fixture.scheduled_at) continue;
+    const at = new Date(fixture.scheduled_at);
+    if (Number.isNaN(at.getTime())) continue;
+    weeks.add(mondayOf(at));
+  }
+  return [...weeks].sort();
+}
+
+const SENDOFF_LABEL_PREFIX = "Send-off · ";
+
+/** "Gauntlet" — the round a week holds, for a pill that already says
+ *  which week it is. Null when the week holds no playoff fixture. */
+function roundLabel(fixtures: SendoffFixture[], week: string): string | null {
+  const label = sendoffWeekLabel(exitsInWeek(fixtures, week));
+  if (!label) return null;
+  return label.startsWith(SENDOFF_LABEL_PREFIX) ? label.slice(SENDOFF_LABEL_PREFIX.length) : label;
+}
+
 /**
  * STAFF ONLY. PREVIEW ONLY. Three jobs, and none of them writes anything:
  *
@@ -86,11 +144,12 @@ function day(iso: string): string {
  *    `card.sendoff` — and the other five are alternatives drawn OVER it on
  *    PlayerCard3D's admin-only `overlay` prop, which nothing minted can
  *    reach.
- * 3. Dry-run what Tuesday's drop would print for the current week, off the
- *    real fixtures and the real season cards, so a bracket typo or a team
- *    name that does not match `raw_stats.team_name` is caught BEFORE the
- *    edition is archived rather than after somebody's only playoff card
- *    failed to print.
+ * 3. Dry-run what Tuesday's drop would print for the picked week — this
+ *    one by default, or any week the bracket is scheduled in via
+ *    `?week=YYYY-MM-DD` — off the real fixtures and the real season cards,
+ *    so a bracket typo or a team name that does not match
+ *    `raw_stats.team_name` is caught BEFORE the edition is archived rather
+ *    than after somebody's only playoff card failed to print.
  *
  * Nothing here mints, archives, prices or writes. The planner is pure
  * (src/lib/cards/sendoff.ts) and this page only reads.
@@ -98,7 +157,7 @@ function day(iso: string): string {
 export default async function SendoffPreviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ league?: string | string[] }>;
+  searchParams: Promise<{ league?: string | string[]; week?: string | string[] }>;
 }) {
   const supabase = await createServerSupabase();
   const { isAdmin, isOwner } = await fetchStaffTier(supabase);
@@ -122,11 +181,25 @@ export default async function SendoffPreviewPage({
   const fixtures = season ? await fetchSeasonFixtures(service, season) : [];
   const weekInfo = season ? await fetchEditionWeekInfo(service, season) : [];
 
-  const week = mondayOf(new Date());
+  // The week under the microscope: `?week=` when it names a Monday, this
+  // week otherwise. Everything below — the dry run, the ledger, the marks
+  // on the mockups — reads the picked week, so a bracket week can be
+  // checked before it is played and again after the scores land.
+  const now = new Date();
+  const currentWeek = mondayOf(now);
+  const weekParam = Array.isArray(params.week) ? params.week[0] : params.week;
+  const week = requestedWeek(weekParam) ?? currentWeek;
+  const weeks = pickableWeeks(fixtures, currentWeek);
+  const leagueQuery = chosen?.league === "academy" ? "league=academy&" : "";
+
   const playoffWeek = isPlayoffWeek(fixtures, week);
   const plan = planSendoff(cards, fixtures, week);
   const ledger = sendoffLedger(cards, fixtures, week);
   const closesAt = sendoffVaultClosesAt(fixtures);
+  // A week that has not started yet cannot be missing its scores — its
+  // fixtures simply have not been played — and saying otherwise would send
+  // the owner hunting for results nobody could have entered.
+  const upcoming = new Date(`${week}T00:00:00.000Z`).getTime() > now.getTime();
 
   // Five real cards for the five stamps, best first. Fewer than five cards
   // in the season is a fresh split, not an error — the wall wraps around
@@ -171,6 +244,26 @@ export default async function SendoffPreviewPage({
               </Link>
             ))
           )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {weeks.map((option) => {
+            const round = roundLabel(fixtures, option);
+            return (
+              <Link
+                key={option}
+                href={`/admin/sendoff?${leagueQuery}week=${option}`}
+                data-testid={`week-${option}`}
+                aria-current={option === week ? "page" : undefined}
+                className={`rounded-full border px-3 py-1 font-bold uppercase tracking-[0.18em] ${
+                  option === week ? "border-gold text-gold" : "border-line text-steel hover:text-white"
+                }`}
+              >
+                {weekDay(option)}
+                {round ? ` · ${round}` : ""}
+                {option === currentWeek ? " · this week" : ""}
+              </Link>
+            );
+          })}
         </div>
       </header>
 
@@ -371,9 +464,11 @@ export default async function SendoffPreviewPage({
         )}
       </section>
 
-      <section aria-label="This week's send-off" className="flex flex-col gap-6">
+      <section aria-label="Send-off dry run" className="flex flex-col gap-6">
         <div className="flex flex-col gap-2">
-          <h2 className="type-display border-b border-line pb-2 text-2xl">This week&apos;s send-off · dry run</h2>
+          <h2 className="type-display border-b border-line pb-2 text-2xl">
+            Send-off · week of {weekDay(week)} <span className="text-sm text-gold">· dry run</span>
+          </h2>
           <p className="max-w-3xl text-sm text-steel">
             Week of {week}
             {plan.exits.length > 0 ? ` · ${sendoffWeekLabel(plan.exits)}` : ""}. This is exactly what
@@ -387,9 +482,19 @@ export default async function SendoffPreviewPage({
           </p>
         ) : plan.eliminations.length === 0 ? (
           <p data-testid="undecided" className="text-sm text-gold">
-            A playoff week with no decided fixture: nothing prints until the scores land. Enter them and re-run the
-            archiver for this week — a weekly edition is NOT printed in the meantime, because it would rate the ten
-            people still in the bracket against each other.
+            {upcoming ? (
+              <span data-testid="scheduled">
+                A playoff week that has not been played yet: these fixtures are scheduled, not missing their scores.
+                Nothing prints for this week until the matches are played — what this dry run can tell you now is
+                whether the bracket names the teams the way the cards do.
+              </span>
+            ) : (
+              <>
+                A playoff week with no decided fixture: nothing prints until the scores land. Enter them and re-run the
+                archiver for this week — a weekly edition is NOT printed in the meantime, because it would rate the ten
+                people still in the bracket against each other.
+              </>
+            )}
           </p>
         ) : (
           <>
