@@ -273,6 +273,7 @@ describe("SeasonEndAwardCard", () => {
     );
 
     expect(screen.getAllByTestId("award-card-pair-panel")).toHaveLength(2);
+    expect(screen.queryByText("Best pair")).toBeNull();
     expect(screen.getByRole("img", { name: /Jungle#NA1, Jungle, Ahri/ })).toBeTruthy();
     expect(screen.getByRole("img", { name: /Mid#NA1, Mid, Azir/ })).toBeTruthy();
     expect(screen.getByText("Jungle#NA1")).toBeTruthy();
@@ -331,7 +332,42 @@ describe("SeasonEndAwardCard", () => {
     expect(screen.getAllByRole("listitem").some((item) => item.textContent?.includes("KP 70% · KDA 4.2"))).toBe(true);
   });
 
-  it.each(["fortress", "dragon-hoard", "speedrunners", "marathon-winners", "clean-sweep", "the-starting-five"] as const)("uses a scoped team logo for %s without requiring a complete roster or champion fallback", (awardId) => {
+  it("renders Top–Jungle Connection with the same pair-card treatment", () => {
+    render(
+      <SeasonEndAwardCard
+        award={{
+          id: "top-jungle-connection",
+          title: "Top–Jungle Connection",
+          description: "Best pair",
+          group: "Teamwork",
+          scope: "pair",
+          partition: "division",
+          status: "ready",
+          winners: [{
+            name: "Top#NA1 + Jungle#NA1",
+            team: "Wolves",
+            value: 78,
+            games: 5,
+            pairMembers: [
+              { playerKey: "top#na1", name: "Top#NA1", role: "Top", champion: { id: "Ahri", name: "Ahri", games: 3, wins: 2, winRate: 2 / 3 } },
+              { playerKey: "jungle#na1", name: "Jungle#NA1", role: "Jungle", champion: { id: "Azir", name: "Azir", games: 4, wins: 3, winRate: 3 / 4 } },
+            ],
+          }],
+        }}
+        season="S5"
+        league="premier"
+        index={0}
+        cards={[]}
+      />,
+    );
+
+    expect(screen.getAllByTestId("award-card-pair-panel")).toHaveLength(2);
+    expect(screen.getByRole("img", { name: /Top#NA1, Top, Ahri/ })).toBeTruthy();
+    expect(screen.getByRole("img", { name: /Jungle#NA1, Jungle, Azir/ })).toBeTruthy();
+    expect(screen.queryByText("Best pair")).toBeNull();
+  });
+
+  it.each(["fortress", "dragon-hoard", "speedrunners", "marathon-winners", "clean-sweep"] as const)("uses a scoped team logo for %s without requiring a complete roster or champion fallback", (awardId) => {
     render(
       <SeasonEndAwardCard
         award={{
@@ -358,7 +394,7 @@ describe("SeasonEndAwardCard", () => {
 
     const art = screen.getByTestId("award-card-art");
     expect(art.querySelector("img")?.getAttribute("src")).toBe("https://example.test/wolves.svg");
-    expect(art.textContent).toContain("Wolves");
+    expect(art.textContent).not.toContain("Wolves");
     expect(art.querySelector("img")?.getAttribute("src")).not.toContain("champion");
   });
 
@@ -389,6 +425,6 @@ describe("SeasonEndAwardCard", () => {
     fireEvent.error(art.querySelector("img")!);
     expect(art.querySelector("img")).toBeNull();
     expect(screen.getByText("WOL")).toBeTruthy();
-    expect(art.textContent).toContain("Wolves");
+    expect(art.textContent).not.toContain("Wolves");
   });
 });

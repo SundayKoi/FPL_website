@@ -51,13 +51,13 @@ const duoDescription = (left: string, right: string) =>
   `${left}–${right} pair with the highest Duo Impact score out of 100 in shared regular-season games. Each member contributes equally; kill participation is weighted 35%, KDA 25%, champion damage/min 20%, and vision score/min 20%, with every component normalized against the same role in the selected division and season. Requires at least ${DUO_MIN_GAMES} shared games; shared wins, losses, win rate, and games are evidence only.`;
 export const SEASON_AWARDS: AwardDefinition[] = [
   special("Teamwork", "Jungle–Mid Connection", duoDescription("Jungle", "Mid"), "pair"),
+  special("Teamwork", "Top–Jungle Connection", duoDescription("Top", "Jungle"), "pair"),
   special("Teamwork", "Bot–Support Connection", duoDescription("Bot", "Support"), "pair"),
   special("Teamwork", "Fortress", "Fewest towers lost per team game, measured from the opposing team's towers destroyed.", "team", undefined, "", { totalUnit: "towers", totalFallback: true }),
   special("Teamwork", "Dragon Hoard", "Most team dragons secured per team game.", "team", "perGame", "dragons/game", { totalUnit: "dragons", totalFallback: true }),
   special("Teamwork", "Speedrunners", "Shortest average game duration in wins; at least three wins.", "team"),
   special("Teamwork", "Marathon Winners", "Highest rate of team wins in games lasting strictly over 40 minutes.", "team", "rate", "%", { totalUnit: "wins over 40 minutes", totalFallback: true }),
   special("Teamwork", "Clean Sweep", "Highest rate of completed, undefeated best-of-three or best-of-five series.", "team", "rate", "%", { totalUnit: "sweeps", totalFallback: true }),
-  special("Teamwork", "The Starting Five", "Regular-season winning team: most series wins, then fewest losses. Commemorates its most-played complete five-player lineup; tied teams and lineups share the award.", "team"),
   metric("Meme inserts", "Question Mark Enthusiast", "Most enemy-missing pings per game. A little curiosity never hurt.", "enemy_missing_pings", "perGame", "pings/game", false, { totalUnit: "pings", totalFallback: true }),
   metric("Meme inserts", "On My Way", "Most on-my-way pings per game. Be there in a second.", "on_my_way_pings", "perGame", "pings/game", false, { totalUnit: "pings", totalFallback: true }),
   metric("Meme inserts", "Button Masher", "Most Q, W, E and R casts per minute.", "ability_casts", "minute", "casts/min", false, { totalUnit: "casts", totalFallback: true }),

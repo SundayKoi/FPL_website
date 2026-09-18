@@ -4,7 +4,7 @@ import { canonicalChampion } from "./best-of";
 import type { DuoChampionEvidence, DuoMemberEvidence } from "./duo";
 import type { SeasonRow } from "./derive";
 
-export type PairArtRole = "Jungle" | "Mid" | "Bot" | "Support";
+export type PairArtRole = "Top" | "Jungle" | "Mid" | "Bot" | "Support";
 export interface PairArtAppearance {
   playerKey: string;
   playerName: string;

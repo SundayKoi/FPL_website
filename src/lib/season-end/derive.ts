@@ -261,14 +261,6 @@ export function deriveSeasonEnd(
   const teams = groups(teamGames.map(g => g[0]), r => teamKey(r.team_name)).map(rs => ({ name: rs[0].team_name, team: rs[0].team_name, rows: rs }));
   const complete = regularFixtures.length > 0 && regularFixtures.every(completeFixture);
   const completed = regularFixtures.filter(completeFixture);
-  const records = new Map<string, { wins: number; losses: number; name: string }>();
-  for (const f of regularFixtures) for (const name of [f.team_a, f.team_b]) if (name && !records.has(teamKey(name))) records.set(teamKey(name), { name, wins: 0, losses: 0 });
-  for (const f of completed) {
-    if (!f.team_a || !f.team_b) continue;
-    const a = records.get(teamKey(f.team_a))!, b = records.get(teamKey(f.team_b))!;
-    if (f.score_a! > f.score_b!) { a.wins++; b.losses++; } else { b.wins++; a.losses++; }
-  }
-  const rankCompare = (a: {wins: number; losses: number}, b: {wins: number; losses: number}) => b.wins - a.wins || a.losses - b.losses;
   // Derived fields require every underlying operand. A missing lane snapshot is
   // not a tied lane; ambiguous opposing roles are deliberately unscored.
   for (const r of rows) {
@@ -477,21 +469,6 @@ export function deriveSeasonEnd(
         });
       return choose(def, values);
     }
-    if (def.id === "the-starting-five") {
-      if (!complete) return unavailable(def, "Waiting for final regular-season standings.");
-      const standings = [...records.values()].sort(rankCompare);
-      const leaders = standings.filter(r => rankCompare(r, standings[0]) === 0);
-      const values: AwardWinner[] = [];
-      for (const leader of leaders) {
-        const lineups = teamGames.filter(g => teamKey(g[0].team_name) === teamKey(leader.name));
-        if (!lineups.length || lineups.some(g => g.length !== 5 || new Set(g.map(r => r.role)).size !== 5 || !["TOP","JUNGLE","MIDDLE","BOTTOM","UTILITY"].every(role => g.some(r => r.role === role)))) return missing(def);
-        const lineupCounts = new Map<string, SeasonRow[][]>();
-        for (const g of lineups) { const key = g.map(identity).sort().join(" · "); lineupCounts.set(key, [...(lineupCounts.get(key) ?? []), g]); }
-        const most = Math.max(...[...lineupCounts.values()].map(g => g.length));
-        for (const [names, appearances] of lineupCounts) if (appearances.length === most) values.push({ name: leader.name, team: leader.name, value: leader.wins, games: appearances.length, detail: `${names} · ${appearances.length} games together · ${leader.wins}–${leader.losses} series` });
-      }
-      return choose(def, values);
-    }
     const duoDefinition = DUO_PAIR_DEFINITIONS.find((candidate) => candidate.awardId === def.id);
     if (duoDefinition) {
       const scored = scoreDuoPairs(rows, teamGames, duoDefinition, minGames);
@@ -522,7 +499,7 @@ export function deriveSeasonEnd(
         const pairMembers = members.map((member) => ({
           playerKey: member.playerKey,
           name: member.name,
-          role: ({ JUNGLE: "Jungle", MIDDLE: "Mid", BOTTOM: "Bot", UTILITY: "Support" } as const)[member.role],
+          role: ({ TOP: "Top", JUNGLE: "Jungle", MIDDLE: "Mid", BOTTOM: "Bot", UTILITY: "Support" } as const)[member.role],
           champion: member.champion ? {
             id: member.champion.championId,
             name: member.champion.champion,

@@ -134,7 +134,6 @@ export default function AwardArtwork(props: AwardArtworkProps) {
       >
         <span className={styles.teamMonogram} aria-hidden="true">{props.fallbackLabel}</span>
         <ResilientImage primaryUrl={props.logoUrl} fallbackUrl={null} alt={`${props.teamName} logo`} className={styles.teamLogo} />
-        <span className={styles.teamArtName}>{props.teamName}</span>
       </div>
     );
   }

@@ -14,7 +14,7 @@ import type { Division } from "@/lib/schedule/types";
 import styles from "./SeasonEndAwardCard.module.css";
 
 const FACE_EVIDENCE_LIMIT = 64;
-const PAIR_ROLE_LABELS: Record<string, string> = { JUNGLE: "Jungle", MIDDLE: "Mid", BOTTOM: "Bot", UTILITY: "Support" };
+const PAIR_ROLE_LABELS: Record<string, string> = { TOP: "Top", JUNGLE: "Jungle", MIDDLE: "Mid", BOTTOM: "Bot", UTILITY: "Support" };
 
 function winnerKey(name: string): string {
   const separator = name.lastIndexOf("#");
@@ -76,7 +76,7 @@ function compactEvidence(winner: AwardWinner): string {
 }
 
 function roleLabel(role: DuoMemberEvidence["role"]): PairArtMember["role"] {
-  return ({ JUNGLE: "Jungle", MIDDLE: "Mid", BOTTOM: "Bot", UTILITY: "Support" } as const)[role];
+  return ({ TOP: "Top", JUNGLE: "Jungle", MIDDLE: "Mid", BOTTOM: "Bot", UTILITY: "Support" } as const)[role];
 }
 
 function pairMembersForWinner(award: SeasonAward, winner: AwardWinner): [PairArtMember, PairArtMember] {
@@ -97,7 +97,11 @@ function pairMembersForWinner(award: SeasonAward, winner: AwardWinner): [PairArt
     })) as [PairArtMember, PairArtMember];
   }
   if (winner.pairMembers) return winner.pairMembers;
-  const roles = award.id === "bot-support-connection" ? ["Bot", "Support"] as const : ["Jungle", "Mid"] as const;
+  const roles = award.id === "bot-support-connection"
+    ? ["Bot", "Support"] as const
+    : award.id === "top-jungle-connection"
+      ? ["Top", "Jungle"] as const
+      : ["Jungle", "Mid"] as const;
   return roles.map((role, index) => ({
     playerKey: winner.playerKeys?.[index] ?? role.toLowerCase(),
     name: `${role} player`,
@@ -148,7 +152,7 @@ function AwardFace({
 }: {
   titleId: string;
   title: string;
-  description: string;
+  description?: string;
   category: SeasonAward["group"];
   artwork: AwardArtworkProps;
   season: string;
@@ -168,7 +172,7 @@ function AwardFace({
         <div className={styles.overlay}>
           <p className={styles.category}>{category}</p>
           <h3 id={titleId} className={styles.title}>{title}</h3>
-          <p className={styles.description}>{description}</p>
+          {description ? <p className={styles.description}>{description}</p> : null}
         </div>
       </div>
       {result}
@@ -199,7 +203,11 @@ function AwardVisualCard({
   const crop = champion ? championArtCrop(champion, 0) : null;
   const centeredArt = champion ? championCenteredUrl(champion, 0) : null;
   const splashArt = champion ? championSplashUrl(champion, 0) : null;
-  const fallbackRoles = award.id === "bot-support-connection" ? ["Bot", "Support"] : ["Jungle", "Mid"];
+  const fallbackRoles = award.id === "bot-support-connection"
+    ? ["Bot", "Support"]
+    : award.id === "top-jungle-connection"
+      ? ["Top", "Jungle"]
+      : ["Jungle", "Mid"];
   const pairMembers = award.scope === "pair" ? pairMembersForWinner(award, winner) : fallbackRoles.map((role, index) => ({
     playerKey: `${role.toLowerCase()}-${index}`,
     name: `${role} player`,
@@ -256,7 +264,7 @@ function AwardVisualCard({
       <AwardFace
         titleId={titleId}
         title={title}
-        description={award.description}
+        description={award.scope === "pair" ? undefined : award.description}
         category={award.group}
         artwork={artwork}
         season={season}
@@ -319,7 +327,7 @@ function EmptyAwardCard({
       <AwardFace
         titleId={titleId}
         title={award.title}
-        description={award.description}
+        description={award.scope === "pair" ? undefined : award.description}
         category={award.group}
         artwork={{ variant: "empty" }}
         season={season}

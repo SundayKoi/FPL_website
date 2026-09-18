@@ -13,8 +13,8 @@ export const DUO_COMPONENTS = [
 ] as const;
 
 export type DuoMetricKey = (typeof DUO_COMPONENTS)[number]["key"];
-export type DuoRole = "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY";
-export type DuoAwardId = "jungle-mid-connection" | "bot-support-connection";
+export type DuoRole = "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY";
+export type DuoAwardId = "jungle-mid-connection" | "top-jungle-connection" | "bot-support-connection";
 
 export interface DuoPairDefinition {
   awardId: DuoAwardId;
@@ -23,6 +23,7 @@ export interface DuoPairDefinition {
 
 export const DUO_PAIR_DEFINITIONS: readonly DuoPairDefinition[] = [
   { awardId: "jungle-mid-connection", roles: ["JUNGLE", "MIDDLE"] },
+  { awardId: "top-jungle-connection", roles: ["TOP", "JUNGLE"] },
   { awardId: "bot-support-connection", roles: ["BOTTOM", "UTILITY"] },
 ];
 
