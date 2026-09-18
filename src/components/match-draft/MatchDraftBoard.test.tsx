@@ -731,10 +731,10 @@ describe("MatchDraftBoard", () => {
     ]);
   });
 
-  it("uses 350px-wide champion boxes in the overlay", () => {
+  it("uses 700px-wide champion portrait boxes in the overlay", () => {
     const { container } = render(<MatchDraftBoard initialState={state} overlay onSave={vi.fn()} />);
 
-    expect(container.querySelectorAll('[class~="w-[350px]"]')).toHaveLength(10);
+    expect(container.querySelectorAll('[class~="w-[700px]"]')).toHaveLength(10);
   });
 
   it("keeps the red-side overlay team header stretched like blue", () => {

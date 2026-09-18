@@ -26,6 +26,10 @@ const sideClass: Record<DraftSide, string> = {
 const imageSizes = MATCH_DRAFT_IMAGE_SIZE_ORDER.map((value) => ({ value, ...MATCH_DRAFT_IMAGE_SIZES[value] }));
 const sizeByValue = MATCH_DRAFT_IMAGE_SIZES;
 
+// OBS contract: champion portrait slots stay 700px wide. Do not change this
+// dimension without explicit permission.
+const OBS_CHAMPION_PORTRAIT_WIDTH = "w-[700px]";
+
 /** Copies a shareable drafter URL (built from the page's own origin, so it
  *  works on any deploy) with per-button "Copied" feedback. */
 function CopyLinkButton({ label, path }: { label: string; path: string }) {
@@ -1780,7 +1784,7 @@ export default function MatchDraftBoard({
           imageSize="lg"
           resolve={resolveChampion}
           online={{ blue: captainOnline("blue"), red: captainOnline("red") }}
-          slotClassName={(pick) => pick.side === "red" ? "w-[350px] justify-self-end" : "w-[350px]"}
+          slotClassName={(pick) => pick.side === "red" ? `${OBS_CHAMPION_PORTRAIT_WIDTH} justify-self-end` : OBS_CHAMPION_PORTRAIT_WIDTH}
           renderRail={() => (
             <div className="flex min-w-32 flex-col items-center justify-center rounded border border-border-subtle bg-surface px-4 py-4 text-center">
               <TurnTimer state={state} currentStep={currentStep} clockRunning={clockRunning} clockOffsetMs={clockOffsetMs} />
