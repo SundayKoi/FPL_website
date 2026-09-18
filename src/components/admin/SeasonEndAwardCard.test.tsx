@@ -367,6 +367,30 @@ describe("SeasonEndAwardCard", () => {
     expect(screen.queryByText("Best pair")).toBeNull();
   });
 
+  it("omits the description from an empty duo card too", () => {
+    render(
+      <SeasonEndAwardCard
+        award={{
+          id: "top-jungle-connection",
+          title: "Top–Jungle Connection",
+          description: "Best pair",
+          group: "Teamwork",
+          scope: "pair",
+          partition: "division",
+          status: "unearned",
+          winners: [],
+        }}
+        season="S5"
+        league="premier"
+        index={0}
+        cards={[]}
+      />,
+    );
+
+    expect(screen.getByText("No qualifying pair yet.")).toBeTruthy();
+    expect(screen.queryByText("Best pair")).toBeNull();
+  });
+
   it.each(["fortress", "dragon-hoard", "speedrunners", "marathon-winners", "clean-sweep"] as const)("uses a scoped team logo for %s without requiring a complete roster or champion fallback", (awardId) => {
     render(
       <SeasonEndAwardCard

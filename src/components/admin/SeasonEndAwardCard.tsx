@@ -319,7 +319,13 @@ function EmptyAwardCard({
   const status = divisionStatus?.status ?? award.status;
   const note = divisionStatus?.note ?? award.note;
   const titleId = `title-${award.id}-${division ?? "global"}`;
-  const statusNote = note ?? (award.id === "best-of-champion" ? "No qualifying champion assignment yet." : award.description);
+  const statusNote = note ?? (
+    award.id === "best-of-champion"
+      ? "No qualifying champion assignment yet."
+      : award.scope === "pair"
+        ? "No qualifying pair yet."
+        : award.description
+  );
   const hasExtendedNote = statusNote.length > FACE_EVIDENCE_LIMIT;
 
   return (
