@@ -213,7 +213,7 @@ describe("the send-off preview", () => {
     expect(screen.getByTestId("league-premier").getAttribute("aria-current")).toBeNull();
   });
 
-  it("draws six prototype looks, three stages each, over the shipped send-off", async () => {
+  it("draws six looks, three stages each — the shipped one bare, the five over it", async () => {
     staff();
     fetchAllCardSeasons.mockResolvedValue([{ league: "premier", season: "S5" }]);
     fetchSeasonCards.mockResolvedValue([
@@ -228,7 +228,9 @@ describe("the send-off preview", () => {
     const section = screen.getByLabelText("Looks");
     expect(section).toBeTruthy();
 
-    for (const key of SENDOFF_LOOKS.map((look) => look.key)) {
+    expect(SENDOFF_LOOKS.filter((look) => look.shipped)).toHaveLength(1);
+    for (const look of SENDOFF_LOOKS) {
+      const key = look.key;
       const row = screen.getByTestId(`look-${key}`);
       const figures = [...row.querySelectorAll<HTMLElement>("[data-look-stage]")];
       // The same three faces, in the same order, in every row — a look can
@@ -240,13 +242,29 @@ describe("the send-off preview", () => {
       ]);
       const drawn = [...row.querySelectorAll<HTMLElement>("[data-testid='card']")];
       expect(drawn.map((node) => node.textContent), key).toEqual(["Doug", "Ana", "Bo"]);
-      // Each card is stamped AND overlaid: the mockup sits on a real mark.
       expect(drawn.map((node) => node.dataset.stage), key).toEqual(["quarterfinalist", "finalist", "champion"]);
+
+      if (look.shipped) {
+        // The shipped print is the card itself: an overlay here would draw
+        // its masthead a second time over the card's own. The row is marked
+        // so the wall says which one is real.
+        for (const node of drawn) {
+          expect(node.dataset.front, key).toBe("");
+          expect(node.dataset.chip, key).toBe("");
+        }
+        expect(screen.getByTestId(`shipped-${key}`).textContent).toBe("Shipped");
+        expect(row.textContent).toContain("Shipped");
+        continue;
+      }
+
+      // Each mockup card is stamped AND overlaid: the look sits on a real mark.
       for (const node of drawn) expect(node.dataset.front, key).toBeTruthy();
       expect(drawn[2].dataset.chip).toBe("CHAMPION · 3–1 · FINALS");
       // ...and the Champion is not the Finalist with a different word on it.
       expect(drawn[2].dataset.front, key).not.toBe(drawn[1].dataset.front);
     }
+    // ...and the page says in its own copy which one shipped.
+    expect(screen.getByText(/Newsprint is the shipped treatment/)).toBeTruthy();
 
     // The reference row: the same real card three ways, for scale.
     for (const id of ["reference-season", "reference-line", "reference-sendoff"]) {
