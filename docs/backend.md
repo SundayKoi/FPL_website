@@ -1620,8 +1620,13 @@ sell on a date nobody has set would close the shop over a scheduling gap.
 
 **The admin page.** `/admin/sendoff` (staff-gated, mints and writes nothing)
 previews the five stamps on real cards, dry-runs what Tuesday's drop would
-print for the current week, shows the bracket ledger and prints the shop
-picker's rows as plain text. Its look wall keeps the six prototypes
+print for the picked week, shows the bracket ledger and prints the shop
+picker's rows as plain text. The picked week is this one by default;
+`?week=YYYY-MM-DD` (a Monday, checked the way the drop checks
+`FANTASY_WEEK`, junk ignored rather than thrown on) picks another, and the
+pills list this week plus every week the season's playoff fixtures are
+scheduled in — so a bracket week can be checked for name mismatches before
+it is played and again once the scores land. Its look wall keeps the six prototypes
 (`src/lib/cards/sendoffLooks.ts`): Newsprint is tagged **Shipped** and its
 row renders with no overlay at all — the card draws itself — while the other
 five (Plaque, Rafters, Curtain Call, Bracket, Yearbook) stay mockups on
