@@ -355,20 +355,21 @@ export default async function SendoffPreviewPage({
               </p>
               <div className="flex flex-wrap gap-8">
                 <figure data-testid="reference-season" className="flex w-[20rem] flex-col items-center gap-2">
-                  <PlayerCard3D card={best[0]} interactive />
+                  <PlayerCard3D card={best[0]} edition="season" interactive />
                   <figcaption className="text-center text-xs text-steel">Season card</figcaption>
                 </figure>
                 <figure data-testid="reference-line" className="flex w-[20rem] flex-col items-center gap-2">
                   {currentLine && chromaTier ? (
                     <PlayerCard3D
                       card={best[0]}
+                      edition="season"
                       interactive
                       forceFoil
                       foilType={chromaTier.replaces}
                       preview={previewOf(currentLine, chromaTier)}
                     />
                   ) : (
-                    <PlayerCard3D card={best[0]} interactive forceFoil />
+                    <PlayerCard3D card={best[0]} edition="season" interactive forceFoil />
                   )}
                   <figcaption className="text-center text-xs text-steel">
                     {season ?? "Season"} skin line

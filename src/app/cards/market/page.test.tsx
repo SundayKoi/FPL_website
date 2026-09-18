@@ -35,7 +35,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(), useRouter: () => ({ refresh: vi.fn() }) }));
 
 import { MarketPageView } from "./page";
-import { BountiesPageView } from "./bounties/page";
+import { BountiesPageView } from "./bounties/view";
 
 beforeEach(() => {
   getBettingUser.mockReset();

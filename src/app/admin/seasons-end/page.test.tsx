@@ -1,11 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { staff, load, loadTeamIdentities, fetchCards, redirect, readViewerDiscordId, fetchPatronActive } = vi.hoisted(() => ({
+const { staff, load, loadTeamIdentities, fetchCards, fetchRelease, fetchCatalog, redirect, readViewerDiscordId, fetchPatronActive } = vi.hoisted(() => ({
   staff: vi.fn(),
   load: vi.fn(),
   loadTeamIdentities: vi.fn(),
   fetchCards: vi.fn(),
+  fetchRelease: vi.fn(),
+  fetchCatalog: vi.fn(),
   redirect: vi.fn(() => { throw new Error("redirect"); }),
   readViewerDiscordId: vi.fn(),
   fetchPatronActive: vi.fn(),
@@ -18,6 +20,7 @@ vi.mock("@/lib/cards/viewer", () => ({ readViewerDiscordId }));
 vi.mock("@/lib/patron/queries", () => ({ fetchPatronActive }));
 vi.mock("@/lib/season-end/queries", () => ({ loadSeasonEnd: load, loadSeasonEndTeamIdentities: loadTeamIdentities }));
 vi.mock("@/lib/cards/queries", () => ({ fetchSeasonCards: fetchCards }));
+vi.mock("@/lib/season-end/release-queries", () => ({ fetchSeasonEndRelease: fetchRelease, fetchSeasonEndCatalog: fetchCatalog }));
 vi.mock("@/components/admin/SeasonEndAwardCard", () => ({
   default: ({ award, cards }: { award: { title: string; winners: { value: number }[] }; cards: unknown[] }) => (
     <div data-testid="award-card" data-card-count={cards.length}>
@@ -27,7 +30,10 @@ vi.mock("@/components/admin/SeasonEndAwardCard", () => ({
   ),
 }));
 vi.mock("@/components/cards/PlayerCard3D", () => ({
-  default: ({ card }: { card: { name: string } }) => <div data-testid="season-card">{card.name}</div>,
+  default: ({ card, edition }: { card: { name: string }; edition?: string }) => <div data-testid="season-card" data-edition={edition ?? "weekly"}>{card.name}</div>,
+}));
+vi.mock("@/components/admin/SeasonEndReleasePanel", () => ({
+  default: () => <div data-testid="season-end-release-panel" />,
 }));
 vi.mock("next/navigation", () => ({ redirect }));
 
@@ -38,6 +44,8 @@ beforeEach(() => {
   staff.mockResolvedValue({ isAdmin: true, isOwner: false });
   readViewerDiscordId.mockResolvedValue("patron-discord-id");
   fetchPatronActive.mockResolvedValue(false);
+  fetchRelease.mockResolvedValue(null);
+  fetchCatalog.mockResolvedValue(null);
   loadTeamIdentities.mockResolvedValue({});
   load.mockResolvedValue({
     games: 6,
@@ -79,11 +87,12 @@ describe("Season's End admin page", () => {
     expect(screen.getByText("kills")).toBeTruthy();
     expect(screen.queryByText(/Season total/)).toBeNull();
     expect(screen.getByTestId("award-card").dataset.cardCount).toBe("1");
-    expect(screen.getByRole("heading", { name: "Season Cards" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Cards of the Season" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Best of Champions" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Best of Champions" })).toBeTruthy();
     expect(screen.getByText("07")).toBeTruthy();
     expect(screen.getByTestId("season-card").textContent).toBe("Alice");
+    expect(screen.getByTestId("season-card").dataset.edition).toBe("season");
   });
 
   it("uses the fixed season for the selected league", async () => {

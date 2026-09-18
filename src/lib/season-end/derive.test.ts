@@ -36,6 +36,7 @@ describe("season-end winners", () => {
       { name: "A1#NA1 + A2#NA1", value: 50, games: 6, playerKeys: ["a1#na1", "a2#na1"], evidence: { duo: { wins: 6, losses: 0, winRate: 100 } } },
       { name: "B1#NA1 + B2#NA1", value: 50, games: 6, evidence: { duo: { wins: 0, losses: 6, winRate: 0 } } },
     ]);
+    expect(award(season(), "top-jungle-connection").winners).toHaveLength(2);
     expect(award(season(), "bot-support-connection").winners).toHaveLength(2);
   });
 
@@ -105,16 +106,10 @@ describe("season-end winners", () => {
     expect(award(rows, "marathon-winners").winners[0].value).toBeCloseTo(100 * 5 / 6);
     expect(award(game(1), "speedrunners").status).toBe("unearned");
   });
-  it("only counts completed multi-game sweeps and waits for final standings", () => {
+  it("only counts completed multi-game sweeps", () => {
     expect(award(season(), "clean-sweep").winners[0]).toMatchObject({ value: 100, total: 1, games: 1 });
     expect(award(season(), "clean-sweep", fixtures({ score_a: 1 })).status).toBe("unearned");
     expect(award(season(), "clean-sweep", fixtures({ best_of: 1, score_a: 1 })).status).toBe("unearned");
-    expect(award(season(), "the-starting-five").winners[0].detail).toContain("A4#NA1");
-    expect(award(season(), "the-starting-five", fixtures({score_a: null, score_b: null})).status).toBe("unavailable");
-  });
-  it("commemorates the most-played actual five, including tied lineups", () => {
-    const rows = season(); rows.filter(r => r.summoner_name === "A0" && ["match4","match5","match6"].includes(r.match_id)).forEach(r => { r.summoner_name = "Sub"; });
-    expect(award(rows, "the-starting-five").winners).toHaveLength(2);
   });
   it("has explicit no-achievement and minimum-games results", () => {
     const rows = season(); rows.forEach(r => { r.penta_kills = 0; });
@@ -159,6 +154,7 @@ describe("season-end winners", () => {
   it("keeps the configured cards visible, including the correctly named steal award", () => {
     const result = deriveSeasonEnd(season(), fixtures(), "S5", "premier");
     expect(result.awards).toHaveLength(57);
+    expect(result.awards.some((award) => award.id === "the-starting-five")).toBe(false);
     expect(result.awards.map((award) => award.title)).not.toEqual(expect.arrayContaining([
       "Opening Act",
       "Full Arsenal",
@@ -305,6 +301,7 @@ describe("season-end winners", () => {
     expect(teamwork).toHaveLength(8);
     expect(teamwork.every((candidate) => candidate.divisionStatuses && candidate.winners.every((winner) => winner.division))).toBe(true);
     expect(teamwork.find((candidate) => candidate.id === "jungle-mid-connection")?.winners.length).toBeGreaterThan(0);
+    expect(teamwork.find((candidate) => candidate.id === "top-jungle-connection")?.winners.length).toBeGreaterThan(0);
     expect(teamwork.find((candidate) => candidate.id === "bot-support-connection")?.winners.length).toBeGreaterThan(0);
 
     const tiedRows = rows.map((row) => ({ ...row, kills: 3 }));
@@ -340,7 +337,7 @@ describe("season-end winners", () => {
     expect(conflicting.warnings.some((warning) => warning.includes("no unambiguous division"))).toBe(true);
   });
 
-  it("uses division-specific fixture completion for Starting Five and Clean Sweep", () => {
+  it("uses division-specific fixture completion for Clean Sweep", () => {
     const solari = Array.from({ length: 5 }, (_, i) => game(i + 1).map((row) => ({ ...row, match_id: `solari-${i + 1}`, division: "Solari" as const }))).flat();
     const lunari = Array.from({ length: 5 }, (_, i) => game(i + 6).map((row) => ({ ...row, match_id: `lunari-${i + 1}`, division: "Lunari" as const }))).flat();
     const splitFixtures = Array.from({ length: 5 }, (_, i) => [
@@ -348,10 +345,7 @@ describe("season-end winners", () => {
       { ...fixtures()[0], id: `lunari-${i + 1}`, stage: weekStages[i], division: "Lunari" as const, score_a: i === 0 ? null : 2, score_b: i === 0 ? null : 0 },
     ]).flat();
     const result = deriveSeasonEnd([...solari, ...lunari], splitFixtures, "S5", "premier");
-    const startingFive = result.awards.find((candidate) => candidate.id === "the-starting-five")!;
     const cleanSweep = result.awards.find((candidate) => candidate.id === "clean-sweep")!;
-    expect(startingFive.divisionStatuses?.Solari.status).toBe("ready");
-    expect(startingFive.divisionStatuses?.Lunari.status).toBe("unavailable");
     expect(cleanSweep.divisionStatuses?.Solari.status).toBe("ready");
     expect(cleanSweep.divisionStatuses?.Lunari.status).toBe("ready");
     expect(cleanSweep.winners.find((winner) => winner.division === "Lunari")).toMatchObject({ games: 4, total: 4 });

@@ -75,14 +75,14 @@ remain outside this division policy. Division seals are presentation metadata
 resolved from every selected-season regular-season appearance; conflicting or
 unresolved team/row divisions do not receive an invented default.
 
-Jungle–Mid Connection and Bot–Support Connection use the same Duo Impact v1
-formula. A pair must have at least five shared regular-season games, using the
-configured qualification floor. For each shared game, each member is scored
-against the same role in the selected division, league, and season using the
-midrank percentile convention; jungle is compared with jungle, mid with mid,
-bot with bot, and support with support. The two member scores contribute
-equally to the game score, and the season score is the mean of those game
-scores:
+Jungle–Mid Connection, Top–Jungle Connection, and Bot–Support Connection use
+the same Duo Impact v1 formula. A pair must have at least five shared
+regular-season games, using the configured qualification floor. For each shared
+game, each member is scored against the same role in the selected division,
+league, and season using the midrank percentile convention; top is compared
+with top, jungle with jungle, mid with mid, bot with bot, and support with
+support. The two member scores contribute equally to the game score, and the
+season score is the mean of those game scores:
 
 - kill participation: 35%
 - KDA: 25%
@@ -161,11 +161,6 @@ previous pair. Frozen collectible copies retain their minted artwork.
   results). A single-game win is not a sweep.
 - Final standings use series wins, then fewest series losses, matching the
   existing standings ordering without using alphabetical order to break ties.
-- The Starting Five waits for all regular-season fixtures to finish. Other cards
-  show provisional leaders while fixtures remain open.
-- The Starting Five commemorates the winning team's most-played complete
-  five-player lineup from actual games, including substitutes when they were
-  part of that lineup. Tied teams and equally frequent lineups are retained.
 - Bloodline follows a player's appearances, ordered by game time then numeric
   match ID.
 - Performance is the mean of same-role midrank percentiles for per-game KDA,
