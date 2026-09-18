@@ -734,6 +734,7 @@ change and update their local state.
 | Weekly cards | `.github/workflows/weekly-card-drop.yml` → `scripts/weekly-card-drop.ts` | Reads current ratings, writes `card_snapshots`/`card_rating_history`, archives the week's edition through `buildEditionForWeek` (a **Send-off** in a playoff week, announced with its own embed ahead of the Eclipse board), and posts movement/showcase content to Discord. |
 | Weekly Draw | `.github/workflows/weekly-draw.yml` → `scripts/weekly-draw.ts` | Runs `run_weekly_draw` for every card season half an hour after the card drop, then posts each winner to Discord. The RPC does the writing (`weekly_draws`, the stamped copy, the ledger pot, the pack comp), so reruns and the `/schedule` admin fallback are safe. |
 | Card edition archive | `.github/workflows/archive-card-edition.yml` → `scripts/archive-card-edition.ts` | Manual. Rebuilds one week (or every week, with `all_weeks`) into `card_editions` through `buildEditionForWeek` — the week's own `raw_stats` for an ordinary week, or a season-rated **Send-off** for a playoff week, exactly as the drop would have written it. Run it after any change to the rating formula, and to fill in a playoff week the drop met before its fixtures were scored — see the pitfall below and "The Send-off". |
+| Bracket seeding | `.github/workflows/seed-bracket.yml` → `scripts/seed-bracket.ts` | Manual. Seeds a reviewed bracket file (`scripts/data/brackets/*.json`) onto `fixtures` for the file's season (`league_settings.academy_season`/`current_season`, or an explicit `season` in the file). Validates every team name against `league_teams` before writing anything, keys rows by `(season, stage, sort_order)` so re-runs rewrite rather than duplicate, leaves an already-scored fixture untouched, and never deletes. `dry_run` is **ticked by default** and prints the plan without writing. The decisions live in `src/lib/schedule/bracketSeed.ts` (`planBracketSeed`), not in the script. |
 | Betting lifecycle | Supabase cron migrations → `supabase/functions/discord-announcer/index.ts` | Locks/resolves/announces betting markets and pick'ems, posts Discord messages, and runs a ledger-drift watchdog. |
 | Weekly betting markets | Supabase Cron (`weekly-betting-markets-edt` / `weekly-betting-markets-est`) → `run_weekly_betting_market_cron()` → `generate_weekly_betting_markets()` | Runs Tuesday at 1:00 AM Eastern (05:00 UTC during EDT, 06:00 UTC during EST), reads the following Monday's Premier and Academy fixtures, validates every event/team mapping, and inserts only missing fixture-linked markets. The wrapper's Eastern-time guard makes the DST jobs safe and retries idempotent. |
 
@@ -1556,6 +1557,17 @@ with how far they got: `gauntlet`, `quarterfinalist`, `semifinalist`,
 knocked out, the quarterfinals week its four losers, the semis their two, and
 the finals week prints the runner-up and the Champion — every player in the
 league exactly once, in the order they fell.
+
+**Byes and TBD slots need nothing.** `eliminationsInWeek` names the loser of a
+*decided* fixture and skips any fixture with a missing side, so the Academy's
+six-team bracket — two teams with a quarterfinal bye — needs no special case:
+a team with no quarterfinal fixture is simply not eliminated that week and
+prints when its own round ends, and a semifinal or final seeded with a TBD
+opponent is passed over until the names and the score are in. That is what
+makes it safe to seed a whole bracket up front (the seed-bracket workflow
+above). The week itself still counts as a playoff week the moment a playoff
+fixture is scheduled in it, so an unscored round prints nothing and is filled
+in later by the card-edition archive.
 
 **The rules module.** `src/lib/cards/sendoff.ts` is pure and owns all of it:
 `eliminationsInWeek` (the loser of each decided playoff fixture in an Eastern

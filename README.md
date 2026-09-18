@@ -443,6 +443,32 @@ Both replace what they draw — generating twice does not double the season —
 and each is scoped to its own stages, so the gauntlet draw never touches the
 regular season or the playoffs.
 
+### Seeding a bracket from a file
+
+A bracket that has already been decided goes in as a file rather than by
+hand: `scripts/data/brackets/*.json` holds the matchups, kickoffs and
+series lengths (the Academy playoffs are `academy-2026-playoffs.json`),
+and the **Seed bracket** workflow puts them on the schedule — Actions →
+"Seed bracket" → Run workflow.
+
+**Dry run is ticked by default.** A dry run reads the database, checks
+every team name against the league's team list, prints the exact
+fixtures it would insert, update or leave alone, and writes nothing — a
+misspelt team fails the run with the bad names listed instead of landing
+a fixture whose send-off prints nobody. Read that log, then run it again
+with the box unticked.
+
+Writing is repeatable: rows are keyed by season, stage and sort order,
+so a second run rewrites the rows it wrote rather than adding a second
+copy; a fixture that already has a score is left completely alone; and
+nothing is ever deleted. Fix a kickoff or fill in a TBD in the file and
+run it again. Same thing locally, with `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY` set:
+
+```bash
+npx tsx scripts/seed-bracket.ts scripts/data/brackets/academy-2026-playoffs.json --dry-run
+```
+
 ## Draft data export
 
 Every pick and ban the league has recorded can be pulled out as a
