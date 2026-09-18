@@ -58,4 +58,15 @@ describe("RulebookContent", () => {
     expect(screen.getByRole("figure", { name: /gauntlet and playoff format/i })).toBeTruthy();
     expect(screen.getByRole("img", { name: /gauntlet and playoff bracket/i })).toBeTruthy();
   });
+
+  it("states the gauntlet's split series lengths and its one-day schedule", () => {
+    render(<RulebookContent />);
+
+    expect(
+      screen.getByText(
+        /Round 1 of the gauntlet is a Bo1 and round 2 is a Bo3, with cross-division matchups prioritized\./i,
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(/Also, both rounds of the gauntlet are on the same day\./i)).toBeTruthy();
+  });
 });

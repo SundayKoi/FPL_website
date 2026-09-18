@@ -22,6 +22,7 @@ import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardEditionWeeks, fetchCardSeason } from "@/lib/cards/queries";
 import { fetchChase } from "@/lib/packs/queries";
 import AdminGenerateSchedule from "@/components/schedule/AdminGenerateSchedule";
+import AdminGenerateGauntlet from "@/components/schedule/AdminGenerateGauntlet";
 import FixtureCard from "@/components/schedule/FixtureCard";
 import CollapsibleScheduleStage from "@/components/schedule/CollapsibleScheduleStage";
 import { fetchTeamIdentities } from "@/lib/teams/identity";
@@ -162,7 +163,11 @@ export default async function SchedulePage({
                 {/* season is null until fixtures exist, which is exactly when the
                     draw is needed — fall back to the league's current season. */}
                 {(season ?? settings?.current_season) && (
-                  <AdminGenerateSchedule season={(season ?? settings?.current_season) as string} />
+                  <>
+                    <AdminGenerateSchedule season={(season ?? settings?.current_season) as string} />
+                    {/* Premier only — the Academy has no gauntlet. */}
+                    <AdminGenerateGauntlet season={(season ?? settings?.current_season) as string} />
+                  </>
                 )}
               </>
             ) : (
