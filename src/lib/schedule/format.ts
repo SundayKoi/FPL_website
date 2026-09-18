@@ -42,9 +42,9 @@ export function resolveSeason(rows: FixtureRow[], requested: string | undefined)
 
 /**
  * Presentation metadata per stage, straight from the Split 5 rulebook:
- * 5 regular-season weeks of intra-division Bo3s (Mondays 8pm ET), a
- * two-round Bo1 gauntlet played on one day, then Quarterfinals (four Bo5s
- * on one day), Semifinals, and Finals.
+ * 5 regular-season weeks of intra-division Bo3s (Mondays 8pm ET), a gauntlet
+ * whose first round is a Bo1 and whose second round is a Bo3, both played on
+ * one day, then Quarterfinals (four Bo5s on one day), Semifinals, and Finals.
  */
 export interface StageMeta {
   stage: FixtureStage;
@@ -79,8 +79,8 @@ export const STAGE_META: StageMeta[] = [
     stage: "gauntlet_r2",
     label: "Gauntlet — Round 2",
     group: "Gauntlet",
-    bestOf: 1,
-    note: "Bo1 · Round 1 winners vs the 4th seeds",
+    bestOf: 3,
+    note: "Bo3 · Round 1 winners vs the 4th seeds",
   },
   {
     stage: "quarterfinals",
