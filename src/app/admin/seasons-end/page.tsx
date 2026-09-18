@@ -11,7 +11,7 @@ import { readViewerDiscordId } from "@/lib/cards/viewer";
 import { BEST_OF_MIN_CHAMPION_GAMES, BEST_OF_EXPANSION_MIN_GAMES, BEST_OF_EXPANSION_MIN_WINS } from "@/lib/season-end/best-of";
 import { AWARD_GROUPS } from "@/lib/season-end/catalog";
 import type { SeasonEndResult } from "@/lib/season-end/derive";
-import { loadSeasonEnd } from "@/lib/season-end/queries";
+import { loadSeasonEnd, loadSeasonEndTeamIdentities, type SeasonEndTeamIdentityMap } from "@/lib/season-end/queries";
 import { resolveLeagueView, type LeagueView } from "@/lib/league/context";
 import { fetchPatronActive } from "@/lib/patron/queries";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -47,6 +47,7 @@ export default async function SeasonsEndPage({
   let result: SeasonEndResult | null = null;
   let allSeasonCards: Awaited<ReturnType<typeof fetchSeasonCards>> = [];
   let seasonCards: Awaited<ReturnType<typeof fetchSeasonCards>> = [];
+  let teamIdentities: SeasonEndTeamIdentityMap = {};
   let error: string | null = null;
   let seasonCardsError = false;
 
@@ -58,10 +59,15 @@ export default async function SeasonsEndPage({
   // The honors desk is still useful when the richer normal-card rendering
   // cannot be assembled. Do not turn a garnish query into a page failure.
   if (result) {
-    try {
-      allSeasonCards = await fetchSeasonCards(client, season);
+    const [identityResult, cardsResult] = await Promise.all([
+      loadSeasonEndTeamIdentities(client, league, season).catch(() => ({})),
+      fetchSeasonCards(client, season).catch(() => null),
+    ]);
+    teamIdentities = identityResult;
+    if (cardsResult) {
+      allSeasonCards = cardsResult;
       seasonCards = allSeasonCards.filter((card) => card.level > 5);
-    } catch {
+    } else {
       seasonCardsError = true;
     }
   }
@@ -112,7 +118,7 @@ export default async function SeasonsEndPage({
             <section id={`group-${groupIndex}`} key={group} aria-label={group} className="scroll-mt-8">
               <div className="mb-5 flex items-baseline gap-4 border-b border-line pb-3"><span className="font-mono text-sm text-steel">{String(groupIndex + 1).padStart(2, "0")}</span><h2 className="type-display text-3xl text-gold">{group}</h2></div>
               <div className={`${styles.cardRow} ${group === "Best of Champions" ? styles.bestOfCardRow : styles.ordinaryCardRow}`}>
-                {awards.map((award, index) => <SeasonEndAwardCard key={award.id} award={award} season={season} league={league} index={index} cards={allSeasonCards} showAdminDetails={staff} />)}
+                {awards.map((award, index) => <SeasonEndAwardCard key={award.id} award={award} season={season} league={league} index={index} cards={allSeasonCards} teamIdentities={teamIdentities} showAdminDetails={staff} />)}
               </div>
             </section>
           );

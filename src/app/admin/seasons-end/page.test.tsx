@@ -1,9 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { staff, load, fetchCards, redirect, readViewerDiscordId, fetchPatronActive } = vi.hoisted(() => ({
+const { staff, load, loadTeamIdentities, fetchCards, redirect, readViewerDiscordId, fetchPatronActive } = vi.hoisted(() => ({
   staff: vi.fn(),
   load: vi.fn(),
+  loadTeamIdentities: vi.fn(),
   fetchCards: vi.fn(),
   redirect: vi.fn(() => { throw new Error("redirect"); }),
   readViewerDiscordId: vi.fn(),
@@ -15,7 +16,7 @@ vi.mock("@/lib/auth/staffTier", () => ({ fetchStaffTier: staff }));
 vi.mock("@/lib/betting/service-client", () => ({ createBettingServiceClient: vi.fn(() => ({})) }));
 vi.mock("@/lib/cards/viewer", () => ({ readViewerDiscordId }));
 vi.mock("@/lib/patron/queries", () => ({ fetchPatronActive }));
-vi.mock("@/lib/season-end/queries", () => ({ loadSeasonEnd: load }));
+vi.mock("@/lib/season-end/queries", () => ({ loadSeasonEnd: load, loadSeasonEndTeamIdentities: loadTeamIdentities }));
 vi.mock("@/lib/cards/queries", () => ({ fetchSeasonCards: fetchCards }));
 vi.mock("@/components/admin/SeasonEndAwardCard", () => ({
   default: ({ award, cards }: { award: { title: string; winners: { value: number }[] }; cards: unknown[] }) => (
@@ -37,6 +38,7 @@ beforeEach(() => {
   staff.mockResolvedValue({ isAdmin: true, isOwner: false });
   readViewerDiscordId.mockResolvedValue("patron-discord-id");
   fetchPatronActive.mockResolvedValue(false);
+  loadTeamIdentities.mockResolvedValue({});
   load.mockResolvedValue({
     games: 6,
     players: 10,
@@ -88,6 +90,7 @@ describe("Season's End admin page", () => {
     render(await Page({ searchParams: Promise.resolve({ league: "academy" }) }));
     expect(load).toHaveBeenCalledWith({}, "academy", "A1");
     expect(fetchCards).toHaveBeenCalledWith({}, "A1");
+    expect(loadTeamIdentities).toHaveBeenCalledWith({}, "academy", "A1");
     expect((screen.getByRole("combobox", { name: "League" }) as HTMLSelectElement).value).toBe("academy");
   });
 

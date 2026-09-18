@@ -821,6 +821,10 @@ renderer) has no CSS 3D, blend modes or animation, so the parallels the live
 card wears as moving light are reduced to flat marks — a named badge, a
 frame colour, a "1 OF 1" stamp — by `src/lib/cards/render/treatment.ts`.
 
+Autographs render from the frozen PNG carried by a signed copy. Browser cards
+use a neutral contrast treatment and share images use a static neutral backing;
+the renderer never normalizes, recolors, or rewrites the player's ink.
+
 **Both urls carry a cache key, and neither may be built by hand.** Discord's
 image proxy caches by URL, so a url that never changes pictures whatever was
 rendered the first time it was fetched, forever; that is a bug this repo has

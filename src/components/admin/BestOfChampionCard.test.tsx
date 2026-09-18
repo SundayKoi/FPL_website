@@ -218,6 +218,7 @@ describe("BestOfChampionCard", () => {
 
     rerender(<BestOfChampionCard {...props} autograph="data:image/png;base64,frozen-ink" />);
     expect(screen.getByAltText("Alice#NA1's autograph")).toBeTruthy();
+    expect(screen.getByTestId("best-of-autograph")).toBeTruthy();
   });
 
   it("renders small division emblems and keeps heading IDs distinct for multiple winners", () => {

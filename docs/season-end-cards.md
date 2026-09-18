@@ -9,15 +9,17 @@ read-only awards desk, not a collectible mint or a season-closing operation.
 The former `/admin/season-end` route redirects here for existing admin
 bookmarks.
 
-Ordinary accolade entries use a unified collectible treatment: a framed portrait
-face with an exact 63:88 ratio, champion splash art, season/league and known-
-division metadata, and the award title and description over a bottom-weighted
-art gradient. The lower result panel is an ivory 22% region for the winner
-identity, headline value/unit, and concise evidence. Long evidence, status notes,
-and team rosters remain available in keyboard-accessible disclosures below the
-fixed-ratio face; missing art uses a neutral art region and empty results keep
-the same frame and explanatory content. Team honors use the roster-card data
-to choose a champion background when a complete team is available. Best of
+Ordinary accolade entries use a unified collectible treatment: a framed dark
+face with champion art, season/league and known-division metadata, and the
+award title and description over a bottom-weighted art gradient. The lower
+result panel holds the winner identity, headline value/unit, and concise
+evidence. Long evidence, status notes, and team rosters remain available in
+keyboard-accessible disclosures below the face; missing art uses a neutral art
+region and empty results keep the same frame and explanatory content. Pair
+accolades use two equal panels with a separate role/player/champion label and
+crop for each member. Team honors use a scoped team logo (or an abbreviation/
+monogram fallback) on the dark face; they never borrow champion art or require a
+complete roster card. Best of
 Champion is the visual exception: its face is a 5:7 full-bleed champion splash
 with a clean continuous double gold edge frame, a manually calibrated crop, the
 player name in the lower title region, and the selected season/league in the
@@ -53,6 +55,16 @@ catalog or signature-query failures keep the card readable and offer retry.
 Missing alternate art falls back to the champion's base art. See the [Best of
 results-ranking decision](plans/2026-09-16-best-of-results-ranking.md).
 
+Pair artwork is cosmetic evidence, not a second award calculation. For each
+awarded member, selected-season regular-season appearances are scoped to the
+award team, division, and awarded role, then grouped by canonical champion.
+Candidates rank by wins, unrounded win rate, mean role-relative performance
+when every candidate has performance coverage, and canonical champion ID for a
+deterministic exact tie. One-game appearances are eligible. If no known art is
+available, only that member's panel becomes neutral; the pair result remains
+valid. Saved champion overrides and the globally allocated Best of assignment
+are not used for pair panels.
+
 Ordinary player, player-pair, and Teamwork accolades are calculated separately
 inside Solari and Lunari, so each such accolade has one card per division. The
 card marks Solari with a sun and Lunari with a moon. Best of Champions is the
@@ -62,6 +74,31 @@ Academy is calculated independently. The ordinary cumulative Season Cards
 remain outside this division policy. Division seals are presentation metadata
 resolved from every selected-season regular-season appearance; conflicting or
 unresolved team/row divisions do not receive an invented default.
+
+Jungle–Mid Connection and Bot–Support Connection use the same Duo Impact v1
+formula. A pair must have at least five shared regular-season games, using the
+configured qualification floor. For each shared game, each member is scored
+against the same role in the selected division, league, and season using the
+midrank percentile convention; jungle is compared with jungle, mid with mid,
+bot with bot, and support with support. The two member scores contribute
+equally to the game score, and the season score is the mean of those game
+scores:
+
+- kill participation: 35%
+- KDA: 25%
+- champion damage per minute: 20%
+- vision score per minute: 20%
+
+These are normalized component scores out of 100, not raw percentages or
+absolute ratings comparable across seasons. Shared wins, losses, win rate, and
+games remain visible evidence and do not contribute to Duo Impact. All four
+stored fields (`kill_participation_pct`, `kda`, `damage_per_min`, and
+`vision_score_per_min`) must be finite for every appearance in each relevant
+role's reference pool; missing values are not zeros, while real zeros remain
+valid. Missing data in unrelated roles does not withhold the pair award. The
+score describes performance while two players were on the same team, but the
+aggregates do not establish that they participated in the same kills, ganks, or
+lane plays, so Duo Impact is not a measured coordination metric.
 
 Best of face crops use the curated base-skin registry in
 `src/lib/season-end/championArt.ts`. It stores CSS crop positions rather than
@@ -77,7 +114,13 @@ Supabase client. Reads are scoped to the selected season and `Regular` phase,
 paged in primary-key order until exhaustion, and fail together on query errors.
 Season prefixes enforce the existing Premier/Academy boundary. When fixtures
 exist, their team names also constrain the data. Variant reads are on-demand and
-return only the selected winner's catalog and season-scoped signature.
+return only the selected winner's catalog and season-scoped signature. Team
+artwork performs one additional authorized lookup after the access gate: settings
+must resolve the requested season to the intended league draft, and team
+identities are read only from that draft. Name/abbreviation aliases are accepted
+only when unambiguous; unresolved seasons, lookup failures, missing logos, or
+broken images use a neutral identity fallback. This lookup is independent of
+cumulative player-card loading.
 
 ## Season Card customization
 

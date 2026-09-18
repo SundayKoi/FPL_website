@@ -1,4 +1,3 @@
-import Image from "next/image";
 import type { CSSProperties } from "react";
 import { championCenteredUrl, championDisplayName, championSplashUrl } from "@/lib/match-draft/champions";
 import type { PlayerCardData } from "@/lib/cards/build";
@@ -6,6 +5,7 @@ import type { AwardWinner, SeasonAward } from "@/lib/season-end/derive";
 import { championArtCrop, type ChampionArtCrop } from "@/lib/season-end/championArt";
 import { formatAwardPresentation, formatInteger } from "@/lib/season-end/presentation";
 import type { Division } from "@/lib/schedule/types";
+import AutographMark from "@/components/cards/AutographMark";
 import BestOfDivisionEmblem from "./BestOfDivisionEmblem";
 import styles from "./BestOfChampionCard.module.css";
 
@@ -151,16 +151,13 @@ export default function BestOfChampionCard({
         )}
 
         {winner && autograph ? (
-          <span className={styles.autographBox} data-testid="best-of-autograph">
-            <Image
-              src={autograph}
-              alt={`${identity ?? name ?? "Player"}'s autograph`}
-              fill
-              sizes="96px"
-              unoptimized
-              className={styles.autograph}
-            />
-          </span>
+          <AutographMark
+            src={autograph}
+            alt={`${identity ?? name ?? "Player"}'s autograph`}
+            placement="large"
+            sizes="(max-width: 640px) 54vw, 220px"
+            testId="best-of-autograph"
+          />
         ) : null}
 
         <footer className={styles.footer}>

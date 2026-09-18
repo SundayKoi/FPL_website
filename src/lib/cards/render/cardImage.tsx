@@ -180,9 +180,9 @@ export function renderCardImage({ card, foil, foilType, signed, autograph, label
           )}
           {/* The ink, over the lower right of the art — the half of the
               band the name and role do not use, which is where it sits on
-              the live card too. Flat: satori has no rotation to sign at an
-              angle with and no drop-shadow to lift white ink off a bright
-              splash, so it gets a dark plate to sit on instead. */}
+              the live card too. Flat: satori has no rotation, CSS filters,
+              pseudo-elements, blend modes, or animation, so the neutral
+              backing keeps the untouched PNG legible instead. */}
           {look.ink ? (
             <div
               style={{
@@ -192,14 +192,15 @@ export function renderCardImage({ card, foil, foilType, signed, autograph, label
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                width: 200,
-                height: 92,
-                borderRadius: 10,
-                background: "rgba(0,0,0,0.42)",
+                width: 224,
+                height: 96,
+                borderRadius: 12,
+                background: "rgba(3,8,12,0.64)",
+                border: "1px solid rgba(248,248,255,0.18)",
               }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={look.ink} alt="" width={188} height={80} style={{ objectFit: "contain" }} />
+              <img src={look.ink} alt="" width={212} height={84} style={{ objectFit: "contain" }} />
             </div>
           ) : null}
           {look.ribbon ? (

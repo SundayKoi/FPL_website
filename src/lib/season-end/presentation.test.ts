@@ -91,4 +91,37 @@ describe("season-end presentation", () => {
     expect(display.evidence).not.toContain("score");
     expect(display.evidence).not.toMatch(/\d+\.\d/);
   });
+
+  it("presents duo impact out of 100 with the shared record", () => {
+    const display = formatAwardPresentation({
+      ...award({
+        id: "bot-support-connection",
+        title: "Bot–Support Connection",
+        group: "Teamwork",
+        scope: "pair",
+        mode: undefined,
+        unit: undefined,
+      }),
+    }, {
+      ...winner(81.6),
+      games: 6,
+      evidence: {
+        duo: {
+          formulaVersion: "duo-impact-v1",
+          weights: { kill_participation_pct: .35, kda: .25, damage_per_min: .2, vision_score_per_min: .2 },
+          componentScores: { kill_participation_pct: 90, kda: 80, damage_per_min: 75, vision_score_per_min: 70 },
+          members: [] as never,
+          games: 6,
+          wins: 4,
+          losses: 2,
+          winRate: 100 * 4 / 6,
+        },
+      },
+    });
+
+    expect(display.headline).toBe("82 / 100");
+    expect(display.unit).toBe("Duo Impact");
+    expect(display.evidence).toBe("4–2 together · 6 games");
+    expect(display.usesTotal).toBe(false);
+  });
 });

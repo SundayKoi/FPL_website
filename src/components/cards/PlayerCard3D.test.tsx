@@ -345,7 +345,8 @@ describe("PlayerCard3D", () => {
     expect(ink.className).toContain("card-ink-write");
     // And a pen tip rides the wet edge; the box carries the signing angle.
     expect(container.querySelector("[data-testid='autograph-pen']")).toBeTruthy();
-    expect((container.querySelector("[data-testid='autograph-box']") as HTMLElement).style.transform).toContain("rotate(-6deg)");
+    expect(container.querySelector("[data-testid='autograph-box']")?.className).toBeTruthy();
+    expect(container.querySelector("[data-testid='autograph-box'] img")).toBe(ink);
     expect(container.querySelector("[data-testid='signed-stamp']")?.getAttribute("title")).toContain("Signed");
   });
 

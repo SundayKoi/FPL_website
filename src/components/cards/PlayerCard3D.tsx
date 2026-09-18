@@ -52,6 +52,7 @@ export type OverlayPreview = Pick<OverlayMockup, "front" | "back" | "chip" | "ar
 import { lineTreatmentFor } from "@/lib/cards/skinLines";
 import MomentPlate from "./MomentPlate";
 import TeamCard from "./TeamCard";
+import AutographMark from "./AutographMark";
 
 /** Fixed sparkle placements (percent coords + stagger) for the top-tier
  *  glint layer — deterministic so SSR and client agree. */
@@ -921,22 +922,15 @@ function PlayerCardFace({
                 // with a pen-tip glint riding the wet edge (globals.css keys
                 // both to the frame's data-motion). The box holds the ink and
                 // the pen at the same angle a hand signs at.
-                <div
-                  data-testid="autograph-box"
-                  className="pointer-events-none absolute -top-[3.75rem] right-2 w-[50%]"
-                  style={{ transform: "rotate(-6deg)" }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={card.autograph}
-                    alt={`${card.name}'s autograph`}
-                    data-testid="autograph"
-                    decoding="async"
-                    className={`block w-full object-contain ${overlay?.ink ? "card-ov-ink-write" : "card-ink-write"}`}
-                    style={{ filter: "drop-shadow(0 1px 3px rgb(0 0 0 / 0.95)) drop-shadow(0 0 8px rgb(255 255 255 / 0.35))" }}
-                  />
-                  {overlay?.ink ? null : <span aria-hidden data-testid="autograph-pen" className="card-ink-pen" />}
-                </div>
+                <AutographMark
+                  src={card.autograph}
+                  alt={`${card.name}'s autograph`}
+                  placement="standard"
+                  animationClassName={overlay?.ink ? "card-ov-ink-write" : "card-ink-write"}
+                  showPen={!overlay?.ink}
+                  testId="autograph-box"
+                  imageTestId="autograph"
+                />
               ) : null}
               <div className="rounded-lg bg-black/65 px-3 py-1.5 text-center backdrop-blur-[2px]">
                 <span className="font-display text-base font-bold not-italic text-white">{card.archetype}</span>
