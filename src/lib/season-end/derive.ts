@@ -5,12 +5,15 @@ import { DIVISIONS, type Division, type FixtureRow } from "@/lib/schedule/types"
 import { cardPlayerKey } from "@/lib/cards/build";
 import {
   BEST_OF_MIN_PLAYER_GAMES,
-  BEST_OF_MIN_CHAMPION_GAMES,
   canonicalChampion,
   selectBestOf,
   type BestOfCapPromotion,
+  type BestOfPass,
   type BestOfSelectionDiagnostics,
 } from "./best-of";
+import { DUO_FORMULA_VERSION, DUO_IMPACT_WEIGHTS, DUO_PAIR_DEFINITIONS, midrankPercentile, scoreDuoPairs, type DuoEvidence, type DuoMemberEvidence } from "./duo";
+import { withPairChampionEvidence } from "./pairArt";
+import type { PairArtMember } from "./pairArt";
 
 /** Raw storage fields stay nullable. Missing observations must never become zero. */
 export interface SeasonRow {
@@ -41,6 +44,8 @@ export interface AwardWinner {
   championGames?: number;
   championId?: string;
   playerKeys?: string[];
+  /** Ordered cosmetic pair evidence retained alongside the scoring evidence. */
+  pairMembers?: [PairArtMember, PairArtMember];
   title?: string;
   evidence?: AwardEvidence;
 }
@@ -49,8 +54,10 @@ export interface AwardEvidence {
   kda?: number;
   mean?: number;
   bestOf?: BestOfEvidence;
+  duo?: DuoEvidence;
 }
 export interface BestOfEvidence {
+  selectionPass?: BestOfPass;
   wins: number;
   losses: number;
   /** Percentage points (for example, 71.428... for a 5–2 record). */
@@ -291,8 +298,7 @@ export function deriveSeasonEnd(
     if (!roleRows[0].role || performanceFields.some(f => !all(roleRows, f))) continue;
     for (const r of roleRows) r.performance = mean(performanceFields.map(field => {
       const values = all(roleRows, field)!; const value = number(r, field)!;
-      if (values.length === 1) return 50;
-      return 100 * (values.filter(v => v < value).length + (values.filter(v => v === value).length - 1) / 2) / (values.length - 1);
+      return midrankPercentile(value, values)!;
     }));
   }
   const performance = (row: SeasonRow) => number(row, "performance") ?? 0;
@@ -304,7 +310,7 @@ export function deriveSeasonEnd(
     const best = (lower ? Math.min : Math.max)(...eligible.map(v => v.value));
     return { ...def, status: "ready", winners: eligible.filter(v => Math.abs(v.value - best) < 1e-9).sort((a,b) => a.name.localeCompare(b.name)) };
   };
-  const winner = (g: Group, value: number, detail?: string): AwardWinner => ({ name: g.name, team: g.team, games: g.rows.length, value, detail });
+  const winner = (g: Group, value: number, detail?: string): AwardWinner => ({ name: g.name, team: g.team, games: g.rows.length, value, detail, playerKeys: g.rows[0] ? [playerKey(g.rows[0])] : undefined });
   const missing = (def: AwardDefinition) => unavailable(def, "Required observations are missing or ambiguous; no winner declared from incomplete data.");
   const baseAwards = SEASON_AWARDS.map((def): SeasonAward => {
     if (!rows.length) return unavailable(def, "No regular-season games available for this league and season.");
@@ -353,6 +359,7 @@ export function deriveSeasonEnd(
             record: `${candidate.wins}–${candidate.championGames - candidate.wins}`,
             ...(kda === undefined ? {} : { kda }),
             bestOf: {
+              selectionPass: candidate.selectionPass,
               wins: candidate.wins,
               losses: candidate.championGames - candidate.wins,
               winRate: 100 * candidate.wins / candidate.championGames,
@@ -382,7 +389,7 @@ export function deriveSeasonEnd(
           note: bestOfSelection.diagnostics.eligiblePlayers === 0
             ? `No player has at least ${BEST_OF_MIN_PLAYER_GAMES} regular-season games.`
             : bestOfSelection.diagnostics.qualifyingCandidates === 0
-              ? `No eligible player has at least ${BEST_OF_MIN_CHAMPION_GAMES} games on a candidate champion.`
+              ? "No eligible player has a recorded champion appearance."
               : "No eligible champion assignment is available.",
         };
     }
@@ -485,27 +492,57 @@ export function deriveSeasonEnd(
       }
       return choose(def, values);
     }
-    if (def.id === "jungle-mid-connection") {
-      const pairs = new Map<string, AwardWinner & { wins: number }>();
-      for (const g of teamGames) {
-        const jungle = g.filter(r => r.role === "JUNGLE"), mid = g.filter(r => r.role === "MIDDLE");
-        if (jungle.length !== 1 || mid.length !== 1) return missing(def);
-        const name = `${identity(jungle[0])} + ${identity(mid[0])}`, key = `${teamKey(g[0].team_name)}|${name}`;
-        const pair = pairs.get(key) ?? { name, team: g[0].team_name, value: 0, games: 0, wins: 0 };
-        pair.games++;
-        if (g[0].win) pair.wins++;
-        pairs.set(key, pair);
-      }
-      const values = [...pairs.values()]
-        .filter((pair) => pair.games >= minGames)
-        .map((pair) => ({
-          ...pair,
-          value: 100 * pair.wins / pair.games,
-          total: pair.wins,
-          perGame: 100 * pair.wins / pair.games,
-          detail: `${pair.wins}–${pair.games - pair.wins} together`,
-        }));
-      return choose(def, values);
+    const duoDefinition = DUO_PAIR_DEFINITIONS.find((candidate) => candidate.awardId === def.id);
+    if (duoDefinition) {
+      const scored = scoreDuoPairs(rows, teamGames, duoDefinition, minGames);
+      if (scored.status === "unavailable") return unavailable(def, scored.note);
+      if (scored.status === "unearned") return { ...def, winners: [], status: "unearned", note: scored.note };
+
+      const values = scored.pairs.map((pair) => {
+        const members = withPairChampionEvidence(rows, pair.members.map((member, index) => ({
+          ...member,
+          games: pair.games,
+          wins: pair.wins,
+          losses: pair.losses,
+          winRate: pair.winRate,
+          rawAverages: pair.rawAverages[index],
+          componentScores: pair.memberComponentScores[index],
+          champion: null,
+        })) as [DuoMemberEvidence, DuoMemberEvidence], pair.team);
+        const evidence: DuoEvidence = {
+          formulaVersion: DUO_FORMULA_VERSION,
+          weights: { ...DUO_IMPACT_WEIGHTS },
+          componentScores: pair.componentScores,
+          members,
+          games: pair.games,
+          wins: pair.wins,
+          losses: pair.losses,
+          winRate: pair.winRate,
+        };
+        const pairMembers = members.map((member) => ({
+          playerKey: member.playerKey,
+          name: member.name,
+          role: ({ JUNGLE: "Jungle", MIDDLE: "Mid", BOTTOM: "Bot", UTILITY: "Support" } as const)[member.role],
+          champion: member.champion ? {
+            id: member.champion.championId,
+            name: member.champion.champion,
+            games: member.champion.games,
+            wins: member.champion.wins,
+            winRate: member.champion.winRate / 100,
+            ...(member.champion.meanPerformance === undefined ? {} : { meanPerformance: member.champion.meanPerformance }),
+          } : null,
+        })) as [PairArtMember, PairArtMember];
+        return {
+          name: members.map((member) => member.name).join(" + "),
+          team: pair.team,
+          value: pair.value,
+          games: pair.games,
+          playerKeys: members.map((member) => member.playerKey),
+          pairMembers,
+          evidence: { duo: evidence },
+        };
+      });
+      return choose(def, values, false, true);
     }
     const values: AwardWinner[] = [];
     for (const t of teams) {

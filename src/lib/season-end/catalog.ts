@@ -1,3 +1,5 @@
+import { DUO_MIN_GAMES } from "./duo";
+
 export type AwardGroup = "Teamwork" | "Meme inserts" | "Season stories" | "Best of Champions" | "Support & survival" | "Record breakers";
 export type AwardScope = "player" | "pair" | "team";
 export type AwardPartition = "division" | "league";
@@ -45,8 +47,11 @@ const special = (
 ): AwardDefinition =>
   ({ id: idFor(title), title, description, group, scope, partition: "division", ...(mode ? { mode, unit } : {}), ...presentation });
 export const AWARD_GROUPS: AwardGroup[] = ["Teamwork", "Meme inserts", "Season stories", "Best of Champions", "Support & survival", "Record breakers"];
+const duoDescription = (left: string, right: string) =>
+  `${left}–${right} pair with the highest Duo Impact score out of 100 in shared regular-season games. Each member contributes equally; kill participation is weighted 35%, KDA 25%, champion damage/min 20%, and vision score/min 20%, with every component normalized against the same role in the selected division and season. Requires at least ${DUO_MIN_GAMES} shared games; shared wins, losses, win rate, and games are evidence only.`;
 export const SEASON_AWARDS: AwardDefinition[] = [
-  special("Teamwork", "Jungle–Mid Connection", "Jungle/mid pair with the highest win rate together, on the same team.", "pair", "rate", "%"),
+  special("Teamwork", "Jungle–Mid Connection", duoDescription("Jungle", "Mid"), "pair"),
+  special("Teamwork", "Bot–Support Connection", duoDescription("Bot", "Support"), "pair"),
   special("Teamwork", "Fortress", "Fewest towers lost per team game, measured from the opposing team's towers destroyed.", "team", undefined, "", { totalUnit: "towers", totalFallback: true }),
   special("Teamwork", "Dragon Hoard", "Most team dragons secured per team game.", "team", "perGame", "dragons/game", { totalUnit: "dragons", totalFallback: true }),
   special("Teamwork", "Speedrunners", "Shortest average game duration in wins; at least three wins.", "team"),
@@ -62,7 +67,7 @@ export const SEASON_AWARDS: AwardDefinition[] = [
   special("Season stories", "Late Bloomer", "Highest mean role-relative performance in the final chronological third of league games; at least three games in that window."),
   special("Season stories", "Metronome", "Lowest performance standard deviation, with mean score at least 60 and every game at least 40 (out of 100)."),
   special("Season stories", "Bloodline", "Longest consecutive run of appearances with at least one solo kill."),
-  special("Best of Champions", "Best of Champion", "Highest qualifying champion wins, then champion win rate, then mean role-relative performance. One card per player and per champion across the selected league.", "player", "total", "wins", { partition: "league" }),
+  special("Best of Champions", "Best of Champion", "Champion wins, then win rate, then mean role-relative performance. Three passes preserve original picks, add two-game records with a win, then fill remaining players from unclaimed played champions. One card per player and per champion across the selected league.", "player", "total", "wins", { partition: "league" }),
   metric("Season stories", "Lane Landlord", "Highest mean gold lead at 15 against the unique opposing-role player.", "gold_diff_15", "mean", "gold"),
   metric("Season stories", "Fast Starter", "Highest rate of games strictly ahead of the opposing role in gold at 10.", "ahead_10", "rate", "%", false, { totalUnit: "games ahead at 10", totalFallback: true }),
   metric("Season stories", "Carry the Banner", "Highest average share of team champion damage.", "damage_share_pct", "mean", "%"),

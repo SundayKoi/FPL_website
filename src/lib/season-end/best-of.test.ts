@@ -32,7 +32,7 @@ const winnerKeys = (selection: ReturnType<typeof selectBestOf>) =>
   selection.presentation.map((candidate) => `${candidate.playerKey}:${candidate.championId}`);
 
 describe("Best of results selector", () => {
-  it("centralizes the five-overall and three-champion evidence thresholds", () => {
+  it("keeps five overall games while expanding beyond the original three-champion threshold", () => {
     expect(BEST_OF_MIN_PLAYER_GAMES).toBe(5);
     expect(BEST_OF_MIN_CHAMPION_GAMES).toBe(3);
 
@@ -46,9 +46,8 @@ describe("Best of results selector", () => {
       ...record("alice", "Lux", 1, 1),
       ...record("alice", "Garen", 0, 1),
     ]);
-    expect(twoChampion.selected).toHaveLength(0);
-    expect(twoChampion.diagnostics.playersWithoutCard[0].reason).toBe("champion-threshold");
-    expect(twoChampion.diagnostics.championsBelowThreshold).toHaveLength(4);
+    expect(twoChampion.selected).toMatchObject([{ champion: "Ahri", selectionPass: "expansion" }]);
+    expect(twoChampion.diagnostics.playersWithoutCard).toHaveLength(0);
 
     const threeChampion = selectBestOf([
       ...record("alice", "Ahri", 2, 3),
@@ -68,7 +67,7 @@ describe("Best of results selector", () => {
     ];
     const selection = selectBestOf(candidates);
 
-    expect(selection.candidates.map((candidate) => candidate.playerKey)).toEqual([
+    expect(selection.candidates.filter((candidate) => candidate.championGames >= 3).map((candidate) => candidate.playerKey)).toEqual([
       "five-zero", "five-two", "equal-record-high", "equal-record-low", "three-zero",
     ]);
     expect(selectBestOf(record("uncontested", "Garen", 0, 3, 20, 5)).selected[0]).toMatchObject({ wins: 0, championGames: 3 });
@@ -144,7 +143,7 @@ describe("Best of results selector", () => {
     const shuffled = selectBestOf([...input].reverse());
     expect(winnerKeys(first)).toEqual(winnerKeys(shuffled));
     expect(first.diagnostics.totalPlayers).toBe(3);
-    expect(first.selected.map((candidate) => candidate.playerKey)).toEqual(["same#na1", "different"]);
+    expect(first.selected.filter((candidate) => candidate.selectionPass === "original").map((candidate) => candidate.playerKey)).toEqual(["same#na1", "different"]);
   });
 
   it("canonicalizes champion aliases before applying the champion cap", () => {
@@ -153,8 +152,48 @@ describe("Best of results selector", () => {
       ...record("alice", "MonkeyKing", 3, 3, 50, 5),
       ...record("bob", "Wukong", 3, 3, 50, 5),
     ]);
-    expect(selection.selected).toHaveLength(1);
+    expect(selection.selected.filter((candidate) => candidate.championId === "MonkeyKing")).toHaveLength(1);
     expect(selection.selected[0].championId).toBe("MonkeyKing");
     expect(selection.diagnostics.contestedChampions[0].champion).toBe("Wukong");
   });
+  it("locks original and two-game picks before filling remaining players", () => {
+    const input = [
+      ...record("original", "Ahri", 1, 3),
+      ...record("original", "Lux", 2, 2),
+      ...record("expansion", "Ahri", 2, 2),
+      ...record("expansion", "Lux", 1, 2),
+      ...record("expansion", "Garen", 1, 1),
+      ...record("remaining", "Lux", 2, 2),
+      ...record("remaining", "Ahri", 2, 2),
+      ...record("remaining", "Garen", 0, 1),
+    ];
+    const result = selectBestOf(input);
+    // The original winner keeps Ahri despite both two-game challengers.
+    // The strongest two-game Lux record wins next; no later pick reroutes it.
+    expect(result.selected).toMatchObject([
+      { playerKey: "original", champion: "Ahri", selectionPass: "original" },
+      { playerKey: "remaining", champion: "Lux", selectionPass: "expansion" },
+      { playerKey: "expansion", champion: "Garen", selectionPass: "remaining" },
+    ]);
+    expect(selectBestOf([...input].reverse()).selected).toEqual(result.selected);
+    expect(result.diagnostics.passCounts).toEqual({ original: 1, expansion: 1, remaining: 1 });
+    expect(new Set(result.selected.map(c => c.playerKey)).size).toBe(result.selected.length);
+    expect(new Set(result.selected.map(c => c.championId)).size).toBe(result.selected.length);
+  });
+
+  it("leaves winless two-game records for the last pass and permits a winless fallback", () => {
+    const result = selectBestOf([
+      ...record("alice", "Ahri", 0, 2, 90),
+      ...record("alice", "Lux", 1, 2, 10),
+      ...record("alice", "Garen", 0, 1),
+      ...record("bob", "Ahri", 0, 2, 80),
+      ...record("bob", "Lux", 0, 2, 10),
+      ...record("bob", "Garen", 0, 1),
+    ]);
+    expect(result.selected).toMatchObject([
+      { playerKey: "alice", champion: "Lux", selectionPass: "expansion" },
+      { playerKey: "bob", champion: "Ahri", selectionPass: "remaining", wins: 0 },
+    ]);
+  });
+
 });

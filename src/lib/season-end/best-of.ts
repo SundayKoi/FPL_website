@@ -3,6 +3,10 @@ import { championByName } from "@/lib/match-draft/champions";
 /** Best-of evidence thresholds. Keep these in one place for the selector and UI. */
 export const BEST_OF_MIN_PLAYER_GAMES = 5;
 export const BEST_OF_MIN_CHAMPION_GAMES = 3;
+export const BEST_OF_EXPANSION_MIN_GAMES = 2;
+export const BEST_OF_EXPANSION_MIN_WINS = 1;
+export type BestOfPass = "original" | "expansion" | "remaining";
+export type BestOfAwardedCandidate = BestOfCandidate & { selectionPass: BestOfPass };
 
 export interface BestOfAppearance {
   playerKey: string;
@@ -73,6 +77,7 @@ export interface BestOfSelectionDiagnostics {
   qualifyingCandidates: number;
   awardedPlayers: number;
   awardedChampions: number;
+  passCounts: Record<BestOfPass, number>;
   playersBelowThreshold: Array<{ playerKey: string; playerName: string; seasonGames: number }>;
   playersWithoutCard: BestOfPlayerWithoutCard[];
   championsBelowThreshold: BestOfChampionExclusion[];
@@ -83,12 +88,12 @@ export interface BestOfSelectionDiagnostics {
 }
 
 export interface BestOfSelection {
-  /** Every candidate after both eligibility thresholds, in ranking order. */
+  /** Every played champion for eligible players, in result ranking order. */
   candidates: BestOfCandidate[];
-  /** Awarded candidates in strongest-result-first allocation order. */
-  selected: BestOfCandidate[];
+  /** Earlier passes are locked; results are ranked within each pass. */
+  selected: BestOfAwardedCandidate[];
   /** The same awards in stable champion presentation order. */
-  presentation: BestOfCandidate[];
+  presentation: BestOfAwardedCandidate[];
   diagnostics: BestOfSelectionDiagnostics;
 }
 
@@ -172,7 +177,7 @@ export function selectBestOf(appearances: readonly BestOfAppearance[]): BestOfSe
     const byPlayer = groupBy(championAppearances, (appearance) => appearance.playerKey);
     const qualifying = [] as BestOfCandidate[];
     for (const [playerKey, playerAppearances] of byPlayer) {
-      if (!eligiblePlayerKeys.has(playerKey) || playerAppearances.length < BEST_OF_MIN_CHAMPION_GAMES) continue;
+      if (!eligiblePlayerKeys.has(playerKey)) continue;
       const playerAppearancesInSeason = players.get(playerKey)!;
       qualifying.push({
         playerKey,
@@ -217,9 +222,17 @@ export function selectBestOf(appearances: readonly BestOfAppearance[]): BestOfSe
   const usedChampions = new Set<string>();
   const winnerByPlayer = new Map<string, BestOfCandidate>();
   const winnerByChampion = new Map<string, BestOfCandidate>();
-  const selected: BestOfCandidate[] = [];
+  const selected: BestOfAwardedCandidate[] = [];
   const skippedCandidates: BestOfSkippedCandidate[] = [];
-  for (const candidate of orderedCandidates) {
+  // Disjoint pools ensure each record is evaluated once. Every later pass
+  // shares the same caps, so it cannot replace an earlier player/champion pair.
+  const passFor = (candidate: BestOfCandidate): BestOfPass =>
+    candidate.championGames >= BEST_OF_MIN_CHAMPION_GAMES ? "original"
+      : candidate.championGames >= BEST_OF_EXPANSION_MIN_GAMES && candidate.wins >= BEST_OF_EXPANSION_MIN_WINS
+        ? "expansion" : "remaining";
+  const allocationOrder = (["original", "expansion", "remaining"] as const)
+    .flatMap((pass) => orderedCandidates.filter((candidate) => passFor(candidate) === pass));
+  for (const candidate of allocationOrder) {
     const blockingPlayer = winnerByPlayer.get(candidate.playerKey);
     const blockingChampion = winnerByChampion.get(candidate.championId);
     if (blockingPlayer) {
@@ -227,7 +240,7 @@ export function selectBestOf(appearances: readonly BestOfAppearance[]): BestOfSe
     } else if (blockingChampion) {
       skippedCandidates.push({ candidate, reason: "champion-cap", blockedBy: blockingChampion });
     } else {
-      selected.push(candidate);
+      selected.push({ ...candidate, selectionPass: passFor(candidate) });
       usedPlayers.add(candidate.playerKey);
       usedChampions.add(candidate.championId);
       winnerByPlayer.set(candidate.playerKey, candidate);
@@ -237,7 +250,9 @@ export function selectBestOf(appearances: readonly BestOfAppearance[]): BestOfSe
 
   const capPromotions: BestOfCapPromotion[] = [];
   for (const winner of selected) {
-    const championCandidates = orderedCandidates.filter((candidate) => candidate.championId === winner.championId);
+    // Compare within allocation priority: a two-game record cannot displace
+    // an original winner even if it has a higher win rate.
+    const championCandidates = allocationOrder.filter((candidate) => candidate.championId === winner.championId);
     const unrestrictedLeader = championCandidates[0];
     if (unrestrictedLeader && unrestrictedLeader.playerKey !== winner.playerKey) {
       capPromotions.push({
@@ -284,12 +299,17 @@ export function selectBestOf(appearances: readonly BestOfAppearance[]): BestOfSe
     presentation,
     diagnostics: {
       playerThreshold: BEST_OF_MIN_PLAYER_GAMES,
-      championThreshold: BEST_OF_MIN_CHAMPION_GAMES,
+      championThreshold: 1,
       totalPlayers: playerSummaries.length,
       eligiblePlayers: eligiblePlayerKeys.size,
       qualifyingCandidates: orderedCandidates.length,
       awardedPlayers: selected.length,
       awardedChampions: usedChampions.size,
+      passCounts: {
+        original: selected.filter((candidate) => candidate.selectionPass === "original").length,
+        expansion: selected.filter((candidate) => candidate.selectionPass === "expansion").length,
+        remaining: selected.filter((candidate) => candidate.selectionPass === "remaining").length,
+      },
       playersBelowThreshold,
       playersWithoutCard,
       championsBelowThreshold: championExclusions.sort((left, right) => compareOrdinal(left.championId, right.championId)),

@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 vi.mock("server-only", () => ({}));
 const { derive } = vi.hoisted(() => ({ derive: vi.fn((rows, fixtures, season, league, options) => ({ rows, fixtures, season, league, options })) }));
 vi.mock("./derive", () => ({ deriveSeasonEnd: derive }));
-import { loadSeasonEnd } from "./queries";
+import { loadSeasonEnd, loadSeasonEndTeamIdentities } from "./queries";
 
 function client(fail = false, currentRoster = false) {
   const calls: { table: string; filters: Record<string, string>; from: number; to: number; order: string }[] = [];
@@ -50,6 +50,51 @@ function client(fail = false, currentRoster = false) {
   }};
   return { db: db as unknown as SupabaseClient, calls };
 }
+
+type IdentityTeam = {
+  id: string;
+  name: string;
+  abbreviation: string | null;
+  image_url: string | null;
+  banner_color: string | null;
+  draft_id: string;
+};
+
+function identityClient(config: {
+  settings?: Record<string, unknown>;
+  teams?: IdentityTeam[];
+  aliases?: { name: string; abbreviation: string | null }[];
+  failTeams?: boolean;
+}) {
+  const calls: { table: string; filters: Record<string, unknown> }[] = [];
+  const settings = {
+    current_season: "S5",
+    academy_season: "A1",
+    featured_draft_id: "premier-draft",
+    academy_draft_id: "academy-draft",
+    ...config.settings,
+  };
+  const db = { from(table: string) {
+    const filters: Record<string, unknown> = {};
+    const query = {
+      select: () => query,
+      eq: (key: string, value: unknown) => { filters[key] = value; return query; },
+      order: () => query,
+      single: async () => ({ data: settings, error: null }),
+      range: async (from: number, to: number) => {
+        calls.push({ table, filters: { ...filters } });
+        if (config.failTeams && table === "teams") return { data: null, error: { message: "Team read failed" } };
+        const source = table === "teams"
+          ? (config.teams ?? []).filter((team) => team.draft_id === filters.draft_id)
+          : table === "league_teams" ? (config.aliases ?? []) : [];
+        return { data: source.slice(from, to + 1), error: null };
+      },
+    };
+    return query;
+  }};
+  return { db: db as unknown as SupabaseClient, calls };
+}
+
 describe("season-end data loading", () => {
   it("reads all pages using stable order and scopes every query", async () => {
     const {db, calls} = client();
@@ -77,5 +122,50 @@ describe("season-end data loading", () => {
     const {db,calls} = client();
     await expect(loadSeasonEnd(db, "academy", "S5")).rejects.toThrow(/belong/);
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe("season-end team artwork lookup", () => {
+  it("reads only the selected draft and bridges a unique abbreviation alias", async () => {
+    const { db, calls } = identityClient({
+      teams: [
+        { id: "premier-wolves", draft_id: "premier-draft", name: "Wolves", abbreviation: "WOL", image_url: "wolves.svg", banner_color: "#123456" },
+        { id: "academy-wolves", draft_id: "academy-draft", name: "Wolves", abbreviation: "WOL", image_url: "academy.svg", banner_color: "#abcdef" },
+      ],
+      aliases: [{ name: "Wolves Legacy", abbreviation: "WOL" }],
+    });
+
+    const identities = await loadSeasonEndTeamIdentities(db, "premier", "S5");
+
+    expect(identities.wolves).toEqual({ name: "Wolves", abbreviation: "WOL", imageUrl: "wolves.svg", bannerColor: "#123456" });
+    expect(identities.wolveslegacy).toEqual(identities.wolves);
+    expect(calls.filter((call) => call.table === "teams")).toHaveLength(2);
+    expect(calls.filter((call) => call.table === "teams").every((call) => call.filters.draft_id === "premier-draft")).toBe(true);
+  });
+
+  it("returns no identities for an unresolved season without reading teams", async () => {
+    const { db, calls } = identityClient({ settings: { current_season: "S4" } });
+
+    await expect(loadSeasonEndTeamIdentities(db, "premier", "S5")).resolves.toEqual({});
+    expect(calls).toHaveLength(0);
+  });
+
+  it("withholds an ambiguous alias instead of choosing arbitrarily", async () => {
+    const { db } = identityClient({
+      teams: [
+        { id: "wolves-1", draft_id: "premier-draft", name: "Wolves", abbreviation: "W1", image_url: "one.svg", banner_color: null },
+        { id: "wolves-2", draft_id: "premier-draft", name: "Wolves", abbreviation: "W2", image_url: "two.svg", banner_color: null },
+      ],
+    });
+
+    const identities = await loadSeasonEndTeamIdentities(db, "premier", "S5");
+
+    expect(identities.wolves).toBeUndefined();
+  });
+
+  it("turns identity lookup failures into a neutral map", async () => {
+    const { db } = identityClient({ failTeams: true });
+
+    await expect(loadSeasonEndTeamIdentities(db, "premier", "S5")).resolves.toEqual({});
   });
 });

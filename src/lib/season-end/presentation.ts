@@ -42,6 +42,12 @@ function gamesLabel(award: AwardDefinition, games: number): string {
 function evidenceFor(award: AwardDefinition, winner: AwardWinner, usesTotal: boolean): string {
   const parts: string[] = [];
   const bestOf = winner.evidence?.bestOf;
+  const duo = winner.evidence?.duo;
+  if (duo) {
+    parts.push(`${formatInteger(duo.wins)}–${formatInteger(duo.losses)} together`);
+    parts.push(gamesLabel(award, duo.games));
+    return parts.join(" · ");
+  }
   if (award.id === "best-of-champion" && bestOf) {
     parts.push(`${formatInteger(bestOf.wins)}–${formatInteger(bestOf.losses)} · ${formatInteger(bestOf.winRate)}% WR`);
   } else if (winner.evidence?.record) {
@@ -66,6 +72,14 @@ function usesTotalFallback(award: AwardDefinition, winner: AwardWinner): boolean
 }
 
 export function formatAwardPresentation(award: AwardDefinition, winner: AwardWinner): AwardDisplay {
+  if (award.scope === "pair") {
+    return {
+      headline: `${formatInteger(winner.value)} / 100`,
+      unit: "Duo Impact",
+      evidence: evidenceFor(award, winner, false),
+      usesTotal: false,
+    };
+  }
   const usesTotal = usesTotalFallback(award, winner);
   const value = usesTotal ? winner.total! : winner.value;
   const unit = singularUnit(usesTotal ? award.totalUnit! : unitFor(award), value);
