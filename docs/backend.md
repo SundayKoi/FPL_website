@@ -734,6 +734,7 @@ change and update their local state.
 | Weekly cards | `.github/workflows/weekly-card-drop.yml` → `scripts/weekly-card-drop.ts` | Reads current ratings, writes `card_snapshots`/`card_rating_history`, archives the week's edition through `buildEditionForWeek` (a **Send-off** in a playoff week, announced with its own embed ahead of the Eclipse board), and posts movement/showcase content to Discord. |
 | Weekly Draw | `.github/workflows/weekly-draw.yml` → `scripts/weekly-draw.ts` | Runs `run_weekly_draw` for every card season half an hour after the card drop, then posts each winner to Discord. The RPC does the writing (`weekly_draws`, the stamped copy, the ledger pot, the pack comp), so reruns and the `/schedule` admin fallback are safe. |
 | Card edition archive | `.github/workflows/archive-card-edition.yml` → `scripts/archive-card-edition.ts` | Manual. Rebuilds one week (or every week, with `all_weeks`) into `card_editions` through `buildEditionForWeek` — the week's own `raw_stats` for an ordinary week, or a season-rated **Send-off** for a playoff week, exactly as the drop would have written it. Run it after any change to the rating formula, and to fill in a playoff week the drop met before its fixtures were scored — see the pitfall below and "The Send-off". |
+| Bracket seeding | `.github/workflows/seed-bracket.yml` → `scripts/seed-bracket.ts` | Manual. Seeds a reviewed bracket file (`scripts/data/brackets/*.json`) onto `fixtures` for the file's season (`league_settings.academy_season`/`current_season`, or an explicit `season` in the file). Validates every team name against `league_teams` before writing anything, keys rows by `(season, stage, sort_order)` so re-runs rewrite rather than duplicate, leaves an already-scored fixture untouched, and never deletes. `dry_run` is **ticked by default** and prints the plan without writing. The decisions live in `src/lib/schedule/bracketSeed.ts` (`planBracketSeed`), not in the script. |
 | Betting lifecycle | Supabase cron migrations → `supabase/functions/discord-announcer/index.ts` | Locks/resolves/announces betting markets and pick'ems, posts Discord messages, and runs a ledger-drift watchdog. |
 | Weekly betting markets | Supabase Cron (`weekly-betting-markets-edt` / `weekly-betting-markets-est`) → `run_weekly_betting_market_cron()` → `generate_weekly_betting_markets()` | Runs Tuesday at 1:00 AM Eastern (05:00 UTC during EDT, 06:00 UTC during EST), reads the following Monday's Premier and Academy fixtures, validates every event/team mapping, and inserts only missing fixture-linked markets. The wrapper's Eastern-time guard makes the DST jobs safe and retries idempotent. |
 
@@ -1557,6 +1558,17 @@ knocked out, the quarterfinals week its four losers, the semis their two, and
 the finals week prints the runner-up and the Champion — every player in the
 league exactly once, in the order they fell.
 
+**Byes and TBD slots need nothing.** `eliminationsInWeek` names the loser of a
+*decided* fixture and skips any fixture with a missing side, so the Academy's
+six-team bracket — two teams with a quarterfinal bye — needs no special case:
+a team with no quarterfinal fixture is simply not eliminated that week and
+prints when its own round ends, and a semifinal or final seeded with a TBD
+opponent is passed over until the names and the score are in. That is what
+makes it safe to seed a whole bracket up front (the seed-bracket workflow
+above). The week itself still counts as a playoff week the moment a playoff
+fixture is scheduled in it, so an unscored round prints nothing and is filled
+in later by the card-edition archive.
+
 **The rules module.** `src/lib/cards/sendoff.ts` is pure and owns all of it:
 `eliminationsInWeek` (the loser of each decided playoff fixture in an Eastern
 week, plus the winner of the finals as `champion`; one entry per team, later
@@ -1574,11 +1586,32 @@ logged with `[WARN]` by both scripts.
 rides on the card json, frozen on the `card_editions` row and on every pulled
 copy, exactly like `live`, `chase` and `champWin`. **No migration:**
 `card_editions.card` and `card_inventory.card` are jsonb and already carry
-every other stamp. The renderer draws the coin, the ribbon and the champion
-frame off the json, `copyEditionLabel` names a copy "Send-off · Champion"
+every other stamp. The renderer draws the whole print off the json (below),
+`copyEditionLabel` names a copy "Send-off · Champion"
 rather than by its Monday, and everything else that consumes editions
 (packs, print runs, Eclipse, sets, team cards, Higher or Lower, moments)
 keeps reading `PlayerCardData` from the archive unchanged.
+
+**The print: Newsprint.** A send-off card is a page of the match-day
+programme, and `PlayerCard3D` draws it as real layout off `card.sendoff`
+(`globals.css`, "The Send-off (shipped)", beside `card-frame-champion`): a
+cream page gutter, a **masthead** band across the top — THE SEND-OFF over
+"PLAYOFF EDITION · {round} · {series}" under a black rule and a red press
+rule — a **photo block** screened into halftone dots with the art filtered
+to black ink, the **stage stamped** in rubber at the foot of it in the
+stage's own accent (`SENDOFF_META`, the only source of those colours), and a
+perforated **ticket stub** in the foot of the card carrying "ADMIT ONE" and
+the card's own record (`W–L · WR%`, `PENTA ×n`, `LVL n`) in ink instead of
+the dark footer row an ordinary card prints. The Champion's masthead is
+struck in gold foil and its photograph keeps its colour; every other stage
+prints in black. Because it is layout and not an overlay, the tier pill, the
+rating ring and the print number flow BELOW the masthead onto the photograph
+— the overlay mockup could only draw on top of them, which is how the
+masthead landed on the OVR ring and `#001/99` landed on the masthead's
+rules. A crowned send-off puts the Card of the Week pill on the coin strip's
+row, so the extra line cannot push the last stat bar under the stub. Nothing
+outside a send-off card changes: with no `card.sendoff`, the face renders
+exactly as before.
 
 **The builder.** `src/lib/cards/editionBuilder.ts` `buildEditionForWeek`
 decides per week whether the edition is a weekly print or a send-off, so the
@@ -1599,8 +1632,18 @@ sell on a date nobody has set would close the shop over a scheduling gap.
 
 **The admin page.** `/admin/sendoff` (staff-gated, mints and writes nothing)
 previews the five stamps on real cards, dry-runs what Tuesday's drop would
-print for the current week, shows the bracket ledger and prints the shop
-picker's rows as plain text.
+print for the picked week, shows the bracket ledger and prints the shop
+picker's rows as plain text. The picked week is this one by default;
+`?week=YYYY-MM-DD` (a Monday, checked the way the drop checks
+`FANTASY_WEEK`, junk ignored rather than thrown on) picks another, and the
+pills list this week plus every week the season's playoff fixtures are
+scheduled in — so a bracket week can be checked for name mismatches before
+it is played and again once the scores land. Its look wall keeps the six prototypes
+(`src/lib/cards/sendoffLooks.ts`): Newsprint is tagged **Shipped** and its
+row renders with no overlay at all — the card draws itself — while the other
+five (Plaque, Rafters, Curtain Call, Bracket, Yearbook) stay mockups on
+PlayerCard3D's admin-only `overlay` prop, drawn OVER the shipped print, so
+the alternatives can still be judged against what shipped.
 
 **Pitfall: a playoff week with unscored fixtures prints nothing.** An
 undecided fixture eliminates nobody, so the week's edition is empty and
@@ -1725,6 +1768,60 @@ are pinned to one shared case table — the pgTAP suite owns it and
 `src/lib/cards/slugBridge.test.ts` reads those cases out of the `.sql` file
 and asserts the TypeScript agrees, so the implementations cannot drift apart
 silently. Add a case in the pgTAP file and both sides pick it up.
+
+### The schedule and the gauntlet
+
+`public.fixtures` is the calendar: one row per series, with `stage` (the
+rulebook's five weeks, two gauntlet rounds and three playoff rounds),
+`division` (null for every cross-division pairing), team names as plain text
+so a slot can be TBD, `best_of`, `sort_order`, `scheduled_at` and the paired
+scores. `src/lib/schedule/format.ts` holds the presentation contract for each
+stage, `STAGE_META`, which is also where `best_of` defaults come from when an
+admin changes a fixture's stage in the editor.
+
+**Series lengths.** Regular-season weeks are Bo3, **gauntlet round 1 is a Bo1
+and round 2 is a Bo3**, and the playoffs are Bo5. `best_of` is not decoration:
+`settle_betting_market_from_stats` and `scripts/settle-betting-from-stats.py`
+read it as the series threshold, so a round-2 row left at Bo1 settles a 2-1
+series wrongly. The Send-off (`src/lib/cards/sendoff.ts`) reads the same rows
+to print the gauntlet's losers, and skips a fixture with a missing team, so a
+round-2 placeholder with a TBD opponent is safe to leave in place.
+
+**The generators.** `/schedule`'s owner strip draws both phases rather than
+having an admin type fixtures in by hand. The regular season is
+`src/lib/schedule/generate.ts` behind `AdminGenerateSchedule`, which writes
+from the browser client. The gauntlet is `src/lib/schedule/gauntlet.ts` — pure
+seeding and pairing rules — behind the server actions in
+`gauntlet-actions.ts` and the `AdminGenerateGauntlet` panel. Those are server
+actions because the seeds come from `fetchHomepageStandings`, which composes
+the featured draft, the season's fixtures and the series durations that settle
+the standings' tiebreakers; `fetchStaffTier` gates the action and the writes
+still go through the caller's cookie-bound client, so `fixtures_admin_write`
+RLS remains the real gate. Drawing replaces only `gauntlet_r1`/`gauntlet_r2`
+for that season, seeds round 1 across the divisions (Solari #5 v Lunari #6,
+Lunari #5 v Solari #6) and leaves round 2 as Bo3 placeholders behind each 4th
+seed; `seedRoundTwoAction` fills those opponents in from round 1's results.
+
+**Where round 1's result comes from.** Both rounds are played the same
+evening and the stats ingest only runs the next morning, so on the night the
+round-1 fixtures are still unscored and the only record is what the captains
+filed. `resolveRoundOneResult` therefore takes the fixture's own
+`score_a`/`score_b` when it has them, and otherwise the newest `match_reports`
+row for that fixture with a usable status (`pending`, `needs_sides`,
+`ingested`, `forfeit`; `failed` is not evidence of anything). A report's
+`team_a` is whichever side the captain entered first, so its score is aligned
+to the FIXTURE's side order exactly the way `sync_fixture_score` does in
+`scripts/riot_stats_ingest.py` — swapped when the sides are reversed, and
+taken as NO result when the two cannot be matched by normalized name, because
+a silently reversed result sends the wrong team into round 2. A tie is not a
+result either. The preview reports each series' source and the panel says so
+on screen, so an admin can see when a pairing rests on an un-ingested report.
+Both `match_reports` and `league_teams` are world-readable
+(`using (true)` plus a select grant to `anon`/`authenticated`), so this read
+uses the caller's own cookie-bound client and no service-role key.
+
+Premier only — `ACADEMY_EXCLUDED_STAGES` in
+`src/lib/academy/filtering.ts` keeps the gauntlet off the Academy calendar.
 
 ### Forfeits
 

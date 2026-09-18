@@ -12,9 +12,11 @@ import {
 } from "@/lib/cards/queries";
 import {
   EXIT_LABELS,
+  SENDOFF_EXIT_STAGES,
   SENDOFF_META,
   SENDOFF_STAGES,
   SENDOFF_VAULT_DAYS,
+  exitsInWeek,
   isPlayoffWeek,
   planSendoff,
   sendoffLedger,
@@ -22,6 +24,7 @@ import {
   sendoffWeekLabel,
   withSendoff,
   type SendoffExitStage,
+  type SendoffFixture,
   type SendoffStage,
 } from "@/lib/cards/sendoff";
 import { SENDOFF_LOOKS, sendoffLookOverlay } from "@/lib/cards/sendoffLooks";
@@ -72,6 +75,61 @@ function day(iso: string): string {
   });
 }
 
+/** A week's Monday as "Sep 21". Read off UTC NOON, because a date-only
+ *  week string is UTC midnight and projecting that onto Eastern would
+ *  print the Sunday before it. */
+function weekDay(week: string): string {
+  return day(`${week}T12:00:00.000Z`);
+}
+
+/**
+ * The `?week=` the URL asked for, or null.
+ *
+ * A usable week is a Monday on the Eastern calendar — the same check the
+ * drop's FANTASY_WEEK override makes — because every week key on the site
+ * is one. Junk is IGNORED rather than thrown on: this is an admin URL
+ * people hand-edit and paste to each other, and a typo should land on the
+ * current week, not on an error page.
+ */
+function requestedWeek(value: string | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const at = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(at.getTime())) return null;
+  return mondayOf(at) === value ? value : null;
+}
+
+const EXIT_STAGE_SET: ReadonlySet<string> = new Set<string>(SENDOFF_EXIT_STAGES);
+
+/**
+ * The weeks the picker offers: this one, plus the Eastern week of every
+ * playoff fixture the season has scheduled, earliest first.
+ *
+ * Built off the fixtures the page already loaded, so the bracket's own
+ * dates decide what is pickable — the owner can open the gauntlet week
+ * BEFORE it is played, check the team names print, and come back after the
+ * scores land to check the losers.
+ */
+function pickableWeeks(fixtures: SendoffFixture[], currentWeek: string): string[] {
+  const weeks = new Set<string>([currentWeek]);
+  for (const fixture of fixtures) {
+    if (!EXIT_STAGE_SET.has(fixture.stage) || !fixture.scheduled_at) continue;
+    const at = new Date(fixture.scheduled_at);
+    if (Number.isNaN(at.getTime())) continue;
+    weeks.add(mondayOf(at));
+  }
+  return [...weeks].sort();
+}
+
+const SENDOFF_LABEL_PREFIX = "Send-off · ";
+
+/** "Gauntlet" — the round a week holds, for a pill that already says
+ *  which week it is. Null when the week holds no playoff fixture. */
+function roundLabel(fixtures: SendoffFixture[], week: string): string | null {
+  const label = sendoffWeekLabel(exitsInWeek(fixtures, week));
+  if (!label) return null;
+  return label.startsWith(SENDOFF_LABEL_PREFIX) ? label.slice(SENDOFF_LABEL_PREFIX.length) : label;
+}
+
 /**
  * STAFF ONLY. PREVIEW ONLY. Three jobs, and none of them writes anything:
  *
@@ -80,16 +138,18 @@ function day(iso: string): string {
  *    rather than as a spec. The Champion's frame is the one thing on this
  *    page that cannot be checked any other way — five cards a season wear
  *    it and the first of them ships to a real person.
- * 2. Put six candidate LOOKS for the print side by side on the same three
- *    cards (src/lib/cards/sendoffLooks.ts), so the league can pick what a
- *    playoff keepsake should be rather than argue about it in words.
- *    Mockups: they ride PlayerCard3D's admin-only `overlay` prop and
- *    nothing minted can reach their layers.
- * 3. Dry-run what Tuesday's drop would print for the current week, off the
- *    real fixtures and the real season cards, so a bracket typo or a team
- *    name that does not match `raw_stats.team_name` is caught BEFORE the
- *    edition is archived rather than after somebody's only playoff card
- *    failed to print.
+ * 2. Put the six LOOKS for the print side by side on the same three cards
+ *    (src/lib/cards/sendoffLooks.ts). The league picked Newsprint, so that
+ *    row is the real thing — no overlay, the card drawing itself off
+ *    `card.sendoff` — and the other five are alternatives drawn OVER it on
+ *    PlayerCard3D's admin-only `overlay` prop, which nothing minted can
+ *    reach.
+ * 3. Dry-run what Tuesday's drop would print for the picked week — this
+ *    one by default, or any week the bracket is scheduled in via
+ *    `?week=YYYY-MM-DD` — off the real fixtures and the real season cards,
+ *    so a bracket typo or a team name that does not match
+ *    `raw_stats.team_name` is caught BEFORE the edition is archived rather
+ *    than after somebody's only playoff card failed to print.
  *
  * Nothing here mints, archives, prices or writes. The planner is pure
  * (src/lib/cards/sendoff.ts) and this page only reads.
@@ -97,7 +157,7 @@ function day(iso: string): string {
 export default async function SendoffPreviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ league?: string | string[] }>;
+  searchParams: Promise<{ league?: string | string[]; week?: string | string[] }>;
 }) {
   const supabase = await createServerSupabase();
   const { isAdmin, isOwner } = await fetchStaffTier(supabase);
@@ -121,11 +181,25 @@ export default async function SendoffPreviewPage({
   const fixtures = season ? await fetchSeasonFixtures(service, season) : [];
   const weekInfo = season ? await fetchEditionWeekInfo(service, season) : [];
 
-  const week = mondayOf(new Date());
+  // The week under the microscope: `?week=` when it names a Monday, this
+  // week otherwise. Everything below — the dry run, the ledger, the marks
+  // on the mockups — reads the picked week, so a bracket week can be
+  // checked before it is played and again after the scores land.
+  const now = new Date();
+  const currentWeek = mondayOf(now);
+  const weekParam = Array.isArray(params.week) ? params.week[0] : params.week;
+  const week = requestedWeek(weekParam) ?? currentWeek;
+  const weeks = pickableWeeks(fixtures, currentWeek);
+  const leagueQuery = chosen?.league === "academy" ? "league=academy&" : "";
+
   const playoffWeek = isPlayoffWeek(fixtures, week);
   const plan = planSendoff(cards, fixtures, week);
   const ledger = sendoffLedger(cards, fixtures, week);
   const closesAt = sendoffVaultClosesAt(fixtures);
+  // A week that has not started yet cannot be missing its scores — its
+  // fixtures simply have not been played — and saying otherwise would send
+  // the owner hunting for results nobody could have entered.
+  const upcoming = new Date(`${week}T00:00:00.000Z`).getTime() > now.getTime();
 
   // Five real cards for the five stamps, best first. Fewer than five cards
   // in the season is a fresh split, not an error — the wall wraps around
@@ -147,8 +221,8 @@ export default async function SendoffPreviewPage({
         <p className="max-w-3xl text-sm text-steel">
           Playoff cards print by elimination: a player&apos;s playoff card prints once, in the week their team&apos;s
           split ended, rated on the whole split rather than on the handful of people still in the bracket, and stamped
-          with how far they got. This page shows the five stamps on real cards, puts six candidate looks for the print
-          side by side, and dry-runs what Tuesday&apos;s drop would print for {week}.
+          with how far they got. This page shows the five stamps on real cards, puts the shipped print beside the five
+          looks it was picked over, and dry-runs what Tuesday&apos;s drop would print for {week}.
         </p>
         <p className="max-w-3xl text-sm text-gold">
           Preview only. Nothing on this page mints, archives, prices or writes anything — it reads the season&apos;s
@@ -171,6 +245,26 @@ export default async function SendoffPreviewPage({
             ))
           )}
         </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {weeks.map((option) => {
+            const round = roundLabel(fixtures, option);
+            return (
+              <Link
+                key={option}
+                href={`/admin/sendoff?${leagueQuery}week=${option}`}
+                data-testid={`week-${option}`}
+                aria-current={option === week ? "page" : undefined}
+                className={`rounded-full border px-3 py-1 font-bold uppercase tracking-[0.18em] ${
+                  option === week ? "border-gold text-gold" : "border-line text-steel hover:text-white"
+                }`}
+              >
+                {weekDay(option)}
+                {round ? ` · ${round}` : ""}
+                {option === currentWeek ? " · this week" : ""}
+              </Link>
+            );
+          })}
+        </div>
       </header>
 
       {season === null ? (
@@ -183,9 +277,11 @@ export default async function SendoffPreviewPage({
             The five exits <span className="text-sm text-gold">· Mockups</span>
           </h2>
           <p className="max-w-3xl text-sm text-steel">
-            Each stamp on a real card from {season ?? "this season"}, with a made-up series so the ribbon reads the way
-            it will in the shop. Four of the five get a ribbon and a coin and nothing else; the Champion gets a frame
-            no other card in the league can wear. Click a card to see the coin spelled out on its back.
+            Each stamp on a real card from {season ?? "this season"}, with a made-up series so the masthead reads the
+            way it will in the shop. Every one of them is a page of the programme — masthead, screened photograph,
+            rubber stamp, ticket stub — and the Champion&apos;s prints its masthead in gold, keeps its photograph in
+            colour and wears a frame no other card in the league can. Click a card to see the coin spelled out on its
+            back.
           </p>
         </div>
         {best.length === 0 ? (
@@ -229,19 +325,20 @@ export default async function SendoffPreviewPage({
       <section aria-label="Looks" className="flex flex-col gap-8">
         <div className="flex flex-col gap-2">
           <h2 className="type-display border-b border-line pb-2 text-2xl">
-            Six looks <span className="text-sm text-gold">· prototypes</span>
+            Six looks <span className="text-sm text-gold">· one shipped, five alternatives</span>
           </h2>
           <p className="max-w-3xl text-sm text-steel">
             A playoff keepsake should not look like a season card with a ribbon on it. These are six different ideas of
             what the print could BE — a newspaper, a plaque, a banner in the rafters, a stage, a blueprint, a
-            photograph — drawn on the same three cards so they compare like for like. Pick one and it becomes the
-            treatment <code className="px-1 text-white">card.sendoff</code> turns on.
+            photograph — drawn on the same three cards so they compare like for like.
           </p>
           <p className="max-w-3xl text-sm text-steel">
-            Mockups, and only mockups: every card below still wears the SHIPPED send-off underneath — the ribbon, the
-            coin, and the Champion&apos;s frame — because nothing has replaced them yet. The look that wins takes over
-            the header, the stamp and the frame; until then they show through. The corner chip carries the line the CSS
-            cannot know on its own: the stamp, the series and the round.
+            <b className="text-white">Newsprint is the shipped treatment.</b> Its row carries no overlay at all: the
+            card draws the masthead, the screened photo block, the rubber stamp and the ticket stub itself, off{" "}
+            <code className="px-1 text-white">card.sendoff</code>, which is how the masthead became a band the rating
+            ring and the print number sit below rather than a layer on top of them. The other five are alternatives,
+            still mockups, drawn OVER the shipped print — so what shows through under a mockup is Newsprint. Their
+            corner chip carries the line the CSS cannot know on its own: the stamp, the series and the round.
           </p>
         </div>
 
@@ -253,8 +350,8 @@ export default async function SendoffPreviewPage({
               <h3 className="label-dash text-gold">What we are already printing</h3>
               <p className="max-w-3xl text-sm text-steel">
                 The same real card three ways, for scale: what it looks like today, what a foil of it looks like in
-                this season&apos;s skin line, and what the shipped send-off adds. Everything under this row has to be
-                different from all three at a glance.
+                this season&apos;s skin line, and what the shipped send-off makes of it. Everything under this row is
+                measured against the third one.
               </p>
               <div className="flex flex-wrap gap-8">
                 <figure data-testid="reference-season" className="flex w-[20rem] flex-col items-center gap-2">
@@ -319,20 +416,40 @@ export default async function SendoffPreviewPage({
                         data-look-stage={stage}
                         className="flex w-[20rem] flex-col items-center gap-2"
                       >
-                        <PlayerCard3D card={withSendoff(base, mark)} overlay={sendoffLookOverlay(look, mark)} interactive />
+                        <PlayerCard3D
+                          card={withSendoff(base, mark)}
+                          // The shipped look is the card itself: drawing its
+                          // own mockup over it would print the masthead
+                          // twice.
+                          overlay={look.shipped ? null : sendoffLookOverlay(look, mark)}
+                          interactive
+                        />
                         <figcaption
-                          className="text-center text-xs font-black uppercase tracking-[0.18em]"
+                          className="flex flex-col items-center gap-1 text-center text-xs font-black uppercase tracking-[0.18em]"
                           style={{ color: SENDOFF_META[stage].accent }}
                         >
                           {SENDOFF_META[stage].label}
+                          {look.shipped ? (
+                            <span className="rounded-full border border-emerald-400/60 px-2 py-0.5 text-[10px] text-emerald-300">
+                              Shipped
+                            </span>
+                          ) : null}
                         </figcaption>
                       </figure>
                     );
                   })}
                 </div>
                 <div className="card-brand flex max-w-md flex-col gap-2 p-4">
-                  <h3 className="type-display text-xl" style={{ color: look.accent }}>
+                  <h3 className="type-display flex items-center gap-2 text-xl" style={{ color: look.accent }}>
                     {look.title}
+                    {look.shipped ? (
+                      <span
+                        data-testid={`shipped-${look.key}`}
+                        className="rounded-full border border-emerald-400/60 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300"
+                      >
+                        Shipped
+                      </span>
+                    ) : null}
                   </h3>
                   <p className="text-sm text-white">{look.blurb}</p>
                   <p className="text-xs text-steel">
@@ -348,9 +465,11 @@ export default async function SendoffPreviewPage({
         )}
       </section>
 
-      <section aria-label="This week's send-off" className="flex flex-col gap-6">
+      <section aria-label="Send-off dry run" className="flex flex-col gap-6">
         <div className="flex flex-col gap-2">
-          <h2 className="type-display border-b border-line pb-2 text-2xl">This week&apos;s send-off · dry run</h2>
+          <h2 className="type-display border-b border-line pb-2 text-2xl">
+            Send-off · week of {weekDay(week)} <span className="text-sm text-gold">· dry run</span>
+          </h2>
           <p className="max-w-3xl text-sm text-steel">
             Week of {week}
             {plan.exits.length > 0 ? ` · ${sendoffWeekLabel(plan.exits)}` : ""}. This is exactly what
@@ -364,9 +483,19 @@ export default async function SendoffPreviewPage({
           </p>
         ) : plan.eliminations.length === 0 ? (
           <p data-testid="undecided" className="text-sm text-gold">
-            A playoff week with no decided fixture: nothing prints until the scores land. Enter them and re-run the
-            archiver for this week — a weekly edition is NOT printed in the meantime, because it would rate the ten
-            people still in the bracket against each other.
+            {upcoming ? (
+              <span data-testid="scheduled">
+                A playoff week that has not been played yet: these fixtures are scheduled, not missing their scores.
+                Nothing prints for this week until the matches are played — what this dry run can tell you now is
+                whether the bracket names the teams the way the cards do.
+              </span>
+            ) : (
+              <>
+                A playoff week with no decided fixture: nothing prints until the scores land. Enter them and re-run the
+                archiver for this week — a weekly edition is NOT printed in the meantime, because it would rate the ten
+                people still in the bracket against each other.
+              </>
+            )}
           </p>
         ) : (
           <>

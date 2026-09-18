@@ -342,7 +342,7 @@ export default function RulebookContent() {
           After the seeds are made, the gauntlet phase starts, the top 3 teams from each division head to playoffs, and the bottom 3 teams from each division head to the gauntlet.
         </p>
         <p className={paragraphClass}>
-          Gauntlets are BO1 with cross-division matchups prioritized.
+          Round 1 of the gauntlet is a Bo1 and round 2 is a Bo3, with cross-division matchups prioritized.
         </p>
         <p className={paragraphClass}>
           The 5th seed from Solari plays the 6th seed from Lunari and vice versa of the 6th seed from Solari plays the 5th seed from Lunari.
@@ -362,7 +362,7 @@ export default function RulebookContent() {
         <p className={paragraphClass}>
           Also, the two teams that eliminated in the first round of gauntlet, their captains are relegated, meaning they cannot be a captain again in the next split of FPL (they can be a captain again after that 1 split though)(unless admins decide their case was extraordinary, like they had their whole team drop or get removed, etc).
         </p>
-        <p className={paragraphClass}>Also, both Bo1s of the gauntlet are on the same day.</p>
+        <p className={paragraphClass}>Also, both rounds of the gauntlet are on the same day.</p>
 
         <h3 id="playoffs" className={subsectionHeadingClass}>
           Playoffs

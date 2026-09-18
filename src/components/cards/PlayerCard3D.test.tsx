@@ -1,6 +1,7 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
+import { SENDOFF_META } from "@/lib/cards/sendoff";
 import PlayerCard3D from "./PlayerCard3D";
 
 const card: PlayerCardData = {
@@ -947,18 +948,87 @@ describe("the send-off", () => {
     );
   });
 
-  it("flies the ribbon on the front, above the Card of the Week pill", () => {
-    const { container } = render(<PlayerCard3D card={{ ...card, sendoff: mark, standout: true }} />);
+  it("prints the masthead, and only the masthead, across the top", () => {
+    const { container } = render(<PlayerCard3D card={{ ...card, sendoff: mark }} />);
 
-    const ribbon = container.querySelector("[data-testid='sendoff-ribbon']");
-    expect(ribbon?.textContent).toContain("SEMIFINALIST");
-    expect(ribbon?.textContent).toContain("Out in the Semifinals");
-    // The edition names the card before the crown qualifies it.
-    const pill = screen.getByText(/Bot of the Week/i);
-    expect(ribbon!.compareDocumentPosition(pill) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const masthead = container.querySelector("[data-testid='sendoff-masthead']");
+    expect(masthead?.textContent).toContain("THE SEND-OFF");
+    // The subline is the one line the paper can only get from the mark:
+    // which round ended the split, and the series it ended on.
+    expect(masthead?.textContent).toContain("PLAYOFF EDITION · SEMIFINALS · 1–3");
+    // The tier banner is pushed below the band, so the rating ring and the
+    // print number sit on the photograph instead of on the masthead's rules.
+    expect(container.querySelector("[data-testid='tier-banner']")?.className).toContain("pt-14");
+    expect(container.querySelector("[data-testid='sendoff-paper']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='sendoff-screen']")).toBeTruthy();
   });
 
-  it("gives the Champion a frame of its own and everyone else only the ribbon", () => {
+  it("drops the series from the subline when the fixture carried no scores", () => {
+    const { container } = render(<PlayerCard3D card={{ ...card, sendoff: { ...mark, series: null } }} />);
+    expect(container.querySelector("[data-testid='sendoff-masthead']")?.textContent).toContain(
+      "PLAYOFF EDITION · SEMIFINALS",
+    );
+    expect(container.querySelector("[data-testid='sendoff-masthead']")?.textContent).not.toContain("·  ·");
+  });
+
+  it("stamps the stage in rubber instead of flying a ribbon", () => {
+    const { container } = render(<PlayerCard3D card={{ ...card, sendoff: mark }} />);
+
+    const ink = container.querySelector("[data-testid='sendoff-stamp-ink']");
+    expect(ink?.textContent).toBe("SEMIFINALIST");
+    expect(ink?.getAttribute("style")).toContain(SENDOFF_META.semifinalist.accent);
+    // The stamp IS the stage now — the ribbon said the same thing twice.
+    expect(container.querySelector("[data-testid='sendoff-ribbon']")).toBeNull();
+  });
+
+  it("perforates a ticket stub that prints the record in ink, once", () => {
+    const { container } = render(<PlayerCard3D card={{ ...card, sendoff: mark }} />);
+
+    const stub = container.querySelector("[data-testid='sendoff-stub']");
+    expect(stub?.textContent).toContain("THE SEND-OFF · PLAYOFF STUB");
+    expect(stub?.textContent).toContain("ADMIT ONE");
+    expect(stub?.textContent).toContain("7–9 · 44% WR");
+    expect(stub?.textContent).toContain("PENTA ×1");
+    expect(stub?.textContent).toContain("LVL 16");
+
+    // The dark footer row the stub replaces does not print it a second
+    // time: the front says it once, in the stub, and the back's own footer
+    // is the only other place it appears.
+    const printed = [...container.querySelectorAll("span")].filter((node) => node.textContent === "7–9 · 44% WR");
+    expect(printed).toHaveLength(2);
+    expect(stub!.contains(printed[0])).toBe(true);
+  });
+
+  it("screens the photograph into ink, and leaves the Champion's in colour", () => {
+    const out = render(<PlayerCard3D card={{ ...card, sendoff: { ...mark, stage: "finalist", exit: "finals" } }} />);
+    expect(out.container.querySelector("img.card-sendoff-ink")).toBeTruthy();
+    expect(out.container.querySelector("img.card-sendoff-ink-colour")).toBeNull();
+    out.unmount();
+
+    const champ = render(<PlayerCard3D card={{ ...card, sendoff: { ...mark, stage: "champion", exit: "finals" } }} />);
+    expect(champ.container.querySelector("img.card-sendoff-ink")).toBeNull();
+    expect(champ.container.querySelector("img.card-sendoff-ink-colour")).toBeTruthy();
+    // ...and its masthead is struck in foil.
+    expect(champ.container.querySelector("[data-testid='sendoff-masthead'] .card-sendoff-foil")).toBeTruthy();
+  });
+
+  it("puts the crown beside the coins on a crowned print rather than under the stamp", () => {
+    const { container } = render(<PlayerCard3D card={{ ...card, sendoff: mark, standout: true }} />);
+
+    const pill = within(container).getByText(/Bot of the Week/i);
+    const coins = container.querySelector("[data-testid='card-stamps']");
+    // One row, so the extra line cannot push the last stat bar under the
+    // stub: the pill is centred where the coins are right-aligned.
+    expect(pill.parentElement).toBe(coins?.parentElement);
+    expect(container.querySelector("[data-testid='sendoff-stamp-ink']")?.textContent).toBe("SEMIFINALIST");
+
+    // An ordinary crowned card keeps its own row.
+    const plain = render(<PlayerCard3D card={{ ...card, standout: true }} />);
+    const plainPill = within(plain.container).getByText(/Bot of the Week/i);
+    expect(plainPill.parentElement).not.toBe(plain.container.querySelector("[data-testid='card-stamps']")?.parentElement);
+  });
+
+  it("gives the Champion a frame of its own and everyone else only the stamp", () => {
     const champ = render(<PlayerCard3D card={{ ...card, sendoff: { ...mark, stage: "champion", exit: "finals" } }} />);
     expect(champ.container.querySelector(".card-frame-champion")).toBeTruthy();
     expect(champ.container.querySelector(".card-glow-champion")).toBeTruthy();
@@ -968,7 +1038,8 @@ describe("the send-off", () => {
     // title buys the frame.
     const runnerUp = render(<PlayerCard3D card={{ ...card, sendoff: { ...mark, stage: "finalist", exit: "finals" } }} />);
     expect(runnerUp.container.querySelector(".card-frame-champion")).toBeNull();
-    expect(runnerUp.container.querySelector("[data-testid='sendoff-ribbon']")?.textContent).toContain("FINALIST");
+    expect(runnerUp.container.querySelector("[data-testid='sendoff-stamp-ink']")?.textContent).toBe("FINALIST");
+    expect(runnerUp.container.querySelector("img.card-sendoff-ink-colour")).toBeNull();
   });
 
   it("ranks the Champion frame over Card of the Week and under Eclipse", () => {
@@ -992,10 +1063,18 @@ describe("the send-off", () => {
     expect(eclipsed.container.querySelector(".card-glow-champion")).toBeNull();
   });
 
-  it("stamps nothing on a card that never went to the playoffs", () => {
+  it("prints none of the paper on a card that never went to the playoffs", () => {
     const { container } = render(<PlayerCard3D card={card} />);
     expect(container.querySelector("[data-testid='sendoff-stamp']")).toBeNull();
     expect(container.querySelector("[data-testid='sendoff-ribbon']")).toBeNull();
     expect(container.querySelector(".card-frame-champion")).toBeNull();
+    for (const testId of ["sendoff-masthead", "sendoff-paper", "sendoff-screen", "sendoff-stamp-ink", "sendoff-stub"]) {
+      expect(container.querySelector(`[data-testid='${testId}']`), testId).toBeNull();
+    }
+    expect(container.querySelector("img.card-sendoff-ink")).toBeNull();
+    // The season card's own layout is untouched: its header padding and the
+    // dark footer row that prints the record are exactly where they were.
+    expect(container.querySelector("[data-testid='tier-banner']")?.className).toContain("pt-3");
+    expect([...container.querySelectorAll("span")].filter((node) => node.textContent === "7–9 · 44% WR")).toHaveLength(2);
   });
 });

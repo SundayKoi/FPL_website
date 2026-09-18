@@ -41,8 +41,10 @@ describe("STAGE_META", () => {
 
   it("assigns the rulebook series lengths per stage", () => {
     expect(stageMeta("week_3").bestOf).toBe(3);
+    // Round 1 is a Bo1; round 2 is a Bo3 — betting settlement reads best_of
+    // as the series threshold, so the two rounds must not share a value.
     expect(stageMeta("gauntlet_r1").bestOf).toBe(1);
-    expect(stageMeta("gauntlet_r2").bestOf).toBe(1);
+    expect(stageMeta("gauntlet_r2").bestOf).toBe(3);
     expect(stageMeta("quarterfinals").bestOf).toBe(5);
     expect(stageMeta("finals").bestOf).toBe(5);
   });

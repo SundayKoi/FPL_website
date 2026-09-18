@@ -354,12 +354,50 @@ function PlayerCardFace({
       ? [{ key: "wounded", testId: "wounded", glyph: "✚", accent: "#fca5a5", title: `Wounded — benched from expeditions and the Gauntlet until ${woundedUntilLabel} ET`, label: "Wounded", detail: `until ${woundedUntilLabel} ET` }]
       : []),
   ];
+  // The Send-off, drawn as Newsprint: the playoff print is a page from the
+  // match-day programme, so the face grows a masthead, a screened photo
+  // block, a rubber stamp and a ticket stub (globals.css:
+  // "The Send-off (shipped)"). The furniture is real elements rather than an
+  // overlay because an overlay draws ABOVE the card and cannot move
+  // anything: the masthead is a band the tier pill, the rating ring and the
+  // serial flow under. Null on every card that never went to the playoffs,
+  // and that card renders exactly as it did before.
+  const sendoff = card.sendoff ?? null;
+  const sendoffMeta = sendoff ? SENDOFF_META[sendoff.stage] : null;
   // The Champion's send-off is the only print in the league that can wear
   // the crimson-and-white-gold frame, and five of them exist per season, so
   // it outranks Card of the Week the way Card of the Week outranks a tier.
-  // Eclipse still beats it: a one-of-one is rarer than a title. Every other
-  // send-off stage wears its ribbon and nothing more.
-  const championSendoff = card.sendoff?.stage === "champion";
+  // Eclipse still beats it: a one-of-one is rarer than a title. It is also
+  // the one print whose photograph keeps its colour and whose masthead is
+  // struck in gold; every other stage prints in black ink.
+  const championSendoff = sendoff?.stage === "champion";
+  // The crown and the coins: two rows on an ordinary card, one row on a
+  // crowned send-off print (see the JSX below), so they are built here once
+  // and placed there rather than written out twice.
+  const crownedSendoff = Boolean(sendoff) && card.standout;
+  const standoutEdition = edition === "season" ? "Season" : "Week";
+  const crownPill = card.standout ? (
+    <span className="whitespace-nowrap rounded-full border border-gold/70 bg-black/70 px-3 py-0.5 text-[10px] font-black uppercase tracking-[0.22em] text-gold [text-shadow:0_0_10px_rgb(245_182_46/0.8)]">
+      ★ {card.role} of the {standoutEdition} ★
+    </span>
+  ) : null;
+  const coinStrip =
+    stamps.length > 0 ? (
+      <div
+        data-testid="card-stamps"
+        className={
+          crownedSendoff
+            ? "flex min-w-0 flex-wrap items-center justify-end gap-1"
+            : "relative mt-1 flex flex-wrap items-center justify-end gap-1 px-3"
+        }
+      >
+        {stamps.map((stamp) => (
+          <Coin key={stamp.key} testId={stamp.testId} title={stamp.title} accent={stamp.accent}>
+            {stamp.glyph}
+          </Coin>
+        ))}
+      </div>
+    ) : null;
   // Card of the Week outshines its tier: molten-gold animated frame.
   const frameClass = isEclipse
     ? "card-frame-eclipse"
@@ -376,7 +414,6 @@ function PlayerCardFace({
       : card.standout
         ? "card-glow-standout"
         : style.glowClass ?? "";
-  const standoutEdition = edition === "season" ? "Season" : "Week";
   // The art the front tries, best first. Riot's centered crop is the one the
   // frame is designed around, but it's missing for a lot of otherwise valid
   // skins — the uncropped splash of the same skin beats falling all the way
@@ -633,7 +670,12 @@ function PlayerCardFace({
                 alt=""
                 className={`absolute inset-0 h-full w-full object-cover object-[center_18%] ${
                   forceFoil ? "card-art-parallax" : ""
-                } ${card.shiny ? "card-shiny-art" : ""}`}
+                } ${card.shiny ? "card-shiny-art" : ""} ${
+                  // A send-off photograph is printed, not lit: screened into
+                  // black ink at press contrast. The Champion's is the one
+                  // the front page runs in colour.
+                  sendoff ? (championSendoff ? "card-sendoff-ink-colour" : "card-sendoff-ink") : ""
+                }`}
                 loading="lazy"
                 // Decoding off the main thread: a wall of splash art otherwise
                 // blocks the frame it lands in, which is felt as scroll jank.
@@ -658,6 +700,15 @@ function PlayerCardFace({
               <img src={splash} alt="" aria-hidden data-testid="art-echo" className={`absolute inset-0 h-full w-full object-cover object-[center_18%] ${overlay.artEcho}`} decoding="async" />
             ) : null}
             <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/20 to-black/85" />
+            {sendoff ? (
+              // The paper, and the screen over the photograph. Both sit above
+              // the art and below every word the card says, so the stat block
+              // keeps printing white on its own dark ground.
+              <>
+                <div aria-hidden data-testid="sendoff-paper" className="card-sendoff-paper" />
+                <div aria-hidden data-testid="sendoff-screen" className="card-sendoff-screen" />
+              </>
+            ) : null}
             {/* Eclipse's ground: the shadow and the bleed of light around
                 the card's rim. Two placements matter here.
 
@@ -703,8 +754,27 @@ function PlayerCardFace({
                 decoding="async"
               />
             ) : null}
-            {/* Tier banner */}
-            <div className="relative flex items-center justify-between px-4 pt-3">
+            {sendoff && sendoffMeta ? (
+              // The masthead. Its subline is the one line the paper can only
+              // get from the mark: which round ended the split, and the
+              // series it ended on.
+              <div data-testid="sendoff-masthead" className="card-sendoff-masthead">
+                <span className={`card-sendoff-masthead-title ${championSendoff ? "card-sendoff-foil" : ""}`}>
+                  THE SEND-OFF
+                </span>
+                <span className="card-sendoff-masthead-sub">
+                  {`PLAYOFF EDITION · ${EXIT_LABELS[sendoff.exit].toUpperCase()}${sendoff.series ? ` · ${sendoff.series}` : ""}`}
+                </span>
+              </div>
+            ) : null}
+            {/* Tier banner. On a send-off print the top padding clears the
+                masthead band, so the tier pill, the rating ring and the
+                serial sit on the photograph rather than on the masthead's
+                rules — where neither the ring nor #001/99 could be read. */}
+            <div
+              data-testid="tier-banner"
+              className={`relative flex items-center justify-between px-4 ${sendoff ? "pt-14" : "pt-3"}`}
+            >
               <span
                 className="rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-canvas"
                 style={{ background: card.standout ? "#f5b62e" : style.banner }}
@@ -775,56 +845,58 @@ function PlayerCardFace({
                     {secretSerialLabel(card.secret)}
                   </span>
                 ) : card.serial > 0 ? (
-                  <span className="font-mono text-[9px] font-bold text-white/70 [text-shadow:0_1px_2px_rgb(0_0_0/0.9)]">
+                  // The print number. On a send-off it is printed in ink on
+                  // the paper wash at the top of the photograph — white-on-
+                  // dark has no dark left to sit on up there.
+                  <span
+                    className={`font-mono text-[9px] font-bold ${
+                      sendoff ? "card-sendoff-serial" : "text-white/70 [text-shadow:0_1px_2px_rgb(0_0_0/0.9)]"
+                    }`}
+                  >
                     #{String(card.serial).padStart(3, "0")}/{card.collectionSize}
                   </span>
                 ) : null}
               </div>
             </div>
-            {card.sendoff ? (
-              // The send-off ribbon: how far the split got, said on the front
-              // where the tier banner has just said how good the player is.
-              // Above the Card of the Week pill when the card wears both —
-              // the edition names the card before the crown qualifies it.
-              <div data-testid="sendoff-ribbon" className="relative mt-1 flex flex-col items-center">
-                <span
-                  className="rounded-full border bg-black/70 px-3 py-0.5 text-[10px] font-black uppercase tracking-[0.22em]"
-                  style={{
-                    borderColor: `${SENDOFF_META[card.sendoff.stage].accent}b3`,
-                    color: SENDOFF_META[card.sendoff.stage].accent,
-                    textShadow: `0 0 10px ${SENDOFF_META[card.sendoff.stage].accent}99`,
-                  }}
-                >
-                  {SENDOFF_META[card.sendoff.stage].stamp}
-                </span>
-                <span className="text-[8px] font-bold uppercase tracking-[0.16em] text-white/75 [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]">
-                  {SENDOFF_META[card.sendoff.stage].line}
-                </span>
+            {sendoff && sendoffMeta ? (
+              // The stage, stamped in rubber at the foot of the photo block.
+              // This is the send-off's whole announcement on the front — the
+              // ribbon this treatment replaces said the same thing twice.
+              // Absolute, so it costs the layout nothing and stays clear of
+              // the name and the role at the left.
+              <div
+                data-testid="sendoff-stamp-ink"
+                title={sendoffMeta.line}
+                className="card-sendoff-stamp"
+                style={{ ["--so-ink" as string]: sendoffMeta.accent }}
+              >
+                {sendoffMeta.stamp}
               </div>
             ) : null}
-            {card.standout ? (
-              <div className="relative mt-1 flex justify-center">
-                <span className="whitespace-nowrap rounded-full border border-gold/70 bg-black/70 px-3 py-0.5 text-[10px] font-black uppercase tracking-[0.22em] text-gold [text-shadow:0_0_10px_rgb(245_182_46/0.8)]">
-                  ★ {card.role} of the {standoutEdition} ★
-                </span>
+            {/* Card of the Week, and the coin strip: one small coin per
+                stamp, in a fixed order, in one row under the rating. A copy
+                can carry up to eight of them (live, chase, ink, shiny,
+                secret, StatTrak, wear or slab, a wound) and they still fit
+                in a single line without touching the art's centre, the name,
+                or each other. Each coin says its whole story on hover; the
+                back's ledger spells them out for anyone without a pointer.
+
+                A crowned SEND-OFF print puts the crown and the coins on the
+                same line. The masthead and the stub have taken the room the
+                spare row used to live in, and the pill is centred where the
+                coins are right-aligned, so the two never touch — where a
+                second row pushed the IMPACT bar under the stub. */}
+            {crownedSendoff && crownPill ? (
+              <div className="relative mt-1 flex items-center justify-between gap-2 px-3">
+                {crownPill}
+                {coinStrip}
               </div>
-            ) : null}
-            {/* The coin strip: one small coin per stamp, in a fixed order, in
-                one row under the rating. A copy can carry up to eight of
-                them (live, chase, ink, shiny, secret, StatTrak, wear or slab,
-                a wound) and they still fit in a single line without touching
-                the art's centre, the name, or each other. Each coin says its
-                whole story on hover; the back's ledger spells them out for
-                anyone without a pointer. */}
-            {stamps.length > 0 ? (
-              <div data-testid="card-stamps" className="relative mt-1 flex flex-wrap items-center justify-end gap-1 px-3">
-                {stamps.map((stamp) => (
-                  <Coin key={stamp.key} testId={stamp.testId} title={stamp.title} accent={stamp.accent}>
-                    {stamp.glyph}
-                  </Coin>
-                ))}
-              </div>
-            ) : null}
+            ) : (
+              <>
+                {crownPill ? <div className="relative mt-1 flex justify-center">{crownPill}</div> : null}
+                {coinStrip}
+              </>
+            )}
 
             {/* Identity */}
             <div className="relative mt-1 px-4" data-testid="card-identity">
@@ -839,8 +911,10 @@ function PlayerCardFace({
               </p>
             </div>
 
-            {/* Archetype + stats anchored to the bottom */}
-            <div className="relative mt-auto flex flex-col gap-2 px-4 pb-3">
+            {/* Archetype + stats anchored to the bottom. A send-off print
+                parks the ticket stub in the foot of the card, so the block
+                stops above it rather than under it. */}
+            <div className={`relative mt-auto flex flex-col gap-2 px-4 ${sendoff ? "pb-[3.125rem]" : "pb-3"}`}>
               {card.autograph ? (
                 // The pen mark itself — anchored to this block so it always
                 // hovers right above the archetype label, at the angle a
@@ -900,14 +974,35 @@ function PlayerCardFace({
                   </div>
                 ))}
               </div>
-              <div className="flex items-center justify-between border-t border-white/15 pt-2 text-[11px] font-bold text-white/85">
-                <span>
-                  {card.wins}–{card.losses} · {Math.round(card.winratePct)}% WR
-                </span>
-                {card.pentas > 0 ? <span style={{ color: style.banner }}>PENTA ×{card.pentas}</span> : null}
-                <span>LVL {card.level}</span>
-              </div>
+              {sendoff ? null : (
+                // The send-off prints these same three facts in ink on the
+                // stub below. Printing them twice is what the stub replaces.
+                <div className="flex items-center justify-between border-t border-white/15 pt-2 text-[11px] font-bold text-white/85">
+                  <span>
+                    {card.wins}–{card.losses} · {Math.round(card.winratePct)}% WR
+                  </span>
+                  {card.pentas > 0 ? <span style={{ color: style.banner }}>PENTA ×{card.pentas}</span> : null}
+                  <span>LVL {card.level}</span>
+                </div>
+              )}
             </div>
+            {sendoff ? (
+              // The stub: the foot of the card, perforated off the page. Two
+              // rows of ink — what the ticket is, and the card's own record.
+              <div data-testid="sendoff-stub" className="card-sendoff-stub">
+                <div className="card-sendoff-stub-line">
+                  <span>THE SEND-OFF · PLAYOFF STUB</span>
+                  <span className="card-sendoff-admit">ADMIT ONE</span>
+                </div>
+                <div className="card-sendoff-facts">
+                  <span>
+                    {card.wins}–{card.losses} · {Math.round(card.winratePct)}% WR
+                  </span>
+                  {card.pentas > 0 ? <span>PENTA ×{card.pentas}</span> : null}
+                  <span>LVL {card.level}</span>
+                </div>
+              </div>
+            ) : null}
 
             {/* Totality, above everything the card says — light floods a
                 card, it does not politely stop at the text. Zero for eleven
