@@ -80,11 +80,12 @@ function day(iso: string): string {
  *    rather than as a spec. The Champion's frame is the one thing on this
  *    page that cannot be checked any other way — five cards a season wear
  *    it and the first of them ships to a real person.
- * 2. Put six candidate LOOKS for the print side by side on the same three
- *    cards (src/lib/cards/sendoffLooks.ts), so the league can pick what a
- *    playoff keepsake should be rather than argue about it in words.
- *    Mockups: they ride PlayerCard3D's admin-only `overlay` prop and
- *    nothing minted can reach their layers.
+ * 2. Put the six LOOKS for the print side by side on the same three cards
+ *    (src/lib/cards/sendoffLooks.ts). The league picked Newsprint, so that
+ *    row is the real thing — no overlay, the card drawing itself off
+ *    `card.sendoff` — and the other five are alternatives drawn OVER it on
+ *    PlayerCard3D's admin-only `overlay` prop, which nothing minted can
+ *    reach.
  * 3. Dry-run what Tuesday's drop would print for the current week, off the
  *    real fixtures and the real season cards, so a bracket typo or a team
  *    name that does not match `raw_stats.team_name` is caught BEFORE the
@@ -147,8 +148,8 @@ export default async function SendoffPreviewPage({
         <p className="max-w-3xl text-sm text-steel">
           Playoff cards print by elimination: a player&apos;s playoff card prints once, in the week their team&apos;s
           split ended, rated on the whole split rather than on the handful of people still in the bracket, and stamped
-          with how far they got. This page shows the five stamps on real cards, puts six candidate looks for the print
-          side by side, and dry-runs what Tuesday&apos;s drop would print for {week}.
+          with how far they got. This page shows the five stamps on real cards, puts the shipped print beside the five
+          looks it was picked over, and dry-runs what Tuesday&apos;s drop would print for {week}.
         </p>
         <p className="max-w-3xl text-sm text-gold">
           Preview only. Nothing on this page mints, archives, prices or writes anything — it reads the season&apos;s
@@ -183,9 +184,11 @@ export default async function SendoffPreviewPage({
             The five exits <span className="text-sm text-gold">· Mockups</span>
           </h2>
           <p className="max-w-3xl text-sm text-steel">
-            Each stamp on a real card from {season ?? "this season"}, with a made-up series so the ribbon reads the way
-            it will in the shop. Four of the five get a ribbon and a coin and nothing else; the Champion gets a frame
-            no other card in the league can wear. Click a card to see the coin spelled out on its back.
+            Each stamp on a real card from {season ?? "this season"}, with a made-up series so the masthead reads the
+            way it will in the shop. Every one of them is a page of the programme — masthead, screened photograph,
+            rubber stamp, ticket stub — and the Champion&apos;s prints its masthead in gold, keeps its photograph in
+            colour and wears a frame no other card in the league can. Click a card to see the coin spelled out on its
+            back.
           </p>
         </div>
         {best.length === 0 ? (
@@ -229,19 +232,20 @@ export default async function SendoffPreviewPage({
       <section aria-label="Looks" className="flex flex-col gap-8">
         <div className="flex flex-col gap-2">
           <h2 className="type-display border-b border-line pb-2 text-2xl">
-            Six looks <span className="text-sm text-gold">· prototypes</span>
+            Six looks <span className="text-sm text-gold">· one shipped, five alternatives</span>
           </h2>
           <p className="max-w-3xl text-sm text-steel">
             A playoff keepsake should not look like a season card with a ribbon on it. These are six different ideas of
             what the print could BE — a newspaper, a plaque, a banner in the rafters, a stage, a blueprint, a
-            photograph — drawn on the same three cards so they compare like for like. Pick one and it becomes the
-            treatment <code className="px-1 text-white">card.sendoff</code> turns on.
+            photograph — drawn on the same three cards so they compare like for like.
           </p>
           <p className="max-w-3xl text-sm text-steel">
-            Mockups, and only mockups: every card below still wears the SHIPPED send-off underneath — the ribbon, the
-            coin, and the Champion&apos;s frame — because nothing has replaced them yet. The look that wins takes over
-            the header, the stamp and the frame; until then they show through. The corner chip carries the line the CSS
-            cannot know on its own: the stamp, the series and the round.
+            <b className="text-white">Newsprint is the shipped treatment.</b> Its row carries no overlay at all: the
+            card draws the masthead, the screened photo block, the rubber stamp and the ticket stub itself, off{" "}
+            <code className="px-1 text-white">card.sendoff</code>, which is how the masthead became a band the rating
+            ring and the print number sit below rather than a layer on top of them. The other five are alternatives,
+            still mockups, drawn OVER the shipped print — so what shows through under a mockup is Newsprint. Their
+            corner chip carries the line the CSS cannot know on its own: the stamp, the series and the round.
           </p>
         </div>
 
@@ -253,8 +257,8 @@ export default async function SendoffPreviewPage({
               <h3 className="label-dash text-gold">What we are already printing</h3>
               <p className="max-w-3xl text-sm text-steel">
                 The same real card three ways, for scale: what it looks like today, what a foil of it looks like in
-                this season&apos;s skin line, and what the shipped send-off adds. Everything under this row has to be
-                different from all three at a glance.
+                this season&apos;s skin line, and what the shipped send-off makes of it. Everything under this row is
+                measured against the third one.
               </p>
               <div className="flex flex-wrap gap-8">
                 <figure data-testid="reference-season" className="flex w-[20rem] flex-col items-center gap-2">
@@ -318,20 +322,40 @@ export default async function SendoffPreviewPage({
                         data-look-stage={stage}
                         className="flex w-[20rem] flex-col items-center gap-2"
                       >
-                        <PlayerCard3D card={withSendoff(base, mark)} overlay={sendoffLookOverlay(look, mark)} interactive />
+                        <PlayerCard3D
+                          card={withSendoff(base, mark)}
+                          // The shipped look is the card itself: drawing its
+                          // own mockup over it would print the masthead
+                          // twice.
+                          overlay={look.shipped ? null : sendoffLookOverlay(look, mark)}
+                          interactive
+                        />
                         <figcaption
-                          className="text-center text-xs font-black uppercase tracking-[0.18em]"
+                          className="flex flex-col items-center gap-1 text-center text-xs font-black uppercase tracking-[0.18em]"
                           style={{ color: SENDOFF_META[stage].accent }}
                         >
                           {SENDOFF_META[stage].label}
+                          {look.shipped ? (
+                            <span className="rounded-full border border-emerald-400/60 px-2 py-0.5 text-[10px] text-emerald-300">
+                              Shipped
+                            </span>
+                          ) : null}
                         </figcaption>
                       </figure>
                     );
                   })}
                 </div>
                 <div className="card-brand flex max-w-md flex-col gap-2 p-4">
-                  <h3 className="type-display text-xl" style={{ color: look.accent }}>
+                  <h3 className="type-display flex items-center gap-2 text-xl" style={{ color: look.accent }}>
                     {look.title}
+                    {look.shipped ? (
+                      <span
+                        data-testid={`shipped-${look.key}`}
+                        className="rounded-full border border-emerald-400/60 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300"
+                      >
+                        Shipped
+                      </span>
+                    ) : null}
                   </h3>
                   <p className="text-sm text-white">{look.blurb}</p>
                   <p className="text-xs text-steel">
