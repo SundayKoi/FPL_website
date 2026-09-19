@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { canDust, dustValueOf } from "@/lib/packs/config";
@@ -69,9 +69,9 @@ describe("the On Air card", () => {
     expect(card.motto).toBe("Chimes on the three.");
     expect(card.serial).toBe(3);
     expect(card.collectionSize).toBe(ON_AIR_COPIES);
-    expect(card.subStats.map((stat) => stat.key)).toEqual(["mic", "hype", "reads", "calls", "signal"]);
-    expect(card.subStats.map((stat) => stat.label)).toEqual(["Mic", "Hype", "Reads", "Calls", "Signal"]);
-    expect(card.subStats.every((stat) => stat.value === 100)).toBe(true);
+    // No bars at all: the front face prints the production slate in their
+    // place, and five columns of 100 said nothing worth printing.
+    expect(card.subStats).toEqual([]);
     expect(card.highlights).toEqual([{ label: "On the desk", value: "Match night rip", detail: "Printed while the stream was live" }]);
     expect(card.badges).toEqual([{ key: "onair", label: "On Air", detail: "Only prints while a Live Drops window is open" }]);
     expect(card.standout).toBe(false);
@@ -184,6 +184,8 @@ describe("the On Air look", () => {
     const card = onAirCard({ ...ON_AIR_SPECIMEN, champion: null }, 12, "S5", "Week 3 broadcast");
     render(<PlayerCard3D card={card} />);
     expect(screen.getByTestId("overlay").querySelector(".card-ov-onair-nosignal")).not.toBeNull();
+    // And the slate says so where the CAM field would name a champion.
+    expect(within(screen.getByTestId("onair-slate")).getByText("No signal")).toBeTruthy();
   });
 
   it("leaves an ordinary card alone", () => {
@@ -191,5 +193,95 @@ describe("the On Air look", () => {
     render(<PlayerCard3D card={card} />);
     expect(screen.queryByTestId("overlay")).toBeNull();
     expect(screen.queryByTestId("onair-stamp")).toBeNull();
+    // No stamp, no slate: the lower block is the ordinary one, record
+    // footer and all.
+    expect(screen.queryByTestId("onair-slate")).toBeNull();
+    // The front's footer and the back's ledger line, both back.
+    expect(screen.getAllByText(/100% WR/).length).toBeGreaterThan(0);
+  });
+});
+
+/** The slate: the lower third of a caster's card, and the one part of the
+ *  look that is real layout rather than an overlay. */
+describe("the On Air slate", () => {
+  const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+  const declared = (cls: string) =>
+    css.includes(`@utility ${cls} `) || css.includes(`@utility ${cls}\n`) || css.includes(`@utility ${cls}{`);
+
+  it("prints the copy's own facts where the signature row and the bars were", () => {
+    render(<PlayerCard3D card={onAirCard(caster(), 3, "S5", "Match night rip")} interactive={false} />);
+    const slate = screen.getByTestId("onair-slate");
+    for (const label of ["Cam", "Season", "Role", "Take", "Scene", "Notes"]) {
+      expect(within(slate).getByText(label), label).toBeTruthy();
+    }
+    // The take number is the hero, and it carries the run beside it.
+    const take = screen.getByTestId("onair-slate-take");
+    expect(take.textContent).toContain("3");
+    expect(take.textContent).toContain("/ 25");
+    expect(within(slate).getByText("S5")).toBeTruthy();
+    expect(within(slate).getByText("Play-by-play")).toBeTruthy();
+    expect(within(slate).getByText("Match night rip")).toBeTruthy();
+    // The tagline finally prints on the FRONT of the card.
+    expect(within(slate).getByText("\u201cChimes on the three.\u201d")).toBeTruthy();
+    // The production's name once, on the tab on the sticks; the CAM field
+    // names what the art is shot on, which is what the signature row said.
+    expect(within(slate).getAllByText("FPL LIVE")).toHaveLength(1);
+    expect(within(slate).getByText("Bard")).toBeTruthy();
+    // The marker's call, under the board.
+
+    expect(within(slate).getByText("ROLL · SOUND · SPEED")).toBeTruthy();
+  });
+
+  it("replaces the signature row, the stat bars and the record footer", () => {
+    const { container } = render(
+      <PlayerCard3D card={onAirCard(caster(), 3, "S5", "Match night rip")} interactive={false} />,
+    );
+    // The lower block of the FRONT face — the archetype band and whatever
+    // follows it. The back is untouched by any of this and still carries
+    // the champion and the record in its ledger.
+    const block = screen.getByTestId("onair-slate").parentElement!;
+    expect(block.textContent).toContain("On Air");
+    // The signature is still on the card — it is what the art is drawn
+    // from — but the row that printed it ("Signature … 100 GP") is gone;
+    // the champion now appears exactly once, as the slate's CAM field.
+    expect(within(block).queryByText("Signature")).toBeNull();
+    expect(within(block).queryByText(/GP$/)).toBeNull();
+    expect(within(block).getAllByText("Bard")).toHaveLength(1);
+    // No bars, and no 100–0 · 100% WR · PENTA ×100 · LVL 100.
+    expect(container.querySelectorAll('[class*="transition-[width]"]')).toHaveLength(0);
+    expect(within(block).queryByText(/WR/)).toBeNull();
+    expect(within(block).queryByText(/LVL/)).toBeNull();
+    expect(within(block).queryByText(/PENTA/)).toBeNull();
+  });
+
+  it("draws the slate on a caster with no champion too", () => {
+    const card = onAirCard(caster({ champion: null, tagline: null }), 12, "S5", "Week 3 broadcast");
+    render(<PlayerCard3D card={card} interactive={false} />);
+    const slate = screen.getByTestId("onair-slate");
+    expect(within(slate).getByText("Week 3 broadcast")).toBeTruthy();
+    expect(within(slate).getByText("\u201cWe'll be right back after these messages.\u201d")).toBeTruthy();
+    expect(screen.getByTestId("onair-slate-take").textContent).toContain("12");
+  });
+
+  it("declares every slate class it draws with in globals.css", () => {
+    const { container } = render(
+      <PlayerCard3D card={onAirCard(caster(), 3, "S5", "Match night rip")} interactive={false} />,
+    );
+    const used = new Set<string>();
+    for (const el of container.querySelectorAll('[data-testid="onair-slate"], [data-testid="onair-slate"] *')) {
+      for (const cls of el.classList) if (cls.startsWith("card-onair-slate")) used.add(cls);
+    }
+    // Every field of the slate is drawn by one of these, so a missing
+    // @utility is a layer Tailwind never emitted.
+    expect([...used].sort()).toEqual([
+      "card-onair-slate",
+      "card-onair-slate-foot",
+      "card-onair-slate-label",
+      "card-onair-slate-sticks",
+      "card-onair-slate-tab",
+      "card-onair-slate-take",
+      "card-onair-slate-value",
+    ]);
+    for (const cls of used) expect(declared(cls), cls).toBe(true);
   });
 });

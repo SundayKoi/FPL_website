@@ -52,9 +52,9 @@ export default async function OnAirAdminPage() {
         </Link>
         <h1 className="type-display text-4xl sm:text-5xl">On Air</h1>
         <p className="max-w-3xl text-sm text-steel">
-          The casters get a card of their own — a 100 in every column, in broadcast colour bars with the ON AIR lamp
-          lit. The only way to pull one is to open a pack while a Live Drops window is running, which makes being in
-          the room while the games run the whole of its scarcity.
+          The casters get a card of their own — 100 overall, in broadcast colour bars with the ON AIR lamp lit and a
+          production slate where the stats would be. The only way to pull one is to open a pack while a Live Drops
+          window is running, which makes being in the room while the games run the whole of its scarcity.
         </p>
         <p className="max-w-3xl text-sm text-gold">
           What mints: only inside a Live Drops window, {oneIn(ON_AIR_CHANCE)} packs, {ON_AIR_COPIES} per caster per

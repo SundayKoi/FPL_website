@@ -451,9 +451,10 @@ export const DRIBB_TIER = "dribb";
  * stream is live.
  *
  * Not a player and not the Dribb: one of the league's broadcasters
- * (profiles.is_broadcaster), a 100 in every column, in the broadcast
- * treatment nothing else on the board wears — SMPTE colour bars, a lit ON
- * AIR lamp, a waveform along the foot (src/lib/cards/onAir.ts). Rolled
+ * (profiles.is_broadcaster), 100 overall, with a production slate where
+ * the stats would be, in the broadcast treatment nothing else on the board
+ * wears — SMPTE colour bars, a lit ON AIR lamp, a waveform along the foot
+ * (src/lib/cards/onAir.ts). Rolled
  * ONCE PER PACK, on standard packs only, and ONLY inside a Live Drops
  * window: `liveNow` in openPackFor is the gate in front of this gate, so
  * the number below is the chance per pack opened in the room while the
