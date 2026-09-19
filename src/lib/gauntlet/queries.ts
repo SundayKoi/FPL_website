@@ -85,8 +85,9 @@ export function currentWeek(): string {
   return mondayOf(new Date());
 }
 
-/** The collection as draft options, by role, best copies first. Moments
- *  and champions relics don't field — they watch from the shelf. */
+/** The collection as draft options, by role, best copies first. Moments,
+ *  champions relics, roster plates and On Air prints don't field — they
+ *  watch from the shelf. */
 export function buildGauntletOptions(
   rows: InventoryRow[],
   week: string,
@@ -99,7 +100,10 @@ export function buildGauntletOptions(
     GauntletOption[]
   >;
   for (const row of rows) {
-    if (row.card.moment || row.card.champWin || row.card.team) continue;
+    // An On Air print is a caster, not a player: no lane, no bars, nothing
+    // to fight with — the same reason a moment, a relic and a plate stay on
+    // the shelf.
+    if (row.card.moment || row.card.champWin || row.card.team || row.card.onAir) continue;
     // A slabbed copy is sealed: not offered, and refused on entry anyway.
     if (row.card.slab) continue;
     const role = row.role as GauntletRole;

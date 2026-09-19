@@ -27,6 +27,8 @@ import {
   FOIL_TYPES,
   GUARANTEED_CLASS,
   LIVE_FOIL_CHANCE,
+  ON_AIR_CHANCE,
+  ON_AIR_COPIES,
   PACK_SIZE,
   RARITY_BY_TIER,
   RARITY_ORDER,
@@ -219,6 +221,14 @@ export function rarityGuide(season: string | null, league: "premier" | "academy"
       how: "Takes a slot in a pack from its own edition week.",
       odds: `${oneIn(TEAM_PULL_CHANCE)} packs`,
       value: `Dusts flat for $${TEAM_DUST}.`,
+    },
+    {
+      key: "onair",
+      name: "◉ On Air",
+      look: "One of the two casters, in broadcast colour bars with the ON AIR lamp lit and a production slate where the stats would be. 100 overall.",
+      how: `Only inside a Live Drops window: one roll per pack at ${oneIn(ON_AIR_CHANCE)}, and the pack's last card becomes the caster with the fewest prints this season.`,
+      odds: `${oneIn(ON_AIR_CHANCE)} packs, live only`,
+      value: `Never dusts. ${ON_AIR_COPIES} per caster per season.`,
     },
     ...(league === "premier"
       ? [

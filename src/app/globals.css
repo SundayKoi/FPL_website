@@ -3885,6 +3885,373 @@ body {
   .card-ov-dribb-aether-ring::before, .card-ov-dribb-aether-leak, .card-ov-dribb-aether-rift::before, .card-ov-dribb-aether-nebula, .card-ov-dribb-aether-glass { animation: none; }
 }
 
+/* ── The On Air card. ───────────────────────────────────────────────────
+   The casters' print, and the ONLY look here a minted copy wears off its
+   own stamp rather than an admin prop (src/lib/cards/onAir.ts,
+   ON_AIR_LOOK / onAirLook). Broadcast furniture, and deliberately nothing
+   the board already uses: no scanlines (PROJECT), no magenta stage light
+   (K/DA), no reticle (Battlecast), no pixels (Arcade). SMPTE colour bars
+   bleeding in from the right of the photo block, a lit ON AIR lamp under
+   the tier row, an audio waveform along the foot and a blinking REC dot —
+   plus the full test pattern for a caster who has set no champion, which
+   is the no-signal print rather than a fallback.
+
+   The geometry is measured against the real card, not guessed. On a
+   310x438 face the rating ring and serial own y 12–84 top-right, the tier
+   pill y 36–60 at the left, the coin strip y 88–108 at the right, the name
+   and role y 112–164, and the lower block starts at y 214 — on EVERY On
+   Air card, with or without art, because the production slate that fills
+   it is one fixed height (card-onair-slate, below). Every layer below is
+   placed in the gaps that leaves, so nothing a card says is ever painted
+   over. */
+
+/* The seven bars, 75% SMPTE order: white, yellow, cyan, green, magenta,
+   red, blue. One gradient with hard stops, held in a custom property so
+   the bleed, the top row and the test pattern can never drift apart. */
+@utility card-ov-onair-bars {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  --onair-bars: linear-gradient(90deg,
+    #ebebeb 0 14.2857%, #ebeb1e 14.2857% 28.5714%, #1eebeb 28.5714% 42.8571%,
+    #1eeb1e 42.8571% 57.1429%, #eb1eeb 57.1429% 71.4286%, #eb1e1e 71.4286% 85.7143%,
+    #1e1eeb 85.7143% 100%);
+  /* The thin bar row along the very top edge — above the tier pill, above
+     the ring, above everything the card prints. */
+  background-image: var(--onair-bars);
+  background-size: 100% 4px;
+  background-position: 0 0;
+  background-repeat: no-repeat;
+  /* The bleed: full-height bars from the RIGHT edge, faded out well before
+     the centre so the name and the role keep their side of the card, and
+     stopped above the waveform and the archetype band. Static — the bars
+     are a signal, not an effect. */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 24.5% 0 59% 0;
+    background-image: var(--onair-bars);
+    opacity: 0.92;
+    -webkit-mask-image:
+      linear-gradient(90deg, transparent 0 53%, rgb(0 0 0 / 0.4) 64%, rgb(0 0 0 / 0.9) 78%, #000 100%),
+      linear-gradient(180deg, transparent 0, #000 10%, #000 86%, transparent 100%);
+    mask-image:
+      linear-gradient(90deg, transparent 0 53%, rgb(0 0 0 / 0.4) 64%, rgb(0 0 0 / 0.9) 78%, #000 100%),
+      linear-gradient(180deg, transparent 0, #000 10%, #000 86%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+}
+
+/* The lamp: a small red box at the left, under the tier pill and above the
+   name. The WORDS are the overlay's chip (card-ov-chip) — this layer is
+   the lamp itself, lit and breathing. */
+@keyframes ovOnAirLamp {
+  0%, 100% {
+    box-shadow: 0 0 9px 2px rgb(255 59 59 / 0.45), inset 0 0 8px 1px rgb(255 130 110 / 0.5);
+  }
+  50% {
+    box-shadow: 0 0 18px 6px rgb(255 59 59 / 0.8), inset 0 0 13px 3px rgb(255 185 165 / 0.85);
+  }
+}
+@utility card-ov-onair-lamp {
+  position: absolute;
+  top: 62px;
+  left: 14px;
+  width: 66px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid rgb(12 2 2 / 0.9);
+  background: linear-gradient(180deg, #8c1010, #3a0505 60%, #5e1212);
+  animation: ovOnAirLamp 2.6s ease-in-out infinite;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 2px;
+    border-radius: 2px;
+    border: 1px solid rgb(255 150 130 / 0.75);
+    background:
+      linear-gradient(180deg, rgb(255 255 255 / 0.22), transparent 45%),
+      radial-gradient(ellipse 58% 130% at 50% 50%, rgb(255 226 212 / 0.95), rgb(255 82 62 / 0.7) 38%, rgb(150 12 12 / 0.35) 72%, transparent 100%);
+  }
+  /* The words on the lamp itself, so it reads as a lamp and not a bare
+     red button: the chip above it carries the caster and the number. */
+  &::after {
+    content: "ON AIR";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-chakra), sans-serif;
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    line-height: 1;
+    padding-left: 0.22em;
+    color: #fff4f0;
+    text-shadow: 0 0 4px rgb(255 120 100 / 0.95), 0 0 1px rgb(60 0 0 / 0.9);
+  }
+}
+
+/* The waveform along the foot of the photo block: thin vertical bars of
+   three heights interleaved, a faint centre line under them, drifting
+   sideways by whole periods so the loop never jumps. Sits in the gap
+   between the role line and the archetype band. */
+@keyframes ovOnAirWave {
+  to { background-position: -27px center, -24px center, -21px center; }
+}
+@utility card-ov-onair-wave {
+  position: absolute;
+  left: 7%;
+  right: 7%;
+  top: 41.2%;
+  height: 4.4%;
+  overflow: hidden;
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--ov-accent, #fff) 30%, transparent), color-mix(in srgb, var(--ov-accent, #fff) 30%, transparent));
+  background-size: 100% 1px;
+  background-position: 0 center;
+  background-repeat: no-repeat;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(90deg, color-mix(in srgb, var(--ov-accent, #fff) 80%, transparent) 0 2px, transparent 2px 9px),
+      repeating-linear-gradient(90deg, color-mix(in srgb, var(--ov-accent, #fff) 80%, transparent) 0 2px, transparent 2px 9px),
+      repeating-linear-gradient(90deg, color-mix(in srgb, var(--ov-accent, #fff) 80%, transparent) 0 2px, transparent 2px 9px);
+    background-size: 100% 100%, 100% 56%, 100% 30%;
+    background-position: 0 center, 3px center, 6px center;
+    background-repeat: repeat-x;
+    animation: ovOnAirWave 7s linear infinite;
+    filter: drop-shadow(0 0 2px color-mix(in srgb, var(--ov-accent, #fff) 65%, transparent));
+  }
+}
+
+/* REC: a red dot on a dark pill in the top-right corner, blinking. No text
+   in CSS — the dot is the mark. Tucked above and outside the rating ring's
+   arc, so the number it sits beside is never touched. */
+@keyframes ovOnAirRec {
+  0%, 48% { opacity: 1; }
+  52%, 100% { opacity: 0.12; }
+}
+@utility card-ov-onair-rec {
+  position: absolute;
+  top: 6px;
+  right: 13px;
+  width: 18px;
+  height: 11px;
+  border-radius: 999px;
+  background: rgb(4 8 12 / 0.8);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.22), 0 1px 3px rgb(0 0 0 / 0.7);
+  &::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 7px;
+    height: 7px;
+    margin: -3.5px 0 0 -3.5px;
+    border-radius: 50%;
+    background: var(--ov-accent, #ff3b3b);
+    box-shadow: 0 0 7px 2px color-mix(in srgb, var(--ov-accent, #ff3b3b) 75%, transparent);
+    animation: ovOnAirRec 1.7s steps(1, end) infinite;
+  }
+}
+
+/* No signal: the caster set no champion, so there is no art and the card
+   prints the test pattern instead. Full-width bars with the pluge row along
+   their bottom, in the band between the role line (ends y 164) and the
+   archetype band (starts y 214) — the whole of the photo block that
+   carries no type — under a faint grain that dusts the rest of the face so
+   the card reads as dead air rather than as a card that failed to load. */
+@utility card-ov-onair-nosignal {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  --onair-bars: linear-gradient(90deg,
+    #ebebeb 0 14.2857%, #ebeb1e 14.2857% 28.5714%, #1eebeb 28.5714% 42.8571%,
+    #1eeb1e 42.8571% 57.1429%, #eb1eeb 57.1429% 71.4286%, #eb1e1e 71.4286% 85.7143%,
+    #1e1eeb 85.7143% 100%);
+  /* The dead-air grain, over the whole face and far too faint to touch a
+     word: two dot screens at odds with each other. */
+  background-image:
+    radial-gradient(1px 1px at 20% 35%, rgb(255 255 255 / 0.5), transparent 62%),
+    radial-gradient(1px 1px at 72% 68%, rgb(0 0 0 / 0.55), transparent 62%);
+  background-size: 5px 5px, 7px 7px;
+  opacity: 0.95;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 37.6% 0 52% 0;
+    background-image:
+      linear-gradient(90deg,
+        #12123a 0 14.2857%, #0a0a0a 14.2857% 28.5714%, #3a123a 28.5714% 42.8571%,
+        #0a0a0a 42.8571% 57.1429%, #123a3a 57.1429% 71.4286%, #0a0a0a 71.4286% 85.7143%,
+        #2b2b2b 85.7143% 100%),
+      var(--onair-bars);
+    background-size: 100% 22%, 100% 78%;
+    background-position: 0 100%, 0 0;
+    background-repeat: no-repeat;
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.55), 0 6px 16px rgb(0 0 0 / 0.55);
+  }
+  /* The grain again, over the bars themselves. */
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 37.6% 0 52% 0;
+    background-image:
+      radial-gradient(1px 1px at 30% 20%, rgb(255 255 255 / 0.55), transparent 62%),
+      radial-gradient(1px 1px at 65% 75%, rgb(0 0 0 / 0.6), transparent 62%);
+    background-size: 4px 4px, 6px 6px;
+    mix-blend-mode: overlay;
+    opacity: 0.75;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-ov-onair-lamp, .card-ov-onair-wave::before { animation: none; }
+  /* The REC dot stops blinking and stays lit: the mark still means
+     "recording", it just no longer moves. */
+  .card-ov-onair-rec::before { animation: none; opacity: 1; }
+}
+
+/* The production slate — the lower third of an On Air card, and the one
+   part of this block that is NOT an overlay. Real layout, the way the
+   Send-off's stub is (card-sendoff-*): PlayerCardFace draws it in the exact
+   place the signature row, the five stat bars and the record footer sit on
+   every other card, because on a caster's card those three had nothing to
+   say — a 100 five times over and a 100–0 record are not facts, they are
+   padding. The slate is: a clapperboard, chalk on black, whose every field
+   is true of THIS print.
+
+   Geometry in pixels, like the Send-off's, because the card is: the
+   signature row, the five bars and the record footer, with the two 8px
+   gaps the flex column put between them, measured 168px from the foot of
+   the archetype band to the last line of type. The slate is pinned to that
+   exact 10.5rem, so the band above it, the waveform above that and the
+   card's own height do not move by a pixel — with or without a signature,
+   which is why the no-signal print now starts its block at y 214 too.
+   Static: no animation anywhere in here, so there is nothing for the
+   reduced-motion list above to turn off. */
+
+/* The board: near-black ground, chalk dust, rounded exactly as the
+   archetype band above it (rounded-lg). */
+@utility card-onair-slate {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 8px;
+  background-color: rgb(8 10 14 / 0.88);
+  /* The dust: two low, wide smears of chalk, one under each corner the
+     hand would rest on. Far too faint to touch the type. */
+  background-image:
+    radial-gradient(ellipse 72% 56% at 20% 16%, rgb(236 244 255 / 0.05), transparent 70%),
+    radial-gradient(ellipse 64% 52% at 84% 90%, rgb(236 244 255 / 0.04), transparent 72%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1), 0 1px 6px rgb(0 0 0 / 0.5);
+}
+
+/* The sticks: the hinged bar across the top, in hard diagonal stripes, with
+   the chalk rule under it. The stripes are the whole reason the thing reads
+   as a clapperboard at 310px wide, so they are cut at -45° with no blur. */
+@utility card-onair-slate-sticks {
+  position: relative;
+  flex: none;
+  height: 9px;
+  border-bottom: 1px solid rgb(226 232 240 / 0.5);
+  background-image: repeating-linear-gradient(-45deg,
+    #f2f4f7 0 6px, #0a0c10 6px 12px);
+}
+
+/* The production's name, on a black tab at the left-hand end of the
+   sticks: white type over the stripes is unreadable, and a tab is what a
+   real slate has there. */
+@utility card-onair-slate-tab {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 5px 0 6px;
+  background: #0a0c10;
+  font-family: var(--font-body);
+  font-size: 6.5px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.2em;
+  color: rgb(255 255 255 / 0.85);
+}
+
+/* Every field is label over value: the label in chalk-grey caps, the value
+   in white in the display face. */
+@utility card-onair-slate-label {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.55);
+}
+@utility card-onair-slate-value {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: #fff;
+}
+
+/* TAKE: the hero of the slate and the loudest thing on it — the copy's
+   number, at twice the size of every other value, with the run small and
+   grey beside it. */
+@utility card-onair-slate-take {
+  display: block;
+  margin-top: 1px;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 12px rgb(255 59 59 / 0.45), 0 1px 2px rgb(0 0 0 / 0.8);
+  & > span {
+    margin-left: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: rgb(255 255 255 / 0.6);
+    text-shadow: none;
+  }
+}
+
+/* The foot: the marker's call, under the board and inside the frame. No
+   numbers — the record footer is exactly what this replaces. */
+@utility card-onair-slate-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 5px 3px 0;
+  font-family: var(--font-body);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  color: rgb(255 255 255 / 0.5);
+}
+
 /* ── The Send-off looks. ────────────────────────────────────────────────
    The five ALTERNATIVES to the shipped playoff print
    (src/lib/cards/sendoffLooks.ts), drawn on real cards on /admin/sendoff

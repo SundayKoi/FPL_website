@@ -42,6 +42,7 @@ import { mutationByKey, mutationOverlay, type MutationOverlay } from "@/lib/card
 import { isWayfarer, milesOf, trailLine, trailTitleOf } from "@/lib/expeditions/trail";
 import { CAMPAIGNS } from "@/lib/expeditions/campaigns";
 import { dribbLabel, dribbLook } from "@/lib/cards/dribb";
+import { ON_AIR_ACCENT, onAirLabel, onAirLook } from "@/lib/cards/onAir";
 import type { OverlayMockup } from "@/lib/cards/overlayMockups";
 import { secretSerialLabel, stattrakLabel } from "@/lib/packs/rarities";
 import { gradeOf, isSlabbed, wearOf } from "@/lib/cards/wear";
@@ -299,10 +300,18 @@ function PlayerCardFace({
   // passes the prop, and a minted mutation is the card's own fact.
   const worn = card.mutation ? mutationByKey(card.mutation.key) : undefined;
   const mutation = worn ? mutationOverlay(worn) : mutationProp;
-  // The Dribb card wears its look off its own stamp — the one overlay a
-  // minted copy can reach. The prop, which only the admin mockup pages
-  // pass, still wins so they can show any look on the specimen.
-  const overlay = overlayProp ?? (card.dribb ? dribbLook(card.dribb) : null);
+  // The Dribb card and the On Air print wear their looks off their own
+  // stamps — the two overlays a minted copy can reach. The prop, which only
+  // the admin mockup pages pass, still wins so they can show any look on
+  // the specimen. An On Air copy whose caster set no champion has no art
+  // for the bars to bleed over, so the look adds the test pattern instead.
+  const overlay =
+    overlayProp ??
+    (card.dribb
+      ? dribbLook(card.dribb)
+      : card.onAir
+        ? onAirLook(card.onAir, Boolean(card.artChampion ?? card.signature?.champion))
+        : null);
   // The bench, decided on the client only: the server snapshot says "not
   // mounted", so the HTML never has to know whether 4pm has passed for the
   // reader, and the hydrated browser reads the clock once it is in charge.
@@ -327,6 +336,9 @@ function PlayerCardFace({
     ...(card.chase ? [{ key: "chase", testId: "chase-stamp", glyph: "★", accent: "#f5b62e", title: `First to the chase: ${card.chase.title}`, label: "Chase", detail: card.chase.title }] : []),
     ...(card.dribb
       ? [{ key: "dribb", testId: "dribb-stamp", glyph: "✦", accent: "#d27dff", title: `The Dribb card — ${dribbLabel(card.dribb)}. Five will ever exist.`, label: "Dribb", detail: dribbLabel(card.dribb) }]
+      : []),
+    ...(card.onAir
+      ? [{ key: "onair", testId: "onair-stamp", glyph: "◉", accent: ON_AIR_ACCENT, title: `On Air — ${card.onAir.name}, printed live during ${card.onAir.window}. ${card.onAir.number} of ${card.onAir.of} this season.`, label: "On Air", detail: onAirLabel(card.onAir) }]
       : []),
     ...(card.autograph ? [{ key: "signed", testId: "signed-stamp", glyph: "✍", accent: "#f5b62e", title: "Signed — the player's own ink", label: "Signed", detail: null }] : []),
     ...(card.shiny ? [{ key: "shiny", testId: "shiny-stamp", glyph: "✦", accent: "#ff9be7", title: "Shiny — the art in the wrong colours. One print in sixty-four.", label: "Shiny", detail: null }] : []),
@@ -364,6 +376,14 @@ function PlayerCardFace({
   // and that card renders exactly as it did before.
   const sendoff = card.sendoff ?? null;
   const sendoffMeta = sendoff ? SENDOFF_META[sendoff.stage] : null;
+  // The On Air print, drawn the same way for the same reason: the lower
+  // third of a caster's card is a production slate (globals.css, "The On
+  // Air card"), and it REPLACES the signature row, the stat bars and the
+  // record footer rather than sitting over them. A caster has no columns
+  // worth printing — the copy is 100 across — so the slate prints facts of
+  // this print instead: the take number, the window it was pulled in and
+  // the tagline. Null on every other card, which renders exactly as before.
+  const onAir = card.onAir ?? null;
   // The Champion's send-off is the only print in the league that can wear
   // the crimson-and-white-gold frame, and five of them exist per season, so
   // it outranks Card of the Week the way Card of the Week outranks a tier.
@@ -608,7 +628,7 @@ function PlayerCardFace({
   // is paused at rest (globals.css: [data-motion="rest"]) and runs while the
   // pointer is on the card, so a forty-card shelf idles for free. Eclipse is
   // the one exception: the one-of-one is always live.
-  const motion = isEclipse || Boolean(card.dribb) || hovering ? "live" : "rest";
+  const motion = isEclipse || Boolean(card.dribb) || Boolean(card.onAir) || hovering ? "live" : "rest";
 
   return (
     <div data-motion={motion} className={`relative [perspective:1100px] ${className}`} style={{ width: "20rem" }}>
@@ -633,7 +653,7 @@ function PlayerCardFace({
         ref={frameRef}
         role={interactive ? "button" : undefined}
         tabIndex={interactive ? 0 : undefined}
-        aria-label={`${card.name} player card — ${card.overall} overall, ${card.tier.label}${forceFoil ? `, ${preview ? preview.label : FOIL_TYPE_LABELS[parallel]} foil` : ""}${card.dribb ? `, the Dribb card ${dribbLabel(card.dribb)}` : ""}${card.shiny ? ", shiny" : ""}${card.secret ? `, secret ${secretSerialLabel(card.secret)}` : ""}${card.stattrak ? `, StatTrak ${stattrakLabel(card.stattrak.points)}` : ""}${slabbed ? `, slabbed ${grade.label}` : wear > 0 ? `, ${grade.label}` : ""}.${interactive ? " Activate to flip." : ""}`}
+        aria-label={`${card.name} player card — ${card.overall} overall, ${card.tier.label}${forceFoil ? `, ${preview ? preview.label : FOIL_TYPE_LABELS[parallel]} foil` : ""}${card.dribb ? `, the Dribb card ${dribbLabel(card.dribb)}` : ""}${card.onAir ? `, the On Air card ${onAirLabel(card.onAir)}` : ""}${card.shiny ? ", shiny" : ""}${card.secret ? `, secret ${secretSerialLabel(card.secret)}` : ""}${card.stattrak ? `, StatTrak ${stattrakLabel(card.stattrak.points)}` : ""}${slabbed ? `, slabbed ${grade.label}` : wear > 0 ? `, ${grade.label}` : ""}.${interactive ? " Activate to flip." : ""}`}
         onPointerMove={onPointerMove}
         onPointerEnter={onPointerEnter}
         onPointerLeave={reset}
@@ -941,7 +961,12 @@ function PlayerCardFace({
               <div className="rounded-lg bg-black/65 px-3 py-1.5 text-center backdrop-blur-[2px]">
                 <span className="font-display text-base font-bold not-italic text-white">{card.archetype}</span>
               </div>
-              {card.signature ? (
+              {/* An On Air print keeps its signature — the champion is what
+                  the art is drawn from — but does not PRINT it: the slate
+                  below says everything this card's lower third has to say,
+                  and a signature row above it would only be a second label
+                  for the same face. */}
+              {card.signature && !onAir ? (
                 <div className="flex items-baseline justify-between">
                   <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/60">Signature</span>
                   <span className="text-sm font-bold text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]">
@@ -950,33 +975,88 @@ function PlayerCardFace({
                   </span>
                 </div>
               ) : null}
-              <div className="flex flex-col gap-1.5">
-                {card.subStats.map((stat) => (
-                  <div key={stat.key} className="flex items-center gap-2">
-                    {/* Sized for the longest label the engine can print
-                        ("OBJECTIVES" runs ~68px at 9px + 0.14em tracking,
-                        past the old w-16), with truncate as the backstop so
-                        any future label clips on one line instead of
-                        wrapping and shoving the bar track out of line. The
-                        track stays flex-1, so the extra 4px comes out of it
-                        rather than out of the card. */}
-                    <span className="w-[4.75rem] shrink-0 truncate whitespace-nowrap text-[9px] font-bold uppercase tracking-[0.14em] text-white/75">
-                      {stat.label}
-                    </span>
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/15">
-                      {/* Bars sweep in from zero on mount — the stat reveal. */}
-                      <div
-                        className="h-full rounded-full transition-[width] duration-700 ease-out"
-                        style={{ width: `${statsIn ? stat.value : 0}%`, background: statTone(stat.value) }}
-                      />
+              {onAir ? (
+                // The production slate, in the exact room the signature row,
+                // the five bars and the record footer took: 168px, so the
+                // archetype band above it and the waveform above that do not
+                // move a pixel. Chalk on black, and every line on it is a
+                // fact of THIS print.
+                <div data-testid="onair-slate" className="flex h-[10.5rem] flex-col">
+                  <div className="card-onair-slate">
+                    <div className="card-onair-slate-sticks">
+                      <span className="card-onair-slate-tab">FPL LIVE</span>
                     </div>
-                    <CountUp value={stat.value} className="w-6 text-right font-mono text-[11px] font-bold text-white" />
+                    <div className="grid flex-1 grid-cols-2 content-between gap-x-2 px-2.5 pb-1.5 pt-2">
+                      <div className="min-w-0">
+                        {/* What the art is shot on: the champion the caster
+                            chose, or NO SIGNAL for the test-pattern print.
+                            This is the fact the signature row carried. */}
+                        <span className="card-onair-slate-label">Cam</span>
+                        <span className="card-onair-slate-value">{artChampion ?? "No signal"}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="card-onair-slate-label">Season</span>
+                        <span className="card-onair-slate-value">{card.season}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="card-onair-slate-label">Role</span>
+                        <span className="card-onair-slate-value">{card.role}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="card-onair-slate-label">Take</span>
+                        <span data-testid="onair-slate-take" className="card-onair-slate-take">
+                          {onAir.number}
+                          <span>/ {onAir.of}</span>
+                        </span>
+                      </div>
+                      <div className="col-span-2 min-w-0">
+                        <span className="card-onair-slate-label">Scene</span>
+                        <span className="card-onair-slate-value">{onAir.window}</span>
+                      </div>
+                      <div className="col-span-2 min-w-0">
+                        <span className="card-onair-slate-label">Notes</span>
+                        <span className="card-onair-slate-value italic">“{card.motto}”</span>
+                      </div>
+                    </div>
                   </div>
-                ))}
-              </div>
-              {sendoff ? null : (
+                  <div className="card-onair-slate-foot">
+                    <span>ROLL · SOUND · SPEED</span>
+                    <span>
+                      <span style={{ color: ON_AIR_ACCENT }}>●</span> MARK
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {card.subStats.map((stat) => (
+                    <div key={stat.key} className="flex items-center gap-2">
+                      {/* Sized for the longest label the engine can print
+                          ("OBJECTIVES" runs ~68px at 9px + 0.14em tracking,
+                          past the old w-16), with truncate as the backstop so
+                          any future label clips on one line instead of
+                          wrapping and shoving the bar track out of line. The
+                          track stays flex-1, so the extra 4px comes out of it
+                          rather than out of the card. */}
+                      <span className="w-[4.75rem] shrink-0 truncate whitespace-nowrap text-[9px] font-bold uppercase tracking-[0.14em] text-white/75">
+                        {stat.label}
+                      </span>
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/15">
+                        {/* Bars sweep in from zero on mount — the stat reveal. */}
+                        <div
+                          className="h-full rounded-full transition-[width] duration-700 ease-out"
+                          style={{ width: `${statsIn ? stat.value : 0}%`, background: statTone(stat.value) }}
+                        />
+                      </div>
+                      <CountUp value={stat.value} className="w-6 text-right font-mono text-[11px] font-bold text-white" />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {sendoff || onAir ? null : (
                 // The send-off prints these same three facts in ink on the
-                // stub below. Printing them twice is what the stub replaces.
+                // stub below, and the On Air slate prints facts of its own
+                // where they would be. Printing them twice is what each of
+                // those replaces.
                 <div className="flex items-center justify-between border-t border-white/15 pt-2 text-[11px] font-bold text-white/85">
                   <span>
                     {card.wins}–{card.losses} · {Math.round(card.winratePct)}% WR

@@ -268,6 +268,8 @@ export interface PlayerCardData {
    *  the renderer draws the Aether Rift treatment off it, dust refuses it,
    *  and expeditions treat it as one of five. */
   dribb?: { number: number; of: number } | null;
+  /** The On Air print — one of the casters, minted inside a Live Drops window. */
+  onAir?: { profileId: string; name: string; number: number; of: number; window: string } | null;
   /** The owner sealed the copy: `wear` is the count frozen at that moment,
    *  `at` when. A slabbed copy can never be fielded again — refused in SQL
    *  for expeditions and server-side for the Gauntlet and Fantasy — and

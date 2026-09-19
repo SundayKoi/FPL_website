@@ -10,6 +10,7 @@
 // as it does for a real pull.
 
 import type { PlayerCardData } from "@/lib/cards/build";
+import { ON_AIR_SPECIMEN, onAirCard } from "@/lib/cards/onAir";
 import type { TeamPrint } from "@/lib/cards/teamCards";
 import type { FoilType } from "@/lib/packs/config";
 
@@ -160,6 +161,11 @@ export function sampleFor(key: string): RaritySample | null {
         ...base,
         champWin: { rank: "A", setIndex: 1, setSize: 14, team: "Dribb", seasonWon: "S4", champion: "Bard", joker: false, copySerial: 1 },
       });
+    // Not the base card with a field set, like everything else here: an
+    // On Air print is a card of its own, built by the same function the
+    // roller mints with, so the page draws exactly what a pull looks like.
+    case "onair":
+      return plain(onAirCard(ON_AIR_SPECIMEN, 1, "S5", "Week 3 broadcast"));
     case "live":
       return plain({ ...base, live: { label: "Rarities Night" } });
     case "chase":
