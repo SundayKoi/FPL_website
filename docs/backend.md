@@ -208,7 +208,12 @@ shine. It can be traded. Unlike the Dribb it is **not** a secret: it is
 listed on `/cards/rarities`, named in the go-live announcement and in the
 shop's Live Drops notice, and announced to the cards channel when one
 lands — the point is that people know to be in the room. Staff tune the
-casters on `/admin/on-air`. pgTAP `0124_on_air_card_test.sql`.
+casters on `/admin/on-air`, where the desk's skin picker reads the
+champion's catalog through a staff-gated action
+(`fetchOnAirSkinCatalogAction`, `src/lib/cards/onAir-actions.ts`) and refuses
+a num outside it; the cap on the column is 200 (`20261021000001`), the same
+ceiling `save_card_art_preference` uses. pgTAP `0124_on_air_card_test.sql`,
+`0125_on_air_skin_range_test.sql`.
 
 **Finishes (Shiny, StatTrak, Secret).** Three stamps a player-card print
 can take on top of its parallel and its ink, rolled in
