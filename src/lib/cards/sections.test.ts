@@ -24,17 +24,16 @@ describe("cardsSections", () => {
 
   it("keeps every old destination reachable as a sub-tab", () => {
     const hrefs = cardsSections("/cards").flatMap((section) => (section.children ?? []).map((child) => child.href));
-    for (const page of ["teams", "compare", "moments", "vault", "trades", "fantasy", "gauntlet", "expeditions", "draw", "stats", "rarities"]) {
+    for (const page of ["teams", "compare", "moments", "vault", "trades", "fantasy", "expeditions", "draw", "rarities"]) {
       expect(hrefs).toContain(`/cards/${page}`);
     }
   });
 
-  it("leaves the Gauntlet and Showdown off the academy's Play tab, which has no such pages", () => {
-    const play = cardsSections("/academy/cards").find((section) => section.key === "play")!;
-    expect(play.children?.map((child) => child.label)).not.toContain("Gauntlet");
-    expect(play.children?.map((child) => child.label)).not.toContain("Showdown");
-    const premier = cardsSections("/cards").find((section) => section.key === "play")!;
-    expect(premier.children?.map((child) => child.href)).toContain("/cards/showdown");
+  it("offers the same Play tab in both leagues", () => {
+    const labels = (base: string) =>
+      cardsSections(base).find((section) => section.key === "play")!.children?.map((child) => child.label);
+    expect(labels("/cards")).toEqual(["Fantasy", "Expeditions", "The ledger", "Weekly Draw"]);
+    expect(labels("/academy/cards")).toEqual(labels("/cards"));
   });
 
   it("gives every tab and sub-tab a line saying what it is", () => {
@@ -81,8 +80,8 @@ describe("pairedCardsHref", () => {
     expect(pairedCardsHref("/academy/cards/vault", "/academy/cards", "/cards")).toBe("/cards/vault");
   });
 
-  it("sends a premier-only page to the other league's Play tab instead of a 404", () => {
-    expect(pairedCardsHref("/cards/gauntlet", "/cards", "/academy/cards")).toBe("/academy/cards/play");
+  it("carries a sub-page's whole path across", () => {
+    expect(pairedCardsHref("/cards/market/bounties", "/cards", "/academy/cards")).toBe("/academy/cards/market/bounties");
   });
 
   it("falls back to the other hub from a page outside the section", () => {

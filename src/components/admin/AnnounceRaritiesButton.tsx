@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { announceRaritiesAction } from "@/lib/cards/announce-actions";
 
-/** Posts the rarities announcement to the cards channel. Two taps, like
- *  the Gauntlet's: the first arms it, the second sends. */
+/** Posts the rarities announcement to the cards channel. Two taps: the
+ *  first arms it, the second sends. */
 export default function AnnounceRaritiesButton() {
   const [armed, setArmed] = useState(false);
   const [status, setStatus] = useState<string | null>(null);

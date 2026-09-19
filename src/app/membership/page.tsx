@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 const PREMIUM_GETS = [
   { title: "Cards", detail: "Claim your own card, open packs, build a collection, trade and sell on the Market." },
   { title: "Betting", detail: `A wallet with ${fmtPoints(SIGNUP_BONUS_AMOUNT)} to start, markets on every game, pick'em, and the leaderboard.` },
-  { title: "The games", detail: "FPL'dle and Higher or Lower every day, Fantasy every week, the Gauntlet, Showdown and Expeditions." },
+  { title: "The games", detail: "FPL'dle and Higher or Lower every day, Fantasy every week, and Expeditions." },
   { title: "The Daily Stu", detail: "Rate the league's hottest take, once a day, for betting dollars." },
   { title: "Match Drafter", detail: "A private pick / ban lobby for scrims and customs." },
 ] as const;
@@ -144,7 +144,7 @@ export default async function MembershipPage() {
               ["Look at every card, the moments and the Vault", "✓", "✓", "✓"],
               ["Play the daily games and earn betting dollars", "—", "✓", "✓"],
               ["Own cards, open packs, trade, bet", "—", "✓", "✓"],
-              ["Play Fantasy, the Gauntlet, Showdown, Expeditions", "—", "✓", "✓"],
+              ["Play FPL'dle, Higher or Lower, Fantasy, Expeditions", "—", "✓", "✓"],
               ["Carry the flame, dust for more, rip twice a day, nine binder slots", "—", "—", "✓ (with the role)"],
             ].map(([want, free, premium, patron]) => (
               <tr key={want}>

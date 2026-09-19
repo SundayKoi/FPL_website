@@ -725,7 +725,6 @@ describe("ExpeditionBoard — the rules of the road", () => {
     for (const key of ["irradiated", "hardened", "haunted", "cursed", "voidtouched"]) {
       const rule = within(rules).getByTestId(`rule-${key}`);
       expect(rule.textContent).toContain("Fantasy:");
-      expect(rule.textContent).toContain("Gauntlet:");
       expect(rule.textContent).toContain("Market:");
     }
     expect(rules.textContent).toContain("Silence is safe.");

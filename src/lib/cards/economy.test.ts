@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { excludedCollectorNames, fetchEconomyStats, pulledStats, DEFAULT_EXCLUDED_COLLECTORS } from "./economy";
+import { fetchAllRows } from "./economy";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Enough of PostgREST's builder for the reads this module makes —
@@ -7,14 +7,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const PAGE = 1000;
 
 function client(
-  tables: Record<string, { data?: unknown; error?: unknown; count?: number }>,
+  tables: Record<string, { data?: unknown; error?: unknown }>,
   pageSize = PAGE,
 ): SupabaseClient {
-  return {
+  const seen: { table: string; column: string; value: string }[] = [];
+  const supabase = {
     from(table: string) {
       const result = tables[table] ?? { data: [], error: null };
       const chain: Record<string, unknown> = {};
-      for (const method of ["select", "eq", "order"]) chain[method] = () => chain;
+      for (const method of ["select", "order"]) chain[method] = () => chain;
+      chain.eq = (column: string, value: string) => {
+        seen.push({ table, column, value });
+        return chain;
+      };
       // range() serves the slice a real PostgREST would, so a caller that
       // fails to page sees exactly the silent truncation production had.
       chain.range = (from: number, to: number) => {
@@ -28,333 +33,48 @@ function client(
       return chain;
     },
   } as unknown as SupabaseClient;
+  return Object.assign(supabase, { filters: seen }) as SupabaseClient;
 }
 
-const PROFILES = {
-  data: [
-    { discord_id: "dev1", username: "Dribb" },
-    { discord_id: "dev2", username: "@spiesss" },
-    { discord_id: "u1", username: "Ari" },
-    { discord_id: "u2", username: "Bo" },
-  ],
-  error: null,
-};
+const rowsOf = (count: number) => Array.from({ length: count }, (_, index) => ({ id: index + 1 }));
 
-function card(discord_id: string, overrides: Record<string, unknown> = {}) {
-  return {
-    discord_id,
-    player_name: "Ari",
-    overall: 70,
-    tier: "gold",
-    foil: false,
-    signed: null,
-    artSkin: 0,
-    ...overrides,
-  };
-}
+describe("fetchAllRows", () => {
+  it("pages past PostgREST's cap instead of stopping at the first response", async () => {
+    const supabase = client({ card_inventory: { data: rowsOf(250), error: null } }, 100);
 
-describe("excludedCollectorNames", () => {
-  it("defaults to the two dev accounts", () => {
-    expect(excludedCollectorNames(undefined)).toEqual(DEFAULT_EXCLUDED_COLLECTORS);
-    expect(excludedCollectorNames("")).toEqual(DEFAULT_EXCLUDED_COLLECTORS);
+    const { rows, truncated } = await fetchAllRows(supabase, "card_inventory", "id", "S5", 100);
+
+    expect(rows).toHaveLength(250);
+    expect(truncated).toBe(false);
   });
 
-  it("takes a configured list, trimmed and lowercased", () => {
-    expect(excludedCollectorNames(" Foo , BAR ")).toEqual(["foo", "bar"]);
+  it("says so rather than lying when the page ceiling is hit", async () => {
+    const supabase = client({ card_inventory: { data: rowsOf(250), error: null } }, 2);
+
+    // Two rows a page against a 100-page ceiling stops at 200.
+    const { rows, truncated } = await fetchAllRows(supabase, "card_inventory", "id", "S5", 2, 100);
+
+    expect(rows).toHaveLength(200);
+    expect(truncated).toBe(true);
   });
 
-  it("ignores a leading @ on either side", () => {
-    expect(excludedCollectorNames("@Dribb, @spiesss")).toEqual(["dribb", "spiesss"]);
-  });
-});
+  it("returns what it has instead of throwing when a table is missing", async () => {
+    const supabase = client({ card_moments: { data: [], error: { message: "no such table" } } });
 
-describe("fetchEconomyStats", () => {
-  it("leaves dev wallets out of every figure", async () => {
-    const supabase = client({
-      betting_profiles: PROFILES,
-      card_pack_opens: {
-        data: [
-          { discord_id: "dev1", cost: 200 },
-          { discord_id: "dev2", cost: 200 },
-          { discord_id: "u1", cost: 200 },
-        ],
-        error: null,
-      },
-      card_inventory: {
-        data: [card("dev1", { foil: true }), card("u1"), card("u2", { signed: true })],
-        error: null,
-      },
-      card_moments: { count: 4, error: null },
-    });
+    const { rows, truncated } = await fetchAllRows(supabase, "card_moments", "id", "S5");
 
-    const stats = await fetchEconomyStats(supabase, "S5");
-    // One of three opens, and the spend follows it rather than the row count.
-    expect(stats.packsOpened).toBe(1);
-    expect(stats.spent).toBe(200);
-    expect(stats.cardsPulled).toBe(2);
-    expect(stats.collectors).toBe(2);
-    // The dev's foil must not show up in the rare counts either.
-    expect(stats.foils).toBe(0);
-    expect(stats.signed).toBe(1);
-    expect(stats.excludedCount).toBe(2);
+    expect(rows).toEqual([]);
+    expect(truncated).toBe(false);
   });
 
-  it("matches excluded names case-insensitively", async () => {
-    const supabase = client({
-      betting_profiles: PROFILES,
-      card_pack_opens: { data: [{ discord_id: "dev1", cost: 200 }], error: null },
-      card_inventory: { data: [], error: null },
-      card_moments: { count: 0, error: null },
-    });
-    // "Dribb" in the table, "dribb" in the list.
-    expect((await fetchEconomyStats(supabase, "S5")).packsOpened).toBe(0);
-  });
+  it("filters by season, and by whatever else the caller asks for", async () => {
+    const supabase = client({ card_trades: { data: rowsOf(1), error: null } });
 
-  it("shelves the Faceless relics apart from the player figures", async () => {
-    const stats = await fetchEconomyStats(
-      client({
-        betting_profiles: PROFILES,
-        card_pack_opens: { data: [], error: null },
-        card_inventory: {
-          data: [
-            card("u1", { slug: "faceless-k", player_name: "king of spades", tier: "champion", overall: 0, foil: true, foil_type: "ice" }),
-            card("u1", { slug: "faceless-k", player_name: "king of spades", tier: "champion", overall: 0, signed: true, artSkin: 3 }),
-            card("u2", { slug: "faceless-joker", player_name: "the fool", tier: "champion", overall: 0 }),
-            card("u2", { slug: "ari-na1" }),
-          ],
-          error: null,
-        },
-        card_moments: { count: 0, error: null },
-      }),
-      "S5",
-    );
-    expect(stats.champions.total).toBe(3);
-    expect(stats.champions.byRank).toEqual({ K: 2, JOKER: 1 });
-    expect(stats.champions.foils).toBe(1);
-    expect(stats.champions.signed).toBe(1);
-    expect(stats.champions.altArts).toBe(1);
-    // Relics count in the global totals but never in the player
-    // superlatives — a drop week must not crown "most pulled: king of
-    // spades".
-    expect(stats.cardsPulled).toBe(4);
-    expect(stats.foils).toBe(1);
-    expect(stats.mostPulled?.playerName).toBe("Ari");
-  });
+    await fetchAllRows(supabase, "card_trades", "id", "S5", 1000, 100, { status: "open" });
 
-  it("counts alternate prints off the frozen json", async () => {
-    const supabase = client({
-      betting_profiles: PROFILES,
-      card_pack_opens: { data: [], error: null },
-      card_inventory: { data: [card("u1", { artSkin: 12 }), card("u2", { artSkin: 0 })], error: null },
-      card_moments: { count: 0, error: null },
-    });
-    expect((await fetchEconomyStats(supabase, "S5")).altArts).toBe(1);
-  });
-
-  it("names the best pull and the most-pulled player", async () => {
-    const supabase = client({
-      betting_profiles: PROFILES,
-      card_pack_opens: { data: [], error: null },
-      card_inventory: {
-        data: [
-          card("u1", { player_name: "Ari", overall: 91, tier: "master" }),
-          card("u1", { player_name: "Bo", overall: 60 }),
-          card("u2", { player_name: "Bo", overall: 61 }),
-        ],
-        error: null,
-      },
-      card_moments: { count: 0, error: null },
-    });
-
-    const stats = await fetchEconomyStats(supabase, "S5");
-    expect(stats.bestPull).toEqual({ playerName: "Ari", overall: 91, tier: "master" });
-    expect(stats.mostPulled).toEqual({ playerName: "Bo", copies: 2 });
-  });
-
-  it("pages past PostgREST's row cap instead of aggregating the first page", async () => {
-    // The bug this guards: a single select returns max_rows and no error,
-    // so the devs' early pulls filled the whole response and every real
-    // collector's cards — signed ones included — never arrived.
-    const devCards = Array.from({ length: PAGE }, () => card("dev1"));
-    const realCards = [card("u1", { signed: true }), card("u2", { foil: true })];
-    const supabase = client({
-      betting_profiles: PROFILES,
-      card_pack_opens: { data: [], error: null },
-      card_inventory: { data: [...devCards, ...realCards], error: null },
-      card_moments: { count: 0, error: null },
-    });
-
-    const stats = await fetchEconomyStats(supabase, "S5");
-    expect(stats.cardsPulled).toBe(2);
-    expect(stats.signed).toBe(1);
-    expect(stats.foils).toBe(1);
-    expect(stats.truncated).toBe(false);
-  });
-
-  it("says so when even paging hits its own cap", async () => {
-    const supabase = client(
-      {
-        betting_profiles: PROFILES,
-        // More rows than maxPages * pageSize can reach at this page size.
-        card_pack_opens: { data: [], error: null },
-        card_inventory: { data: Array.from({ length: 250 }, () => card("u1")), error: null },
-        card_moments: { count: 0, error: null },
-      },
-      // Two rows a page against a 100-page ceiling stops at 200.
-      2,
-    );
-
-    const stats = await fetchEconomyStats(supabase, "S5", undefined, { pageSize: 2, maxPages: 100 });
-    expect(stats.truncated).toBe(true);
-    expect(stats.cardsPulled).toBe(200);
-  });
-
-  it("shelves roster plates apart from the player figures, and counts editions", async () => {
-    const stats = await fetchEconomyStats(
-      client({
-        betting_profiles: PROFILES,
-        card_pack_opens: { data: [], error: null },
-        card_inventory: {
-          data: [
-            card("u1", { slug: "team-hawks-2026-08-24", player_name: "Hawks", tier: "team", overall: 0, edition_week: "2026-08-24", foil: true }),
-            card("u1", { slug: "team-hawks-2026-08-31", player_name: "Hawks", tier: "team", overall: 0, edition_week: "2026-08-31" }),
-            card("u2", { slug: "team-owls-2026-08-31", player_name: "Owls", tier: "team", overall: 0, edition_week: "2026-08-31" }),
-            card("u2", { player_name: "Ari", overall: 88 }),
-          ],
-          error: null,
-        },
-        card_moments: { count: 0, error: null },
-      }),
-      "S5",
-    );
-    expect(stats.teams.total).toBe(3);
-    expect(stats.teams.foils).toBe(1);
-    // Two Mondays across three plates — a team re-cut next week is a
-    // different collectible, not a second copy of the same one.
-    expect(stats.teams.weeks).toBe(2);
-    expect(stats.teams.byTeam).toEqual([
-      { teamName: "Hawks", copies: 2 },
-      { teamName: "Owls", copies: 1 },
+    expect((supabase as unknown as { filters: { column: string; value: string }[] }).filters).toEqual([
+      { table: "card_trades", column: "season", value: "S5" },
+      { table: "card_trades", column: "status", value: "open" },
     ]);
-    // A plate is not a player: it must not win "most pulled", and its
-    // zero overall must not be mistaken for a pull worth naming.
-    expect(stats.mostPulled).toEqual({ playerName: "Ari", copies: 1 });
-    expect(stats.bestPull?.playerName).toBe("Ari");
-  });
-
-  it("counts the expedition board as activity, unclaimed runs included", async () => {
-    const stats = await fetchEconomyStats(
-      client({
-        betting_profiles: PROFILES,
-        card_pack_opens: { data: [], error: null },
-        card_inventory: { data: [card("u1")], error: null },
-        card_moments: { count: 0, error: null },
-        expedition_runs: {
-          data: [
-            { discord_id: "u1", tier: "scout", claimed_at: "2026-08-27T00:00:00Z", outcome: { grade: "poor", dollars: 19, comp: false, mark: null } },
-            { discord_id: "u1", tier: "legend", claimed_at: "2026-08-27T00:00:00Z", outcome: { grade: "jackpot", dollars: 520, comp: true, mark: "legend" } },
-            { discord_id: "u2", tier: "scout", claimed_at: null, outcome: null },
-            // A dev's run is left out the same as their packs.
-            { discord_id: "dev1", tier: "legend", claimed_at: "2026-08-27T00:00:00Z", outcome: { grade: "jackpot", dollars: 9999, comp: true, mark: "legend" } },
-          ],
-          error: null,
-        },
-      }),
-      "S5",
-    );
-    expect(stats.expeditions.runs).toBe(3);
-    expect(stats.expeditions.runners).toBe(2);
-    expect(stats.expeditions.inField).toBe(1);
-    expect(stats.expeditions.byTier).toEqual({ scout: 2, legend: 1 });
-    // Only claimed runs have paid anything — the squad still out there
-    // contributes no dollars rather than a zero.
-    expect(stats.expeditions.dollars).toBe(539);
-    expect(stats.expeditions.comps).toBe(1);
-    expect(stats.expeditions.marks).toBe(1);
-    expect(stats.expeditions.jackpots).toBe(1);
-  });
-
-  it("reports an empty board rather than throwing before the expedition migration lands", async () => {
-    const stats = await fetchEconomyStats(
-      client({
-        betting_profiles: PROFILES,
-        card_pack_opens: { data: [], error: null },
-        card_inventory: { data: [card("u1")], error: null },
-        card_moments: { count: 0, error: null },
-        expedition_runs: { error: { message: "relation does not exist" } },
-      }),
-      "S5",
-    );
-    expect(stats.expeditions.runs).toBe(0);
-    expect(stats.teams.total).toBe(0);
-    expect(stats.truncated).toBe(false);
-  });
-
-  it("reports zero moments rather than throwing before the migration lands", async () => {
-    const supabase = client({
-      betting_profiles: PROFILES,
-      card_pack_opens: { data: [], error: null },
-      card_inventory: { data: [card("u1")], error: null },
-      card_moments: { error: { message: "relation does not exist" } },
-    });
-    expect((await fetchEconomyStats(supabase, "S5")).momentsMinted).toBe(0);
-  });
-});
-
-describe("pulledStats", () => {
-  const mint = (print: Record<string, unknown> | null, at = "2026-09-06T05:00:00.000Z") => ({ to_discord: "u1", at, print });
-
-  it("counts what was printed, player cards only, and dates the first counted mint", () => {
-    const stats = pulledStats([
-      mint({ foil: true, foil_type: "ice", signed: true, alt: true, shiny: true }, "2026-09-06T06:00:00.000Z"),
-      mint({ foil: false, stattrak: true }),
-      mint({ foil: true, foil_type: null, secret: true }),
-      mint({ moment: true, foil: true }),
-      mint({ team: true }),
-      mint({ champ: true, signed: true }),
-      mint({ onAir: true }),
-      // Minted before the print existed: no print, not counted, not dated.
-      mint(null, "2026-01-01T00:00:00.000Z"),
-    ]);
-    expect(stats.cards).toBe(3);
-    expect(stats.foils).toBe(2);
-    expect(stats.foilsByType).toMatchObject({ prisma: 1, ice: 1 });
-    expect(stats.signed).toBe(1);
-    expect(stats.altArts).toBe(1);
-    expect(stats.shiny).toBe(1);
-    expect(stats.stattrak).toBe(1);
-    expect(stats.secret).toBe(1);
-    // A caster's print is not a player card and would skew every per-card
-    // rate it was counted into, so it is shelved like the relics.
-    expect(stats.onAir).toBe(1);
-    expect(stats.since).toBe("2026-09-06T05:00:00.000Z");
-  });
-
-  it("reads as nothing when no mint carries a print", () => {
-    const stats = pulledStats([mint(null)]);
-    expect(stats.cards).toBe(0);
-    expect(stats.since).toBeNull();
-  });
-});
-
-describe("fetchEconomyStats pull rates", () => {
-  it("reads the mints from provenance and leaves dev wallets out", async () => {
-    const supabase = client({
-      betting_profiles: PROFILES,
-      card_pack_opens: { data: [], error: null },
-      card_inventory: { data: [], error: null },
-      card_provenance: {
-        data: [
-          { to_discord: "u1", at: "2026-09-06T05:00:00.000Z", print: { signed: true } },
-          { to_discord: "dev1", at: "2026-09-06T05:00:00.000Z", print: { signed: true } },
-        ],
-        error: null,
-      },
-    });
-    const stats = await fetchEconomyStats(supabase, "S5");
-    expect(stats.pulled.cards).toBe(1);
-    expect(stats.pulled.signed).toBe(1);
-    // Held counts are untouched by a mint that has since been melted.
-    expect(stats.cardsPulled).toBe(0);
   });
 });

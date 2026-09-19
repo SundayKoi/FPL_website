@@ -56,17 +56,19 @@ describe("SiteSearch", () => {
     render(<SiteSearch league="academy" />);
     fireEvent.click(screen.getByRole("button", { name: /search the site/i }));
     const input = screen.getByRole("combobox");
-    fireEvent.change(input, { target: { value: "stats" } });
-    // "Stats" outranks "Pack stats" for the bare word.
+    fireEvent.change(input, { target: { value: "cards" } });
+    // "Cards" outranks its longer cousins for the bare word.
     const options = screen.getAllByRole("option");
-    expect(options[0].textContent).toContain("Stats");
+    expect(options[0].textContent).toContain("Cards");
     expect(options[0].getAttribute("aria-selected")).toBe("true");
     fireEvent.keyDown(input, { key: "ArrowDown" });
-    expect(screen.getAllByRole("option")[1].getAttribute("aria-selected")).toBe("true");
+    const second = screen.getAllByRole("option")[1];
+    expect(second.getAttribute("aria-selected")).toBe("true");
+    const href = second.querySelector("a")?.getAttribute("href");
     act(() => {
       fireEvent.keyDown(input, { key: "Enter" });
     });
-    expect(push).toHaveBeenCalledWith("/academy/cards/stats");
+    expect(push).toHaveBeenCalledWith(href);
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 

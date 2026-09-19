@@ -1,13 +1,13 @@
 // Wear and slabbing — a copy's history, and the seal that freezes it.
 //
 // `card.wear` counts how many times a copy has been fielded: an expedition
-// launch, a Gauntlet run, a scored Fantasy week (migration 20260922). The
+// launch, a scored Fantasy week (migration 20260922). The
 // grade is a reading of that number, borrowed from the game every
 // collector already knows the words from. A slab is the owner's one-way
 // choice: `card.slab {wear, at}` freezes the wear at that moment and the
 // copy can never be fielded again — launch_expedition's table refuses it
-// in SQL, the Gauntlet and Fantasy entry checks refuse it server-side,
-// and every picker greys it. Nothing here prices: wear and slabs are
+// in SQL, Fantasy's entry check refuses it server-side, and every picker
+// greys it. Nothing here prices: wear and slabs are
 // cosmetic, and dustValueOf never reads them.
 
 import type { PlayerCardData } from "./build";
@@ -26,8 +26,8 @@ export interface WearGrade {
 }
 
 /** Worst last. Thresholds are fieldings, not games: an expedition is one,
- *  a Gauntlet run is one, a Fantasy week is one. Eleven is a card that
- *  has been out most weeks of a split. */
+ *  a Fantasy week is one. Eleven is a card that has been out most weeks
+ *  of a split. */
 export const WEAR_GRADES: WearGrade[] = [
   { key: "fn", label: "Factory New", min: 0, layer: null },
   { key: "mw", label: "Minimal Wear", min: 1, layer: null },

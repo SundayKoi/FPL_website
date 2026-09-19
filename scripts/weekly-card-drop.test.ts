@@ -10,7 +10,6 @@ const {
   fetchWeekCards,
   fetchWeekLineups,
   refreshHigherLowerSnapshot,
-  settleGauntletWeek,
 } = vi.hoisted(() => ({
   archiveEdition: vi.fn(),
   buildEditionForWeek: vi.fn(),
@@ -20,7 +19,6 @@ const {
   fetchWeekCards: vi.fn(),
   fetchWeekLineups: vi.fn(),
   refreshHigherLowerSnapshot: vi.fn(),
-  settleGauntletWeek: vi.fn(),
 }));
 
 vi.mock("../src/lib/cards/editions", () => ({ archiveEdition }));
@@ -36,7 +34,6 @@ vi.mock("../src/lib/fantasy/queries", () => ({
   fetchBettingUsernames: vi.fn(),
   fetchWeekLineups,
 }));
-vi.mock("../src/lib/gauntlet/settle", () => ({ settleGauntletWeek }));
 vi.mock("../src/lib/higher-lower/snapshot", () => ({ refreshHigherLowerSnapshot }));
 vi.mock("../src/lib/fantasy/scoring", () => ({
   inventoryIdsIn: vi.fn(() => []),
@@ -91,7 +88,6 @@ beforeEach(() => {
   fetchWeekCards.mockReset();
   fetchWeekLineups.mockReset();
   refreshHigherLowerSnapshot.mockReset();
-  settleGauntletWeek.mockReset();
   archiveEdition.mockResolvedValue({ error: null, pruned: 0 });
   buildEditionForWeek.mockResolvedValue({ kind: "weekly", cards: [card], plan: null });
   fetchAllCardSeasons.mockResolvedValue([{ league: "premier", season: "S5" }]);
@@ -100,7 +96,6 @@ beforeEach(() => {
   fetchWeekCards.mockResolvedValue([card]);
   fetchWeekLineups.mockResolvedValue([]);
   refreshHigherLowerSnapshot.mockResolvedValue({ editionWeeks: ["2026-09-07"], candidateCount: 1 });
-  settleGauntletWeek.mockResolvedValue({ settled: false, reason: "not settled" });
   vi.spyOn(console, "log").mockImplementation(() => undefined);
   vi.spyOn(console, "warn").mockImplementation(() => undefined);
   vi.spyOn(console, "error").mockImplementation(() => undefined);

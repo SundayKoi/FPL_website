@@ -15,7 +15,7 @@
 // From WEATHER_RULES: a run stamped below it launched into no weather at
 // all, because its journal is half written.
 
-import { mulberry32 } from "@/lib/gauntlet/sim";
+import { mulberry32 } from "@/lib/expeditions/prng";
 import { mondayOf } from "@/lib/packs/week";
 import { HARVEST_MERCHANT, MERCHANT_DOLLARS } from "./config";
 

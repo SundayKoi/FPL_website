@@ -31,7 +31,7 @@ describe("PATRON_PERKS", () => {
     const flame = PATRON_PERKS.find((perk) => perk.key === "flame")!;
     expect(flame.blurb).toContain(String(Math.round(SOVEREIGN_TENURE_DAYS / 30)));
     // The flame reaches both boards now, not just betting.
-    expect(flame.blurb).toMatch(/Gauntlet/);
+    expect(flame.blurb).toMatch(/weekly draw/);
 
     const recurring = PATRON_PERKS.find((perk) => perk.key === "recurring-rewards")!;
     expect(recurring.title).toBe("50% more recurring rewards");
@@ -51,7 +51,7 @@ describe("PATRON_PERKS", () => {
     expect(PATRON_FAIRNESS_NOTE).toMatch(/rating/);
     expect(PATRON_FAIRNESS_NOTE).toMatch(/pack/);
     expect(PATRON_FAIRNESS_NOTE).toBe(
-      "Patronage increases listed recurring wallet rewards. It never changes betting odds, pack odds, ratings, match results, Fantasy scoring, or Gauntlet placement.",
+      "Patronage increases listed recurring wallet rewards. It never changes betting odds, pack odds, ratings, match results, or Fantasy scoring.",
     );
   });
 });

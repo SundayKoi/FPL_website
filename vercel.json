@@ -3,10 +3,6 @@
   "ignoreCommand": "bash scripts/vercel-ignore.sh",
   "crons": [
     {
-      "path": "/api/showdown/sweep",
-      "schedule": "* * * * *"
-    },
-    {
       "path": "/api/expeditions/sweep",
       "schedule": "*/5 * * * *"
     }

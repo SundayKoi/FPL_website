@@ -44,7 +44,7 @@
 //      its old team's colours and it stands aside and leaves a cache.
 
 import type { MutationKey } from "@/lib/cards/mutations";
-import { mulberry32 } from "@/lib/gauntlet/sim";
+import { mulberry32 } from "@/lib/expeditions/prng";
 import { isVeteran, milesOf } from "./trail";
 import { DROUGHT_GAMBLE, WATCH_TOLL, type WeatherKey } from "./weather";
 import {
@@ -1877,7 +1877,7 @@ export function consentLine(tier: ExpeditionTierKey, copies: CardCopy[], insured
   if (risk === "none") return "Nothing on this run can hurt a card.";
   const names = copies.map((copy) => copy.playerName);
   const who = names.length === 0 ? "Every card you send" : names.join(", ");
-  if (risk === "wounded") return `${who} can come home wounded: benched from expeditions and the Gauntlet for ${WOUNDED_HOURS / 24} days.`;
+  if (risk === "wounded") return `${who} can come home wounded: benched from expeditions for ${WOUNDED_HOURS / 24} days.`;
   if (risk === "lost") return `${who} can be lost here. A lost card has ${7} days to be rescued or ransomed, then it is gone for good.`;
   return `${who} can DIE on this route, for good, once the squad has pushed ${DEAD_NEEDS_PUSHES} forks. There is no rescue from dead.`;
 }

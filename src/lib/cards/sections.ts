@@ -8,17 +8,15 @@
 //
 // Six tabs, because six is what a person can hold in their head while
 // looking for something. The pages that were destinations of their own
-// (Team Cards, Compare, Moments, the Vault, Trades, Fantasy, the Gauntlet,
-// Expeditions, the Draw, the Ledger) still exist at their old URLs; they
-// are now sub-tabs of the tab they belong under, so the bar always shows
-// where you are and where you can go from here.
+// (Team Cards, Compare, Moments, the Vault, Trades, Fantasy, Expeditions,
+// the Draw, the Ledger) still exist at their old URLs; they are now
+// sub-tabs of the tab they belong under, so the bar always shows where
+// you are and where you can go from here.
 
 export interface CardsSubsection {
   label: string;
   href: string;
   blurb: string;
-  /** The Gauntlet is premier-only — it has no academy page to link to. */
-  premierOnly?: boolean;
 }
 
 export interface CardsSection {
@@ -31,7 +29,6 @@ export interface CardsSection {
 
 /** `base` is "/cards" or "/academy/cards". */
 export function cardsSections(base: string): CardsSection[] {
-  const academy = base !== "/cards";
   return [
     { key: "home", label: "Home", href: base, blurb: "Your card, this week's chase, the draw" },
     {
@@ -88,26 +85,9 @@ export function cardsSections(base: string): CardsSection[] {
       blurb: "Put your cards to work",
       children: [
         { label: "Fantasy", href: `${base}/fantasy`, blurb: "Field five cards under the salary cap each week" },
-        ...(academy
-          ? []
-          : [
-              {
-                label: "The Gauntlet",
-                href: `${base}/gauntlet`,
-                blurb: "Draft five, climb eight rounds, lose once",
-                premierOnly: true,
-              },
-              {
-                label: "Showdown",
-                href: `${base}/showdown`,
-                blurb: "Hold'em with your cards, for betting dollars",
-                premierOnly: true,
-              },
-            ]),
         { label: "Expeditions", href: `${base}/expeditions`, blurb: "Send three cards out; they come back changed" },
         { label: "The ledger", href: `${base}/expeditions/ledger`, blurb: "Every card lost, found and buried, league-wide" },
         { label: "Weekly Draw", href: `${base}/draw`, blurb: "Every copy is a ticket; one wins every week" },
-        { label: "Pack stats", href: `${base}/stats`, blurb: "What the league has opened and pulled" },
       ],
     },
   ];
@@ -143,14 +123,10 @@ export function activeCardsSection(
 }
 
 /**
- * The same page in the other league. The bases swap; a premier-only page
- * (the Gauntlet) falls back to its tab, because the academy has no such
- * page and a 404 is not a league switch.
+ * The same page in the other league: the bases swap and the rest of the
+ * path rides along, because every cards page exists under both.
  */
 export function pairedCardsHref(pathname: string, from: string, to: string): string {
   if (!isUnder(pathname, from)) return to;
-  const suffix = pathname.slice(from.length);
-  const { child } = activeCardsSection(cardsSections(from), pathname);
-  if (child?.premierOnly) return `${to}/play`;
-  return `${to}${suffix}`;
+  return `${to}${pathname.slice(from.length)}`;
 }

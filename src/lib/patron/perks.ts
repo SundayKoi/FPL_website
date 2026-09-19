@@ -42,8 +42,8 @@ export const PATRON_PERKS: PatronPerk[] = [
     title: "The Patron Flame",
     blurb:
       `Pick its colour from the wardrobe on the packs page. It burns on every card you own, beside your ` +
-      `name on the betting leaderboards and the Gauntlet's weekly board, and on your chase claims in ` +
-      `Discord. The gold, ember-lit Sovereign unlocks after ${SOVEREIGN_MONTHS} months of patronage.`,
+      `name on the betting leaderboards and the weekly draw, and on your chase claims in Discord. The ` +
+      `gold, ember-lit Sovereign unlocks after ${SOVEREIGN_MONTHS} months of patronage.`,
     headline: true,
   },
   {
@@ -138,4 +138,4 @@ export const HEADLINE_PATRON_PERKS = PATRON_PERKS.filter((perk) => perk.headline
 
 /** The line that has to sit under every version of this list. */
 export const PATRON_FAIRNESS_NOTE =
-  "Patronage increases listed recurring wallet rewards. It never changes betting odds, pack odds, ratings, match results, Fantasy scoring, or Gauntlet placement.";
+  "Patronage increases listed recurring wallet rewards. It never changes betting odds, pack odds, ratings, match results, or Fantasy scoring.";

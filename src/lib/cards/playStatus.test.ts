@@ -26,7 +26,7 @@ function run(overrides: Partial<ExpeditionRun>): ExpeditionRun {
   } as ExpeditionRun;
 }
 
-const quiet = { now, fantasyLineupIn: false, gauntlet: null, showdown: null, expeditions: [], copies: 0 };
+const quiet = { now, fantasyLineupIn: false, expeditions: [], copies: 0 };
 
 describe("playStatuses", () => {
   it("says whether the lineup is in, and when the week locks, on the league's clock", () => {
@@ -36,18 +36,6 @@ describe("playStatuses", () => {
     });
     expect(playStatuses({ ...quiet, fantasyLineupIn: true }).fantasy?.tone).toBe("done");
     expect(playStatuses({ ...quiet, fantasyLineupIn: null }).fantasy?.text).toBe("WK Aug 31 lineups lock Mon 6:00 PM");
-  });
-
-  it("leaves the Gauntlet out where there is no Gauntlet", () => {
-    expect(playStatuses(quiet).gauntlet).toBeUndefined();
-  });
-
-  it("reports a run in progress before a best score", () => {
-    expect(playStatuses({ ...quiet, gauntlet: { active: true, bestScore: 900, attempts: 2 } }).gauntlet?.tone).toBe("open");
-    expect(playStatuses({ ...quiet, gauntlet: { active: false, bestScore: 900, attempts: 2 } }).gauntlet?.text).toBe(
-      "Best this week 900 · 2 runs",
-    );
-    expect(playStatuses({ ...quiet, gauntlet: { active: false, bestScore: 0, attempts: 0 } }).gauntlet?.tone).toBe("quiet");
   });
 
   it("puts a squad waiting to be collected ahead of one still out", () => {
@@ -95,16 +83,6 @@ describe("playStatuses", () => {
       text: "A card is missing — rescue or ransom by Wed 11:00 AM",
       tone: "open",
     });
-  });
-
-  it("reports a seat, then open tables, then the rules, and nothing where there is no Showdown", () => {
-    expect(playStatuses({ ...quiet, showdown: { seated: true, openTables: 3 } }).showdown?.tone).toBe("open");
-    expect(playStatuses({ ...quiet, showdown: { seated: false, openTables: 1 } }).showdown?.text).toBe("1 table dealing now");
-    expect(playStatuses({ ...quiet, showdown: { seated: false, openTables: 0 } }).showdown).toEqual({
-      text: "Tables open soon — read the rules",
-      tone: "quiet",
-    });
-    expect(playStatuses(quiet).showdown).toBeUndefined();
   });
 
   it("counts every copy as a ticket", () => {

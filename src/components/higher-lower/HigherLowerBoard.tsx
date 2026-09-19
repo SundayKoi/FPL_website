@@ -337,7 +337,7 @@ export default function HigherLowerBoard({
 
       {game.state === "not_started" ? (
         <section className="card-brand flex flex-col items-center gap-5 p-8 text-center sm:p-12">
-          <span className="label-dash">Today&apos;s card gauntlet</span>
+          <span className="label-dash">Today&apos;s card run</span>
           <h2 className="type-display text-3xl sm:text-5xl">How far can you read?</h2>
           <p className="max-w-xl text-sm leading-7 text-steel">
             Every round shows a complete reference card and a concealed challenger. The timer starts only when a round begins, and one miss ends your run. Play again as often as you like.

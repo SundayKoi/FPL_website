@@ -76,7 +76,6 @@ export interface ActiveWeek extends WeekRow {
   active: number;
   packs: number;
   expeditions: number;
-  gauntlet: number;
   betting: number;
   daily_games: number;
   market: number;
@@ -110,8 +109,6 @@ export interface AnalyticsOverview {
   modes: {
     expeditions: (WeekRow & { launched: number; resolved: number; lost: number; players: number })[];
     expedition_tiers: { tier: string; runs: number }[];
-    gauntlet: (WeekRow & { runs: number; players: number; cleared: number; fallen: number; banked: number; avg_round: number })[];
-    showdown: (WeekRow & { hands: number; tables: number; pot: number; rake: number })[];
     daily_games: (WeekRow & { game: string; plays: number; players: number; paid_out: number })[];
     betting: (WeekRow & { bets: number; players: number; staked: number; paid: number })[];
     market: (WeekRow & { listed: number; sold: number; volume: number })[];
