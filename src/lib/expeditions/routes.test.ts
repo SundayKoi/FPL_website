@@ -82,6 +82,9 @@ describe("squadMeets — consent and the bench", () => {
     const dribb = copy({ id: 77, card: { dribb: { number: 1, of: 5 } } });
     expect(isProtected(dribb)).toBe(true);
     expect(squadMeets("legend", [dribb, copy({ id: 2 }), copy({ id: 3 })]).reasons.join(" ")).toContain("one of five");
+    const onAir = copy({ id: 78, card: { onAir: { profileId: "a", name: "Static", number: 3, of: 25, window: "Match night rip" } } });
+    expect(isProtected(onAir)).toBe(true);
+    expect(squadMeets("legend", [onAir, copy({ id: 2 }), copy({ id: 3 })]).reasons.join(" ")).toContain("an On Air print");
     const legend = squadMeets("legend", [eclipse, copy({ id: 2, foil: true, signed: true, tier: "challenger" }), copy({ id: 3, foil: true, tier: "challenger" })]);
     expect(legend.ok).toBe(false);
     expect(legend.reasons.join(" ")).toMatch(/Card 9 is one of one/);

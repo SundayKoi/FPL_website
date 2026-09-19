@@ -6,12 +6,12 @@ import { readViewerDiscordId } from "@/lib/cards/viewer";
 import { fetchOpenListings } from "@/lib/market/queries";
 import { cardImageUrl } from "@/lib/cards/shareImage";
 import CardClaim, { type CardClaimState } from "@/components/cards/CardClaim";
-import PlayerCard3D from "@/components/cards/PlayerCard3D";
+import PlayerCard3D, { type CardEdition } from "@/components/cards/PlayerCard3D";
 import TiltHint from "@/components/cards/TiltHint";
 import ShareCardActions from "@/components/cards/ShareCardActions";
 import SkinPicker from "@/components/cards/SkinPicker";
 import BackLink from "@/components/site/BackLink";
-import { fetchAllCardSeasons, fetchCardBySlug, fetchRatingHistory, type RatingHistoryPoint } from "@/lib/cards/queries";
+import { fetchAllCardSeasons, fetchCardBySlug, fetchRatingHistory, fetchSeasonCards, type RatingHistoryPoint } from "@/lib/cards/queries";
 import { fetchPlayedChampions } from "@/lib/cards/artwork";
 import { fetchChampionSkinCatalog, type ChampionSkin } from "@/lib/packs/skins";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -75,14 +75,19 @@ function SeasonJourney({ history }: { history: RatingHistoryPoint[] }) {
 
 /** Share URLs span both leagues: try Premier's season first, then the
  *  Academy's, so one /card/[slug] namespace serves every player. */
-const loadCard = cache(async (slug: string) => {
+const loadCard = cache(async (slug: string, edition: CardEdition = "weekly") => {
   const supabase = await createServerSupabase();
   const seasons = await fetchAllCardSeasons(supabase);
   // Both shelves asked at once, then read in league order. Sequentially,
   // every academy card paid for a premier miss first — and building a card
   // is not a cheap read.
   const found = await Promise.all(
-    seasons.map(async ({ league, season }) => ({ league, card: await fetchCardBySlug(supabase, season, slug) })),
+    seasons.map(async ({ league, season }) => {
+      const cards = edition === "season"
+        ? await fetchSeasonCards(supabase, season)
+        : await fetchCardBySlug(supabase, season, slug).then((card) => card ? [card] : []);
+      return { league, card: cards.find((card) => card.slug === slug) ?? null };
+    }),
   );
   for (const entry of found) {
     if (entry.card) return { card: entry.card, league: entry.league };
@@ -92,7 +97,7 @@ const loadCard = cache(async (slug: string) => {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const card = (await loadCard(slug))?.card ?? null;
+  const card = (await loadCard(slug, "weekly"))?.card ?? null;
   if (!card) return { title: "Player card — FPL" };
   const shareImage = cardImageUrl("", slug, null);
   return {
@@ -113,6 +118,10 @@ function flag(value: string | string[] | undefined): boolean {
   return (Array.isArray(value) ? value[0] : value) === "1";
 }
 
+function cardEdition(value: string | string[] | undefined): CardEdition {
+  return (Array.isArray(value) ? value[0] : value) === "season" ? "season" : "weekly";
+}
+
 export default async function CardSharePage({
   params,
   searchParams,
@@ -127,7 +136,8 @@ export default async function CardSharePage({
   const query = await searchParams;
   const openCustomizer = flag(query.customize);
   const highlightClaim = flag(query.claim);
-  const loaded = await loadCard(slug);
+  const edition = cardEdition(query.edition);
+  const loaded = await loadCard(slug, edition);
   const card = loaded?.card ?? null;
   const collectionHref = loaded?.league === "academy" ? "/academy/cards" : "/cards";
 
@@ -322,7 +332,7 @@ export default async function CardSharePage({
         <span className="label-dash">FPL player card · Season {card.season}</span>
         <h1 className="type-display mt-2 text-4xl">{card.name}</h1>
       </header>
-      <PlayerCard3D card={card} reveal bloom gyro />
+      <PlayerCard3D card={card} edition={edition} reveal bloom gyro />
       <TiltHint />
       <SeasonJourney history={history} />
       <ShareCardActions slug={card.slug} />

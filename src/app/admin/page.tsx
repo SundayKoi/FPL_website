@@ -190,6 +190,14 @@ export default async function AdminPage() {
       href: "/admin/dribb",
     },
     {
+      label: "On Air",
+      stat: "Live-only insert",
+      statTone: "text-gold",
+      description:
+        "The casters' card: prints only inside a Live Drops window. Who is in the pool, their art, the odds.",
+      href: "/admin/on-air",
+    },
+    {
       label: "Guess the Card",
       stat: "In testing",
       statTone: "text-gold",

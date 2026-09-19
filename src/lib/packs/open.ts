@@ -21,13 +21,15 @@ import { cardImageUrl, copyImageUrl } from "@/lib/cards/shareImage";
 import { parallelLabelFor } from "@/lib/cards/skinLines";
 import { ALT_SKIN_CHANCE, DEFAULT_FOIL_TYPE, ECLIPSE_FOIL_TYPE, FOIL_CHANCE, FOIL_TYPE_LABELS, foilTypeOf, LIVE_FOIL_CHANCE, PACK_COST, rollFoilType, SIGNED_ALT_SKIN_CHANCE, type PackVariant } from "./config";
 import { matchesChase, type ChaseCriteria } from "./chase";
-import { GOLD, postCardsWebhook } from "./announce";
+import { GOLD, LIVE_RED, postCardsWebhook } from "./announce";
 import { rollPack } from "./rng";
 import { rollGodPack } from "./god";
 import { rollGodPackGate } from "./godGate";
 import { applyEclipse, rollEclipseCandidates, type EclipsePrint } from "./eclipse";
 import { rollPackFinishes, secretSerialLabel, stampFinishes } from "./rarities";
 import { DRIBB_COPIES, DRIBB_TIER, dribbCard, dribbLabel, rollDribb } from "@/lib/cards/dribb";
+import { ON_AIR_TIER, onAirCard, pickOnAirCaster, rollOnAir, type OnAirMark } from "@/lib/cards/onAir";
+import { countOnAirThisSeason, fetchOnAirCasters } from "@/lib/cards/onAirQueries";
 import { applyAutographs, signedChance } from "./signatures";
 import { fetchChampionSkinNums, printArtExists, rollPrint, splashArtExists } from "./skins";
 import { editionLabel, mondayOf } from "./week";
@@ -649,6 +651,30 @@ export async function openPackFor(
     }
   }
 
+  // ── On Air: the casters, only while the stream is live ─────────────
+  // The gate in front of the gate is the WINDOW: no Live Drops window, no
+  // roll, at any rate. One roll per pack, after the Dribb's — if the rarer
+  // relic took the last slot this does not roll at all, because a pack that
+  // prints two chase cards makes the rarer one feel cheap. The caster is
+  // whoever has the fewest prints this season; the count is a courtesy
+  // read, and the partial unique index on (season, caster, number)
+  // (20261020000001) is what refuses a duplicate or a 26th — a refused
+  // insert refunds the pack like any other.
+  if (liveNow && variant !== "god" && !prints[prints.length - 1].card.dribb && rollOnAir(rand)) {
+    const casters = await fetchOnAirCasters(service);
+    const found = await countOnAirThisSeason(service, season);
+    const caster = pickOnAirCaster(casters, found, rand);
+    if (caster) {
+      prints[prints.length - 1] = {
+        card: onAirCard(caster, (found[caster.profileId] ?? 0) + 1, season, liveLabel!),
+        foil: false,
+        foilType: null,
+        signed: false,
+        autograph: null,
+      };
+    }
+  }
+
   const { data: inserted, error: insertError } = await timing.measure("fulfillment", () => service.rpc("fulfill_card_pack_opening", {
     p_opening: opening.opening_id,
     p_variant: variant,
@@ -661,7 +687,7 @@ export async function openPackFor(
       // "moment" rather than the placeholder tier the wrapper carries:
       // this column is what dust pricing and the ledger read, and a
       // moment filed as gold would dust as an ordinary gold card.
-      tier: print.card.moment ? MOMENT_TIER : print.card.team ? TEAM_TIER : print.card.dribb ? DRIBB_TIER : print.card.tier.key,
+      tier: print.card.moment ? MOMENT_TIER : print.card.team ? TEAM_TIER : print.card.dribb ? DRIBB_TIER : print.card.onAir ? ON_AIR_TIER : print.card.tier.key,
       foil: print.foil,
       foil_type: print.foilType,
       signed: print.signed,
@@ -850,6 +876,9 @@ function schedulePackAnnouncements({
         const dribbPrint = queuedPrints.find((print) => print.card.dribb);
         if (dribbPrint?.card.dribb) await announceDribbClaim(service, discordId, dribbPrint.card.dribb, league);
 
+        const onAirPrint = queuedPrints.find((print) => print.card.onAir);
+        if (onAirPrint?.card.onAir) await announceOnAirClaim(service, discordId, onAirPrint.card.onAir, league);
+
         if (editionWeek && chase) {
           const chasePrint = queuedPrints.find((print) => print.card.chase?.title === chase.title);
           if (chasePrint) {
@@ -869,7 +898,7 @@ function schedulePackAnnouncements({
 
 function hasPackAnnouncement(prints: EclipsePrint[], chase: { title: string; bounty: number } | null): boolean {
   return chase !== null || prints.some((print) =>
-    print.signed === true || print.card.secret || print.card.dribb || print.foilType === ECLIPSE_FOIL_TYPE,
+    print.signed === true || print.card.secret || print.card.dribb || print.card.onAir || print.foilType === ECLIPSE_FOIL_TYPE,
   );
 }
 
@@ -965,6 +994,32 @@ async function announceDribbClaim(
       (left > 0 ? `${left} of ${dribb.of} still out there, at one in ten thousand packs.` : `That was the last one. There will never be another.`) +
       (raritiesUrl ? `\n[What it is](${raritiesUrl})` : ""),
     color: 0xd27dff,
+  });
+}
+
+/** An On Air card landing. Not a secret like the Dribb, so this is news the
+ *  channel is meant to act on: it names the window it was pulled in and how
+ *  many of the caster's twenty-five are left, and points at the rarities
+ *  page, which lists it. No card image — the render route draws players, and
+ *  a caster is not one. */
+async function announceOnAirClaim(
+  service: ReturnType<typeof createBettingServiceClient>,
+  discordId: string,
+  onAir: OnAirMark,
+  league: CardLeague,
+): Promise<void> {
+  const who = await announcementCollectorName(service, discordId);
+  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const raritiesUrl = site ? `${site}${league === "academy" ? "/academy/cards/rarities" : "/cards/rarities"}` : "";
+  const left = onAir.of - onAir.number;
+  await postPackAnnouncement({
+    title: `🔴 ON AIR — ${onAir.name} is in a pack`,
+    description:
+      `**${who}** pulled **${onAir.name} #${String(onAir.number).padStart(3, "0")}/${onAir.of}** during **${onAir.window}**.\n` +
+      `The casters only print while the stream is live. It cannot be dusted.\n` +
+      `${left} of ${onAir.of} left this season.` +
+      (raritiesUrl ? `\n[What it is](${raritiesUrl})` : ""),
+    color: LIVE_RED,
   });
 }
 

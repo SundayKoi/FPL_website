@@ -168,6 +168,39 @@ It can be traded. A secret: the rarities and stats pages never mention
 it; the first anyone hears of it is the announcement when one lands.
 pgTAP `0105_dribb_card_test.sql`.
 
+**On Air.** The casters' card, and the one insert whose scarcity is
+attendance rather than odds: one of the league's broadcasters, a 100 in
+every column, in a broadcast treatment — SMPTE colour bars, a lit ON AIR
+lamp, a waveform along the foot, a REC dot (`src/lib/cards/onAir.ts`,
+`ON_AIR_LOOK`/`onAirLook`; the look is drawn off the copy's `card.onAir`
+stamp). `openPackFor` rolls it once per standard pack at `ON_AIR_CHANCE`
+(1 in 15) and **only while a Live Drops window is open** (`liveNow`), in
+the last slot, directly after the Dribb block — if the rarer relic already
+took that slot the On Air roll is not spent at all. The pool is every
+profile an owner has marked `is_broadcaster`, joined to its row in the new
+`on_air_casters` table (champion, skin, role word, tagline, in/out); a
+broadcaster with **no** row is in the pool on the defaults, and a caster
+with no champion prints the colour-bar test pattern where the art would be
+— no signal is the print, not a fallback. `fetchOnAirDesk` /
+`fetchOnAirCasters` / `countOnAirThisSeason` (`src/lib/cards/onAirQueries.ts`)
+are the two reads the roll cannot do in pure code; `pickOnAirCaster` takes
+whoever has the fewest prints this season, a tie broken by `rand()`.
+Twenty-five per caster per **season** (`ON_AIR_COPIES`): migration
+`20261020000001` adds the settings table with its RLS (public read; staff
+or the caster themself write), a check that the number is 1..25 and a
+partial unique index on `(season, caster, number)` — a 26th, or two of the
+same number in the same instant, fails the insert and the pack refunds —
+and redefines `dust_card` to refuse it (`on air cannot be dusted`),
+`launch_expedition` to keep it off any route past wounded (`card is one of
+one`), and `record_card_provenance` to stamp `onAir` on the minted print.
+Filed under tier `onair`, so nothing prices or sorts it as an ordinary
+card; auto-dust treats it as a relic; on an expedition it carries a relic's
+shine. It can be traded. Unlike the Dribb it is **not** a secret: it is
+listed on `/cards/rarities`, named in the go-live announcement and in the
+shop's Live Drops notice, and announced to the cards channel when one
+lands — the point is that people know to be in the room. Staff tune the
+casters on `/admin/on-air`. pgTAP `0124_on_air_card_test.sql`.
+
 **Finishes (Shiny, StatTrak, Secret).** Three stamps a player-card print
 can take on top of its parallel and its ink, rolled in
 `src/lib/packs/rarities.ts` from the gates in `src/lib/packs/config.ts`

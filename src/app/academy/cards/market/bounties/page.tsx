@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BountiesPageView } from "@/app/cards/market/bounties/page";
+import { BountiesPageView } from "@/app/cards/market/bounties/view";
 
 export const metadata: Metadata = {
   title: "Academy Bounties — FPL",

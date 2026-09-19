@@ -1,0 +1,19 @@
+.collectible { width: min(100%, 18rem); overflow: hidden; border: 1px solid rgb(245 182 46 / .45); border-radius: 1rem; background: linear-gradient(155deg, #152632, #071016 70%); color: white; box-shadow: 0 14px 35px rgb(0 0 0 / .3); }
+.foil { box-shadow: 0 0 26px rgb(245 182 46 / .4), 0 14px 35px rgb(0 0 0 / .3); }
+.header, .copy { padding: .65rem .8rem; }
+.header { display: flex; justify-content: space-between; color: #f5b62e; font: 700 .65rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .14em; text-transform: uppercase; }
+.artwork { height: 12rem; overflow: hidden; background: #0b1720; }
+.art { width: 100%; height: 100%; object-fit: cover; }
+.fallbackArt, .team { display: grid; height: 100%; place-items: center; padding: 1rem; text-align: center; }
+.team { gap: .6rem; align-content: center; }
+.teamLogo { max-height: 5rem; max-width: 8rem; object-fit: contain; }
+.pair { display: grid; height: 100%; grid-template-columns: repeat(2, 1fr); }
+.panel { position: relative; overflow: hidden; background: #101d28; }
+.panel span { position: absolute; inset: auto .35rem .35rem; font-size: .65rem; font-weight: 700; text-shadow: 0 1px 4px #000; }
+.copy { display: grid; gap: .25rem; }
+.kicker { margin: 0; color: #98a9b4; font-size: .65rem; text-transform: uppercase; letter-spacing: .12em; }
+.copy h3 { margin: 0; font-size: 1.1rem; }
+.headline { margin: 0; color: #f5b62e; font-weight: 800; }
+.evidence { margin: 0; color: #c4d0d6; font-size: .78rem; }
+.signature { margin: .25rem 0 0; color: #ff8e7d; font-size: .75rem; font-weight: 800; }
+.compact { transform: scale(.8); transform-origin: top left; }

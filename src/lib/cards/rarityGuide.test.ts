@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ECLIPSE_CHANCE, FOIL_CHANCE, FOIL_TYPE_WEIGHTS, SECRET_CHANCE, SHINY_CHANCE, STATTRAK_CHANCE } from "@/lib/packs/config";
+import { ECLIPSE_CHANCE, FOIL_CHANCE, FOIL_TYPE_WEIGHTS, ON_AIR_CHANCE, ON_AIR_COPIES, SECRET_CHANCE, SHINY_CHANCE, STATTRAK_CHANCE } from "@/lib/packs/config";
 import { oneIn, perPackPct, rarityGuide } from "./rarityGuide";
 
 describe("oneIn / perPackPct", () => {
@@ -24,6 +24,18 @@ describe("rarityGuide", () => {
     expect(entry("secret").odds).toBe(`${oneIn(SECRET_CHANCE)} cards`);
     expect(entry("eclipse").odds).toContain(oneIn(ECLIPSE_CHANCE));
     for (const key of ["shiny", "stattrak", "secret"]) expect(entry(key).fresh).toBe(true);
+  });
+
+  it("lists the On Air card as an insert, at the gate the shop actually rolls", () => {
+    // The whole point of this one being on the page: the Dribb is a secret
+    // and this is not, because people have to know to be in the room.
+    expect(entry("onair").odds).toBe(`${oneIn(ON_AIR_CHANCE)} packs, live only`);
+    expect(entry("onair").how).toContain("Live Drops window");
+    expect(entry("onair").how).toContain(oneIn(ON_AIR_CHANCE));
+    expect(entry("onair").value).toContain(String(ON_AIR_COPIES));
+    expect(entry("onair").value).toContain("Never dusts");
+    // On the academy guide too: the casters call both leagues.
+    expect(rarityGuide("S5", "academy").flatMap((section) => section.entries).some((item) => item.key === "onair")).toBe(true);
   });
 
   it("names this season's parallels by the skin line, with per-card odds off the ladder", () => {

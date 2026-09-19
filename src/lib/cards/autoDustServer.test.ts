@@ -202,8 +202,8 @@ describe("describePull", () => {
     expect(describePull(pull({ secret: { number: 121, of: 120 } }), "2026-08-24")).toMatchObject({ secret: true });
   });
 
-  it("files every one-of under relic, the Dribb included", () => {
-    for (const card of [{ moment: {} }, { champWin: {} }, { team: {} }, { dribb: { number: 2, of: 5 } }]) {
+  it("files every one-of under relic, the Dribb and the On Air print included", () => {
+    for (const card of [{ moment: {} }, { champWin: {} }, { team: {} }, { dribb: { number: 2, of: 5 } }, { onAir: { number: 2, of: 25 } }]) {
       expect(describePull(pull(card), "2026-08-24").relic).toBe(true);
     }
     expect(describePull(pull({}), "2026-08-24").relic).toBe(false);
