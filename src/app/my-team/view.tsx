@@ -15,6 +15,7 @@ import { createLeagueTeamScope } from "@/lib/my-team/leagueScope";
 import type { MyTeamReadyDashboard } from "@/lib/my-team/types";
 import type { LeagueKey } from "@/lib/players/identity";
 import type { FixtureRow } from "@/lib/schedule/types";
+import { isPostseasonStage } from "@/lib/captain/codeImport";
 import { createServerSupabase } from "@/lib/supabase/server";
 import TeamAccentPanel from "@/components/my-team/TeamAccentPanel";
 
@@ -181,8 +182,16 @@ export async function MyTeamPageView({
       }
 
       const scope = createLeagueTeamScope(dashboard.teams);
+      const leagueTeamNames = new Set(dashboard.teams.map((team) => normalizeName(team.name)));
       const fixtures = ((fixturesResult.data as FixtureRow[] | null) ?? [])
-        .filter((fixture) => scope.includesFixture(fixture));
+        .filter(
+          (fixture) =>
+            scope.includesFixture(fixture) ||
+            (isPostseasonStage(fixture.stage) &&
+              [fixture.team_a, fixture.team_b].some(
+                (teamName) => Boolean(teamName?.trim()) && leagueTeamNames.has(normalizeName(teamName)),
+              )),
+        );
       const reports = ((reportsResult.data as MatchReport[] | null) ?? [])
         .filter((report) => scope.includesTeamPair(report.team_a_id, report.team_b_id));
       const games = (gamesResult.data as MatchReportGame[] | null) ?? [];
@@ -205,7 +214,14 @@ export async function MyTeamPageView({
           <span className="label-dash">Admin</span>
           <h2 id="admin-tools-heading" className="type-display mt-2 text-3xl">League admin</h2>
         </div>
-        <AdminCodeEditor fixtures={adminData.fixtures} teams={dashboard.teams} codes={adminData.codes} enableBulkImporter />
+        <AdminCodeEditor
+          fixtures={adminData.fixtures}
+          teams={dashboard.teams}
+          codes={adminData.codes}
+          league={league}
+          season={dashboard.season}
+          enableBulkImporter
+        />
         <AdminReportsQueue reports={adminData.reports} games={adminData.games} teams={dashboard.teams} />
         {adminData.isOwner ? (
           <LeagueTeamsEditor teams={dashboard.teams} />

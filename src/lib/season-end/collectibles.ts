@@ -50,6 +50,8 @@ export interface CollectibleDisplay {
   description: string;
   headline: string;
   evidence: string;
+  /** Stored for renderers that do not have the live award definition nearby. */
+  unit?: string;
 }
 
 export interface CollectibleEvidence {
