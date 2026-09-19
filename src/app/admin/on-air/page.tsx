@@ -72,7 +72,8 @@ export default async function OnAirAdminPage() {
               /admin
             </Link>
             . A broadcaster with no row here is already in the pool, on the defaults — saving below is how they stop
-            being a caster with no champion. Season <b className="text-white">{season}</b>.
+            being a caster with no champion: pick the skin by name; the art of the one chosen shows beside it. Season{" "}
+            <b className="text-white">{season}</b>.
           </p>
         </div>
 
