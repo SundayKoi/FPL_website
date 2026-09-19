@@ -16,7 +16,7 @@
 // any route that can lose a card.
 //
 // A secret: no page lists it. Nothing here is imported by the rarities
-// guide or the stats page, and it must stay that way.
+// guide, and it must stay that way.
 
 import type { OverlayPreview } from "@/components/cards/PlayerCard3D";
 import { DRIBB_CHANCE, DRIBB_COPIES } from "@/lib/packs/config";

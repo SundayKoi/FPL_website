@@ -8,7 +8,7 @@ describe("PatronPerks", () => {
 
     expect(screen.getByText("50% more recurring rewards")).toBeTruthy();
     expect(screen.getByText(/\/daily, \/weekly, Daily Stu, FPL'dle/)).toBeTruthy();
-    expect(screen.getByText("Patronage increases listed recurring wallet rewards. It never changes betting odds, pack odds, ratings, match results, Fantasy scoring, or Gauntlet placement.")).toBeTruthy();
+    expect(screen.getByText("Patronage increases listed recurring wallet rewards. It never changes betting odds, pack odds, ratings, match results, or Fantasy scoring.")).toBeTruthy();
   });
 
   it("links the design-table perk to the skin-line preview", () => {

@@ -231,8 +231,8 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
           <h3 className="type-display text-lg text-white">How a card gets hurt</h3>
           <ul className="flex list-disc flex-col gap-1.5 pl-5">
             <li>
-              <strong className="text-gold">Wounded.</strong> The card comes home but sits out expeditions and Gauntlet
-              lineups for {woundedDays} days. The lightest harm, and the only one a Deep Raid or the Gilded Road can do.
+              <strong className="text-gold">Wounded.</strong> The card comes home but sits out expeditions for{" "}
+              {woundedDays} days. The lightest harm, and the only one a Deep Raid or the Gilded Road can do.
             </li>
             <li>
               <strong className="text-coral">Lost.</strong> The card does not come home. It stays in your collection, locked,
@@ -444,8 +444,7 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
           <h3 className="type-display text-lg text-white">What a card can come home as</h3>
           <p className="text-sm text-steel">
             One mutation per copy, permanent, drawn on the card everywhere it shows. Each one changes the card in
-            Fantasy, in the Gauntlet and on the market. An Exorcism removes Haunted or Cursed; nothing removes the
-            rest.
+            Fantasy and on the market. An Exorcism removes Haunted or Cursed; nothing removes the rest.
           </p>
         </div>
         <div
@@ -553,9 +552,6 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
               <p className="text-white">{mutation.source}</p>
               <p>
                 <span className="font-semibold text-white">Fantasy:</span> {mutation.fantasy}
-              </p>
-              <p>
-                <span className="font-semibold text-white">Gauntlet:</span> {mutation.gauntlet}
               </p>
               <p>
                 <span className="font-semibold text-white">Market:</span> {mutation.economy}

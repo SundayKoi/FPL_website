@@ -364,8 +364,8 @@ service's dashboard in a browser.
    - `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` if the live-channel status
      feature is used
    - `CRON_SECRET` (any random string) so the Vercel cron in `vercel.json`
-     can call Showdown's sweep every minute; without it the sweep refuses
-     to run and a table nobody has open only moves when someone opens it
+     can call the expeditions sweep every five minutes; without it the
+     sweep refuses to run and a run only resolves when someone opens it
 3. Deploy.
 4. Go back to Step 2's URL Configuration and set **Site URL** to the
    resulting Vercel production URL.
@@ -802,15 +802,15 @@ You each answer your own forks, and a fork pushes only if you both push
 and harm. Every answer goes to the cards channel with a mention for
 whoever still has to decide. A convoy nobody joins is just a run.
 
-What a card can come home as: **wounded** (benched from expeditions and
-the Gauntlet for three days), **lost** (a hold row keeps it locked in the
+What a card can come home as: **wounded** (benched from expeditions for
+three days), **lost** (a hold row keeps it locked in the
 collection for seven days, during which a Rescue or a ransom — $300 plus
 $40 per point of shine — brings it home wounded; then it is gone),
 **dead** (the Legendary route only, only after two pushes, no rescue — the
 card goes to the graveyard on the page), or **mutated**: Irradiated,
 Hardened, Haunted, Cursed or Voidtouched, one per copy, permanent (an
 Exorcism removes the two bad ones), drawn on the card everywhere it shows
-and read by Fantasy scoring, the Gauntlet sim and dust pricing
+and read by Fantasy scoring and dust pricing
 (`src/lib/cards/mutations.ts`, `MUTATION_EFFECTS`). Insurance ($150 at
 launch; one policy an Eastern week, two for a patron with the first free)
 turns lost into wounded and dead into lost. An Eclipse, a moment, a champions relic or a team plate
@@ -819,7 +819,7 @@ ignored at two forks is lost as one. Map fragments drop off Legend Hunts
 (35% on solid, every jackpot) and Deep Raid jackpots (25%).
 
 Everyone gets one launch a day; patrons get two. Deployed and lost copies
-are locked — the dust, trade and Gauntlet screens refuse them, and
+are locked — the dust and trade screens refuse them, and
 `card_inventory_expedition_guard` refuses the write anyway — and a fresh
 Cursed card cannot change hands for seven days
 (`card_inventory_curse_guard`). Every tunable is in

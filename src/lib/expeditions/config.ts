@@ -141,7 +141,7 @@ export const TIER_ORDER: ExpeditionTierKey[] = ["scout", "gilded", "raid", "lege
 /** Risk, worst last — what "a route past wounded" means. */
 export const RISK_RANK: Record<RouteRisk, number> = { none: 0, wounded: 1, lost: 2, dead: 3 };
 
-/** How long a wounded card sits out expeditions and the Gauntlet. */
+/** How long a wounded card sits out expeditions. */
 export const WOUNDED_HOURS = 72;
 
 /** How long a lost card can be rescued or ransomed before it is gone. */

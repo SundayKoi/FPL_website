@@ -3,7 +3,6 @@ import { normalizeQuery, createSearch, type SearchItem } from "./search";
 
 const ITEMS: SearchItem[] = [
   { kind: "page", label: "Stats", href: "/stats", hint: "League" },
-  { kind: "page", label: "Pack stats", href: "/cards/stats", hint: "Cards" },
   { kind: "page", label: "The Vault", href: "/cards/vault", hint: "Cards", keywords: ["eclipse", "one of one"] },
   { kind: "page", label: "Patrons", href: "/supporters", hint: "Info", keywords: ["flame holders", "supporters"] },
   { kind: "player", label: "Doug", href: "/players/Doug%23NA1", hint: "#NA1" },
@@ -26,7 +25,6 @@ describe("createSearch", () => {
   });
 
   it("puts the exact name first and its longer cousins after", () => {
-    expect(search("stats").map((item) => item.label)).toEqual(["Stats", "Pack stats"]);
     expect(search("doug").map((item) => item.label)).toEqual(["Doug", "Douglas"]);
   });
 

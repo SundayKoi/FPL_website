@@ -129,7 +129,7 @@ describe("AdminFeaturedMatchupEditor", () => {
     fireEvent.click(screen.getByRole("heading", { name: "Premier featured matchup" }));
 
     fireEvent.change(screen.getByLabelText("Premier fixture"), { target: { value: "fixture-2" } });
-    fireEvent.change(screen.getByLabelText("Premier title"), { target: { value: "  Week 4 showdown  " } });
+    fireEvent.change(screen.getByLabelText("Premier title"), { target: { value: "  Week 4 clash  " } });
     fireEvent.change(screen.getByLabelText("Premier description"), { target: { value: "  A key series.  " } });
     fireEvent.click(screen.getByRole("button", { name: "Save Premier featured matchup" }));
 
@@ -139,7 +139,7 @@ describe("AdminFeaturedMatchupEditor", () => {
         {
           homepage: "premier",
           fixture_id: "fixture-2",
-          title: "Week 4 showdown",
+          title: "Week 4 clash",
           description: "A key series.",
           twitch_url: null,
           updated_at: expect.any(String),

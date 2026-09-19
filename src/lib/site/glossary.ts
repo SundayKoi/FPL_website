@@ -2,17 +2,12 @@
 // each one lives.
 //
 // Shine gates every expedition route and appeared only as a bare number.
-// Relic meant two different things on two pages. Card of the Week, the
-// binder, the purse and ascension were never introduced. The rarities
+// Card of the Week and the binder were never introduced. The rarities
 // page was the de-facto glossary and was filed under Packs only. This is
 // the short glossary the audit asked for, rendered at /glossary and
 // linked from the places the words are used.
 
 import { BINDER_SLOTS, PATRON_BINDER_SLOTS } from "@/lib/binder/queries";
-import { ASCENSION_MAX } from "@/lib/gauntlet/ascension";
-import { PURSE_MAX } from "@/lib/gauntlet/purse";
-import { GAUNTLET_ROUNDS } from "@/lib/gauntlet/sim";
-import { fmtPoints } from "@/lib/betting/format";
 
 export interface GlossaryTerm {
   /** The anchor on /glossary — `/glossary#shine`. */
@@ -29,7 +24,7 @@ export const GLOSSARY: GlossaryTerm[] = [
   {
     key: "betting-dollars",
     term: "Betting dollars",
-    meaning: "The site's play money. Every member's wallet opens with a signup bonus; the same dollars place bets, buy packs, pay market listings and seat you at a Showdown table.",
+    meaning: "The site's play money. Every member's wallet opens with a signup bonus; the same dollars place bets, buy packs and pay market listings.",
     href: "/economy",
     linkLabel: "Where they come from and go",
   },
@@ -92,14 +87,14 @@ export const GLOSSARY: GlossaryTerm[] = [
   {
     key: "moment",
     term: "Moment",
-    meaning: "A card of a single game rather than a player: the rarest performances of the season, minted once each. Moments ride along in the Gauntlet as relics.",
+    meaning: "A card of a single game rather than a player: the rarest performances of the season, minted once each.",
     href: "/cards/moments",
     linkLabel: "The moments",
   },
   {
     key: "plate",
     term: "Team plate",
-    meaning: "A whole roster as one composite card. Owning a team's plate counts as chemistry in the Gauntlet.",
+    meaning: "A whole roster as one composite card: one panel per role, each wearing that player's most-played champion.",
     href: "/cards/teams",
     linkLabel: "Team cards",
   },
@@ -109,27 +104,6 @@ export const GLOSSARY: GlossaryTerm[] = [
     meaning: "A champion card from the Faceless Drop — the Dealer's Hand — rather than a player card. Prices flat when dusted and carries flat shine.",
     href: "/cards/packs",
     linkLabel: "The drop",
-  },
-  {
-    key: "relic-gauntlet",
-    term: "Relic (in the Gauntlet)",
-    meaning: "Something else entirely: a modifier you pick between rounds of a Gauntlet run that changes how the fights resolve. Gone when the run ends.",
-    href: "/cards/gauntlet",
-    linkLabel: "The Gauntlet",
-  },
-  {
-    key: "purse",
-    term: "Purse",
-    meaning: `The Gauntlet's stake. Every round cleared adds to it — ${fmtPoints(PURSE_MAX)} for all ${GAUNTLET_ROUNDS}. Between fights you bank it and stop, or push it onto the next round and risk the lot.`,
-    href: "/cards/gauntlet",
-    linkLabel: "The Gauntlet",
-  },
-  {
-    key: "ascension",
-    term: "Ascension",
-    meaning: `The ladder above a Gauntlet clear. Each of the ${ASCENSION_MAX} levels is a named rule change, cumulative, and the board and the purse weigh a run by the level it was fought at.`,
-    href: "/cards/gauntlet",
-    linkLabel: "The Gauntlet",
   },
   {
     key: "binder",

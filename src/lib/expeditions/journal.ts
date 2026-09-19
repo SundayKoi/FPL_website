@@ -28,7 +28,7 @@
 // in progress. A run on the road draws from the wider pools, without
 // repeating a line inside one run, and hears each role in its own voice.
 
-import { mulberry32 } from "@/lib/gauntlet/sim";
+import { mulberry32 } from "@/lib/expeditions/prng";
 import { TRAIL_RULES } from "./queries";
 import { EXPEDITION_TIERS, HARVEST_MERCHANT, MERCHANT_DOLLARS, type CardCopy, type ExpeditionTierKey } from "./config";
 import { DROUGHT_CACHES, WATCH_GHOSTS, WATCH_RIVALS, WEATHERS, WEATHER_RULES, type WeatherKey } from "./weather";

@@ -1,11 +1,10 @@
 // What each game on the Play tab has to say about the viewer this week.
 //
-// The Play index used to be a list of five names with a line of blurb each,
+// The Play index used to be a list of names with a line of blurb each,
 // which told you what Fantasy IS but not whether your lineup was in. Each
 // game now reports its own state in one line: lineup in or not and when it
-// locks, a run in progress or this week's best, a squad out and when it is
-// back, tickets held. Pure, from reads the page gathers, so the wording is
-// a test and not a guess.
+// locks, a squad out and when it is back, tickets held. Pure, from reads
+// the page gathers, so the wording is a test and not a guess.
 
 import { currentFantasyWeek, lockTimeOf } from "@/lib/fantasy/week";
 import type { ExpeditionRun } from "@/lib/expeditions/queries";
@@ -24,12 +23,6 @@ export interface PlayStatusInput {
   /** Whether the viewer has a lineup in for the editable fantasy week. Null
    *  when nobody is looking. */
   fantasyLineupIn: boolean | null;
-  /** The Gauntlet, premier only: null when there is no such game here. */
-  gauntlet: { active: boolean; bestScore: number; attempts: number } | null;
-  /** Showdown, premier only: null where there is no such game. `seated`
-   *  is whether the viewer has a seat right now; `openTables` how many
-   *  tables are dealing. Both zero until the tables land. */
-  showdown: { seated: boolean; openTables: number } | null;
   expeditions: ExpeditionRun[];
   /** Copies held — every one is a draw ticket. */
   copies: number;
@@ -45,9 +38,9 @@ function eastern(date: Date): string {
   });
 }
 
-export type PlayGame = "fantasy" | "gauntlet" | "showdown" | "expeditions" | "draw" | "stats";
+export type PlayGame = "fantasy" | "expeditions" | "draw";
 
-export function playStatuses({ now, fantasyLineupIn, gauntlet, showdown, expeditions, copies }: PlayStatusInput): Partial<Record<PlayGame, PlayStatus>> {
+export function playStatuses({ now, fantasyLineupIn, expeditions, copies }: PlayStatusInput): Partial<Record<PlayGame, PlayStatus>> {
   const statuses: Partial<Record<PlayGame, PlayStatus>> = {};
 
   const week = currentFantasyWeek(now);
@@ -58,32 +51,6 @@ export function playStatuses({ now, fantasyLineupIn, gauntlet, showdown, expedit
     statuses.fantasy = { text: `Your ${editionLabel(week)} lineup is in · locks ${eastern(lock)}`, tone: "done" };
   } else {
     statuses.fantasy = { text: `No ${editionLabel(week)} lineup yet · locks ${eastern(lock)}`, tone: "open" };
-  }
-
-  if (gauntlet) {
-    if (gauntlet.active) {
-      statuses.gauntlet = { text: "A run is in progress — pick it back up", tone: "open" };
-    } else if (gauntlet.attempts > 0) {
-      statuses.gauntlet = {
-        text: `Best this week ${gauntlet.bestScore.toLocaleString()} · ${gauntlet.attempts} run${gauntlet.attempts === 1 ? "" : "s"}`,
-        tone: "done",
-      };
-    } else {
-      statuses.gauntlet = { text: "No runs this week yet", tone: "quiet" };
-    }
-  }
-
-  if (showdown) {
-    if (showdown.seated) {
-      statuses.showdown = { text: "You have a seat — back to the table", tone: "open" };
-    } else if (showdown.openTables > 0) {
-      statuses.showdown = {
-        text: `${showdown.openTables} table${showdown.openTables === 1 ? "" : "s"} dealing now`,
-        tone: "waiting",
-      };
-    } else {
-      statuses.showdown = { text: "Tables open soon — read the rules", tone: "quiet" };
-    }
   }
 
   // Holds ('lost') are not squads in the field; they read as missing cards.

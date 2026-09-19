@@ -36,8 +36,6 @@ import {
 } from "@/lib/expeditions/config";
 import { STRANDED_BOUNTY } from "@/lib/expeditions/journal";
 import { WEEKLY_PAYOUTS } from "@/lib/fantasy/config";
-import { PURSE_MAX, PURSE_STEPS } from "@/lib/gauntlet/purse";
-import { GAUNTLET_ENTRY_FEE } from "@/lib/gauntlet/run";
 import { LISTING_DAYS, MAX_OPEN_LISTINGS, MAX_OPEN_WANTS } from "@/lib/market/config";
 import {
   DUST_VALUES,
@@ -47,7 +45,6 @@ import {
   SIGNED_DUST_BASE,
   WEEKLY_DRAW_POT,
 } from "@/lib/packs/config";
-import { BRACKETS, RAKE_CAP_BIG_BLINDS, RAKE_PCT } from "@/lib/showdown/config";
 
 export interface LedgerRow {
   key: string;
@@ -156,14 +153,6 @@ export const EARN: LedgerRow[] = [
     linkLabel: "Set a lineup",
   },
   {
-    key: "gauntlet",
-    title: "The Gauntlet's purse",
-    figure: `Up to ${dollars(PURSE_MAX)} a run`,
-    detail: `Every cleared round adds to a purse (${PURSE_STEPS.map(String).join(", ")}). Bank it between fights and walk away paid, or push and put the whole purse on the next round. Lose once and it goes with the run.`,
-    href: "/cards/gauntlet",
-    linkLabel: "Draft a run",
-  },
-  {
     key: "expeditions",
     title: "Expeditions",
     figure: expeditionRange(),
@@ -224,22 +213,6 @@ export const SPEND: LedgerRow[] = [
     detail: `Buy a listing outright, or post a bounty for a card you want — you can have ${MAX_OPEN_WANTS} bounties open at once, and the dollars are only taken when someone fills one.`,
     href: "/cards/market",
     linkLabel: "Open the Market",
-  },
-  {
-    key: "gauntlet-fee",
-    title: "A Gauntlet run",
-    figure: dollars(GAUNTLET_ENTRY_FEE),
-    detail: "The entry fee for one run: draft five, climb eight rounds, lose once.",
-    href: "/cards/gauntlet",
-    linkLabel: "Draft a run",
-  },
-  {
-    key: "showdown",
-    title: "A Showdown seat",
-    figure: `${range(BRACKETS.low.minBuyIn, BRACKETS.low.maxBuyIn)} or ${range(BRACKETS.open.minBuyIn, BRACKETS.open.maxBuyIn)}`,
-    detail: `Hold'em with your cards. Practice tables play for chips and cost nothing. At the Low and Open tables the buy-in is your stack, and pots that see a flop are raked ${Math.round(RAKE_PCT * 100)}%, capped at ${RAKE_CAP_BIG_BLINDS} big blinds.`,
-    href: "/cards/showdown",
-    linkLabel: "Find a table",
   },
   {
     key: "insurance",

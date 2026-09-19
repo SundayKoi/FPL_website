@@ -1637,7 +1637,7 @@ function ClaimCeremony({
                       : fate.fate === "lost"
                         ? "Did not come home. A week to rescue or ransom it."
                         : fate.fate === "wounded"
-                          ? `Benched from expeditions and the Gauntlet until ${fate.woundedUntil ? easternClock(fate.woundedUntil) : "it heals"} ET.`
+                          ? `Benched from expeditions until ${fate.woundedUntil ? easternClock(fate.woundedUntil) : "it heals"} ET.`
                           : fate.mutation
                             ? (mutationByKey(fate.mutation)?.tagline ?? "")
                             : `It wears the ${shownMark} mark from here on.`}

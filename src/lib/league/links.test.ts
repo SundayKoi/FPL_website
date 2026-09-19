@@ -60,8 +60,7 @@ describe("pairedLeagueHref on the cards section", () => {
     expect(pairedLeagueHref("/cards/moments", "academy", "week=3")).toBe("/academy/cards/moments?week=3");
   });
 
-  it("sends a premier-only cards page to the academy's Play tab", () => {
-    expect(pairedLeagueHref("/cards/gauntlet", "academy")).toBe("/academy/cards/play");
-    expect(pairedLeagueHref("/cards/showdown", "academy")).toBe("/academy/cards/play");
+  it("carries a cards sub-page's whole path across", () => {
+    expect(pairedLeagueHref("/cards/market/bounties", "academy")).toBe("/academy/cards/market/bounties");
   });
 });

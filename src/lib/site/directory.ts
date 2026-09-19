@@ -57,10 +57,10 @@ function leagueGroup(view: LeagueView): SiteGroup {
 function cardsGroup(view: LeagueView): SiteGroup {
   const base = view === "academy" ? "/academy/cards" : "/cards";
   const items: SiteDestination[] = [];
-  // Browse and its sub-pages are open to everyone, and so are the odds,
-  // the pack statistics and the league-wide ledger; everything that owns,
-  // opens, trades or plays needs the role.
-  const OPEN = new Set([`${base}/rarities`, `${base}/stats`, `${base}/expeditions/ledger`]);
+  // Browse and its sub-pages are open to everyone, and so are the odds
+  // and the league-wide ledger; everything that owns, opens, trades or
+  // plays needs the role.
+  const OPEN = new Set([`${base}/rarities`, `${base}/expeditions/ledger`]);
   for (const section of cardsSections(base)) {
     const gated = section.key !== "browse";
     items.push({
@@ -124,7 +124,7 @@ const INFO_GROUP: SiteGroup = {
     { label: "About the league", href: "/info", blurb: "What FPL is and how a season runs", keywords: ["info", "about", "faq"] },
     { label: "Premium & Patron", href: "/membership", blurb: "What each costs, what each gets you, how to get it", keywords: ["premium", "patron", "price", "membership", "how to get premium", "role"] },
     { label: "Betting dollars", href: "/economy", blurb: "Every way to earn them and spend them, with the figures", keywords: ["economy", "money", "earn", "wallet", "daily", "weekly"] },
-    { label: "Glossary", href: "/glossary", blurb: "Shine, dust, relic, binder, purse — the words, explained", keywords: ["shine", "dust", "relic", "terms", "what is"] },
+    { label: "Glossary", href: "/glossary", blurb: "Shine, dust, relic, binder — the words, explained", keywords: ["shine", "dust", "relic", "terms", "what is"] },
     { label: "Sign Up", href: "/signup", blurb: "Register to play next season", keywords: ["register", "join"] },
     { label: "Rulebook", href: "/rulebook", blurb: "Every rule, in one place", keywords: ["rules"] },
     { label: "League Links", href: "/league-links", blurb: "Discord, Twitch, the sheets, and the rest", keywords: ["discord", "twitch", "links"] },

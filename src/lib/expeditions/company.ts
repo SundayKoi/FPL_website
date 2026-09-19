@@ -19,7 +19,7 @@
 // it, and neither set can grow after the fact, so the page, the ping and
 // the claim, reading at different times, agree on who was there.
 
-import { mulberry32 } from "@/lib/gauntlet/sim";
+import { mulberry32 } from "@/lib/expeditions/prng";
 import type { Encounter } from "./journal";
 import { COMPANY_RULES } from "./routes";
 

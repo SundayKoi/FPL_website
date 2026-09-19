@@ -200,7 +200,7 @@ export const OVERLAY_MOCKUPS: OverlayMockup[] = [
   {
     key: "stattrak",
     title: "StatTrak",
-    blurb: "A counter on the card that tracks something while you own it — fantasy points, Gauntlet rounds, expeditions survived. Trade it and it resets.",
+    blurb: "A counter on the card that tracks something while you own it — fantasy points, expeditions survived. Trade it and it resets.",
     earn: "A parallel you can pull; the counter starts at zero in your hands.",
     group: "digital",
     accent: "#ff8a2a",
@@ -225,7 +225,7 @@ export const OVERLAY_MOCKUPS: OverlayMockup[] = [
     key: "infinity_split",
     title: "Infinity split",
     blurb: "Use a card enough and it splits: a new variant with a random border, flare and krackle. Every split is unique, and people chase the good combos.",
-    earn: "Ten fantasy weeks fielded, or ten Gauntlet rounds won, on one copy.",
+    earn: "Ten fantasy weeks fielded on one copy.",
     group: "digital",
     accent: "#d27dff",
     front: ["card-ov-split-border", "card-ov-split-flare", "card-ov-split-krackle"],

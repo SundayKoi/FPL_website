@@ -208,7 +208,7 @@ export default async function AdminPage() {
       label: "Announcements",
       stat: "Prepared posts",
       statTone: "text-gold",
-      description: "Every announcement the site has ready for the cards channel — the new rarities, the Gauntlet overhaul — read it, then send it.",
+      description: "Every announcement the site has ready for the cards channel — read it, then send it.",
       href: "/admin/announce",
     },
     {
@@ -217,13 +217,6 @@ export default async function AdminPage() {
       statTone: "text-gold",
       description: "Who is playing what, packs opened, observed pull rates against the config, the chases, and where the money goes.",
       href: "/admin/analytics",
-    },
-    {
-      label: "Gauntlet balance",
-      stat: "Picks & win rates",
-      statTone: "text-gold",
-      description: "What players take at the crossroads and off the relic table, and how it goes.",
-      href: "/admin/gauntlet",
     },
     {
       label: "Expedition seasons",
