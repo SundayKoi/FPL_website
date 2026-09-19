@@ -1,13 +1,13 @@
-import type { ReactNode } from "react";
 import { championByName, championCenteredUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import { cardPlayerKey, teamBadgeKey, type PlayerCardData } from "@/lib/cards/build";
 import { championArtCrop } from "@/lib/season-end/championArt";
 import { DUO_COMPONENTS, type DuoEvidence, type DuoMemberEvidence } from "@/lib/season-end/duo";
 import type { PairArtMember } from "@/lib/season-end/pairArt";
 import type { SeasonEndTeamIdentityMap } from "@/lib/season-end/queries";
-import AwardArtwork, { type AwardArtworkProps } from "./AwardArtwork";
+import type { AwardArtworkProps } from "./AwardArtwork";
 import BestOfChampionCard from "./BestOfChampionCard";
 import BestOfVariantViewer from "./BestOfVariantViewer";
+import SeasonEndAwardFace from "./SeasonEndAwardFace";
 import type { AwardWinner, SeasonAward } from "@/lib/season-end/derive";
 import { formatAwardPresentation, formatInteger } from "@/lib/season-end/presentation";
 import type { Division } from "@/lib/schedule/types";
@@ -58,15 +58,6 @@ function championFor(cards: PlayerCardData[]): string | null {
     if (champion) return champion;
   }
   return null;
-}
-
-function DivisionMark({ division }: { division: Division }) {
-  return (
-    <span className={styles.divisionMark} aria-label={`${division} division`} title={`${division} division`}>
-      <span aria-hidden="true">{division === "Solari" ? "☀" : "☾"}</span>
-      <span>{division}</span>
-    </span>
-  );
 }
 
 function compactEvidence(winner: AwardWinner): string {
@@ -136,47 +127,6 @@ function DuoBreakdown({ evidence }: { evidence: DuoEvidence }) {
         ))}
       </ul>
     </details>
-  );
-}
-
-function AwardFace({
-  titleId,
-  title,
-  description,
-  category,
-  artwork,
-  season,
-  league,
-  division,
-  result,
-}: {
-  titleId: string;
-  title: string;
-  description?: string;
-  category: SeasonAward["group"];
-  artwork: AwardArtworkProps;
-  season: string;
-  league: "premier" | "academy";
-  division?: Division;
-  result: ReactNode;
-}) {
-  return (
-    <div className={styles.face} data-testid="award-card-face">
-      <div className={styles.artRegion}>
-        <AwardArtwork {...artwork} />
-        <div className={styles.artShade} aria-hidden="true" />
-        <div className={styles.meta}>
-          <span>{season} · {league}</span>
-          {division ? <DivisionMark division={division} /> : null}
-        </div>
-        <div className={styles.overlay}>
-          <p className={styles.category}>{category}</p>
-          <h3 id={titleId} className={styles.title}>{title}</h3>
-          {description ? <p className={styles.description}>{description}</p> : null}
-        </div>
-      </div>
-      {result}
-    </div>
   );
 }
 
@@ -261,7 +211,7 @@ function AwardVisualCard({
 
   return (
     <article aria-labelledby={titleId} className={styles.card}>
-      <AwardFace
+      <SeasonEndAwardFace
         titleId={titleId}
         title={title}
         description={award.scope === "pair" ? undefined : award.description}
@@ -330,7 +280,7 @@ function EmptyAwardCard({
 
   return (
     <article aria-labelledby={titleId} className={styles.card}>
-      <AwardFace
+      <SeasonEndAwardFace
         titleId={titleId}
         title={award.title}
         description={award.scope === "pair" ? undefined : award.description}

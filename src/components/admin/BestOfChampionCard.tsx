@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { championCenteredUrl, championDisplayName, championSplashUrl } from "@/lib/match-draft/champions";
 import type { PlayerCardData } from "@/lib/cards/build";
+import type { AwardDisplay } from "@/lib/season-end/presentation";
 import type { AwardWinner, SeasonAward } from "@/lib/season-end/derive";
 import { championArtCrop, type ChampionArtCrop } from "@/lib/season-end/championArt";
 import { formatAwardPresentation, formatInteger } from "@/lib/season-end/presentation";
@@ -25,6 +26,8 @@ export interface BestOfChampionCardProps {
   artSkin?: number;
   /** Local-only override used by the developer crop-audit surface. */
   crop?: ChampionArtCrop | null;
+  /** Frozen pack display values must not be recalculated from live results. */
+  displayOverride?: Pick<AwardDisplay, "headline" | "evidence">;
   /** Staff-only selection diagnostics are omitted from patron card views. */
   showAdminDetails?: boolean;
 }
@@ -69,6 +72,7 @@ export default function BestOfChampionCard({
   autograph = null,
   artSkin = 0,
   crop = null,
+  displayOverride,
   showAdminDetails = true,
 }: BestOfChampionCardProps) {
   const champion = winner?.champion ?? playerCard?.signature?.champion ?? null;
@@ -78,7 +82,7 @@ export default function BestOfChampionCard({
   const name = accountName(winner, playerCard);
   const identity = fullIdentity(winner, playerCard);
   const team = winner?.team ?? playerCard?.teamName ?? null;
-  const display = winner ? formatAwardPresentation(award, winner) : null;
+  const display = winner ? displayOverride ?? formatAwardPresentation(award, winner) : null;
   const bestOfEvidence = winner?.evidence?.bestOf;
   const status = winner ? null : (award.status === "unearned" ? "Not earned yet" : "Awaiting evidence");
   const statusNote = winner ? null : (award.note ?? "No qualifying champion assignment yet.");

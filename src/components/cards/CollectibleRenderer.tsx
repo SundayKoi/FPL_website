@@ -1,39 +1,164 @@
 "use client";
 
-/* Season's End artwork is frozen remote art and needs an observable fallback. */
-/* eslint-disable @next/next/no-img-element */
+/* Season's End artwork is frozen remote art and delegates fallback handling to the shared preview artwork component. */
 
+import type { AwardArtworkProps } from "@/components/admin/AwardArtwork";
+import BestOfChampionCard from "@/components/admin/BestOfChampionCard";
+import SeasonEndAwardFace from "@/components/admin/SeasonEndAwardFace";
+import { SEASON_AWARDS, type AwardDefinition } from "@/lib/season-end/catalog";
+import type { AccoladeCollectible, CollectibleArtwork, SeasonEndCollectible } from "@/lib/season-end/collectibles";
+import type { AwardWinner, SeasonAward } from "@/lib/season-end/derive";
 import type { SeasonEndPullResult } from "@/lib/packs/season-end-actions";
 import PlayerCard3D from "./PlayerCard3D";
+import awardStyles from "@/components/admin/SeasonEndAwardCard.module.css";
 import styles from "./CollectibleRenderer.module.css";
 
-function Artwork({ pull }: { pull: SeasonEndPullResult }) {
-  const artwork = pull.design.artwork;
+function titleId(designId: string): string {
+  return `season-end-${designId.replace(/[^a-zA-Z0-9_-]+/g, "-")}`;
+}
+
+type AwardDesign = Extract<SeasonEndCollectible, { kind: "best_of" | "accolade" }>;
+
+function awardForDesign(design: AwardDesign): SeasonAward {
+  const awardId = design.source.awardId;
+  const definition: AwardDefinition = SEASON_AWARDS.find((award) => award.id === awardId) ?? {
+    id: awardId,
+    title: design.display.title,
+    description: design.display.description,
+    group: "Season stories",
+    scope: design.kind === "best_of" ? "player" : design.source.scope,
+    partition: design.division ? "division" : "league",
+  };
+  return { ...definition, description: design.display.description, status: "ready", winners: [] };
+}
+
+function bestOfWinner(design: Extract<SeasonEndCollectible, { kind: "best_of" }>): AwardWinner {
+  const wins = design.champion.wins;
+  const games = design.evidence.games ?? design.champion.games;
+  return {
+    name: `${design.player.name}#${design.player.tag}`,
+    team: "",
+    value: design.evidence.winnerValue ?? wins,
+    games,
+    division: design.division ?? undefined,
+    champion: design.champion.name,
+    championId: design.champion.id,
+    championGames: design.champion.games,
+    title: design.display.title,
+    evidence: {
+      bestOf: {
+        wins,
+        losses: Math.max(0, design.champion.games - wins),
+        winRate: design.champion.winRate,
+        meanPerformance: 0,
+        seasonGames: games,
+        championGames: design.champion.games,
+      },
+    },
+  };
+}
+
+function accoladeSubjectName(design: AccoladeCollectible): string {
+  if (design.subject.kind === "player") return `${design.subject.player.name}#${design.subject.player.tag}`;
+  if (design.subject.kind === "team") return design.subject.team.name;
+  return design.subject.members.map((member) => `${member.name}#${member.tag}`).join(" + ");
+}
+
+function artworkForAccolade(artwork: CollectibleArtwork): AwardArtworkProps {
   if (artwork.kind === "single") {
-    return artwork.primaryUrl || artwork.fallbackUrl ? (
-      <img
-        src={artwork.primaryUrl ?? artwork.fallbackUrl ?? ""}
-        alt=""
-        className={styles.art}
-        style={{ objectPosition: `${artwork.cropPositionX}% ${artwork.cropPositionY}%`, transform: `scale(${artwork.zoom})` }}
-      />
-    ) : <div className={styles.fallbackArt}>Season&apos;s End</div>;
+    return {
+      variant: "single",
+      primaryUrl: artwork.primaryUrl,
+      fallbackUrl: artwork.fallbackUrl,
+      cropPositionX: artwork.cropPositionX,
+      cropPositionY: artwork.cropPositionY,
+      zoom: artwork.zoom,
+    };
   }
   if (artwork.kind === "pair") {
-    return <div className={styles.pair}>{artwork.panels.map((panel) => (
-      <div className={styles.panel} key={panel.key}>
-        {panel.primaryUrl || panel.fallbackUrl ? <img src={panel.primaryUrl ?? panel.fallbackUrl ?? ""} alt="" className={styles.art} /> : null}
-        <span>{panel.name} · {panel.role}</span>
-      </div>
-    ))}</div>;
+    return { variant: "pair", panels: artwork.panels.map((panel) => ({ ...panel })) };
   }
   if (artwork.kind === "team") {
-    return <div className={styles.team} style={{ backgroundColor: artwork.bannerColor ?? "#101b24" }}>
-      {artwork.logoUrl ? <img src={artwork.logoUrl} alt="" className={styles.teamLogo} /> : <span>{artwork.fallbackLabel}</span>}
-      <strong>{artwork.teamName}</strong>
-    </div>;
+    return {
+      variant: "team",
+      teamName: artwork.teamName,
+      logoUrl: artwork.logoUrl,
+      fallbackLabel: artwork.fallbackLabel,
+      bannerColor: artwork.bannerColor,
+    };
   }
-  return <div className={styles.fallbackArt}>{artwork.label}</div>;
+  return { variant: "empty" };
+}
+
+function displayUnit(design: AccoladeCollectible, award: SeasonAward): string {
+  if (design.display.unit !== undefined) return design.display.unit;
+  if (design.display.headline.endsWith(" total") && award.totalUnit) return award.totalUnit;
+  return award.scope === "pair" ? "Duo Impact" : award.unit ?? "";
+}
+
+function FrozenBestOf({ pull, design }: { pull: SeasonEndPullResult; design: Extract<SeasonEndCollectible, { kind: "best_of" }> }) {
+  const winner = bestOfWinner(design);
+  const award = awardForDesign(design);
+  const crop = design.artwork.kind === "single"
+    ? { cropPositionX: design.artwork.cropPositionX, cropPositionY: design.artwork.cropPositionY, zoom: design.artwork.zoom }
+    : null;
+  return (
+    <div data-testid="season-end-best_of-renderer" data-foil={pull.foil ? "true" : "false"}>
+      <BestOfChampionCard
+        award={award}
+        winner={winner}
+        season={design.season}
+        league={design.league}
+        headingId={titleId(design.designId)}
+        division={design.division ?? undefined}
+        autograph={pull.autograph}
+        crop={crop}
+        displayOverride={{ headline: design.display.headline, evidence: design.display.evidence }}
+        showAdminDetails={false}
+      />
+    </div>
+  );
+}
+
+function FrozenAccolade({ pull, design }: { pull: SeasonEndPullResult; design: AccoladeCollectible }) {
+  const award = awardForDesign(design);
+  const unit = displayUnit(design, award);
+  const duo = design.source.scope === "pair";
+  return (
+    <article
+      aria-labelledby={titleId(design.designId)}
+      className={awardStyles.card}
+      data-testid="season-end-accolade-renderer"
+      data-foil={pull.foil ? "true" : "false"}
+    >
+      <SeasonEndAwardFace
+        titleId={titleId(design.designId)}
+        title={design.display.title}
+        description={duo ? undefined : design.display.description}
+        category={design.display.subtitle}
+        artwork={artworkForAccolade(design.artwork)}
+        season={design.season}
+        league={design.league}
+        division={design.division ?? undefined}
+        result={(
+          <div className={awardStyles.resultPanel}>
+            <div className={awardStyles.resultGrid}>
+              <p className={awardStyles.name}>{accoladeSubjectName(design)}</p>
+              <div className={awardStyles.value}>
+                {unit === "$" ? "$" : ""}{design.display.headline}
+                {unit && unit !== "$" ? (
+                  <span className={`${awardStyles.unit} ${unit.length <= 2 ? awardStyles.unitInline : ""}`}>
+                    {duo ? "· " : ""}{unit}
+                  </span>
+                ) : null}
+              </div>
+              <p className={awardStyles.evidence}>{design.display.evidence}</p>
+            </div>
+          </div>
+        )}
+      />
+    </article>
+  );
 }
 
 export default function CollectibleRenderer({ pull, compact = false }: { pull: SeasonEndPullResult; compact?: boolean }) {
@@ -49,20 +174,6 @@ export default function CollectibleRenderer({ pull, compact = false }: { pull: S
       </div>
     );
   }
-  return (
-    <article className={`${styles.collectible} ${pull.foil ? styles.foil : ""}`} data-testid={`season-end-${pull.design.kind}-renderer`}>
-      <div className={styles.header}>
-        <span>{pull.design.kind === "best_of" ? "Best Of" : "Accolade"}</span>
-        <span>{pull.foilType ?? "Matte"}</span>
-      </div>
-      <div className={styles.artwork}><Artwork pull={pull} /></div>
-      <div className={styles.copy}>
-        <p className={styles.kicker}>{pull.design.display.subtitle}</p>
-        <h3>{pull.design.display.title}</h3>
-        <p className={styles.headline}>{pull.design.display.headline}</p>
-        <p className={styles.evidence}>{pull.design.display.evidence}</p>
-        {pull.signed ? <p className={styles.signature}>✍ Signed copy</p> : null}
-      </div>
-    </article>
-  );
+  if (pull.design.kind === "best_of") return <FrozenBestOf pull={pull} design={pull.design} />;
+  return <FrozenAccolade pull={pull} design={pull.design} />;
 }

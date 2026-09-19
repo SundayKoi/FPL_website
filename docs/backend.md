@@ -169,20 +169,29 @@ it; the first anyone hears of it is the announcement when one lands.
 pgTAP `0105_dribb_card_test.sql`.
 
 **On Air.** The casters' card, and the one insert whose scarcity is
-attendance rather than odds: one of the league's broadcasters, a 100 in
-every column, in a broadcast treatment — SMPTE colour bars, a lit ON AIR
-lamp, a waveform along the foot, a REC dot (`src/lib/cards/onAir.ts`,
+attendance rather than odds: one of the league's broadcasters, 100 overall,
+in a broadcast treatment — SMPTE colour bars, a lit ON AIR lamp, a waveform
+along the foot, a REC dot (`src/lib/cards/onAir.ts`,
 `ON_AIR_LOOK`/`onAirLook`; the look is drawn off the copy's `card.onAir`
-stamp). `openPackFor` rolls it once per standard pack at `ON_AIR_CHANCE`
-(1 in 15) and **only while a Live Drops window is open** (`liveNow`), in
-the last slot, directly after the Dribb block — if the rarer relic already
-took that slot the On Air roll is not spent at all. The pool is every
-profile an owner has marked `is_broadcaster`, joined to its row in the new
-`on_air_casters` table (champion, skin, role word, tagline, in/out); a
-broadcaster with **no** row is in the pool on the defaults, and a caster
-with no champion prints the colour-bar test pattern where the art would be
-— no signal is the print, not a fallback. `fetchOnAirDesk` /
-`fetchOnAirCasters` / `countOnAirThisSeason` (`src/lib/cards/onAirQueries.ts`)
+stamp). Its lower third is a **production slate** (`card-onair-slate*` in
+`globals.css`, drawn by `PlayerCardFace` off `card.onAir`): a
+clapperboard's sticks over chalk-on-black fields — CAM (what the art is
+shot on, or NO SIGNAL), SEASON, ROLE, TAKE
+(this copy's number, the loudest thing on the slate), SCENE (the window)
+and NOTES (the tagline) — which REPLACES the signature row, the five stat
+bars and the record footer, in the same 168px those took, so the archetype
+band and everything above it stay where they are; `onAirCard` therefore
+freezes `subStats: []`. `openPackFor` rolls it once per standard pack at
+`ON_AIR_CHANCE` (1 in 15) and **only while a Live Drops window is open**
+(`liveNow`), in the last slot, directly after the Dribb block — if the
+rarer relic already took that slot the On Air roll is not spent at all.
+The pool is every profile an owner has marked `is_broadcaster`, joined to
+its row in the new `on_air_casters` table (champion, skin, role word,
+tagline, in/out); a broadcaster with **no** row is in the pool on the
+defaults, and a caster with no champion prints the colour-bar test pattern
+where the art would be — no signal is the print, not a fallback.
+`fetchOnAirDesk` / `fetchOnAirCasters` / `countOnAirThisSeason`
+(`src/lib/cards/onAirQueries.ts`)
 are the two reads the roll cannot do in pure code; `pickOnAirCaster` takes
 whoever has the fewest prints this season, a tie broken by `rand()`.
 Twenty-five per caster per **season** (`ON_AIR_COPIES`): migration

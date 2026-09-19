@@ -66,6 +66,17 @@ describe("buildGauntletOptions", () => {
     const options = buildGauntletOptions([moment], "2026-08-24");
     expect(options.Mid).toHaveLength(0);
   });
+
+  it("benches an On Air print — a caster has no role and no bars to fight with", () => {
+    const onAir = row({ id: 3 });
+    (onAir.card as { onAir?: object; subStats?: unknown[] }).onAir = {
+      profileId: "caster-a", name: "Static", number: 3, of: 25, window: "Week 3 broadcast",
+    };
+    (onAir.card as { subStats?: unknown[] }).subStats = [];
+    expect(buildGauntletOptions([onAir], "2026-08-24").Mid).toHaveLength(0);
+    // ...and an ordinary copy in the same read still fields.
+    expect(buildGauntletOptions([onAir, row({ id: 4 })], "2026-08-24").Mid).toHaveLength(1);
+  });
 });
 
 describe("buildHeirloomOptions", () => {

@@ -6,6 +6,7 @@ import { catalogHash, seasonEndDesignId, type AccoladeCollectible, type Accolade
 import type { AwardWinner, SeasonAward, SeasonEndResult } from "./derive";
 import { formatAwardPresentation } from "./presentation";
 import type { SeasonEndTeamIdentityMap } from "./queries";
+import { championArtCrop } from "./championArt";
 
 export const SEASON_END_RULES_VERSION = "season-end-2026-09-v1";
 
@@ -30,10 +31,19 @@ function cardForWinner(winner: AwardWinner, cardsByPlayer: ReadonlyMap<string, P
   return key ? cardsByPlayer.get(key) ?? null : null;
 }
 
+function pairRoleLabel(role: string): string {
+  return ({ TOP: "Top", JUNGLE: "Jungle", MIDDLE: "Mid", BOTTOM: "Bot", UTILITY: "Support" } as Record<string, string>)[role] ?? role;
+}
+
+function teamMonogram(teamName: string): string {
+  return teamName.trim().split(/\s+/).map((part) => part[0]).join("").slice(0, 3).toUpperCase() || "TEAM";
+}
+
 function singleArtwork(card: PlayerCardData | null, champion: string | null): CollectibleArtwork {
   const name = champion ?? card?.signature?.champion ?? null;
-  return name
-    ? { kind: "single", primaryUrl: championCenteredUrl(name, 0), fallbackUrl: championSplashUrl(name, 0), cropPositionX: 50, cropPositionY: 50, zoom: 1 }
+  const crop = name ? championArtCrop(name, 0) : null;
+  return name && crop
+    ? { kind: "single", primaryUrl: championCenteredUrl(name, 0), fallbackUrl: championSplashUrl(name, 0), ...crop }
     : { kind: "fallback", label: "Season's End" };
 }
 
@@ -45,13 +55,11 @@ function pairArtwork(winner: AwardWinner): CollectibleArtwork {
     panels: members.map((member) => ({
       key: member.playerKey,
       name: member.name,
-      role: member.role,
+      role: pairRoleLabel(member.role),
       championName: member.champion ? "champion" in member.champion ? member.champion.champion : member.champion.name : null,
       primaryUrl: member.champion ? championCenteredUrl("champion" in member.champion ? member.champion.champion : member.champion.name, 0) : null,
       fallbackUrl: member.champion ? championSplashUrl("champion" in member.champion ? member.champion.champion : member.champion.name, 0) : null,
-      cropPositionX: 50,
-      cropPositionY: 50,
-      zoom: 1,
+      ...(member.champion ? championArtCrop("champion" in member.champion ? member.champion.champion : member.champion.name, 0) : { cropPositionX: 50, cropPositionY: 50, zoom: 1 }),
     })),
   };
 }
@@ -86,6 +94,7 @@ function displayFor(award: SeasonAward, winner: AwardWinner) {
     description: award.description,
     headline: presentation.headline,
     evidence: presentation.evidence,
+    unit: presentation.unit,
   };
 }
 
@@ -187,7 +196,7 @@ function buildAccoladeDesign(
     : award.scope === "team"
       ? (() => {
           const identity = teamIdentities[teamBadgeKey(winner.team)];
-          return { kind: "team", teamName: identity?.name ?? winner.team, logoUrl: identity?.imageUrl ?? null, fallbackLabel: identity?.abbreviation ?? "TEAM", bannerColor: identity?.bannerColor ?? null };
+          return { kind: "team", teamName: identity?.name ?? winner.team, logoUrl: identity?.imageUrl ?? null, fallbackLabel: identity?.abbreviation ?? teamMonogram(winner.team), bannerColor: identity?.bannerColor ?? null };
         })()
       : singleArtwork(cardForWinner(winner, cardsByPlayer), winner.champion ?? null);
   const subjectId = subject.kind === "player" ? subject.player.key : subject.kind === "team" ? subject.team.key : subject.members.map((member) => member.key).sort().join("+");
