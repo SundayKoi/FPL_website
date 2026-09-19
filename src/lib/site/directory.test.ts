@@ -21,9 +21,7 @@ describe("siteDirectory", () => {
     expect(academy.find((item) => item.label === "Players")?.href).toBe("/academy/players");
     expect(academy.find((item) => item.label === "Cards")?.href).toBe("/academy/cards");
     expect(academy.find((item) => item.label === "FPL'dle")?.href).toBe("/academy/fpldle");
-    // Premier-only games are not offered from the academy's point of view.
-    expect(academy.find((item) => item.label === "The Gauntlet")).toBeUndefined();
-    expect(siteDestinations("premier").find((item) => item.label === "The Gauntlet")?.href).toBe("/cards/gauntlet");
+    expect(academy.find((item) => item.label === "Expeditions")?.href).toBe("/academy/cards/expeditions");
   });
 
   it("reaches the orphaned pages the audit found", () => {
@@ -36,10 +34,10 @@ describe("siteDirectory", () => {
   it("marks what needs the role, and leaves the public doors open", () => {
     const items = siteDestinations("premier");
     const gated = (label: string) => items.find((item) => item.label === label)?.gated ?? false;
-    for (const label of ["Packs", "My Collection", "Market", "Betting", "FPL'dle", "Match Drafter", "The Gauntlet"]) {
+    for (const label of ["Packs", "My Collection", "Market", "Betting", "FPL'dle", "Match Drafter", "Expeditions"]) {
       expect(gated(label), label).toBe(true);
     }
-    for (const label of ["Browse", "The Vault", "Moments", "Rarities", "Pack stats", "Premium HQ", "Schedule", "Glossary"]) {
+    for (const label of ["Browse", "The Vault", "Moments", "Rarities", "Premium HQ", "Schedule", "Glossary"]) {
       expect(gated(label), label).toBe(false);
     }
   });

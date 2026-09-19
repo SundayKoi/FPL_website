@@ -436,9 +436,9 @@ export const SECRET_CHANCE = 0.001;
  * Never dusts, never auto-dusts, never boards a route that can lose it;
  * it can be traded, which is the point.
  *
- * A SECRET. Nothing player-facing says it exists — not the rarities page,
- * not the stats page. The first anyone hears of it is the announcement
- * when one lands. The admin mockup page is staff-only.
+ * A SECRET. Nothing player-facing says it exists — not even the rarities
+ * page. The first anyone hears of it is the announcement when one lands.
+ * The admin mockup page is staff-only.
  */
 export const DRIBB_CHANCE = 1 / 10000;
 export const DRIBB_COPIES = 5;

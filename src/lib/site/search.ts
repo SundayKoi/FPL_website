@@ -68,8 +68,8 @@ export function createSearch(items: SearchItem[]): (query: string, limit?: numbe
 /**
  * The best `limit` matches for a query. Every word of the query must match
  * somewhere on an item for it to show; a stronger match ranks higher; ties
- * go to the shorter label, then alphabetical, so "Stats" beats "Pack stats"
- * for "stats" without anybody having to rank them by hand.
+ * go to the shorter label, then alphabetical, so "Cards" beats "Team cards"
+ * for "cards" without anybody having to rank them by hand.
  */
 function rankEntries(query: string, entries: SearchEntry[], limit: number): SearchItem[] {
   const tokens = normalizeQuery(query).split(" ").filter(Boolean);

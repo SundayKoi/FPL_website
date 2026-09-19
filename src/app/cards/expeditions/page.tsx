@@ -44,7 +44,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * on one of them forever.
  *
  * Gated on the wallet rather than the premium-role check, same as
- * /cards/packs and the Gauntlet — an expedition pays into the wallet, so
+ * /cards/packs — an expedition pays into the wallet, so
  * the wallet is the thing you need.
  *
  * The viewer is resolved READ-ONLY and deliberately NOT via getBettingUser():

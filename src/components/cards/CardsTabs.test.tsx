@@ -50,7 +50,7 @@ describe("CardsTabs", () => {
     render(<CardsTabs league="academy" />);
     expect(tabs().getByRole("link", { name: "My Collection" }).getAttribute("href")).toBe("/academy/cards/collection");
     expect(tabs().getByRole("link", { name: "Play" }).getAttribute("aria-current")).toBe("page");
-    expect(tabs().queryByRole("link", { name: "Gauntlet" })).toBeNull();
+    expect(tabs().getByRole("link", { name: "Expeditions" }).getAttribute("href")).toBe("/academy/cards/expeditions");
   });
 
   it("shows the wallet at the end of the bar when signed in, and nothing when not", () => {

@@ -3,7 +3,6 @@ import Link from "next/link";
 import CardsPageHeader from "@/components/cards/CardsPageHeader";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchTicketCount } from "@/lib/cards/draw-queries";
-import { countOpenTables, fetchViewerSeat } from "@/lib/showdown/queries";
 import { playStatuses, type PlayGame, type PlayStatus, type PlayTone } from "@/lib/cards/playStatus";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { cardsSections } from "@/lib/cards/sections";
@@ -11,12 +10,11 @@ import { readViewerDiscordId } from "@/lib/cards/viewer";
 import { fetchRuns } from "@/lib/expeditions/queries";
 import { fetchLineup } from "@/lib/fantasy/queries";
 import { currentFantasyWeek } from "@/lib/fantasy/week";
-import { currentWeek, fetchActiveGauntletRun, fetchGauntletWeekStats } from "@/lib/gauntlet/queries";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Play — FPL",
-  description: "Fantasy, the Gauntlet, expeditions, and the weekly draw: everything you can do with the cards you own.",
+  description: "Fantasy, expeditions, and the weekly draw: everything you can do with the cards you own.",
 };
 
 const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy: "Academy" };
@@ -24,8 +22,7 @@ const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy:
 /** Which game a sub-tab href is, so its status line can find it. */
 function gameOf(href: string): PlayGame | null {
   const leaf = href.slice(href.lastIndexOf("/") + 1);
-  if (leaf === "fantasy" || leaf === "gauntlet" || leaf === "showdown" || leaf === "expeditions" || leaf === "stats") return leaf;
-  if (leaf === "draw") return "draw";
+  if (leaf === "fantasy" || leaf === "expeditions" || leaf === "draw") return leaf;
   return null;
 }
 
@@ -43,34 +40,26 @@ const TONE: Record<PlayTone, string> = {
  * menu must not write a wallet. Fails soft to "no statuses", which renders
  * the plain menu.
  */
-async function loadStatuses(league: CardLeague, discordId: string | null, season: string | null) {
+async function loadStatuses(discordId: string | null, season: string | null) {
   const now = new Date();
   if (!discordId || !season) {
     return playStatuses({
       now,
       fantasyLineupIn: null,
-      gauntlet: league === "premier" ? { active: false, bestScore: 0, attempts: 0 } : null,
-      showdown: league === "premier" ? { seated: false, openTables: 0 } : null,
       expeditions: [],
       copies: 0,
     });
   }
   try {
     const service = createBettingServiceClient();
-    const [lineup, activeRun, weekStats, expeditions, copies, showdownSeat, showdownOpen] = await Promise.all([
+    const [lineup, expeditions, copies] = await Promise.all([
       fetchLineup(service, discordId, season, currentFantasyWeek(now)),
-      league === "premier" ? fetchActiveGauntletRun(service, discordId) : Promise.resolve(null),
-      league === "premier" ? fetchGauntletWeekStats(service, discordId, currentWeek()) : Promise.resolve(null),
       fetchRuns(service, discordId, season),
       fetchTicketCount(service, discordId, season),
-      league === "premier" ? fetchViewerSeat(service, discordId) : Promise.resolve(null),
-      league === "premier" ? countOpenTables(service, season) : Promise.resolve(0),
     ]);
     return playStatuses({
       now,
       fantasyLineupIn: lineup !== null,
-      gauntlet: league === "premier" ? { active: activeRun !== null, bestScore: weekStats?.bestScore ?? 0, attempts: weekStats?.attempts ?? 0 } : null,
-      showdown: league === "premier" ? { seated: showdownSeat !== null, openTables: showdownOpen } : null,
       expeditions,
       copies,
     });
@@ -89,7 +78,7 @@ export async function PlayPageView({ league = "premier" }: { league?: CardLeague
 
   const supabase = await createServerSupabase();
   const [season, discordId] = await Promise.all([fetchCardSeason(supabase, league), readViewerDiscordId(supabase)]);
-  const statuses: Partial<Record<PlayGame, PlayStatus>> = await loadStatuses(league, discordId, season);
+  const statuses: Partial<Record<PlayGame, PlayStatus>> = await loadStatuses(discordId, season);
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1160px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">

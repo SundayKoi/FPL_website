@@ -120,12 +120,11 @@ manually visited.
 out by one map, `src/lib/cards/sections.ts`: six tabs — Home, My Collection,
 Packs, Browse, Market, Play — the last three with sub-tabs (Team cards,
 Compare, Moments, the Vault under Browse; Listings & bounties and Trade
-offers under Market; Fantasy, Gauntlet, Expeditions, Weekly Draw and Stats
+offers under Market; Fantasy, Expeditions, The ledger and Weekly Draw
 under Play). `CardsTabs` renders that map on every cards page from the two
 `layout.tsx` files, marks the current tab and sub-tab from the pathname, and
 carries the only Premier/Academy switcher a cards page has (`pairedCardsHref`
-keeps the same page across leagues, sending the premier-only Gauntlet to the
-academy's Play tab). Pages do not draw their own back links or league
+keeps the same page across leagues — every cards page exists under both). Pages do not draw their own back links or league
 toggles. Every old URL still resolves; the map decides which tab it lights.
 A page the map does not list (`/cards/claims`, a redirect) lights nothing.
 
@@ -160,12 +159,12 @@ partial unique index on it — a sixth, or two fifths in the same instant,
 fails the insert and the pack refunds — and redefines `dust_card` to refuse
 it (`dribb cannot be dusted`), `launch_expedition` to keep it off any route
 past wounded (`card is one of one`), and `record_card_provenance` to stamp
-`dribb` on the minted print so the stats page counts the five apart from
-the player cards. Filed under tier `dribb`, like a moment's `moment`, so
+`dribb` on the minted print so it is counted apart from the player
+cards. Filed under tier `dribb`, like a moment's `moment`, so
 nothing prices or sorts it as an ordinary card; auto-dust treats it as a
 relic; on an expedition it carries 16 shine, the most a single card can.
-It can be traded. A secret: the rarities and stats pages never mention
-it; the first anyone hears of it is the announcement when one lands.
+It can be traded. A secret: the rarities page never mentions it; the
+first anyone hears of it is the announcement when one lands.
 pgTAP `0105_dribb_card_test.sql`.
 
 **On Air.** The casters' card, and the one insert whose scarcity is
@@ -236,15 +235,15 @@ Shiny +2, Secret +3.
 
 **Wear, slabbing, the StatTrak counter** (migration 20260922, pgTAP
 0099). `card.wear` counts fieldings: `wear_cards(p_ids)` (service-only)
-is called by the Gauntlet on run start and by the weekly drop for every
-scored lineup, and a trigger on `expedition_runs` calls it for the squad
+is called by the weekly drop for every scored lineup, and a trigger on
+`expedition_runs` calls it for the squad
 in the launch's own transaction. `slab_card(p_user, p_inventory)` seals a
 copy (`card.slab {wear, at}`) after proving ownership and that it is not
 away on a route; the `slab_seal` trigger then refuses any update that
 removes or rewrites the slab or moves the wear under it. A slabbed copy
 is refused everywhere it could be fielded: the `expedition_runs_slab_guard`
 trigger in SQL, and `slabRefusal()` (src/lib/cards/wear.ts) in the
-Gauntlet and Fantasy server actions, whose pickers also leave it out. It
+Fantasy server actions, whose pickers also leave it out. It
 can still be sold, traded and dusted. `bump_stattrak(p_id, p_points, p_through)` (migration 20260924) adds the
 pictured player's Fantasy Pts — `gamePoints()` from
 `src/lib/stats/fantasyPoints.ts`, the stats tab's own tally — for every
@@ -262,13 +261,10 @@ gained `season` and, on the `minted` row, `print` — the flat facts of the
 copy at mint (tier, foil, foil_type, signed, alt, shiny, secret,
 stattrak, moment, team, champ, edition_week), written by
 `record_card_provenance()` in the insert's own statement. Because the
-row has no FK, it survives `dust_card`, so `fetchEconomyStats` reads a
-season's mints (`event = 'minted'`, paged through `fetchAllRows`' new
-`where` argument) into `pulled` — player cards only — and the stats page
-prints them as "Pull rates" beside the configured gate, above the held
-counts, which keep their survivorship bias and say so. Mints from before
-the migration carry no print and are left out; the section dates itself
-from the first counted mint.
+row has no FK, it survives `dust_card`: a melted copy still leaves the
+flat facts of its mint behind, which is what makes a true pull rate
+countable at all (held counts carry survivorship bias). Mints from before
+the migration carry no print.
 `/cards/rarities` (and the academy twin) prints every rarity from
 `src/lib/cards/rarityGuide.ts`, whose numbers import from the config; the
 Discord announcement (`src/lib/cards/rarityAnnouncement.ts`) is posted
@@ -464,73 +460,6 @@ Important RPC families include:
   the two `betting_ledger` rows (reason `card_sale`, ref'd at the listing or
   want), and moves `card_inventory.discord_id`. `buy_card_listing` and
   `fill_card_want` are the two ways in. See "Market" below.
-- The Gauntlet fields cards from EVERY current shelf, premier and academy
-  alike (`fetchAllCardSeasons`), while the run itself is still filed and
-  ranked under the premier season. A copy from a past season is refused.
-  The bracket scales to the lineup average, so a bigger pool does not make
-  the mode easier — the opponents rise with whatever gets picked.
-- Gauntlet balance telemetry: `gauntlet_round_log` (one row per resolved
-  round: the situation, the call taken, the outcome, the relics it was
-  fought with) and `gauntlet_relic_offers` (the three keys offered and the
-  one taken). Both are deny-all, service-role, and written off the response
-  path with `after()` — a telemetry failure must never fail a fight, so
-  every write swallows its error. Both carry `unique (run_id, round)` and
-  insert with `ignoreDuplicates`, so the double-click the actions already
-  guard with a CAS cannot double-count a call. NOTHING in the engine reads
-  these tables: the aggregation (`src/lib/gauntlet/balance.ts`, pure and
-  tested) is rendered at `/admin/gauntlet` for a human, who changes a
-  number by hand in a commit and says so in the channel. Auto-tuning is
-  deliberately not built — a mode that silently nerfs whatever is winning
-  is a treadmill the player can never read. The report corrects two
-  confounds: performance is LIFT against the per-round baseline (a relic
-  taken at round six only ever fights the hardest rounds), and popularity
-  is take rate against the times the thing was actually on the table.
-- Gauntlet opponents bring a game PLAN (`src/lib/gauntlet/foe.ts`), rolled
-  off the same week seed as the rest of the cast and stored on
-  `next_opponent`, so the whole league scouts the same brain all week. A
-  plan is a reallocation, never a buff: what it adds on one beat it gives
-  up on others, priced by `BEAT_VALUE` — the MEASURED win-rate worth of one
-  stat point on each beat (the pit is worth five times the base hold, and
-  five lane checks are worth less than one Baron), not a count of checks.
-  The same rule governs the in-fight reactions: they collapse on your worst
-  lane by exactly what they concede to your best, and the behind/ahead
-  swing trades objectives against the hold. `plan_key` rides on the round
-  log so the balance report can check the pricing against real runs.
-- Gauntlet ghosts: last week's runs are this week's bracket
-  (`src/lib/gauntlet/ghosts.ts`, fetched in `ghostQueries.ts`). Round N is a
-  real run that reached round N, chosen by `weekSeed(week, round)` and
-  deduplicated across the eight, so the league shares the cast exactly as
-  it shared the generated one. Two rules keep it from becoming a lottery:
-  a ghost's five are SHIFTED (never scaled — scaling squashes shape) onto
-  `bracketTarget`, so their comp shape is theirs and the level is the
-  round's; and `roundRules` draws the wall, the patch and the traits off
-  the front of the stream so a ghost round and a generated round play
-  under identical rules. Their relics reach the fight through
-  `ghostTraitEffects` at `GHOST_RELIC_POTENCY` — only the dials that win
-  games, never the ones that score a board — and their recorded crossroads
-  call resolves as `ctx.foeCall`. Because a real opponent's shape, build
-  and call together outweigh an invented team's traits, `GHOST_TARGET_RELIEF`
-  prices a ghost's five slightly lower, the mirror of `BOSS_RATING_BUMP`;
-  both constants were solved for against an AI control arm in
-  `ghosts.test.ts`, not chosen. Every lookup failure falls through to
-  `generateOpponent`, so a fresh season, a quiet week or an unapplied
-  migration all still play. `ghost_run_id` on the round log is the defence
-  record.
-- The Gauntlet's ghost draw is PRIVATE. The pool is shared and cached per
-  week (last week's runs, immutable), but each run draws its own eight
-  using `ghost_seed` — a CSPRNG value rolled once at entry and stored, so a
-  run's bracket is fixed from the moment it starts and stays auditable.
-  The reason is the leaderboard: it takes a player's BEST run, and
-  best-of-N rewards the WIDTH of a score distribution, so a memorisable
-  week would pay attempts rather than skill. The round's rules (wall,
-  patch, traits) stay week-seeded — round four is round four for everyone.
-  Three of last week's top finishers, one per player, stand in the pool as
-  bounties worth `BOUNTY_MULT`; the multiplier is applied in
-  `chooseGauntletPathAction`, never in the engine, because who you are
-  fighting is a fact about the bracket and not about the match. Entry
-  refuses a lineup identical to the player's last one (`sameLineup`,
-  compared as a set of inventory ids) — checked before the fee is taken, so
-  a refused entry never costs anything.
 - Expedition payouts are guarded at `maxExpeditionPayout()` (11,250 = the
   best base x the shine cap x the brief bonus x the loot-multiplier cap),
   and a test reads the literal out of
@@ -540,85 +469,6 @@ Important RPC families include:
   bonused legend jackpot was refused — and since `rollOutcome` re-rolls on
   each attempt, retrying paid a lower grade and closed the run. Any guard
   that encodes a config rule in SQL needs a test bridging the two.
-- The Gauntlet's purse (`src/lib/gauntlet/purse.ts`, migration
-  `20260918000001_gauntlet_purse.sql`): every won round adds `PURSE_STEPS`
-  to `gauntlet_runs.purse` in the same CAS update that advances the round.
-  `gauntlet_cash_out(p_user, p_run)` is the one door: under the row lock it
-  moves a live run to `banked` (refused with 'fight in progress' while
-  `crossroads` is set — the purse is on the table from the first half to
-  the whistle), or collects a `cleared` run, pays `purse` on a
-  `gauntlet_purse` ledger row, and stamps `purse_paid` so it can never pay
-  twice. A fallen run keeps its `purse` for the record and pays nothing.
-  `chooseGauntletPathAction` calls the door on a clear; if that fails the
-  end screen offers "Collect" through `bankGauntletRunAction`. Walking
-  away between fights IS banking (`resetGauntletRunAction` delegates).
-  The sink is unchanged: `gauntletPot` subtracts the week's `purse_paid`
-  from the fees before the 40/25/15 shares, and `purse.test.ts` holds the
-  schedule to returning under half the fee on average under every
-  stopping rule at the advertised clear curves.
-- Gauntlet ascension (`src/lib/gauntlet/ascension.ts`, migration
-  `20260919000001_gauntlet_ascension.sql`): `gauntlet_ascension` holds
-  what each player has unlocked per season; `gauntlet_ascend(p_user,
-  p_season, p_level)` is called by the claim of a cleared run and is a
-  `greatest`, so it is idempotent and never skips a level. Every run is
-  stamped with `ascension` at entry (clamped to what is unlocked —
-  `clampAscension`, a stale request plays level 0 rather than being
-  refused) and the level reaches the engine through `ascensionRules`:
-  the gate walls' rounds (`gateRoundsAt` in bosses.ts), a ghost's relic
-  potency and target relief (`matchContextFor`, `ghostOpponent`), the
-  offer size (sliced in `chooseGauntletPathAction` off the same seeded
-  three, so a retry offers the same cards), the bracket bump
-  (`generateOpponent`/`ghostOpponent`) and the Pit King's `holdsPit`
-  folded into the boss effects. The board and the settlement rank by
-  `weightedScore` (+10% a level) and the purse by `ascensionPurseMult`;
-  the round log carries `ascension` so the balance report can split lift
-  by level. Nothing about a level is rolled: every rule is printed on the
-  draft screen, the run header and the rulebook.
-- Gauntlet contracts and openers (`src/lib/gauntlet/contracts.ts`,
-  `openers.ts`, migration `20260920000001_gauntlet_contracts.sql`):
-  `contractsForWeek` draws three off `weekSeed(week, 99)`, the same for
-  the league; `chooseGauntletPathAction` runs `contractsSatisfied` over a
-  won round (the half state, the result, the opponent) and pays each new
-  one through `gauntlet_complete_contract`, whose primary key
-  `(discord_id, season, week_start, contract_key)` is the "once" — the
-  door returns 0 when the insert did not land and pays nothing.
-  `gauntlet_payout` learns `gauntlet_contract`. Openers are unlocked by
-  the season's count of finished contracts (`fetchContractProgress`),
-  validated at entry (`openerAllowed` — an unearned key is refused, not
-  downgraded), stored on `gauntlet_runs.opener`, and reach the engine as
-  `RelicEffects` through `openerEffects` in `matchContextFor`, exactly as
-  an heirloom does. The bracket does not price them.
-- Gauntlet rule-changers, set bonuses and drafted mode (migration
-  `20260921000001_gauntlet_rulebreakers.sql`): six relics carry flags in
-  `RelicEffects` that the engine reads as RULES rather than dials —
-  `secondWind` (a loss keeps the run active on the same round, restaged,
-  `second_wind_used` once), `oracle` (the client reads each call's ending
-  off the stored `seed2` with the same pure `simulateSecondHalf` the
-  server runs — nothing new is revealed that the row did not already
-  hold), `baronHeadStart` (the pit's starting health), `rerollOffer`
-  (`rerollGauntletOfferAction`, CAS on `reroll_used`), `purseMult` (the
-  purse step) and `bossImmunity` (`matchContextFor` drops the wall's
-  effects; the ascension's pit rule stays). `aggregateEffects` adds the
-  family set bonus at `SET_BONUS_AT` of a family, once. Drafted mode:
-  `dealGauntletHandAction` deals `DRAFTED_HAND_PER_ROLE` per role by
-  CSPRNG from the caller's shelves and records the ids in
-  `gauntlet_deals`; entry with a `dealId` checks the five against the hand
-  (`lineupFromHand`), waives the no-repeat rule, stamps `drafted`, and
-  marks the hand used. `rankGauntletWeek` pays a drafted run
-  `DRAFTED_SCORE_MULT`.
-- Gauntlet heirlooms: a run may bring ONE moment or roster plate from the
-  shelf (`src/lib/gauntlet/heirlooms.ts`), frozen into `gauntlet_runs.heirloom`
-  at entry like the lineup. It is never spent and never fielded. Everything
-  it does is expressed as `RelicEffects` and folded in with
-  `mergeRelicEffects`, so the engine needed no changes to accept one: a
-  moment pays its colorway family's dial, and a plate multiplies
-  `chemistryMult` by how many of the five actually played for that team —
-  zero matches means an empty effects object, not a small one. Sizes are
-  measured, not chosen: the four families land within 0.3 points of each
-  other on rounds won (6.6-6.9% over no heirloom at 3,000 runs), and the
-  numbers differ per family precisely because the beats are not equal in
-  value. The bracket is still priced off the raw lineup average, so an
-  heirloom is an edge the same way Fresh Legs is.
 - Card expeditions: `launch_expedition` (v3, twelve arguments; the old
   six-argument signature is a wrapper) validates the squad, confirms the
   caller owns all three copies, enforces the tier slot (one unclaimed run
@@ -943,8 +793,8 @@ listed season draws and names its parallel as that line's tier (prisma →
 Standard, aurora → Chroma, refractor → Prestige, ice → Ultimate) via
 `lineTreatmentFor` (PlayerCard3D, drawn exactly as a mockup `preview`
 is) and `parallelLabelFor` (the shelf caption, the flat PNG's badge and
-accent in `render/treatment.ts`, the Discord rip and flex lines, the
-stats page). The STORAGE never changed: `foil_type` still holds the
+accent in `render/treatment.ts`, the Discord rip and flex lines). The
+STORAGE never changed: `foil_type` still holds the
 ladder, the roller still walks it, dust still reads its multipliers, and
 Eclipse is not a tier of anything. To rotate, put both leagues' new season
 codes in `CURRENT_LINE_SEASONS` and set `CURRENT_LINE` to the new line, then
@@ -978,100 +828,6 @@ by `--line-accent`), which the mockup pages pass and which a season line
 fills the same way. The tier's sibling layers are static (they do not swing
 with the pointer); the line layer itself rides the holo ref like any
 parallel.
-
-### Showdown (Hold'em with the cards)
-
-Showdown is Texas Hold'em played with player cards for betting dollars.
-Hole cards come from a player's own ten-card stack, the board from the
-current week's edition, and only dollars are ever at stake: a card sits at
-a table and is never won, lost or put up. `src/lib/showdown/config.ts` is
-the one source for every number (seats, stack size, brackets with blinds,
-buy-ins and stack caps, the 3% rake capped at five big blinds with "no
-flop, no drop", the 45-second clock); `src/lib/showdown/hands.ts` is the
-pure evaluator (role is the suit, team pairs, tier makes the Ladder,
-overall breaks ties; nine ranks from High Card to Foil Royal, with no plain
-flush because five from one team is already a full roster) and exports
-`HAND_RANKS`, which the rules panel `src/components/showdown/ShowdownRules.tsx`
-renders so the rules a player reads cannot drift from what settles a hand.
-`/cards/showdown` is premier-only and, until the tables land, is the
-rulebook.
-
-The engine is `src/lib/showdown/engine.ts`, a pure reducer over a table's
-public state (seats, chips, board, pot, whose turn, the log) and secret
-state (each seat's stack, hole cards, the rest of the deck): `startHand`
-deals and posts blinds (heads up, the dealer is the small blind), `applyAction`
-validates turn and legality (min-raise, short all-ins do not reopen the
-action), streets advance when nobody is owed an action, `buildPots` makes
-one side pot per contribution level, and settlement takes the rake off the
-main pot first, splits ties with odd chips to the seat left of the dealer,
-retires leavers and busted stacks, and returns the `HandResult`. `viewFor`
-is the per-viewer snapshot: everyone's public state plus only your own
-hole cards. It takes a random source, so tests script it.
-
-The schema is `20260913000001_showdown.sql`: `showdown_brackets` (seeded
-from config and held to it by `brackets.test.ts`), `showdown_tables`
-(public state, a version, a deadline; publicly readable and in the
-realtime publication), `showdown_secrets` (deny-all, never published),
-`showdown_seats` (public; one seat per person anywhere), `showdown_seated_cards`
-with a definer-rights guard trigger on `card_inventory` that refuses to
-delete or re-own a seated copy ("card is at a table", the expedition lock
-again), `showdown_hands` (history) and `showdown_rake` (the burn). Three
-service-role RPCs: `showdown_sit` checks the buy-in range and the stack
-(ten owned cards under the cap, or a house stack), debits the wallet,
-seats and locks in one transaction; `showdown_stand` credits chips back
-and releases the cards, refused mid-hand unless the seat is sitting out;
-`showdown_commit` is the engine's one write — compare-and-swap on the
-version, then public and secret state, every seat's chips and status, the
-rake row and the history row — and it refuses any commit where the seats'
-chips plus the pot do not balance before and after. Chips at a table have
-left the wallet; the pot lives in the public state; the rake is chips
-never credited back. pgTAP: `0087_showdown_test.sql`.
-
-`src/lib/showdown/server.ts` is the transition layer (Higher-Lower's
-shape; `actions.ts` is the thin `"use server"` adapter): `createTable`,
-`sitDown` (validates the buy-in and the stack — ten owned copies of this
-season, no relics or plates, under the cap — or deals a house stack with
-`dealHouseStack`, calls `showdown_sit`, then commits the seat into public
-and secret state and deals if the table can), `standUp` (mid-hand the seat
-is marked leaving and auto-folds when asked to act; once out of the hand
-`showdown_stand` returns the chips and the seat leaves the state), `act`,
-and `syncTable` (any client: fold whoever ran out of clock, deal if
-possible, return the view). Every transition is `transition()`: read the
-row and the secret, run one engine step, `showdown_commit` against the
-version read, and on "stale table version" read again, up to three times.
-The identity is always the session's `getBettingUser()`; the client only
-names a table and a move. `loadTableView` returns `viewFor`'s per-viewer
-snapshot: everyone's public state plus your own hole cards and stack.
-The felt (`src/components/showdown/ShowdownTable.tsx`) subscribes to
-`postgres_changes` on the table's row and its seats and, on any change,
-asks `syncTable` for a fresh view — hole cards never travel over the
-channel — and runs a 500 ms clock on the server's time that calls the same
-sync once a deadline is a second gone. `/cards/showdown` is the lobby and
-`/cards/showdown/[id]` a table; anyone can watch. Card copies at a table
-are locked by the guard trigger, so dusting, listing and trading refuse
-them without any change to those features.
-
-While the game is being tried out every table is a **practice** table
-(`20260913000002_showdown_practice.sql`, pgTAP `0088`): the `free`
-bracket's buy-in is the play-chip stack in front of you, `showdown_sit`
-and `showdown_stand` skip the wallet and the ledger on a free bracket, and
-`rakeFor` returns zero. `PRACTICE_ONLY` in `config.ts` is what keeps the
-lobby from opening Low or Open tables; turn it off to allow real stakes,
-with no database change.
-
-The sweep, `sweepTables` in `server.ts`, runs the two transitions a
-watching client would (fold whoever ran out of clock, deal if the table
-can) for every table `fetchTablesDue` finds: a hand whose deadline is a
-second gone, or a waiting table with two active seats. It is the only
-Vercel cron in the app (`vercel.json`, every minute, `/api/showdown/sweep`)
-and the route refuses without `CRON_SECRET`. The week's board on the
-lobby page is `aggregateWeek` over `showdown_hands` since Monday
-(`fetchHandsSince`); every hand record carries `players` (seat to person)
-so the board reads by person. A settled Foil Royal posts to the cards
-webhook from inside `transition`, after the commit and best-effort. Cards
-on the felt carry an `art` path — `/copy/<id>/card.png` for an owned copy,
-`/card/<slug>/card.png?w=<week>` for an edition card — and `MiniCard`
-draws it. Patronage never touches any of it.
 
 ### Expedition routes
 
@@ -1111,13 +867,10 @@ into the generated `card_inventory.mutation` column. `PlayerCard3D` reads
 `MUTATION_EFFECTS` (`src/lib/cards/mutations.ts`) is the one table the
 scorers read: Fantasy multiplies the slot (`scoreLineup`, through the live
 `CurrentIdentity` read, with an Irradiated flare drawn deterministically
-from the copy and the week), the Gauntlet adds to the card's bars in
-`statOf` and folds the lineup's `mutationEffects` in as relic effects (the
-heirloom pattern), dust pricing multiplies the whole value in
+from the copy and the week), dust pricing multiplies the whole value in
 `dustValueOf`, auto-dust never touches a mutated copy, and the market's
 Cursed refusal is `card_inventory_curse_guard` (seven days from the
-stamp's date, so an Exorcism lifts it at once). The Gauntlet also refuses
-a deployed, lost or wounded card at entry, which it never checked before.
+stamp's date, so an Exorcism lifts it at once).
 The copy on the page and on `/admin/mutations` derives its numbers from
 the same table.
 
@@ -1287,7 +1040,7 @@ risk × `SHRINE_RISK`) and a **relic hunter** (`found` at
 claim hands them to `resolveRoute` as `encounters`. A run stamped below
 `ROAD_RULES` keeps the legacy pools (`LEGACY_*`) word for word, because its
 journal is half-written and half-quoted in Discord. Everything is seeded from the run id
-and the leg (`mulberry32`, the Gauntlet's generator), so the server, the
+and the leg (`mulberry32`, `src/lib/expeditions/prng.ts`), so the server, the
 page and the sweep agree on what happened without a table for it:
 `encountersFor` places at most one encounter per leg at 35%, and only on a
 route with forks that is not the Exorcism — a **merchant** (a flat

@@ -67,7 +67,7 @@ export default async function BettingIndexPage() {
         <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-5 leading-6">
           <li>
             Your balance is in betting dollars — play money. Every member starts with a signup bonus, and the same
-            dollars buy card packs, market listings and Showdown seats.
+            dollars buy card packs and market listings.
           </li>
           <li>
             Markets are pari-mutuel: everyone&apos;s stakes on a game go into one pool, and the winning side splits it in

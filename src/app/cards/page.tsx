@@ -285,8 +285,8 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
           <div>
             <span className="label-dash">3 · Put them to work</span>
             <p className="mt-1 text-sm text-steel">
-              Field five in Fantasy, trade on the market, or sit down at a Showdown table. Every copy is also a ticket
-              in the weekly draw.
+              Field five in Fantasy, send a squad out on an expedition, or trade on the market. Every copy is also a
+              ticket in the weekly draw.
             </p>
             <Link href={`${base}/play`} className="mt-2 inline-block text-xs font-semibold uppercase tracking-wide text-coral">
               Play →

@@ -4,15 +4,15 @@
 // and stamped into the copy's card json as `mutation: {key, date, run}`.
 // The point of a mutation is that it makes one specific copy different
 // from every other copy of the same player: it changes how the card looks,
-// permanently, and it reaches into Fantasy, the Gauntlet and the market so
-// the difference is worth something. One per copy. Never on an Eclipse, a
+// permanently, and it reaches into Fantasy and the market so the
+// difference is worth something. One per copy. Never on an Eclipse, a
 // moment, a champion or a team plate (they never board a route that mints
 // one). An Exorcism removes Haunted or Cursed; nothing removes the rest.
 //
 // Each entry names a CSS utility in globals.css (the look), and says in
-// words what the mutation does in each game. The numbers those sentences
-// quote are MUTATION_EFFECTS below, which the scorers read — a sentence
-// and a number that disagree is worse than either alone.
+// words what the mutation does in Fantasy and on the market. The numbers
+// those sentences quote are MUTATION_EFFECTS below, which the scorers
+// read — a sentence and a number that disagree is worse than either alone.
 
 export type MutationKey = "irradiated" | "hardened" | "haunted" | "cursed" | "voidtouched" | "voidborn";
 
@@ -22,10 +22,6 @@ export interface MutationEffects {
   fantasyMult: number;
   /** Fantasy: chance each week the card flares out and scores zero. */
   flareChance: number;
-  /** Gauntlet: added to every one of the card's bars. */
-  gauntletStat: number;
-  /** Gauntlet: what the card hands the whole lineup, as relic effects. */
-  gauntletEffects: import("@/lib/gauntlet/relics").RelicEffects;
   /** Dust: the copy's dust value is multiplied by this. */
   dustMult: number;
   /** Market: days after the stamp during which the copy cannot change hands. */
@@ -39,8 +35,6 @@ export const MUTATION_EFFECTS: Record<MutationKey, MutationEffects> = {
   irradiated: {
     fantasyMult: 1.1,
     flareChance: 1 / 6,
-    gauntletStat: 2,
-    gauntletEffects: { holdFlat: -2 },
     dustMult: 1,
     untradeableDays: 0,
     autoDustImmune: true,
@@ -48,8 +42,6 @@ export const MUTATION_EFFECTS: Record<MutationKey, MutationEffects> = {
   hardened: {
     fantasyMult: 1,
     flareChance: 0,
-    gauntletStat: 1,
-    gauntletEffects: { lanesFlat: 1, holdFlat: 2 },
     dustMult: 1.25,
     untradeableDays: 0,
     autoDustImmune: true,
@@ -57,8 +49,6 @@ export const MUTATION_EFFECTS: Record<MutationKey, MutationEffects> = {
   haunted: {
     fantasyMult: 0.85,
     flareChance: 0,
-    gauntletStat: 0,
-    gauntletEffects: { crossroadsBonus: 2, objectivesFlat: 1 },
     dustMult: 1,
     untradeableDays: 0,
     autoDustImmune: true,
@@ -66,8 +56,6 @@ export const MUTATION_EFFECTS: Record<MutationKey, MutationEffects> = {
   cursed: {
     fantasyMult: 0.75,
     flareChance: 0,
-    gauntletStat: -3,
-    gauntletEffects: { snowballMult: 1.15 },
     dustMult: 0.5,
     untradeableDays: 7,
     autoDustImmune: true,
@@ -75,8 +63,6 @@ export const MUTATION_EFFECTS: Record<MutationKey, MutationEffects> = {
   voidtouched: {
     fantasyMult: 1.2,
     flareChance: 0,
-    gauntletStat: 4,
-    gauntletEffects: { fightFlat: 2 },
     dustMult: 2,
     untradeableDays: 0,
     autoDustImmune: true,
@@ -87,8 +73,6 @@ export const MUTATION_EFFECTS: Record<MutationKey, MutationEffects> = {
   voidborn: {
     fantasyMult: 1.3,
     flareChance: 0,
-    gauntletStat: 6,
-    gauntletEffects: { fightFlat: 3, objectivesFlat: 1 },
     dustMult: 3,
     untradeableDays: 0,
     autoDustImmune: true,
@@ -96,7 +80,6 @@ export const MUTATION_EFFECTS: Record<MutationKey, MutationEffects> = {
 };
 
 const pct = (n: number) => `${Math.round(Math.abs(n - 1) * 100)}%`;
-const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
 export interface Mutation {
   key: MutationKey;
@@ -109,8 +92,6 @@ export interface Mutation {
   look: string;
   /** What it does in Fantasy. */
   fantasy: string;
-  /** What it does in the Gauntlet. */
-  gauntlet: string;
   /** Market and dust consequences. */
   economy: string;
   /** The accent colour the chip and the glow use. */
@@ -129,7 +110,6 @@ export const MUTATIONS: Mutation[] = [
     source: "Pushed into the Deep Raid's reactor, or down the Legend Hunt's glowing shaft.",
     look: "A sick green light from inside the frame that breathes, geiger rings pulsing off the art, fallout drifting up, and a faint trefoil burned into the corner.",
     fantasy: `Scores +${pct(MUTATION_EFFECTS.irradiated.fantasyMult)} every week, with a 1-in-${Math.round(1 / MUTATION_EFFECTS.irradiated.flareChance)} chance each week of flaring out and scoring zero. High variance under a salary cap.`,
-    gauntlet: `${signed(MUTATION_EFFECTS.irradiated.gauntletStat)} on every bar. Runs too hot to hold a base: the lineup's backdoor hold is ${MUTATION_EFFECTS.irradiated.gauntletEffects.holdFlat} while it is fielded.`,
     economy: "Dust value unchanged. Never auto-dusted. Listings show the mutation, and the market decides what a hot card is worth.",
     accent: "#8cff3c",
     className: "card-mut-irradiated",
@@ -142,7 +122,6 @@ export const MUTATIONS: Mutation[] = [
     source: "Forced the Deep Raid's brutal ridge, or crossed the Legendary route's threshold running.",
     look: "Brushed steel plating riveted over the frame, a diagonal scar across the art that catches a slow glint, corners chipped.",
     fantasy: "No change to points. The safest mutation.",
-    gauntlet: `${signed(MUTATION_EFFECTS.hardened.gauntletStat)} on every bar, and it steadies the whole lineup: +${MUTATION_EFFECTS.hardened.gauntletEffects.lanesFlat} on every lane, +${MUTATION_EFFECTS.hardened.gauntletEffects.holdFlat} on the backdoor hold.`,
     economy: `Dust value +${pct(MUTATION_EFFECTS.hardened.dustMult)}. Never auto-dusted. The one a trader pays for.`,
     accent: "#c9d3dc",
     className: "card-mut-hardened",
@@ -155,7 +134,6 @@ export const MUTATIONS: Mutation[] = [
     source: "Camped overnight at the Legend Hunt's wrong checkpoint.",
     look: "The art drained cold with frost creeping in at the corners, pale spirits rising through the card at their own speeds, and every few seconds a lightning flicker in which a pair of eyes shows behind the player.",
     fantasy: `Scores -${pct(MUTATION_EFFECTS.haunted.fantasyMult)}. Whatever it carries feeds on the points.`,
-    gauntlet: `Counts as a free relic: whatever it carries whispers at the crossroads (+${MUTATION_EFFECTS.haunted.gauntletEffects.crossroadsBonus} on every call) and at the objectives (+${MUTATION_EFFECTS.haunted.gauntletEffects.objectivesFlat}). Good in one game and bad in the other is the point.`,
     economy: "Dust value unchanged. Never auto-dusted. An Exorcism removes it for good.",
     accent: "#a66bff",
     className: "card-mut-haunted",
@@ -168,7 +146,6 @@ export const MUTATIONS: Mutation[] = [
     source: "Pushed a fork the squad warned against, and had it go wrong.",
     look: "Black veins crawling in from the edges, the art drained of colour, a crimson sigil ring turning slowly behind the player.",
     fantasy: `Scores -${pct(MUTATION_EFFECTS.cursed.fantasyMult)}.`,
-    gauntlet: `${MUTATION_EFFECTS.cursed.gauntletStat} on every bar, but the lineup snowballs harder once it is ahead (x${MUTATION_EFFECTS.cursed.gauntletEffects.snowballMult}).`,
     economy: `Dust value halved, and untradeable for ${MUTATION_EFFECTS.cursed.untradeableDays} days after it comes home. Sent out again on a route that can lose it, it may not come back. An Exorcism removes it.`,
     accent: "#ff3d5a",
     className: "card-mut-cursed",
@@ -181,7 +158,6 @@ export const MUTATIONS: Mutation[] = [
     source: "The only way home from the Legendary route. Three map fragments open it; the squad comes back with this or does not come back.",
     look: "A ragged black bleed eats in from the edges, a deep star field drifts and twinkles across the art, and a tilted rift of white light stands open beside the player, breathing but never closing.",
     fantasy: `Scores +${pct(MUTATION_EFFECTS.voidtouched.fantasyMult)}.`,
-    gauntlet: `${signed(MUTATION_EFFECTS.voidtouched.gauntletStat)} on every bar, and +${MUTATION_EFFECTS.voidtouched.gauntletEffects.fightFlat} to both teamfights while it is fielded.`,
     economy: "Dust value doubled. Never auto-dusted. Announced in Discord when it comes home, like an Eclipse.",
     accent: "#e8dcff",
     className: "card-mut-voidtouched",
@@ -194,7 +170,6 @@ export const MUTATIONS: Mutation[] = [
     source: "The only way home from the Mythic route, for a card that was already Voidtouched. Three fragments, a Voidtouched card and a Legend mark open the route; five warned forks; the pushes carry.",
     look: "The Voidtouched bleed, gone white-gold: the star field burns instead of drifting, the rift has opened the whole way and stands behind the player like a door, and a thin corona of light rides the frame — the expedition's own frame, printed for good.",
     fantasy: `Scores +${pct(MUTATION_EFFECTS.voidborn.fantasyMult)}.`,
-    gauntlet: `${signed(MUTATION_EFFECTS.voidborn.gauntletStat)} on every bar, +${MUTATION_EFFECTS.voidborn.gauntletEffects.fightFlat} to both teamfights and +${MUTATION_EFFECTS.voidborn.gauntletEffects.objectivesFlat} to objectives while it is fielded.`,
     economy: "Dust value tripled. Never auto-dusted. Announced in Discord when it comes home. It replaces Voidtouched — the one mutation that stacks on another.",
     accent: "#fff1c4",
     className: "card-mut-voidborn",

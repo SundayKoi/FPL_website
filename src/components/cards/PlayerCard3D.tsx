@@ -363,7 +363,7 @@ function PlayerCardFace({
         ? [{ key: "wear", testId: "wear-stamp", glyph: grade.key.toUpperCase(), accent: "#d6dde8", title: `${grade.label} — fielded ${wear} time${wear === 1 ? "" : "s"}`, label: grade.label, detail: `fielded ${wear}×` }]
         : []),
     ...(benched
-      ? [{ key: "wounded", testId: "wounded", glyph: "✚", accent: "#fca5a5", title: `Wounded — benched from expeditions and the Gauntlet until ${woundedUntilLabel} ET`, label: "Wounded", detail: `until ${woundedUntilLabel} ET` }]
+      ? [{ key: "wounded", testId: "wounded", glyph: "✚", accent: "#fca5a5", title: `Wounded — benched from expeditions until ${woundedUntilLabel} ET`, label: "Wounded", detail: `until ${woundedUntilLabel} ET` }]
       : []),
   ];
   // The Send-off, drawn as Newsprint: the playoff print is a page from the

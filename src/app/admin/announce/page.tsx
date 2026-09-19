@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import AnnounceGauntletButton from "@/components/admin/AnnounceGauntletButton";
 import AnnounceRaritiesButton from "@/components/admin/AnnounceRaritiesButton";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { rarityAnnouncement } from "@/lib/cards/rarityAnnouncement";
-import { gauntletOverhaulAnnouncement } from "@/lib/gauntlet/announcement";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Announcements — Admin — FPL" };
@@ -27,13 +25,6 @@ export default async function AdminAnnouncePage() {
       blurb: "The three new finishes — Shiny, StatTrak and Secret — with their real odds, and where every rarity is explained.",
       button: <AnnounceRaritiesButton />,
       page: { href: "/cards/rarities", label: "the rarities page" },
-    },
-    {
-      key: "gauntlet",
-      embed: gauntletOverhaulAnnouncement(site),
-      blurb: "The overhaul — the purse, ascension, contracts and openers, the new relics, drafted mode — with a link to the rulebook.",
-      button: <AnnounceGauntletButton />,
-      page: { href: "/cards/gauntlet", label: "the Gauntlet page" },
     },
   ];
 

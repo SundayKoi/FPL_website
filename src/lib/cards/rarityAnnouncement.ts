@@ -1,6 +1,6 @@
 // The finishes, announced: one embed for the cards channel that says what
-// is new in packs and where every rarity is explained. Pure, like the
-// Gauntlet's — every number comes from the config that rolls it.
+// is new in packs and where every rarity is explained. Pure — every
+// number comes from the config that rolls it.
 
 import { SECRET_CHANCE, SECRET_DUST_MULT, SHINY_CHANCE, SHINY_DUST_MULT, STATTRAK_CHANCE } from "@/lib/packs/config";
 import { oneIn, perPackPct } from "./rarityGuide";
@@ -27,7 +27,7 @@ export function rarityAnnouncement(siteUrl: string): AnnouncementEmbed {
     "",
     `**🔒 Secret — ${oneIn(SECRET_CHANCE)} cards.** A print numbered past the checklist: in a 120-card season the first Secret found is #121/120. Gold inside the frame, one per pack at most, announced here when it lands. Dusts ×${SECRET_DUST_MULT}, and auto-dust will never touch one.`,
     "",
-    "**🛡️ Wear and slabbing.** Every copy now wears its history — Factory New until it is fielded, then Minimal Wear, Field-Tested, Well-Worn, Battle-Scarred as the expeditions, Gauntlet runs and Fantasy weeks add up. Slab a copy from its drawer on your collection to seal its grade forever: it can still be sold or traded, but it can never be fielded again.",
+    "**🛡️ Wear and slabbing.** Every copy now wears its history — Factory New until it is fielded, then Minimal Wear, Field-Tested, Well-Worn, Battle-Scarred as the expeditions and Fantasy weeks add up. Slab a copy from its drawer on your collection to seal its grade forever: it can still be sold or traded, but it can never be fielded again.",
     "",
     "Nothing else moved: the tiers, the foil ladder, the autograph rate and the Eclipse are exactly what they were. The finishes roll on top, after all of them.",
     "",

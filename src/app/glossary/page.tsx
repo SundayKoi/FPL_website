@@ -4,7 +4,7 @@ import { GLOSSARY } from "@/lib/site/glossary";
 
 export const metadata: Metadata = {
   title: "Glossary — FPL",
-  description: "Shine, dust, relic, binder, purse: the words the cards use, in one page.",
+  description: "Shine, dust, relic, binder: the words the cards use, in one page.",
 };
 
 /**

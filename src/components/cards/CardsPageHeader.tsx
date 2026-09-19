@@ -21,7 +21,7 @@ export default function CardsPageHeader({
   title: string;
   /** The one paragraph. Omit on a page whose body explains itself. */
   children?: ReactNode;
-  /** A figure or control pinned to the right — the Gauntlet's week score. */
+  /** A figure or control pinned to the right of the title. */
   aside?: ReactNode;
   /** Show the glossary link under the paragraph. The tabs where the
    *  words start mattering (Collection, Market, Play) turn it on; the

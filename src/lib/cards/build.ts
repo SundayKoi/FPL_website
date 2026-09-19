@@ -143,17 +143,17 @@ export interface PlayerCardData {
    *  upward (trail < sigil < legend); see lib/expeditions/config.ts. */
   expedition?: { mark: "trail" | "sigil" | "legend"; tier: string; date: string } | null;
   /** Set on a copy that came home changed from an expedition — one per
-   *  copy, permanent until an Exorcism, and READ by Fantasy scoring, the
-   *  Gauntlet sim and dust pricing (src/lib/cards/mutations.ts). `run` is
-   *  the expedition_runs id that did it. */
+   *  copy, permanent until an Exorcism, and READ by Fantasy scoring and
+   *  dust pricing (src/lib/cards/mutations.ts). `run` is the
+   *  expedition_runs id that did it. */
   mutation?: { key: "irradiated" | "hardened" | "haunted" | "cursed" | "voidtouched" | "voidborn"; date: string; run: number } | null;
   /** Set on a copy an expedition found rather than a pack: a moment on
    *  the squad echoed, and the route dropped this card from the moment's
    *  game. Cosmetic provenance only; nothing prices it. */
   echo?: { run: number; moment: number; date: string } | null;
   /** Set while a copy is benched after an expedition went badly — no
-   *  expeditions and no Gauntlet lineups until `until`. Cleared by the
-   *  next stamp or ignored once it has passed; never read by pricing. */
+   *  expeditions until `until`. Cleared by the next stamp or ignored once
+   *  it has passed; never read by pricing. */
   wounded?: { until: string; run: number } | null;
   /** The roads this copy has walked: stamped by the expedition claim's
    *  trigger on every survivor (20261010000001), read by
@@ -259,7 +259,7 @@ export interface PlayerCardData {
    *  `through` is the last game counted, and both reset when the copy
    *  changes hands; `since` is when the count started. Never priced. */
   stattrak?: { points: number; since: string; through?: string | null } | null;
-  /** How many times this copy has been fielded (expedition, Gauntlet run,
+  /** How many times this copy has been fielded (expedition launch,
    *  scored Fantasy week). Bumped by SQL (wear_cards, migration 20260922);
    *  read as a grade by src/lib/cards/wear.ts. Never priced. */
   wear?: number | null;
@@ -272,8 +272,8 @@ export interface PlayerCardData {
   onAir?: { profileId: string; name: string; number: number; of: number; window: string } | null;
   /** The owner sealed the copy: `wear` is the count frozen at that moment,
    *  `at` when. A slabbed copy can never be fielded again — refused in SQL
-   *  for expeditions and server-side for the Gauntlet and Fantasy — and
-   *  the slab itself can never be removed (slab_seal trigger). */
+   *  for expeditions and server-side for Fantasy — and the slab itself can
+   *  never be removed (slab_seal trigger). */
   slab?: { wear: number; at: string } | null;
 }
 

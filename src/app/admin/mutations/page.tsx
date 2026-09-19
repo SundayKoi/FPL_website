@@ -135,9 +135,6 @@ export default async function MutationsPreviewPage() {
                     <strong className="text-white">Fantasy.</strong> {mutation.fantasy}
                   </p>
                   <p>
-                    <strong className="text-white">Gauntlet.</strong> {mutation.gauntlet}
-                  </p>
-                  <p>
                     <strong className="text-white">Market and dust.</strong> {mutation.economy}
                   </p>
                 </div>

@@ -116,9 +116,8 @@ function RateLine({ row }: { row: RateRow }) {
 /**
  * The whole league on one page, for the two people who tune it.
  *
- * Staff-gated and read-only by design, like the Gauntlet balance report
- * next door: nothing here changes a number, it says which number to go
- * change. Every rate is shown beside the constant it is supposed to be and
+ * Staff-gated and read-only by design: nothing here changes a number, it
+ * says which number to go change. Every rate is shown beside the constant it is supposed to be and
  * beside the band the sample actually supports, because the failure mode
  * of a dashboard like this is somebody "fixing" a gate that was only ever
  * having a quiet week.
@@ -197,7 +196,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         <Stat
           label="Active last week"
           value={num(latest?.active ?? 0)}
-          note={`${num(latest?.packs ?? 0)} ripped · ${num(latest?.gauntlet ?? 0)} ran the Gauntlet`}
+          note={`${num(latest?.packs ?? 0)} ripped · ${num(latest?.expeditions ?? 0)} sent a squad out`}
         />
         <Stat label="Packs opened" value={num(totalOpens)} note={`${num(totalCopies)} cards minted · ${money(totalSpend)} spent`} />
         <Stat
@@ -289,7 +288,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         title="Who is playing"
         blurb="One person counted once per week per mode they touched. Somebody who only played a daily game is as active as somebody who only ripped."
       >
-        <Table head={["Week", "Active", "New", "Packs", "Expeditions", "Gauntlet", "Betting", "Daily games", "Market"]} min={800}>
+        <Table head={["Week", "Active", "New", "Packs", "Expeditions", "Betting", "Daily games", "Market"]} min={800}>
           {data.people.active.map((week, index) => (
             <tr key={week.week} className="border-t border-white/10">
               <td className="py-1.5 pr-3 text-chalk">{week.week}</td>
@@ -297,7 +296,6 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
               <td className="py-1.5 pr-3 text-muted">{num(data.people.joined[index]?.joined ?? 0)}</td>
               <td className="py-1.5 pr-3">{num(week.packs)}</td>
               <td className="py-1.5 pr-3">{num(week.expeditions)}</td>
-              <td className="py-1.5 pr-3">{num(week.gauntlet)}</td>
               <td className="py-1.5 pr-3">{num(week.betting)}</td>
               <td className="py-1.5 pr-3">{num(week.daily_games)}</td>
               <td className="py-1.5">{num(week.market)}</td>
@@ -347,30 +345,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         ) : null}
       </Section>
 
-      <Section title="Gauntlet">
-        <Table head={["Week", "Runs", "Players", "Cleared", "Fallen", "Banked", "Avg round reached"]} min={640}>
-          {data.modes.gauntlet.map((week) => (
-            <tr key={week.week} className="border-t border-white/10">
-              <td className="py-1.5 pr-3 text-chalk">{week.week}</td>
-              <td className="py-1.5 pr-3">{num(week.runs)}</td>
-              <td className="py-1.5 pr-3 text-muted">{num(week.players)}</td>
-              <td className="py-1.5 pr-3 text-emerald-300">{num(week.cleared)}</td>
-              <td className="py-1.5 pr-3 text-coral">{num(week.fallen)}</td>
-              <td className="py-1.5 pr-3">{num(week.banked)}</td>
-              <td className="py-1.5 text-muted">{week.avg_round}</td>
-            </tr>
-          ))}
-        </Table>
-        <p className="text-xs text-muted">
-          Picks and win rates live next door on the{" "}
-          <Link href="/admin/gauntlet" className="underline hover:text-action-text">
-            balance report
-          </Link>
-          .
-        </p>
-      </Section>
-
-      <Section title="Daily games, Showdown, betting and the market">
+      <Section title="Daily games, betting and the market">
         <h3 className="label-dash text-[10px]">Daily games</h3>
         {data.modes.daily_games.length === 0 ? (
           <p className="text-sm text-muted">Nobody played a daily game in this window.</p>
@@ -387,19 +362,6 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
             ))}
           </Table>
         )}
-
-        <h3 className="label-dash mt-4 text-[10px]">Showdown</h3>
-        <Table head={["Week", "Hands", "Tables", "Pot", "Rake burned"]} min={520}>
-          {data.modes.showdown.map((week) => (
-            <tr key={week.week} className="border-t border-white/10">
-              <td className="py-1.5 pr-3 text-chalk">{week.week}</td>
-              <td className="py-1.5 pr-3">{num(week.hands)}</td>
-              <td className="py-1.5 pr-3 text-muted">{num(week.tables)}</td>
-              <td className="py-1.5 pr-3">{money(week.pot)}</td>
-              <td className="py-1.5">{money(week.rake)}</td>
-            </tr>
-          ))}
-        </Table>
 
         <h3 className="label-dash mt-4 text-[10px]">Betting</h3>
         <Table head={["Week", "Bets", "Players", "Staked", "Paid out"]} min={520}>
