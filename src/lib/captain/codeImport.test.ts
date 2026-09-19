@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildCodeImportPreview, parseTournamentCodes } from "./codeImport";
+import {
+  buildCodeImportPreview,
+  buildPostseasonCodePreview,
+  parseTournamentCodes,
+  type PostseasonExistingCodeSnapshot,
+} from "./codeImport";
+import type { LeagueTeam } from "@/lib/matches/types";
 import type { FixtureRow } from "@/lib/schedule/types";
 
 function fixture(overrides: Partial<FixtureRow>): FixtureRow {
@@ -102,5 +108,82 @@ describe("buildCodeImportPreview", () => {
       { fixtureId: "quarterfinal", codes: ["QF-1", "QF-2", "QF-3"] },
       { fixtureId: "semifinal", codes: ["SF-1", "SF-2", "SF-3"] },
     ]);
+  });
+});
+
+describe("buildPostseasonCodePreview", () => {
+  const teams: LeagueTeam[] = [
+    { id: "team-a", name: "Team A", abbreviation: "A", active: true },
+    { id: "team-b", name: "Team B", abbreviation: "B", active: true },
+    { id: "team-c", name: "Team C", abbreviation: "C", active: true },
+    { id: "team-d", name: "Team D", abbreviation: "D", active: true },
+  ];
+
+  const existing: PostseasonExistingCodeSnapshot[] = [
+    { id: "code-g2-1", fixtureId: "gauntlet-2", gameNumber: 1, code: "KEEP-G2-1" },
+    { id: "code-qf-1", fixtureId: "quarterfinals", gameNumber: 1, code: "KEEP-QF-1" },
+    { id: "code-qf-3", fixtureId: "quarterfinals", gameNumber: 3, code: "KEEP-QF-3" },
+  ];
+
+  it("allocates Bo1/Bo3/Bo5 missing slots in bracket order and reports skips/unused input", () => {
+    const fixtures = [
+      fixture({ id: "finals", stage: "finals", sort_order: 0, team_a: null, team_b: "Team D", best_of: 5 }),
+      fixture({ id: "semifinals", stage: "semifinals", sort_order: 0, team_a: "Team A", team_b: "Team B", best_of: 5, score_a: 3, score_b: 1 }),
+      fixture({ id: "quarterfinals", stage: "quarterfinals", sort_order: 9, team_a: "Team A", team_b: "Team C", best_of: 5 }),
+      fixture({ id: "gauntlet-2", stage: "gauntlet_r2", sort_order: 2, team_a: "Team C", team_b: "Team D", best_of: 3 }),
+      fixture({ id: "gauntlet-1", stage: "gauntlet_r1", sort_order: 3, team_a: "Team A", team_b: "Team D", best_of: 1 }),
+    ];
+
+    const preview = buildPostseasonCodePreview(
+      fixtures,
+      existing,
+      ["G1", "G2-2", "G2-3", "QF-2", "QF-4", "QF-5", "EXTRA"],
+      "all-postseason",
+      teams,
+    );
+
+    expect(preview.requiredCodeCount).toBe(6);
+    expect(preview.unusedCount).toBe(1);
+    expect(preview.existingCodeCount).toBe(3);
+    expect(preview.fixtures.map((row) => ({ id: row.fixtureId, bestOf: row.bestOf, missing: row.missingGameNumbers }))).toEqual([
+      { id: "gauntlet-1", bestOf: 1, missing: [1] },
+      { id: "gauntlet-2", bestOf: 3, missing: [2, 3] },
+      { id: "quarterfinals", bestOf: 5, missing: [2, 4, 5] },
+    ]);
+    expect(preview.assignments).toEqual([
+      { fixtureId: "gauntlet-1", gameNumber: 1, code: "G1" },
+      { fixtureId: "gauntlet-2", gameNumber: 2, code: "G2-2" },
+      { fixtureId: "gauntlet-2", gameNumber: 3, code: "G2-3" },
+      { fixtureId: "quarterfinals", gameNumber: 2, code: "QF-2" },
+      { fixtureId: "quarterfinals", gameNumber: 4, code: "QF-4" },
+      { fixtureId: "quarterfinals", gameNumber: 5, code: "QF-5" },
+    ]);
+    expect(preview.skippedFixtures.map(({ fixtureId, reason }) => ({ fixtureId, reason }))).toEqual([
+      { fixtureId: "semifinals", reason: "scored" },
+      { fixtureId: "finals", reason: "tbd-opponent" },
+    ]);
+  });
+
+  it("restricts the selected scope and preserves a complete fixture", () => {
+    const complete = fixture({ id: "gauntlet-1", stage: "gauntlet_r1", team_a: "Team A", team_b: "Team B", best_of: 1 });
+    const playoff = fixture({ id: "quarterfinals", stage: "quarterfinals", team_a: "Team C", team_b: "Team D", best_of: 5 });
+    const completeCode = { id: "complete-code", fixtureId: complete.id, gameNumber: 1, code: "ALREADY-ISSUED" };
+    const preview = buildPostseasonCodePreview([complete, playoff], [completeCode], ["Q1", "Q2", "Q3", "Q4", "Q5"], "gauntlet", teams);
+
+    expect(preview.requiredCodeCount).toBe(0);
+    expect(preview.unusedCount).toBe(5);
+    expect(preview.skippedFixtures).toEqual([{ ...complete, fixtureId: complete.id, teamA: complete.team_a, teamB: complete.team_b, bestOf: complete.best_of, reason: "complete" }]);
+    expect(preview.fixtures).toEqual([]);
+  });
+
+  it("rejects duplicate, reused, and ambiguous names before producing a preview", () => {
+    const open = fixture({ id: "gauntlet-1", stage: "gauntlet_r1", team_a: "Team A", team_b: "Team B", best_of: 1 });
+
+    expect(() => buildPostseasonCodePreview([open], [], ["DUP", "DUP"], "gauntlet", teams)).toThrow("Duplicate tournament code");
+    expect(() => buildPostseasonCodePreview([open], [{ id: "old", fixtureId: "other", gameNumber: 1, code: "USED" }], ["USED"], "gauntlet", teams)).toThrow("already assigned");
+    expect(() => buildPostseasonCodePreview([open], [], ["NEW"], "gauntlet", [
+      ...teams,
+      { id: "team-a-duplicate", name: " team a ", abbreviation: "A2", active: true },
+    ])).toThrow("unambiguous");
   });
 });
