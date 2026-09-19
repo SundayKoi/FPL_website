@@ -3,10 +3,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { FixtureRow } from "@/lib/schedule/types";
 import AdminCodeEditor from "./AdminCodeEditor";
 
-const { importer } = vi.hoisted(() => ({
+const { importer, postseasonImporter } = vi.hoisted(() => ({
   importer: vi.fn((props: unknown) => {
     void props;
     return <section>Bulk code importer</section>;
+  }),
+  postseasonImporter: vi.fn((props: unknown) => {
+    void props;
+    return <section>Populate postseason codes</section>;
   }),
 }));
 
@@ -20,6 +24,10 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("./AdminCodeImporter", () => ({
   default: (props: unknown) => importer(props),
+}));
+
+vi.mock("./AdminPostseasonCodeImporter", () => ({
+  default: (props: unknown) => postseasonImporter(props),
 }));
 
 const fixtures: FixtureRow[] = [{
@@ -50,6 +58,7 @@ describe("AdminCodeEditor bulk importer scope", () => {
 
     expect(screen.queryByText("Bulk code importer")).toBeNull();
     expect(importer).not.toHaveBeenCalled();
+    expect(postseasonImporter).toHaveBeenCalledWith(expect.objectContaining({ league: "premier", season: "S5" }));
   });
 
   it("renders the bulk importer when explicitly enabled for Premier", () => {
@@ -59,5 +68,7 @@ describe("AdminCodeEditor bulk importer scope", () => {
 
     expect(screen.getByText("Bulk code importer")).toBeTruthy();
     expect(importer).toHaveBeenCalledWith({ fixtures, season: "S5" });
+    expect(screen.getByText("Populate postseason codes")).toBeTruthy();
+    expect(postseasonImporter).toHaveBeenCalledWith(expect.objectContaining({ league: "premier", season: "S5" }));
   });
 });
