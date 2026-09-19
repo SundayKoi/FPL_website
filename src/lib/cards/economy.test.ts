@@ -312,6 +312,7 @@ describe("pulledStats", () => {
       mint({ moment: true, foil: true }),
       mint({ team: true }),
       mint({ champ: true, signed: true }),
+      mint({ onAir: true }),
       // Minted before the print existed: no print, not counted, not dated.
       mint(null, "2026-01-01T00:00:00.000Z"),
     ]);
@@ -323,6 +324,9 @@ describe("pulledStats", () => {
     expect(stats.shiny).toBe(1);
     expect(stats.stattrak).toBe(1);
     expect(stats.secret).toBe(1);
+    // A caster's print is not a player card and would skew every per-card
+    // rate it was counted into, so it is shelved like the relics.
+    expect(stats.onAir).toBe(1);
     expect(stats.since).toBe("2026-09-06T05:00:00.000Z");
   });
 

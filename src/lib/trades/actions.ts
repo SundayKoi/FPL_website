@@ -20,7 +20,7 @@ import { createBettingServiceClient } from "@/lib/betting/service-client";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { fetchProvenance, type ProvenanceEvent } from "@/lib/cards/provenance";
-import { ECLIPSE_FOIL_TYPE, MAX_DUST_BATCH, patronDustValue, DRIBB_TIER } from "@/lib/packs/config";
+import { ECLIPSE_FOIL_TYPE, MAX_DUST_BATCH, patronDustValue, DRIBB_TIER, ON_AIR_TIER } from "@/lib/packs/config";
 import { patronActive } from "@/lib/patron/flames";
 
 /** Whether this wallet gets the patron dust bonus, read at dust time so a
@@ -101,6 +101,7 @@ function revalidateCardSurfaces(): void {
  *  differently depending on which guard caught it reads as two rules. */
 const ECLIPSE_UNDUSTABLE = "An Eclipse is a one-of-one — it can't be dusted, but you can trade it.";
 const DRIBB_UNDUSTABLE = "The Dribb card is one of five — it can't be dusted, but you can trade it.";
+const ON_AIR_UNDUSTABLE = "An On Air card is one of twenty-five a season — it can't be dusted, but you can trade it.";
 
 function friendlyDustError(message: string): string {
   // Not dust_card's own text: card_inventory_expedition_guard raises this
@@ -108,6 +109,7 @@ function friendlyDustError(message: string): string {
   if (/card is on expedition/i.test(message)) return "That card is out on an expedition.";
   if (/eclipse cannot be dusted/i.test(message)) return ECLIPSE_UNDUSTABLE;
   if (/dribb cannot be dusted/i.test(message)) return DRIBB_UNDUSTABLE;
+  if (/on air cannot be dusted/i.test(message)) return ON_AIR_UNDUSTABLE;
   if (/card not owned/i.test(message)) return "That card isn't yours.";
   if (/unknown card/i.test(message)) return "That card is already gone.";
   if (/invalid dust value/i.test(message)) return "That card can't be dusted right now.";
@@ -161,6 +163,7 @@ export async function dustCardAction(inventoryId: number): Promise<DustResult> {
 
   if (row.foil_type === ECLIPSE_FOIL_TYPE) return { ok: false, error: ECLIPSE_UNDUSTABLE };
   if (row.tier === DRIBB_TIER) return { ok: false, error: DRIBB_UNDUSTABLE };
+  if (row.tier === ON_AIR_TIER) return { ok: false, error: ON_AIR_UNDUSTABLE };
 
   const locked = await lockedInventoryIds(service, user.discordId, row.season);
   if (locked.has(row.id)) return { ok: false, error: "That card is fielded in this week's lineup." };

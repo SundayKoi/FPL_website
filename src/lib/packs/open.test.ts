@@ -78,7 +78,19 @@ vi.mock("./signatures", () => ({
   })),
   signedChance: vi.fn(() => 0),
 }));
-vi.mock("./godGate", () => ({ rollGodPackGate: vi.fn(() => false) }));
+const { rollGodPackGate } = vi.hoisted(() => ({ rollGodPackGate: vi.fn(() => false) }));
+vi.mock("./godGate", () => ({ rollGodPackGate }));
+// A God Pack's own roller: the pool stub above carries no ratings, and
+// rollGodPack reads them. Only the God Pack tests turn the gate on.
+vi.mock("./god", () => ({
+  rollGodPack: vi.fn(() => Array.from({ length: 5 }, () => ({
+    card: { slug: "doug-na1", name: "Doug", role: "Mid", overall: 92, tier: { key: "diamond", label: "Diamond" } },
+    foil: true,
+    foilType: "prisma",
+    signed: false,
+    autograph: null,
+  }))),
+}));
 vi.mock("./skins", () => ({
   fetchChampionSkinNums: vi.fn(async () => [0]),
   printArtExists: vi.fn(async () => true),
@@ -86,7 +98,7 @@ vi.mock("./skins", () => ({
   rollPrint: vi.fn(async () => 0),
 }));
 const { postCardsWebhook } = vi.hoisted(() => ({ postCardsWebhook: vi.fn() }));
-vi.mock("./announce", () => ({ postCardsWebhook, GOLD: 0 }));
+vi.mock("./announce", () => ({ postCardsWebhook, GOLD: 0, LIVE_RED: 0 }));
 const { rollEclipseCandidates } = vi.hoisted(() => ({ rollEclipseCandidates: vi.fn((): number[] => []) }));
 vi.mock("./eclipse", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./eclipse")>()),
@@ -101,6 +113,16 @@ vi.mock("./rarities", async (importOriginal) => ({ ...(await importOriginal<type
 // The Dribb gate, same discipline: the roll is swapped, the card is real.
 const { rollDribb } = vi.hoisted(() => ({ rollDribb: vi.fn(() => false) }));
 vi.mock("@/lib/cards/dribb", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/cards/dribb")>()), rollDribb }));
+// The On Air gate, same discipline again. Its two reads are somebody
+// else's tested job (onAirQueries.ts), so they are stubbed off the shop's
+// options; the card, the pick and the cap are all real.
+const { rollOnAir } = vi.hoisted(() => ({ rollOnAir: vi.fn(() => false) }));
+vi.mock("@/lib/cards/onAir", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/cards/onAir")>()), rollOnAir }));
+const { fetchOnAirCasters, countOnAirThisSeason } = vi.hoisted(() => ({
+  fetchOnAirCasters: vi.fn(async (): Promise<unknown[]> => []),
+  countOnAirThisSeason: vi.fn(async (): Promise<Record<string, number>> => ({})),
+}));
+vi.mock("@/lib/cards/onAirQueries", () => ({ fetchOnAirCasters, countOnAirThisSeason }));
 
 const { openChampionsPack, openPackFor, refundPackComp, spendPackComp } = await import("./open");
 
@@ -232,6 +254,11 @@ function createShop(opts: {
   replayFulfillment?: boolean;
   secretsFound?: number;
   dribbFound?: number;
+  /** Opens a Live Drops window: the gate in front of the On Air roll. */
+  liveNow?: boolean;
+  /** The pool and the season's tally the On Air roll reads. */
+  casters?: { profileId: string; name: string; champion: string | null; skin: number; roleLabel: string; tagline: string | null }[];
+  onAirFound?: Record<string, number>;
   signatures?: { summoner_name: string; tag: string; signature: string }[];
   championSignature?: { summoner_name: string; tag: string; signature: string; season?: string };
   profile?: { username?: string; patron_until?: string | null; balance?: number };
@@ -248,7 +275,13 @@ function createShop(opts: {
     if (call.table === "league_settings") {
       // champions_until in the future keeps the Faceless Drop open for the
       // champions tests; openPackFor only reads the live-drop columns.
-      return { data: { live_until: null, live_label: null, champions_until: "2099-01-01T00:00:00.000Z" } };
+      return {
+        data: {
+          live_until: opts.liveNow ? "2099-01-01T00:00:00.000Z" : null,
+          live_label: opts.liveNow ? "Match night rip" : null,
+          champions_until: "2099-01-01T00:00:00.000Z",
+        },
+      };
     }
     if (call.table === "card_chases") return { data: null };
     if (call.table === "betting_profiles") return {
@@ -357,6 +390,8 @@ function createShop(opts: {
     if (name === "refund_card_pack") return { data: null, error: null };
     return { data: null, error: null };
   });
+  fetchOnAirCasters.mockResolvedValue(opts.casters ?? []);
+  countOnAirThisSeason.mockResolvedValue(opts.onAirFound ?? {});
   createBettingServiceClient.mockReturnValue(service.client);
   return { ...service, table };
 }
@@ -393,6 +428,14 @@ beforeEach(() => {
   rollPackFinishes.mockClear();
   rollDribb.mockReset();
   rollDribb.mockReturnValue(false);
+  rollGodPackGate.mockClear();
+  rollGodPackGate.mockReturnValue(false);
+  rollOnAir.mockReset();
+  rollOnAir.mockReturnValue(false);
+  fetchOnAirCasters.mockReset();
+  fetchOnAirCasters.mockResolvedValue([]);
+  countOnAirThisSeason.mockReset();
+  countOnAirThisSeason.mockResolvedValue({});
   fetchCardEditionWeeks.mockClear();
   fetchCardEditionWeeks.mockResolvedValue(["2026-08-24"]);
   fetchEditionCards.mockClear();
@@ -539,6 +582,130 @@ describe("openPackFor finishes", () => {
     const [card] = insertedCards(shop.calls);
     expect(card.dribb).toBeUndefined();
     expect(postCardsWebhook).not.toHaveBeenCalled();
+  });
+});
+
+describe("the On Air card", () => {
+  const air = (over: Partial<{ profileId: string; name: string; champion: string | null }> = {}) => ({
+    profileId: "caster-a",
+    name: "Static",
+    champion: "Bard" as string | null,
+    skin: 0,
+    roleLabel: "Play-by-play",
+    tagline: null,
+    ...over,
+  });
+
+  it("mints the caster into the last slot, numbered after their season, stamped LIVE, and tells the channel", async () => {
+    rollOnAir.mockReturnValueOnce(true);
+    const shop = createShop({ liveNow: true, casters: [air()], onAirFound: { "caster-a": 2 } });
+
+    const result = await openPackFor("42", "premier");
+
+    expect(result.ok).toBe(true);
+    const insert = shop.calls.find((call) => call.table === "card_inventory" && call.verb === "insert")!;
+    const rows = insert.payload as { slug: string; tier: string; player_name: string; overall: number; card: Record<string, unknown> }[];
+    const last = rows[rows.length - 1];
+    expect(last.slug).toBe("on-air-static");
+    expect(last.tier).toBe("onair");
+    expect(last.player_name).toBe("Static");
+    expect(last.overall).toBe(100);
+    expect(last.card.onAir).toEqual({ profileId: "caster-a", name: "Static", number: 3, of: 25, window: "Match night rip" });
+    // The slot is replaced after the roller stamps the pack, so the copy
+    // carries its own LIVE mark or it would be the one card opened in the
+    // window that does not say so.
+    expect(last.card.live).toEqual({ label: "Match night rip" });
+    await drainAfterCallbacks();
+    expect(postCardsWebhook).toHaveBeenCalledTimes(1);
+    expect(postCardsWebhook.mock.calls[0][0]).toMatchObject({ title: expect.stringContaining("ON AIR") });
+  });
+
+  it("does not roll at all when the window is shut", async () => {
+    rollOnAir.mockReturnValue(true);
+    const shop = createShop({ casters: [air()], onAirFound: {} });
+
+    const result = await openPackFor("42", "premier");
+
+    expect(result.ok).toBe(true);
+    // Not "rolled and missed" — never rolled: the window is the gate in
+    // front of the gate, and a closed window must not even spend the draw.
+    expect(rollOnAir).not.toHaveBeenCalled();
+    expect(fetchOnAirCasters).not.toHaveBeenCalled();
+    const [card] = insertedCards(shop.calls);
+    expect(card.onAir).toBeUndefined();
+    expect(postCardsWebhook).not.toHaveBeenCalled();
+  });
+
+  it("does not roll on a God pack", async () => {
+    rollGodPackGate.mockReturnValueOnce(true);
+    rollOnAir.mockReturnValue(true);
+    const shop = createShop({ liveNow: true, casters: [air()] });
+
+    const result = await openPackFor("42", "premier");
+
+    expect(result.ok).toBe(true);
+    expect(rollOnAir).not.toHaveBeenCalled();
+    expect(insertedCards(shop.calls).some((card) => card.onAir)).toBe(false);
+  });
+
+  it("stands down when the Dribb already took the last slot", async () => {
+    rollDribb.mockReturnValueOnce(true);
+    rollOnAir.mockReturnValue(true);
+    const shop = createShop({ liveNow: true, dribbFound: 0, casters: [air()] });
+
+    const result = await openPackFor("42", "premier");
+
+    expect(result.ok).toBe(true);
+    // The rarer relic wins the slot, and the On Air roll is never spent.
+    expect(rollOnAir).not.toHaveBeenCalled();
+    const cards = insertedCards(shop.calls);
+    expect(cards[cards.length - 1].dribb).toEqual({ number: 1, of: 5 });
+    expect(cards.some((card) => card.onAir)).toBe(false);
+  });
+
+  it("prints the caster with the fewer copies this season", async () => {
+    rollOnAir.mockReturnValueOnce(true);
+    const shop = createShop({
+      liveNow: true,
+      casters: [air(), air({ profileId: "caster-b", name: "Mixdown" })],
+      onAirFound: { "caster-a": 9, "caster-b": 4 },
+    });
+
+    const result = await openPackFor("42", "premier");
+
+    expect(result.ok).toBe(true);
+    const cards = insertedCards(shop.calls);
+    expect(cards[cards.length - 1].onAir).toMatchObject({ profileId: "caster-b", name: "Mixdown", number: 5 });
+  });
+
+  it("mints nothing when every caster is at the cap", async () => {
+    rollOnAir.mockReturnValueOnce(true);
+    const shop = createShop({
+      liveNow: true,
+      casters: [air(), air({ profileId: "caster-b", name: "Mixdown" })],
+      onAirFound: { "caster-a": 25, "caster-b": 25 },
+    });
+
+    const result = await openPackFor("42", "premier");
+
+    expect(result.ok).toBe(true);
+    expect(rollOnAir).toHaveBeenCalled();
+    expect(insertedCards(shop.calls).some((card) => card.onAir)).toBe(false);
+    expect(postCardsWebhook).not.toHaveBeenCalled();
+  });
+
+  it("prints a caster who has set no champion without art", async () => {
+    rollOnAir.mockReturnValueOnce(true);
+    const shop = createShop({ liveNow: true, casters: [air({ champion: null })], onAirFound: {} });
+
+    const result = await openPackFor("42", "premier");
+
+    expect(result.ok).toBe(true);
+    const cards = insertedCards(shop.calls);
+    const last = cards[cards.length - 1];
+    expect(last.onAir).toMatchObject({ number: 1 });
+    expect(last.signature).toBeNull();
+    expect(last.topChampions).toEqual([]);
   });
 });
 

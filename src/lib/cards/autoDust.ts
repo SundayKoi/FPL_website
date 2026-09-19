@@ -109,7 +109,7 @@ export function keepGroupOf(copy: { slug: string; editionWeek?: string | null },
 }
 
 export function candidateFromInventory(row: InventoryRow): AutoDustCandidate {
-  const card = row.card as { moment?: unknown; champWin?: unknown; team?: unknown; dribb?: unknown; secret?: unknown; shiny?: unknown; stattrak?: unknown; slab?: unknown };
+  const card = row.card as { moment?: unknown; champWin?: unknown; team?: unknown; dribb?: unknown; onAir?: unknown; secret?: unknown; shiny?: unknown; stattrak?: unknown; slab?: unknown };
   return {
     id: row.id,
     slug: row.slug,
@@ -118,9 +118,10 @@ export function candidateFromInventory(row: InventoryRow): AutoDustCandidate {
     foil: row.foil,
     foilType: row.foilType,
     signed: row.signed,
-    // The Dribb card files with the relics: five in the world is not a
-    // thing a rule melts.
-    relic: Boolean(card.moment || card.champWin || card.team || card.dribb),
+    // The Dribb card and the On Air print file with the relics: five in
+    // the world, or twenty-five a caster a season that only print while
+    // the stream is live, is not a thing a rule melts.
+    relic: Boolean(card.moment || card.champWin || card.team || card.dribb || card.onAir),
     mutation: row.mutation ?? null,
     secret: Boolean(card.secret),
     shiny: Boolean(card.shiny),
@@ -145,6 +146,7 @@ export interface PulledCopy {
     champWin?: unknown;
     team?: unknown;
     dribb?: unknown;
+    onAir?: unknown;
     shiny?: unknown;
     stattrak?: unknown;
     secret?: unknown;
@@ -187,9 +189,10 @@ export function describePull(pull: PulledCopy, editionWeek: string): PullDescrip
     foil: pull.foil,
     foilType: pull.foilType,
     signed: pull.signed,
-    // The Dribb files with the relics as it does everywhere else: five in
-    // the world is not a duplicate, and dust_card refuses one anyway.
-    relic: Boolean(card.moment || card.champWin || card.team || card.dribb),
+    // The Dribb and the On Air print file with the relics as they do
+    // everywhere else: neither is a duplicate, and dust_card refuses both
+    // anyway.
+    relic: Boolean(card.moment || card.champWin || card.team || card.dribb || card.onAir),
     shiny: Boolean(card.shiny),
     stattrak: Boolean(card.stattrak),
     secret: Boolean(card.secret),

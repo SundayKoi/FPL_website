@@ -446,6 +446,40 @@ export const DRIBB_COPIES = 5;
  *  it must never price or sort as an ordinary card of any tier. */
 export const DRIBB_TIER = "dribb";
 
+/**
+ * The On Air card — the casters' print, and it only prints while the
+ * stream is live.
+ *
+ * Not a player and not the Dribb: one of the league's broadcasters
+ * (profiles.is_broadcaster), a 100 in every column, in the broadcast
+ * treatment nothing else on the board wears — SMPTE colour bars, a lit ON
+ * AIR lamp, a waveform along the foot (src/lib/cards/onAir.ts). Rolled
+ * ONCE PER PACK, on standard packs only, and ONLY inside a Live Drops
+ * window: `liveNow` in openPackFor is the gate in front of this gate, so
+ * the number below is the chance per pack opened in the room while the
+ * games run. Nothing mints one outside a window at any rate.
+ *
+ * One in fifteen, which is deliberately generous next to everything else
+ * here: the scarcity is ATTENDANCE, not the roll. A window is two to four
+ * hours a week, so the cap is what makes the card rare — twenty-five per
+ * caster per SEASON, numbered per caster per season, and the partial
+ * unique index in migration 20261020000001 is what makes that a fact
+ * rather than a promise. When the roll lands the pack's last slot becomes
+ * the caster with the fewest prints this season; it is rolled AFTER the
+ * Dribb block, so if the rarer relic took the slot this does not roll at
+ * all. Never dusts, never auto-dusts, never boards a route that can lose
+ * it; it can be traded, which is the point.
+ *
+ * NOT a secret, unlike the Dribb: /cards/rarities lists it, the go-live
+ * announcement names it and the shop's live notice says the casters are in
+ * the pool — people knowing to watch is the whole feature.
+ */
+export const ON_AIR_CHANCE = 1 / 15;   // per standard pack, ONLY inside a Live Drops window
+export const ON_AIR_COPIES = 25;       // per caster, per season
+/** The tier column an On Air copy files under, like the Dribb's "dribb":
+ *  it must never price or sort as an ordinary card of any tier. */
+export const ON_AIR_TIER = "onair";    // the inventory tier column, like "dribb"
+
 /** What a Secret does to dust: doubles it, over the parallel. On any
  *  ordinary tier the whole stack (Cracked Ice, Shiny, Secret) still prices
  *  under what a signature adds; only a Secret Cracked Ice challenger beats
@@ -475,11 +509,14 @@ export function rarityOf(tier: CardTierKey): RarityClass {
  *  of the copy rather than of its situation (fielded, on expedition): a
  *  one-of-one is not a resource. dust_card raises for it and the actions
  *  refuse before calling; this is the same rule for the labels. */
-export function canDust(row: { foilType?: string | null; tier?: string; dribb?: boolean }): boolean {
+export function canDust(row: { foilType?: string | null; tier?: string; dribb?: boolean; onAir?: boolean }): boolean {
   if (row.foilType === ECLIPSE_FOIL_TYPE) return false;
   // The Dribb card: five in the world. The flat column covers a stored
   // copy, the flag a caller holding the card json.
   if (row.dribb || row.tier === DRIBB_TIER) return false;
+  // The On Air card: twenty-five a caster a season, and the only way to
+  // hold one is to have been in the room. Same two signals, same rule.
+  if (row.onAir || row.tier === ON_AIR_TIER) return false;
   return true;
 }
 
@@ -511,6 +548,10 @@ export function dustValueOf(row: {
   secret?: boolean;
   /** The Dribb card, read off the card json. */
   dribb?: boolean;
+  /** The On Air card, read off the card json — same story as `dribb`:
+   *  the flag covers a caller holding the json, the flat column a stored
+   *  copy. Either way canDust() refuses it and the value is zero. */
+  onAir?: boolean;
 }): number {
   // Nothing at all for a copy that cannot be dusted — before any pricing,
   // because the autograph bonus is a flat add and would otherwise put a

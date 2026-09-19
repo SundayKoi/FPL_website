@@ -17,7 +17,8 @@ import { revalidatePath } from "next/cache";
 import { fetchAllCardSeasons, fetchCardEditionWeeks, fetchCardSeason } from "@/lib/cards/queries";
 import { CHAMPIONS_PACK_COST } from "@/lib/cards/champions";
 import { cardImageUrl } from "@/lib/cards/shareImage";
-import { WEEKLY_DRAW_POT } from "./config";
+import { ON_AIR_CHANCE, WEEKLY_DRAW_POT } from "./config";
+import { oneIn } from "@/lib/cards/rarityGuide";
 import { chaseCriteriaFromPreset, chaseRoleOf, type ChasePreset } from "./chase";
 import { GOLD, LIVE_RED, postCardsWebhook } from "./announce";
 import { editionLabel, lastCompletedWeekMonday } from "./week";
@@ -73,7 +74,10 @@ export async function setLiveWindowAction(
 
   await postCardsWebhook({
     title: "🔴 LIVE DROPS are open",
-    description: `**${label}** — for the next ${input.hours} hours every pack rolls boosted foil odds and every card is stamped LIVE.\nRip while the games run.`,
+    description:
+      `**${label}** — for the next ${input.hours} hours every pack rolls boosted foil odds and every card is stamped LIVE.\n` +
+      `The casters' On Air cards are in the pool while it runs — ${oneIn(ON_AIR_CHANCE)} packs.\n` +
+      `Rip while the games run.`,
     color: LIVE_RED,
   });
   revalidatePath("/schedule");

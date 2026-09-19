@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { rarityGuide } from "./rarityGuide";
+import { ON_AIR_COPIES } from "@/lib/packs/config";
 import { sampleCard, sampleFor } from "./samples";
 
 describe("rarity samples", () => {
@@ -39,5 +40,10 @@ describe("rarity samples", () => {
     expect(sampleFor("common")!.card.tier.key).toBe("gold");
     expect(sampleFor("slab")!.card.slab?.wear).toBe(2);
     expect(sampleFor("plate")!.card.team?.imageUrl).toBeNull();
+    // The On Air specimen is a real print, not the base card with a field
+    // set, so the page draws exactly what a pull looks like.
+    expect(sampleFor("onair")!.card.onAir).toMatchObject({ number: 1, of: ON_AIR_COPIES, window: "Week 3 broadcast" });
+    expect(sampleFor("onair")!.card.overall).toBe(100);
+    expect(sampleFor("onair")!.card.signature?.champion).toBe("Bard");
   });
 });

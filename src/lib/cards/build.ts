@@ -88,8 +88,10 @@ export interface CardTier {
 export interface CardSubStat {
   /** "form" and "clutch" are retired but stay in the union: every copy
    *  already frozen in card_inventory carries them, and the renderer prints
-   *  whatever a card holds. */
-  key: MeasureKey | "form" | "clutch";
+   *  whatever a card holds. The five broadcast keys belong to the On Air
+   *  card (src/lib/cards/onAir.ts), which measures a caster rather than a
+   *  player and so has no MeasureKey to sit on. */
+  key: MeasureKey | "form" | "clutch" | "mic" | "hype" | "reads" | "calls" | "signal";
   label: string;
   value: number;
 }
@@ -268,6 +270,8 @@ export interface PlayerCardData {
    *  the renderer draws the Aether Rift treatment off it, dust refuses it,
    *  and expeditions treat it as one of five. */
   dribb?: { number: number; of: number } | null;
+  /** The On Air print — one of the casters, minted inside a Live Drops window. */
+  onAir?: { profileId: string; name: string; number: number; of: number; window: string } | null;
   /** The owner sealed the copy: `wear` is the count frozen at that moment,
    *  `at` when. A slabbed copy can never be fielded again — refused in SQL
    *  for expeditions and server-side for the Gauntlet and Fantasy — and
