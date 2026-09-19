@@ -225,7 +225,7 @@ export function rarityGuide(season: string | null, league: "premier" | "academy"
     {
       key: "onair",
       name: "◉ On Air",
-      look: "One of the two casters, in broadcast colour bars with the ON AIR lamp lit. 100 in every column.",
+      look: "One of the two casters, in broadcast colour bars with the ON AIR lamp lit and a production slate where the stats would be. 100 overall.",
       how: `Only inside a Live Drops window: one roll per pack at ${oneIn(ON_AIR_CHANCE)}, and the pack's last card becomes the caster with the fewest prints this season.`,
       odds: `${oneIn(ON_AIR_CHANCE)} packs, live only`,
       value: `Never dusts. ${ON_AIR_COPIES} per caster per season.`,

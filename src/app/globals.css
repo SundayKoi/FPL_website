@@ -3899,10 +3899,11 @@ body {
    The geometry is measured against the real card, not guessed. On a
    310x438 face the rating ring and serial own y 12–84 top-right, the tier
    pill y 36–60 at the left, the coin strip y 88–108 at the right, the name
-   and role y 112–164, and the stat block starts at y 214 (242 on a card
-   with no signature row, which is exactly the no-signal case). Every layer
-   below is placed in the gaps that leaves, so nothing a card says is ever
-   painted over. */
+   and role y 112–164, and the lower block starts at y 214 — on EVERY On
+   Air card, with or without art, because the production slate that fills
+   it is one fixed height (card-onair-slate, below). Every layer below is
+   placed in the gaps that leaves, so nothing a card says is ever painted
+   over. */
 
 /* The seven bars, 75% SMPTE order: white, yellow, cyan, green, magenta,
    red, blue. One gradient with hard stops, held in a custom property so
@@ -4061,10 +4062,10 @@ body {
 
 /* No signal: the caster set no champion, so there is no art and the card
    prints the test pattern instead. Full-width bars with the pluge row along
-   their bottom, in the band between the role line and the archetype band —
-   the whole of the photo block that carries no type — under a faint grain
-   that dusts the rest of the face so the card reads as dead air rather than
-   as a card that failed to load. */
+   their bottom, in the band between the role line (ends y 164) and the
+   archetype band (starts y 214) — the whole of the photo block that
+   carries no type — under a faint grain that dusts the rest of the face so
+   the card reads as dead air rather than as a card that failed to load. */
 @utility card-ov-onair-nosignal {
   position: absolute;
   inset: 0;
@@ -4084,7 +4085,7 @@ body {
   &::before {
     content: "";
     position: absolute;
-    inset: 38.5% 0 45% 0;
+    inset: 37.6% 0 52% 0;
     background-image:
       linear-gradient(90deg,
         #12123a 0 14.2857%, #0a0a0a 14.2857% 28.5714%, #3a123a 28.5714% 42.8571%,
@@ -4100,7 +4101,7 @@ body {
   &::after {
     content: "";
     position: absolute;
-    inset: 38.5% 0 45% 0;
+    inset: 37.6% 0 52% 0;
     background-image:
       radial-gradient(1px 1px at 30% 20%, rgb(255 255 255 / 0.55), transparent 62%),
       radial-gradient(1px 1px at 65% 75%, rgb(0 0 0 / 0.6), transparent 62%);
@@ -4115,6 +4116,140 @@ body {
   /* The REC dot stops blinking and stays lit: the mark still means
      "recording", it just no longer moves. */
   .card-ov-onair-rec::before { animation: none; opacity: 1; }
+}
+
+/* The production slate — the lower third of an On Air card, and the one
+   part of this block that is NOT an overlay. Real layout, the way the
+   Send-off's stub is (card-sendoff-*): PlayerCardFace draws it in the exact
+   place the signature row, the five stat bars and the record footer sit on
+   every other card, because on a caster's card those three had nothing to
+   say — a 100 five times over and a 100–0 record are not facts, they are
+   padding. The slate is: a clapperboard, chalk on black, whose every field
+   is true of THIS print.
+
+   Geometry in pixels, like the Send-off's, because the card is: the
+   signature row, the five bars and the record footer, with the two 8px
+   gaps the flex column put between them, measured 168px from the foot of
+   the archetype band to the last line of type. The slate is pinned to that
+   exact 10.5rem, so the band above it, the waveform above that and the
+   card's own height do not move by a pixel — with or without a signature,
+   which is why the no-signal print now starts its block at y 214 too.
+   Static: no animation anywhere in here, so there is nothing for the
+   reduced-motion list above to turn off. */
+
+/* The board: near-black ground, chalk dust, rounded exactly as the
+   archetype band above it (rounded-lg). */
+@utility card-onair-slate {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 8px;
+  background-color: rgb(8 10 14 / 0.88);
+  /* The dust: two low, wide smears of chalk, one under each corner the
+     hand would rest on. Far too faint to touch the type. */
+  background-image:
+    radial-gradient(ellipse 72% 56% at 20% 16%, rgb(236 244 255 / 0.05), transparent 70%),
+    radial-gradient(ellipse 64% 52% at 84% 90%, rgb(236 244 255 / 0.04), transparent 72%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1), 0 1px 6px rgb(0 0 0 / 0.5);
+}
+
+/* The sticks: the hinged bar across the top, in hard diagonal stripes, with
+   the chalk rule under it. The stripes are the whole reason the thing reads
+   as a clapperboard at 310px wide, so they are cut at -45° with no blur. */
+@utility card-onair-slate-sticks {
+  position: relative;
+  flex: none;
+  height: 9px;
+  border-bottom: 1px solid rgb(226 232 240 / 0.5);
+  background-image: repeating-linear-gradient(-45deg,
+    #f2f4f7 0 6px, #0a0c10 6px 12px);
+}
+
+/* The production's name, on a black tab at the left-hand end of the
+   sticks: white type over the stripes is unreadable, and a tab is what a
+   real slate has there. */
+@utility card-onair-slate-tab {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 5px 0 6px;
+  background: #0a0c10;
+  font-family: var(--font-body);
+  font-size: 6.5px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.2em;
+  color: rgb(255 255 255 / 0.85);
+}
+
+/* Every field is label over value: the label in chalk-grey caps, the value
+   in white in the display face. */
+@utility card-onair-slate-label {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.55);
+}
+@utility card-onair-slate-value {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: #fff;
+}
+
+/* TAKE: the hero of the slate and the loudest thing on it — the copy's
+   number, at twice the size of every other value, with the run small and
+   grey beside it. */
+@utility card-onair-slate-take {
+  display: block;
+  margin-top: 1px;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 12px rgb(255 59 59 / 0.45), 0 1px 2px rgb(0 0 0 / 0.8);
+  & > span {
+    margin-left: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: rgb(255 255 255 / 0.6);
+    text-shadow: none;
+  }
+}
+
+/* The foot: the marker's call, under the board and inside the frame. No
+   numbers — the record footer is exactly what this replaces. */
+@utility card-onair-slate-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 5px 3px 0;
+  font-family: var(--font-body);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  color: rgb(255 255 255 / 0.5);
 }
 
 /* ── The Send-off looks. ────────────────────────────────────────────────

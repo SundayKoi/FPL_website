@@ -88,10 +88,8 @@ export interface CardTier {
 export interface CardSubStat {
   /** "form" and "clutch" are retired but stay in the union: every copy
    *  already frozen in card_inventory carries them, and the renderer prints
-   *  whatever a card holds. The five broadcast keys belong to the On Air
-   *  card (src/lib/cards/onAir.ts), which measures a caster rather than a
-   *  player and so has no MeasureKey to sit on. */
-  key: MeasureKey | "form" | "clutch" | "mic" | "hype" | "reads" | "calls" | "signal";
+   *  whatever a card holds. */
+  key: MeasureKey | "form" | "clutch";
   label: string;
   value: number;
 }

@@ -2,12 +2,13 @@
 //
 // Not a player and not the Dribb. The league's two stream casters — the
 // profiles an owner has marked `is_broadcaster` on /admin — each get a
-// card of their own, a 100 in every column, in a broadcast treatment
-// nothing else on the board wears: SMPTE colour bars bleeding in from the
-// right of the photo block, a lit ON AIR lamp under the tier row, an audio
-// waveform along the foot and a blinking REC dot. A caster who has set no
-// champion prints the colour-bar TEST PATTERN where the art would be —
-// no signal, and that is the feature, not a fallback.
+// card of their own, 100 overall, and a production slate where the stats
+// would be, in a broadcast treatment nothing else on the board wears:
+// SMPTE colour bars bleeding in from the right of the photo block, a lit
+// ON AIR lamp under the tier row, an audio waveform along the foot and a
+// blinking REC dot. A caster who has set no champion prints the colour-bar
+// TEST PATTERN where the art would be — no signal, and that is the
+// feature, not a fallback.
 //
 // The gate (ON_AIR_CHANCE, once per pack), the cap (ON_AIR_COPIES, per
 // caster per season) and the tier it files under (ON_AIR_TIER) live in
@@ -109,12 +110,14 @@ export function onAirLook(mark: OnAirMark, hasArt: boolean): OverlayPreview {
 }
 
 /**
- * The copy, frozen: the caster as the card prints them, numbered. A 100 in
- * every column — the Dribb is the 99, and the casters are the only 100s on
- * the board. `season` is the pack's, because the twenty-five are counted
- * per season; `window` is the Live Drops label the pack was opened under,
- * and it is stamped here as the copy's LIVE mark too — the slot is
- * REPLACED after the roller stamps the others, so nothing else would.
+ * The copy, frozen: the caster as the card prints them, numbered. 100
+ * overall — the Dribb is the 99, and the casters are the only 100s on the
+ * board — and a production slate where the stats would be, which is why
+ * there are no bars to fill. `season` is the pack's, because the
+ * twenty-five are counted per season; `window` is the Live Drops label the
+ * pack was opened under, and it is stamped here as the copy's LIVE mark
+ * too — the slot is REPLACED after the roller stamps the others, so
+ * nothing else would.
  */
 export function onAirCard(caster: OnAirCaster, number: number, season: string, window: string): PlayerCardData {
   return {
@@ -138,13 +141,12 @@ export function onAirCard(caster: OnAirCaster, number: number, season: string, w
     collectionSize: ON_AIR_COPIES,
     topChampions: caster.champion ? [{ champion: caster.champion, games: 100, wins: 100 }] : [],
     form: [true, true, true, true, true],
-    subStats: [
-      { key: "mic", label: "Mic", value: 100 },
-      { key: "hype", label: "Hype", value: 100 },
-      { key: "reads", label: "Reads", value: 100 },
-      { key: "calls", label: "Calls", value: 100 },
-      { key: "signal", label: "Signal", value: 100 },
-    ],
+    // No bars: the front face prints the production slate in their place
+    // (PlayerCardFace, "card-onair-slate"), whose every line is a fact of
+    // this print rather than a column of hundreds. An empty list is an
+    // established shape here — moments, champions relics and roster plates
+    // all carry one.
+    subStats: [],
     highlights: [{ label: "On the desk", value: window, detail: "Printed while the stream was live" }],
     badges: [{ key: "onair", label: "On Air", detail: "Only prints while a Live Drops window is open" }],
     standout: false,
