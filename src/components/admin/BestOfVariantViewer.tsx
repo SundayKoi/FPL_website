@@ -18,6 +18,7 @@ export default function BestOfVariantViewer({
   league,
   headingId,
   division,
+  showVariantButton = true,
 }: {
   children: ReactNode;
   award: SeasonAward;
@@ -27,6 +28,7 @@ export default function BestOfVariantViewer({
   league: "premier" | "academy";
   headingId: string;
   division?: Division;
+  showVariantButton?: boolean;
 }) {
   const request = useMemo<BestOfVariantRequest>(() => ({
     league,
@@ -119,9 +121,11 @@ export default function BestOfVariantViewer({
   return (
     <div className={styles.wrapper}>
       {children}
-      <button ref={openerRef} type="button" onClick={openViewer} className={styles.openButton}>
-        View variants
-      </button>
+      {showVariantButton ? (
+        <button ref={openerRef} type="button" onClick={openViewer} className={styles.openButton}>
+          View variants
+        </button>
+      ) : null}
       {open ? (
         <div className={styles.backdrop} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
           <div ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby={`${headingId}-variant-title`}>

@@ -30,6 +30,8 @@ export interface BestOfChampionCardProps {
   displayOverride?: Pick<AwardDisplay, "headline" | "evidence">;
   /** Staff-only selection diagnostics are omitted from patron card views. */
   showAdminDetails?: boolean;
+  /** Hide the supporting text block when the card is rendered in a compact shelf. */
+  showDetails?: boolean;
 }
 
 function accountName(winner: AwardWinner | null | undefined, playerCard: PlayerCardData | null | undefined): string | null {
@@ -74,6 +76,7 @@ export default function BestOfChampionCard({
   crop = null,
   displayOverride,
   showAdminDetails = true,
+  showDetails = true,
 }: BestOfChampionCardProps) {
   const champion = winner?.champion ?? playerCard?.signature?.champion ?? null;
   const championLabel = champion ? championDisplayName(champion) : null;
@@ -170,31 +173,33 @@ export default function BestOfChampionCard({
         <span className={styles.gem} aria-hidden="true" />
       </div>
 
-      <div className={styles.details}>
-        {winner ? (
-          <>
-            <p className={styles.detailsLabel}>{showAdminDetails ? "Best of Champion · Admin preview" : "Best of Champion"}</p>
-            <p className={styles.detailsIdentity}>{identity}{team ? ` · ${team}` : ""}{playerCard?.role ? ` · ${playerCard.role}` : ""}</p>
-            <p className={styles.evidence}>Award record · {display?.evidence}</p>
-            {showAdminDetails && bestOfEvidence ? (
-              <details className={styles.selectionDetails}>
-                <summary>Selection details</summary>
-                <p>Mean performance · {formatInteger(bestOfEvidence.meanPerformance)} / 100</p>
-                <p>Season eligibility · {formatInteger(bestOfEvidence.seasonGames)} total games</p>
-                {bestOfEvidence.capPromotion ? (
-                  <p>One-card cap promotion · {bestOfEvidence.capPromotion.unrestrictedLeaderName} led the unrestricted {championLabel ?? "champion"} ranking but already held another champion card.</p>
-                ) : null}
-              </details>
-            ) : null}
-          </>
-        ) : (
-          <>
-            <p className={styles.detailsLabel}>{showAdminDetails ? "Admin preview" : "Best of Champion"}</p>
-            <p className={styles.evidence}>{statusNote}</p>
-          </>
-        )}
-        <p className={styles.description}>{award.description}</p>
-      </div>
+      {showDetails ? (
+        <div className={styles.details}>
+          {winner ? (
+            <>
+              <p className={styles.detailsLabel}>{showAdminDetails ? "Best of Champion · Admin preview" : "Best of Champion"}</p>
+              <p className={styles.detailsIdentity}>{identity}{team ? ` · ${team}` : ""}{playerCard?.role ? ` · ${playerCard.role}` : ""}</p>
+              <p className={styles.evidence}>Award record · {display?.evidence}</p>
+              {showAdminDetails && bestOfEvidence ? (
+                <details className={styles.selectionDetails}>
+                  <summary>Selection details</summary>
+                  <p>Mean performance · {formatInteger(bestOfEvidence.meanPerformance)} / 100</p>
+                  <p>Season eligibility · {formatInteger(bestOfEvidence.seasonGames)} total games</p>
+                  {bestOfEvidence.capPromotion ? (
+                    <p>One-card cap promotion · {bestOfEvidence.capPromotion.unrestrictedLeaderName} led the unrestricted {championLabel ?? "champion"} ranking but already held another champion card.</p>
+                  ) : null}
+                </details>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <p className={styles.detailsLabel}>{showAdminDetails ? "Admin preview" : "Best of Champion"}</p>
+              <p className={styles.evidence}>{statusNote}</p>
+            </>
+          )}
+          <p className={styles.description}>{award.description}</p>
+        </div>
+      ) : null}
     </article>
   );
 }
