@@ -124,7 +124,7 @@ export default async function SeasonsEndPage({
             <section id={`group-${groupIndex}`} key={group} aria-label={group} className="scroll-mt-8">
               <div className="mb-5 flex items-baseline gap-4 border-b border-line pb-3"><span className="font-mono text-sm text-steel">{String(groupIndex + 1).padStart(2, "0")}</span><h2 className="type-display text-3xl text-gold">{group}</h2></div>
               <div className={`${styles.cardRow} ${group === "Best of Champions" ? styles.bestOfCardRow : styles.ordinaryCardRow}`}>
-                {awards.map((award, index) => <SeasonEndAwardCard key={award.id} award={award} season={season} league={league} index={index} cards={allSeasonCards} teamIdentities={teamIdentities} showAdminDetails={staff} />)}
+                {awards.map((award, index) => <SeasonEndAwardCard key={award.id} award={award} season={season} league={league} index={index} cards={allSeasonCards} teamIdentities={teamIdentities} showAdminDetails={staff} showBestOfDetails={false} showBestOfVariants={false} />)}
               </div>
             </section>
           );

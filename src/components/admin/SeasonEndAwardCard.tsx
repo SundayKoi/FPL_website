@@ -314,6 +314,8 @@ export default function SeasonEndAwardCard({
   cards,
   teamIdentities = {},
   showAdminDetails = true,
+  showBestOfDetails = true,
+  showBestOfVariants = true,
 }: {
   award: SeasonAward;
   season: string;
@@ -322,6 +324,8 @@ export default function SeasonEndAwardCard({
   cards: PlayerCardData[];
   teamIdentities?: SeasonEndTeamIdentityMap;
   showAdminDetails?: boolean;
+  showBestOfDetails?: boolean;
+  showBestOfVariants?: boolean;
 }) {
   const cardsByPlayer = new Map(cards.map((card) => [cardPlayerKey(card.name, card.tag), card]));
   const isDivisional = Boolean(award.divisionStatuses);
@@ -341,6 +345,7 @@ export default function SeasonEndAwardCard({
           headingId={headingId}
           division={division ?? winner?.division}
           showAdminDetails={showAdminDetails}
+          showDetails={showBestOfDetails}
         />
       );
       if (!winner?.champion) return card;
@@ -354,6 +359,7 @@ export default function SeasonEndAwardCard({
           league={league}
           headingId={headingId}
           division={division ?? winner.division}
+          showVariantButton={showBestOfVariants}
         >
           {card}
         </BestOfVariantViewer>

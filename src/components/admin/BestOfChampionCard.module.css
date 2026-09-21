@@ -1,5 +1,5 @@
 .card { min-width:0; color:#f5f1e8; }
-.face { --celestial-accent:#ebcc8b; container-type:inline-size; position:relative; isolation:isolate; aspect-ratio:5 / 7; overflow:hidden; border-radius:16px; background:#10161d; box-shadow:0 16px 38px #0005; }
+.face { --celestial-accent:#ebcc8b; container-type:inline-size; position:relative; isolation:isolate; aspect-ratio:63 / 100; overflow:hidden; border-radius:16px; background:#10161d; box-shadow:0 16px 38px #0005; }
 .face.lunari { --celestial-accent:#cfdaff; }
 .art { position:absolute; z-index:0; inset:0; background-color:#10161d; background-repeat:no-repeat; transform:scale(var(--art-zoom, 1)); transform-origin:center; }
 .shade { position:absolute; z-index:1; inset:0; background:linear-gradient(0deg, rgb(3 8 12 / .94), rgb(3 8 12 / .72) 19%, transparent 53%, rgb(3 8 12 / .2)); pointer-events:none; }
