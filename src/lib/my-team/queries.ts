@@ -231,7 +231,23 @@ export async function loadMyTeamDashboard(
     teams,
   );
   const schedule = teamFixtures(fixtures, team.name);
-  const nextFixture = pickNextFixture(schedule, team.name);
+  // Fixtures this season already has a submitted report for. The score
+  // only reaches the fixture when the ingest syncs the report, and the
+  // ingest does not run between two rounds played on one night, so without
+  // this a reported round would stay "next" and hide the round after it.
+  // Fails soft: an unreadable table leaves the score-only rule in place.
+  const reportsResult = await supabase
+    .from("match_reports")
+    .select("fixture_id")
+    .eq("season", identity.season);
+  const reportedFixtureIds = new Set(
+    reportsResult.error
+      ? []
+      : ((reportsResult.data as { fixture_id: string | null }[] | null) ?? [])
+          .map((report) => report.fixture_id)
+          .filter((id): id is string => Boolean(id)),
+  );
+  const nextFixture = pickNextFixture(schedule, team.name, reportedFixtureIds);
 
   const opponentName = nextFixture
     ? normalizeName(nextFixture.team_a) === normalizeName(team.name)
