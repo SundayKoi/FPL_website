@@ -18,8 +18,7 @@ import {
   isSendoffVaulted,
   sendoffVaultClosesAt,
   sendoffWeekLabel,
-  type SendoffFixture,
-} from "./sendoff";
+  type SendoffFixture, stampSendoffs } from "./sendoff";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
 import { aggregateWeeklyPlayerRows, type WeeklyRawStatRow } from "@/lib/stats/weekly";
 import type { GameLogRow, PlayerAggRow, RecordRow } from "@/lib/stats/types";
@@ -438,7 +437,11 @@ export async function fetchCurrentWeekCards(supabase: SupabaseClient, season: st
   // collection, rated against the whole league. The archive for such a week
   // is a Send-off (src/lib/cards/sendoff.ts), which is season-rated for the
   // same reason.
-  if (isPlayoffWeek(await fetchSeasonFixtures(supabase, season), week)) return fetchSeasonCards(supabase, season);
+  // …and every card whose team has already fallen wears its send-off
+  // (stampSendoffs), so Browse shows the bracket's story rather than a
+  // season collection that looks untouched by it.
+  const fixtures = await fetchSeasonFixtures(supabase, season);
+  if (isPlayoffWeek(fixtures, week)) return stampSendoffs(await fetchSeasonCards(supabase, season), fixtures);
   const cards = await fetchWeekCards(supabase, season, week);
   // A week that ingested no usable rows would otherwise blank every card
   // surface at once; the season build is a worse answer than the week's,
