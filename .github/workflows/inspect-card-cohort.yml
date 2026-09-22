@@ -1,0 +1,37 @@
+name: Inspect card cohort
+
+# Manual only, read-only. Prints one week's rating cohort per role: every
+# player a card was ranked against, with the raw number behind each bar
+# input and the percentile it got — the "out of what?" that follows every
+# rating question, and that no page shows.
+on:
+  workflow_dispatch:
+    inputs:
+      week:
+        description: "Monday of the week (YYYY-MM-DD, Eastern). Blank = the current week."
+        type: string
+        default: ""
+      role:
+        description: "One role (TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY). Blank = every role."
+        type: string
+        default: ""
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsx scripts/inspect-card-cohort.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Env, not arguments on the run line: free-text input spliced into
+          # a shell line is shell source, and this job holds the service key.
+          COHORT_WEEK: ${{ inputs.week }}
+          COHORT_ROLE: ${{ inputs.role }}
