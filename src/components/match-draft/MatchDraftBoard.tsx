@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DEFAULT_OVERLAY_SLOT_WIDTH, type OverlaySlotWidth } from "@/lib/match-draft/overlaySlot";
 import type { CSSProperties } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -27,21 +28,10 @@ const imageSizes = MATCH_DRAFT_IMAGE_SIZE_ORDER.map((value) => ({ value, ...MATC
 const sizeByValue = MATCH_DRAFT_IMAGE_SIZES;
 
 // OBS contract: the overlay's portrait slots fill their column up to a cap,
-// and the cap is a query switch (?slot=). 350px is what the league's stream
-// scene was built around: the match graphic covers the middle of the canvas
-// and only the outer band of each column shows, and a 350px slot fits
-// inside that band whole. ?slot=700 is the wide portrait for a scene with
-// the room for it. A fixed 700px overflowed narrower browser sources and,
-// on the stream scene, pushed the red column's names under the graphic.
-// Both classes are spelled out so Tailwind emits them.
-export type OverlaySlotWidth = 350 | 700;
-export const DEFAULT_OVERLAY_SLOT_WIDTH: OverlaySlotWidth = 350;
+// and the cap is a query switch (?slot=) — see src/lib/match-draft/overlaySlot.ts
+// for the rule and the reason it is a plain module. Both classes are spelled
+// out so Tailwind emits them.
 const OBS_SLOT_CAP: Record<OverlaySlotWidth, string> = { 350: "max-w-[350px]", 700: "max-w-[700px]" };
-
-/** Reads ?slot= for the overlay: 700 when asked for, otherwise the default. */
-export function overlaySlotWidthFrom(value: string | undefined): OverlaySlotWidth {
-  return value === "700" ? 700 : DEFAULT_OVERLAY_SLOT_WIDTH;
-}
 
 /** Copies a shareable drafter URL (built from the page's own origin, so it
  *  works on any deploy) with per-button "Copied" feedback. */
