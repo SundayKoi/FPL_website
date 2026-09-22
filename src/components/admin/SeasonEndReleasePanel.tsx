@@ -23,17 +23,27 @@ export default function SeasonEndReleasePanel({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [reportJson, setReportJson] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
   const run = (task: () => Promise<{ ok: boolean; error?: string }>) => startTransition(async () => {
-    const result = await task();
-    if (!result.ok) window.alert(result.error ?? "The release action failed.");
-    else router.refresh();
+    setActionError(null);
+    try {
+      const result = await task();
+      if (!result.ok) {
+        setActionError(result.error ?? "The release action failed.");
+        return;
+      }
+      router.refresh();
+    } catch (error) {
+      console.error("season-end: release action failed", error);
+      setActionError(error instanceof Error ? error.message : "The release action failed. Refresh and try again.");
+    }
   });
   const recordReport = () => {
     let report: Record<string, unknown>;
     try {
       report = JSON.parse(reportJson) as Record<string, unknown>;
     } catch {
-      window.alert("Paste a valid JSON report first.");
+      setActionError("Paste a valid JSON report first.");
       return;
     }
     const reportDigest = typeof report.reportDigest === "string" ? report.reportDigest : "";
@@ -50,6 +60,7 @@ export default function SeasonEndReleasePanel({
         </div>
         {release ? <span className="rounded-full border border-gold/60 px-3 py-1 text-xs font-bold uppercase tracking-[.14em] text-gold">{release.state}{release.paused ? " · paused" : ""}</span> : null}
       </div>
+      {actionError ? <p role="alert" aria-live="polite" className="border border-coral/50 bg-coral/5 p-3 text-sm text-coral">{actionError}</p> : null}
       {!release ? (
         <button type="button" disabled={pending} onClick={() => run(() => createSeasonEndDraftAction({ league, season }))} className="w-fit rounded border border-gold px-4 py-2 text-sm text-gold disabled:opacity-50">{pending ? "Building catalog…" : "Build draft catalog"}</button>
       ) : (

@@ -66,4 +66,10 @@ describe("Season's End collectible catalog", () => {
     expect(stableJson({ x: 1.0, y: 2.5, nested: [0.25, 100_000] })).toBe('{"nested":[0.25,100000],"x":1,"y":2.5}');
     expect(stableJson({ small: 0.00000009999999999, large: 1e21 })).toBe('{"large":1000000000000000000000,"small":0.00000009999999999}');
   });
+
+  it("matches JSON serialization for omitted object values and null array values", () => {
+    const value = { present: 1, missing: undefined, nested: { missing: undefined }, values: [undefined, null] };
+    expect(stableJson(value)).toBe('{"nested":{},"present":1,"values":[null,null]}');
+    expect(JSON.stringify(value)).toBe('{"present":1,"nested":{},"values":[null,null]}');
+  });
 });
