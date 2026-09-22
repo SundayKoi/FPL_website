@@ -1,5 +1,6 @@
 import Link from "next/link";
-import MatchDraftBoard, { overlaySlotWidthFrom } from "@/components/match-draft/MatchDraftBoard";
+import MatchDraftBoard from "@/components/match-draft/MatchDraftBoard";
+import { overlaySlotWidthFrom } from "@/lib/match-draft/overlaySlot";
 import { fearlessBlockedByGame, fearlessBlockedChampions } from "@/lib/match-draft/rules";
 import { fetchLiveChampions } from "@/lib/match-draft/liveRoster";
 import type {

@@ -26,7 +26,8 @@ vi.mock("@/lib/supabase/client", () => ({
     };
   },
 }));
-import MatchDraftBoard, { overlaySlotWidthFrom } from "./MatchDraftBoard";
+import MatchDraftBoard from "./MatchDraftBoard";
+import { overlaySlotWidthFrom } from "@/lib/match-draft/overlaySlot";
 import { LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
 import { CHAMPIONS } from "@/lib/match-draft/champions";
 import type { MatchDraftState } from "@/lib/match-draft/types";
