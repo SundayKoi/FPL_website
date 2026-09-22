@@ -18,7 +18,7 @@ import {
   isSendoffVaulted,
   sendoffVaultClosesAt,
   sendoffWeekLabel,
-  type SendoffFixture, stampSendoffs } from "./sendoff";
+  type SendoffFixture, stampSendoffs, weekRoster } from "./sendoff";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
 import { aggregateWeeklyPlayerRows, type WeeklyRawStatRow } from "@/lib/stats/weekly";
 import type { GameLogRow, PlayerAggRow, RecordRow } from "@/lib/stats/types";
@@ -437,11 +437,15 @@ export async function fetchCurrentWeekCards(supabase: SupabaseClient, season: st
   // collection, rated against the whole league. The archive for such a week
   // is a Send-off (src/lib/cards/sendoff.ts), which is season-rated for the
   // same reason.
-  // …and every card whose team has already fallen wears its send-off
-  // (stampSendoffs), so Browse shows the bracket's story rather than a
-  // season collection that looks untouched by it.
+  // …narrowed to the WEEK'S roster — the teams named in its playoff
+  // fixtures, the way a regular-season week shows the people who played it
+  // (weekRoster) — with every card whose team has already fallen wearing
+  // its send-off (stampSendoffs), so Browse shows the bracket's story
+  // rather than a season collection that looks untouched by it.
   const fixtures = await fetchSeasonFixtures(supabase, season);
-  if (isPlayoffWeek(fixtures, week)) return stampSendoffs(await fetchSeasonCards(supabase, season), fixtures);
+  if (isPlayoffWeek(fixtures, week)) {
+    return weekRoster(stampSendoffs(await fetchSeasonCards(supabase, season), fixtures), fixtures, week);
+  }
   const cards = await fetchWeekCards(supabase, season, week);
   // A week that ingested no usable rows would otherwise blank every card
   // surface at once; the season build is a worse answer than the week's,
@@ -808,5 +812,14 @@ export async function fetchCardBySlug(
   // The week's build, like every other live surface — a share link and the
   // hub must not disagree about what a player's card says.
   const cards = await fetchCurrentWeekCards(supabase, season);
-  return cards.find((card) => card.slug === slug) ?? null;
+  const hit = cards.find((card) => card.slug === slug);
+  if (hit) return hit;
+  // Off the week's roster during the bracket — a bye, or a split that
+  // ended in an earlier round — the card is the season build, bracket
+  // stamps and all, rather than "Card not found".
+  const week = await fetchLatestGameWeek(supabase, season);
+  if (!week) return null;
+  const fixtures = await fetchSeasonFixtures(supabase, season);
+  if (!isPlayoffWeek(fixtures, week)) return null;
+  return stampSendoffs(await fetchSeasonCards(supabase, season), fixtures).find((card) => card.slug === slug) ?? null;
 }

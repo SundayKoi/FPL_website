@@ -245,7 +245,7 @@ export async function processSeason(
   // the edition would just come out short. Say so where the Actions log
   // will show it.
   if (plan && plan.unmatched.length > 0) {
-    console.warn(`[${label}] [WARN] No cards matched these eliminated teams: ${plan.unmatched.join(", ")}`);
+    console.warn(`[${label}] [WARN] No cards matched these teams: ${plan.unmatched.join(", ")}`);
   }
   if (editionCards.length === 0) {
     console.log(
@@ -798,6 +798,9 @@ async function postSendoff(
   const closesAt = sendoffVaultClosesAt(await fetchSeasonFixtures(supabase, season));
   const lines = [
     ...plan.eliminations.map(sendoffLine),
+    ...(plan.advancing.length > 0
+      ? ["", `Through to the next round, in the packs as ordinary season cards: ${plan.advancing.join(", ")}.`]
+      : []),
     "",
     `${plan.cards.length} cards printed, one per player, rated on the whole split.`,
   ];
