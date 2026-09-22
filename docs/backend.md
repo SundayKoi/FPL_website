@@ -1461,6 +1461,22 @@ season's W–L beside a bracket stamp reads as a series score nobody played
 keep the season's and the week's numbers — and so is `level`, which is
 games played this season.
 
+**The record line.** A stamped send-off prints the player's PLAYOFF RUN as
+its `wins`/`losses`/`winratePct` — the games they played from the bracket's
+first week onward — not the season's. `fetchSeasonCards` attaches it as
+`PlayerCardData.playoffs`, counting each player's `raw_stats` rows from
+`firstPlayoffWeek(fixtures)` (the schedule, not a row's `season_phase`: the
+phase is a label the ingest was handed, the bracket is what the fixtures
+say it is), and `sendoff.ts` swaps the line wherever a card is stamped —
+the edition (`withSendoff`/`planSendoff`) and the live surfaces
+(`stampSendoffs`, `weekRoster`). The RATING stays season-based: the whole
+league is the only cohort that rates a finalist honestly, while the
+season's W–L beside a bracket stamp reads as a series score nobody played
+(a sub who went 2-0 in the regular season and 1-2 in the gauntlet printed
+3–2). The season build's own cards and the week cards are untouched — they
+keep the season's and the week's numbers — and so is `level`, which is
+games played this season.
+
 **On the live surfaces.** During the bracket, Browse, the hub, compare and
 the teams page show the WEEK's roster (`weekRoster`) the way the week's
 edition prints it: every team named in the week's playoff fixtures whose
