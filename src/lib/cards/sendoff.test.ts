@@ -221,16 +221,38 @@ describe("planSendoff", () => {
     expect(plan.cards.find((c) => c.slug === "a")?.overall).toBe(90);
   });
 
-  it("drops both builds' crowns and crowns one card per role among the printed", () => {
+  it("drops both builds' crowns and crowns one card per role, judged on the week", () => {
     // The season's Card of the Week was judged against the whole league and
     // the week's against the week; a send-off edition's five Eclipse slots
-    // belong to the cards it prints, so Ember's 90 takes Mid over Storm's
-    // week-rated 60.
+    // belong to the cards it prints, awarded on the week they all played.
+    // Storm's D is the only Mid with a week card, so the Mid crown is his
+    // however big Ember's season number is; Top has none, so its best
+    // printed card takes it.
     const plan = planSendoff(cards, fixtures, WEEK, weekCards);
 
-    expect(plan.cards.filter((c) => c.standout).map((c) => c.slug).sort()).toEqual(["a", "c"]);
+    expect(plan.cards.filter((c) => c.standout).map((c) => c.slug).sort()).toEqual(["c", "d"]);
+    expect(plan.cards.find((c) => c.slug === "a")?.standout).toBe(false);
     expect(plan.cards.find((c) => c.slug === "b")?.standout).toBe(false);
-    expect(plan.cards.find((c) => c.slug === "d")?.standout).toBe(false);
+  });
+
+  it("does not crown a send-off for its season on the night it went out", () => {
+    // The owner's complaint, end to end: the mid who lost in the gauntlet
+    // has the bigger card (90 over 68) and the worse week (40 over 68).
+    const plan = planSendoff(
+      [
+        card({ slug: "fallen", name: "Fallen", teamName: "Ember", role: "Mid", overall: 90 }),
+        card({ slug: "through", name: "Through", teamName: "Storm", role: "Mid", overall: 55 }),
+      ],
+      fixtures,
+      WEEK,
+      [
+        card({ slug: "fallen", name: "Fallen", teamName: "Ember", role: "Mid", overall: 40 }),
+        card({ slug: "through", name: "Through", teamName: "Storm", role: "Mid", overall: 68 }),
+      ],
+    );
+
+    expect(plan.cards.find((c) => c.slug === "through")).toMatchObject({ standout: true, overall: 68 });
+    expect(plan.cards.find((c) => c.slug === "fallen")).toMatchObject({ standout: false, overall: 90 });
   });
 
   it("reports a team no card matched, the fallen in the season build and the teams through in the week's", () => {
@@ -415,7 +437,7 @@ describe("withSendoff / crownSendoff", () => {
     expect([out.wins, out.losses, out.winratePct]).toEqual([0, 2, 0]);
   });
 
-  it("crowns the best card in each role, best first", () => {
+  it("crowns the best card in each role, best first, with no week to judge on", () => {
     const crowned = crownSendoff([
       card({ slug: "low-mid", role: "Mid", overall: 70 }),
       card({ slug: "top", role: "Top", overall: 65 }),
@@ -424,6 +446,72 @@ describe("withSendoff / crownSendoff", () => {
 
     expect(crowned.map((c) => c.slug)).toEqual(["high-mid", "low-mid", "top"]);
     expect(crowned.filter((c) => c.standout).map((c) => c.slug)).toEqual(["high-mid", "top"]);
+  });
+
+  it("crowns the best WEEK, not the best card: a send-off loses to the week's mid", () => {
+    // The bug this rule exists for. The send-off is rated on the season, so
+    // its 90 has nothing to do with the night it went out (a week card of
+    // 40); the mid who actually played the better week takes the crown.
+    const crowned = crownSendoff(
+      [
+        card({ slug: "fallen", name: "Fallen", role: "Mid", overall: 90 }),
+        card({ slug: "through", name: "Through", role: "Mid", overall: 68 }),
+      ],
+      [
+        card({ slug: "fallen", name: "Fallen", role: "Mid", overall: 40 }),
+        card({ slug: "through", name: "Through", role: "Mid", overall: 68 }),
+      ],
+    );
+
+    expect(crowned.find((c) => c.slug === "through")?.standout).toBe(true);
+    expect(crowned.find((c) => c.slug === "fallen")?.standout).toBe(false);
+    // Print order is still the printed rating, best first.
+    expect(crowned.map((c) => c.slug)).toEqual(["fallen", "through"]);
+  });
+
+  it("crowns the send-off when the fallen player had the better week", () => {
+    // The crown lands on the card that PRINTS, send-off or week card: the
+    // week card that judged it is not in the edition at all.
+    const crowned = crownSendoff(
+      [
+        card({ slug: "fallen", name: "Fallen", role: "Mid", overall: 90 }),
+        card({ slug: "through", name: "Through", role: "Mid", overall: 68 }),
+      ],
+      [
+        card({ slug: "fallen", name: "Fallen", role: "Mid", overall: 75 }),
+        card({ slug: "through", name: "Through", role: "Mid", overall: 68 }),
+      ],
+    );
+
+    expect(crowned.find((c) => c.slug === "fallen")).toMatchObject({ standout: true, overall: 90 });
+    expect(crowned.find((c) => c.slug === "through")?.standout).toBe(false);
+  });
+
+  it("ignores a week card whose player does not print", () => {
+    // A crown on someone the edition never prints lands nowhere, so the
+    // role is judged among the week cards that did print.
+    const crowned = crownSendoff(
+      [card({ slug: "printed", name: "Printed", role: "Mid", overall: 70 })],
+      [
+        card({ slug: "printed", name: "Printed", role: "Mid", overall: 50 }),
+        card({ slug: "benched", name: "Benched", role: "Mid", overall: 99 }),
+      ],
+    );
+
+    expect(crowned.map((c) => [c.slug, c.standout])).toEqual([["printed", true]]);
+  });
+
+  it("falls back to the best printed card in a role with no week card", () => {
+    const crowned = crownSendoff(
+      [
+        card({ slug: "top-a", name: "A", role: "Top", overall: 80 }),
+        card({ slug: "top-b", name: "B", role: "Top", overall: 60 }),
+        card({ slug: "mid", name: "M", role: "Mid", overall: 70 }),
+      ],
+      [card({ slug: "mid", name: "M", role: "Mid", overall: 30 })],
+    );
+
+    expect(crowned.filter((c) => c.standout).map((c) => c.slug).sort()).toEqual(["mid", "top-a"]);
   });
 });
 
@@ -549,14 +637,34 @@ describe("weekRoster", () => {
     expect(out.every((c) => c.sendoff === undefined)).toBe(true);
   });
 
-  it("crowns per role across both builds, like a weekly edition", () => {
+  it("crowns per role on the week both builds played", () => {
     const out = weekRoster(seasonCards, weekCards, [fx("quarterfinals", "Alpha", "Bravo", 0, 2, MONDAY_8PM)], WEEK);
 
-    // Alpha's season-rated 90 takes Mid over Bravo's week-rated 50, and
-    // Charlie is the only Top.
-    expect(out.find((c) => c.slug === "a")?.standout).toBe(true);
-    expect(out.find((c) => c.slug === "b")?.standout).toBe(false);
+    // Alpha's send-off is rated 90 on the season and 40 on the night it
+    // went out, so Mid goes to Bravo's 50; Charlie is the only Top.
+    expect(out.find((c) => c.slug === "a")?.standout).toBe(false);
+    expect(out.find((c) => c.slug === "b")?.standout).toBe(true);
     expect(out.find((c) => c.slug === "c")?.standout).toBe(true);
+  });
+
+  it("gives Card of the Week to the mid who won, not the mid who went out", () => {
+    // Same complaint as the edition's, on the surfaces Browse and the hub
+    // read: the printed send-off still shows its season 90, uncrowned.
+    const out = weekRoster(
+      [
+        card({ slug: "fallen", name: "Fallen", teamName: "Alpha", role: "Mid", overall: 90 }),
+        card({ slug: "through", name: "Through", teamName: "bravo", role: "Mid", overall: 55 }),
+      ],
+      [
+        card({ slug: "fallen", name: "Fallen", teamName: "Alpha", role: "Mid", overall: 40 }),
+        card({ slug: "through", name: "Through", teamName: "bravo", role: "Mid", overall: 68 }),
+      ],
+      [fx("quarterfinals", "Alpha", "Bravo", 0, 2, MONDAY_8PM)],
+      WEEK,
+    );
+
+    expect(out.find((c) => c.slug === "through")).toMatchObject({ standout: true, overall: 68 });
+    expect(out.find((c) => c.slug === "fallen")).toMatchObject({ standout: false, overall: 90 });
   });
 
   it("is the week's cards, crowned, for a week with no exit fixture", () => {
