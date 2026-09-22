@@ -64,6 +64,7 @@ export function cardsSections(base: string): CardsSection[] {
         { label: "Team cards", href: `${base}/teams`, blurb: "Every roster as one composite card" },
         { label: "Compare", href: `${base}/compare`, blurb: "Two cards side by side" },
         { label: "Moments", href: `${base}/moments`, blurb: "The rarest single games of the season" },
+        { label: "Season's End", href: `${base}/season-end`, blurb: "Every published Season's End award and season card" },
         { label: "The Vault", href: `${base}/vault`, blurb: "Every one-of-one, who holds it, what's still out there" },
       ],
     },

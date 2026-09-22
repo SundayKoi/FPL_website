@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import CardsGallery from "@/components/cards/CardsGallery";
 import { fetchCardSeason, fetchCurrentWeekCards, type CardLeague } from "@/lib/cards/queries";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -32,6 +33,12 @@ export async function BrowsePageView({ league = "premier" }: { league?: CardLeag
       ) : (
         <CardsGallery cards={cards} />
       )}
+      <section aria-labelledby="season-end-heading" className="card-brand flex flex-col gap-3 p-5 sm:p-7">
+        <p className="label-dash text-gold">Season&apos;s End</p>
+        <h2 id="season-end-heading" className="type-display text-3xl">The season in cards</h2>
+        <p className="max-w-2xl text-sm text-steel">Browse the published award winners, Best of Champions, and cumulative Season Cards for this league.</p>
+        <Link href={`${cardsBase(league)}/season-end`} className="w-fit text-sm font-semibold text-coral underline-offset-4 hover:underline">Explore Season&apos;s End →</Link>
+      </section>
     </main>
   );
 }
