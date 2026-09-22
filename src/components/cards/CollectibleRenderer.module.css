@@ -1,2 +1,5 @@
-/* Pack pulls use the same faces as the Season's End preview. */
+/* Every Season's End family uses the released-card shell. The width stays
+   fluid inside five-card pack grids, while 20rem remains the normal maximum. */
+.collectible { min-width:0; width:min(100%, 20rem); }
+.fluidCard { width:100% !important; }
 .compact { transform: scale(.8); transform-origin: top left; }

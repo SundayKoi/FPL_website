@@ -74,17 +74,29 @@ describe("CollectibleRenderer", () => {
     expect(screen.getByTestId("best-of-card-art").getAttribute("style")).toContain("Azir_0.jpg");
     expect(screen.getByText("Alice")).toBeTruthy();
     expect(screen.getByText("S5 Premier")).toBeTruthy();
-    expect(screen.getByTestId("season-end-best_of-renderer").querySelector(".collectible")).toBeNull();
+    expect(screen.getByTestId("season-end-best_of-renderer").getAttribute("data-card-format")).toBe("standard");
   });
 
   it("uses the preview accolade face and frozen display values", () => {
     render(<CollectibleRenderer pull={{ design: accolade, foil: false, foilType: null, signed: false, autograph: null, guaranteedFoil: false, inventoryId: 2 }} />);
 
     expect(screen.getByTestId("award-card-face")).toBeTruthy();
+    expect(screen.getByTestId("season-end-accolade-renderer").getAttribute("data-card-format")).toBe("standard");
     expect(screen.getByTestId("award-card-art").querySelector("img")?.getAttribute("src")).toContain("Ahri_0.jpg");
     expect(screen.getByText("Record breakers")).toBeTruthy();
     expect(screen.getByText("kills/game")).toBeTruthy();
     expect(screen.getByLabelText("Solari division")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Body Count" })).toBeTruthy();
+  });
+
+  it.each([
+    ["Best Of", bestOf],
+    ["Accolade", accolade],
+  ] as const)("applies the shared compact storage treatment to %s cards", (_label, design) => {
+    render(<CollectibleRenderer compact pull={{ design, foil: false, foilType: null, signed: false, autograph: null, guaranteedFoil: false, inventoryId: 3 }} />);
+
+    const renderer = screen.getByTestId(`season-end-${design.kind}-renderer`);
+    expect(renderer.getAttribute("data-card-format")).toBe("standard");
+    expect(renderer.getAttribute("data-compact")).toBe("true");
   });
 });
