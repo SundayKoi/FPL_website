@@ -30,6 +30,7 @@ select ok(not has_function_privilege('anon', 'public.save_card_art_preference(te
 select ok(has_table_privilege('anon', 'public.card_art_prefs', 'select'), 'card art remains publicly readable');
 
 select tests.acting_as(tests.admin_id());
+set local role authenticated;
 
 insert into public.card_art_prefs
   (season, summoner_name, tag, motto, signature, art_champion, skin)
@@ -46,23 +47,23 @@ select is((select signature from public.card_art_prefs where season = 'S5' and s
 
 select throws_ok($$
   select * from public.save_card_art_preference('S5', 'Card Artist', 'NA1', 'Ahri', 64)
-$$, 'P0001', 'ART_CHAMPION_NOT_PLAYED', 'the RPC rejects an unplayed champion');
+$$, 'P0001', 'ART_CHAMPION_NOT_PLAYED: the selected champion was not played by this identity in this season', 'the RPC rejects an unplayed champion');
 select is((select skin from public.card_art_prefs where season = 'S5' and summoner_name = 'Card Artist' and tag = 'NA1'), 64, 'a rejected champion leaves the existing pair unchanged');
 
 select throws_ok($$
   insert into public.card_art_prefs (season, summoner_name, tag, art_champion, skin)
   values ('S5', 'Direct Write', 'NA1', 'Ahri', 0)
-$$, 'P0001', 'ART_CHAMPION_NOT_PLAYED', 'the trigger rejects a direct unplayed-champion bypass');
+$$, 'P0001', 'ART_CHAMPION_NOT_PLAYED: the selected champion was not played by this identity in this season', 'the trigger rejects a direct unplayed-champion bypass');
 
 select throws_ok($$
   select * from public.save_card_art_preference('S5', 'Card Artist', 'NA2', 'Jhin', 0)
-$$, 'P0001', 'ART_CHAMPION_NOT_PLAYED', 'the full Riot tag is part of eligibility');
+$$, 'P0001', 'ART_CHAMPION_NOT_PLAYED: the selected champion was not played by this identity in this season', 'the full Riot tag is part of eligibility');
 select throws_ok($$
   select * from public.save_card_art_preference('S4', 'Card Artist', 'NA1', 'Jhin', 0)
-$$, 'P0001', 'ART_CHAMPION_NOT_PLAYED', 'a champion from another season cannot qualify');
+$$, 'P0001', 'ART_CHAMPION_NOT_PLAYED: the selected champion was not played by this identity in this season', 'a champion from another season cannot qualify');
 select throws_ok($$
   select * from public.save_card_art_preference('S5', 'Card Artist', 'NA1', 'Jhin', 201)
-$$, 'P0001', 'SKIN_INVALID', 'skin numbers outside the supported range are rejected');
+$$, 'P0001', 'SKIN_INVALID: the selected skin number is outside the supported range', 'skin numbers outside the supported range are rejected');
 
 select is(
   (select art_champion from public.save_card_art_preference('S5', 'Card Artist', 'NA1', null, 0)),
@@ -73,7 +74,7 @@ select is((select skin from public.card_art_prefs where season = 'S5' and summon
 select tests.acting_as(tests.cap(1));
 select throws_ok($$
   select * from public.save_card_art_preference('S5', 'Card Artist', 'NA1', 'Jhin', 0)
-$$, 'P0001', 'CARD_ART_FORBIDDEN', 'another authenticated user cannot edit the identity');
+$$, 'P0001', 'CARD_ART_FORBIDDEN: you may not edit this card', 'another authenticated user cannot edit the identity');
 select throws_ok($$
   insert into public.card_art_prefs (season, summoner_name, tag, art_champion, skin)
   values ('S5', 'Card Artist', 'NA1', null, 0)

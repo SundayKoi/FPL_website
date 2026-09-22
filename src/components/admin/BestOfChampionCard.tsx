@@ -22,6 +22,10 @@ export interface BestOfChampionCardProps {
   division?: Division;
   /** Reserved for frozen signed pulls; live admin previews omit it. */
   autograph?: string | null;
+  /** Frozen collectible artwork and finish metadata for owned copies. */
+  frozenArtwork?: { primaryUrl: string | null; fallbackUrl: string | null };
+  foil?: boolean;
+  foilType?: string | null;
   /** Read-only preview skin. Best Of's awarded champion never changes. */
   artSkin?: number;
   /** Local-only override used by the developer crop-audit surface. */
@@ -72,6 +76,9 @@ export default function BestOfChampionCard({
   headingId,
   division,
   autograph = null,
+  frozenArtwork,
+  foil = false,
+  foilType = null,
   artSkin = 0,
   crop = null,
   displayOverride,
@@ -89,10 +96,10 @@ export default function BestOfChampionCard({
   const bestOfEvidence = winner?.evidence?.bestOf;
   const status = winner ? null : (award.status === "unearned" ? "Not earned yet" : "Awaiting evidence");
   const statusNote = winner ? null : (award.note ?? "No qualifying champion assignment yet.");
-  const splashArt = champion ? championSplashUrl(champion, artSkin) : null;
-  const centeredArt = champion ? championCenteredUrl(champion, artSkin) : null;
-  const baseSplashArt = champion && artSkin !== 0 ? championSplashUrl(champion, 0) : null;
-  const baseCenteredArt = champion && artSkin !== 0 ? championCenteredUrl(champion, 0) : null;
+  const splashArt = frozenArtwork?.fallbackUrl ?? (champion ? championSplashUrl(champion, artSkin) : null);
+  const centeredArt = frozenArtwork?.primaryUrl ?? (champion ? championCenteredUrl(champion, artSkin) : null);
+  const baseSplashArt = !frozenArtwork && champion && artSkin !== 0 ? championSplashUrl(champion, 0) : null;
+  const baseCenteredArt = !frozenArtwork && champion && artSkin !== 0 ? championCenteredUrl(champion, 0) : null;
   const artCrop = crop ?? (champion ? championArtCrop(champion, artSkin) : null);
   const leagueLabel = league === "premier" ? "Premier" : "Academy";
   const articleLabel = winner && identity
@@ -124,7 +131,7 @@ export default function BestOfChampionCard({
   ].filter(Boolean).join(" ");
 
   return (
-    <article aria-labelledby={headingId} className={`${styles.card} ${winner ? styles.winner : styles.emptyState}`} aria-label={articleLabel}>
+    <article aria-labelledby={headingId} className={`${styles.card} ${winner ? styles.winner : styles.emptyState}`} aria-label={articleLabel} data-foil={foil ? "true" : "false"} data-foil-type={foil ? foilType ?? "foil" : "matte"}>
       <div className={faceClassName}>
         <div
           className={styles.art}
@@ -171,6 +178,7 @@ export default function BestOfChampionCard({
           <span className={styles.seasonLeague}>{season} {leagueLabel}</span>
         </footer>
         <span className={styles.gem} aria-hidden="true" />
+        {winner && foil ? <span className={styles.srOnly}>Finish: {foilType ?? "foil"}</span> : null}
       </div>
 
       {showDetails ? (

@@ -14,10 +14,12 @@
     "test:db": "supabase test db supabase/tests/[0-9]*_test.sql",
     "e2e": "playwright test",
     "settle:higher-lower": "tsx scripts/higher-lower-settlement.ts",
+    "audit:season-end-legacy": "tsx scripts/audit-season-end-legacy.ts",
     "refresh:higher-lower": "tsx scripts/refresh-higher-lower.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "register:discord-commands": "tsx scripts/register-discord-commands.ts",
     "simulate:packs": "tsx scripts/simulate-packs.ts",
+    "simulate:season-end": "tsx scripts/simulate-season-end.ts",
     "export:drafts": "tsx scripts/export-drafts.ts"
   },
   "dependencies": {

@@ -57,6 +57,15 @@ it.each(["edit", "delete", "rename"])("rejects %s of an existing migration", (ac
   expect(f.check().stderr).toContain("existing migrations must not be modified");
 });
 
+it("rejects rewrites of an existing card artwork migration", () => {
+  const f = fixture();
+  const name = "20261018000001_card_art_champion_preferences.sql";
+  f.add(name, "select 1;\n");
+  const base = f.check().status === 0 ? f.git("rev-parse", "HEAD") : "";
+  f.add(name, "select 2;\n");
+  expect(f.check(base).stderr).toContain("existing migrations must not be modified");
+});
+
 it("rejects duplicate versions", () => {
   const f = fixture();
   f.add("20260930000001_one.sql");
