@@ -82,6 +82,15 @@ function captainContext(season = "S5") {
   };
 }
 
+const bracketFixture = fixture({
+  id: "bracket-1",
+  stage: "semifinals",
+  division: null,
+  team_a: "Alpha",
+  team_b: "Beta",
+  sort_order: 1,
+});
+
 function arrangeFixtureResolution() {
   fetchCaptainContext.mockResolvedValue(captainContext());
   fetchHomepageSchedule.mockResolvedValue({
@@ -89,6 +98,7 @@ function arrangeFixtureResolution() {
     isNewestSeason: true,
     activeStage: "week_1",
     fixtures: [fixture()],
+    upcoming: [fixture(), bracketFixture],
   });
   fetchHomepageFeaturedSettings.mockResolvedValue(settings);
   fetchAcademyDraftData.mockResolvedValue({ draft: null, teams: [], players: [], profiles: [] });
@@ -156,6 +166,7 @@ describe("resolveBroadcasterFixture", () => {
       isNewestSeason: true,
       activeStage: "week_1",
       fixtures: scope ? scope([academyFixture, unrelatedFixture]) : [academyFixture, unrelatedFixture],
+      upcoming: scope ? scope([academyFixture, unrelatedFixture]) : [academyFixture, unrelatedFixture],
     }));
 
     await expect(resolveBroadcasterFixture(supabase, "academy")).resolves.toMatchObject({
@@ -172,16 +183,43 @@ describe("resolveBroadcasterFixture", () => {
       isNewestSeason: true,
       activeStage: "week_1",
       fixtures: [automatic],
+      upcoming: [automatic],
     });
 
     await expect(resolveBroadcasterFixture(supabase, "premier")).resolves.toMatchObject({ fixture: automatic });
     expect(selectHomepageFeaturedFixture).toHaveBeenCalledWith([automatic], null);
   });
+
+  it("shows a requested bracket fixture instead of the featured selection", async () => {
+    arrangeFixtureResolution();
+
+    await expect(resolveBroadcasterFixture(supabase, "premier", "bracket-1")).resolves.toMatchObject({
+      fixture: { id: "bracket-1" },
+    });
+    expect(selectHomepageFeaturedFixture).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the featured selection for a fixture that is not upcoming", async () => {
+    arrangeFixtureResolution();
+
+    await expect(resolveBroadcasterFixture(supabase, "premier", "fixture-from-last-season")).resolves.toMatchObject({
+      fixture: { id: "featured-1" },
+    });
+    expect(selectHomepageFeaturedFixture).toHaveBeenCalledWith([fixture()], "featured-1");
+  });
+
+  it("passes the schedule's whole bracket ahead through as the context's upcoming games", async () => {
+    arrangeFixtureResolution();
+
+    await expect(resolveBroadcasterFixture(supabase, "premier")).resolves.toMatchObject({
+      upcoming: [fixture(), bracketFixture],
+    });
+  });
 });
 
 describe("loadBroadcasterScouting", () => {
   function context(overrides: Partial<Awaited<ReturnType<typeof resolveBroadcasterFixture>>> = {}) {
-    return { league: "premier" as const, season: "S5", teams, fixture: fixture(), settings, ...overrides };
+    return { league: "premier" as const, season: "S5", teams, fixture: fixture(), upcoming: [fixture()], settings, ...overrides };
   }
 
   function arrangeScouting() {

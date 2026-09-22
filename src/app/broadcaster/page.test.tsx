@@ -86,12 +86,24 @@ function source(teamName: string): ScoutSource {
   };
 }
 
-function context(overrides: Partial<{ fixture: FixtureRow | null }> = {}) {
+const semifinal = (id: string, teamA: string | null, teamB: string | null): FixtureRow => ({
+  ...fixture,
+  id,
+  stage: "semifinals",
+  division: null,
+  team_a: teamA,
+  team_b: teamB,
+  best_of: 5,
+  sort_order: id === "semi-1" ? 0 : 1,
+});
+
+function context(overrides: Partial<{ fixture: FixtureRow | null; upcoming: FixtureRow[] }> = {}) {
   return {
     league: "premier" as const,
     season: "S5",
     teams: [],
     fixture,
+    upcoming: [fixture],
     settings,
     ...overrides,
   };
@@ -134,7 +146,7 @@ describe("Broadcaster page", () => {
 
     render(await BroadcasterPage({ searchParams: Promise.resolve({ league: "academy" }) }));
 
-    expect(resolveBroadcasterFixture).toHaveBeenCalledWith(supabase, "academy");
+    expect(resolveBroadcasterFixture).toHaveBeenCalledWith(supabase, "academy", null);
     expect(screen.getByText(/Workspace: academy/)).toBeTruthy();
   });
 
@@ -162,6 +174,35 @@ describe("Broadcaster page", () => {
     expect(screen.getByText("Scouting data is temporarily unavailable.")).toBeTruthy();
     expect(consoleError).toHaveBeenCalledWith("Unable to load broadcaster scouting", error);
     consoleError.mockRestore();
+  });
+
+  it("lists the night's games as pills, grouped by stage, with the shown game current", async () => {
+    const night = [fixture, semifinal("semi-1", "Gamma", "Delta"), semifinal("semi-2", "Echo", null)];
+    resolveBroadcasterFixture.mockResolvedValue(context({ fixture: night[1], upcoming: night }));
+
+    render(await BroadcasterPage({ searchParams: Promise.resolve({ fixture: "semi-1" }) }));
+
+    expect(resolveBroadcasterFixture).toHaveBeenCalledWith(supabase, "premier", "semi-1");
+    const games = screen.getByRole("navigation", { name: /tonight's games/i });
+    expect(games.textContent).toContain("Week 1");
+    expect(games.textContent).toContain("Semifinals");
+    expect(screen.getByRole("link", { name: "Alpha vs Beta" }).getAttribute("href"))
+      .toBe("/broadcaster?league=premier&fixture=fixture-1");
+    const selected = screen.getByRole("link", { name: "Gamma vs Delta" });
+    expect(selected.getAttribute("href")).toBe("/broadcaster?league=premier&fixture=semi-1");
+    expect(selected.getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: /^featured$/i }).getAttribute("href"))
+      .toBe("/broadcaster?league=premier");
+    // Nothing to scout in a bracket slot that has not been filled yet.
+    const tbd = screen.getByText("Echo vs TBD");
+    expect(tbd.getAttribute("aria-disabled")).toBe("true");
+    expect(tbd.tagName).toBe("SPAN");
+  });
+
+  it("renders no game pills when the night has a single fixture", async () => {
+    render(await BroadcasterPage({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.queryByRole("navigation", { name: /tonight's games/i })).toBeNull();
   });
 
   it("preserves fixture tools when unresolved team names produce no scouting data", async () => {
