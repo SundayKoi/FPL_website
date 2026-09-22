@@ -534,9 +534,16 @@ export default async function SendoffPreviewPage({
               </p>
             ) : null}
 
+            {plan.advancing.length > 0 ? (
+              <p data-testid="advancing" className="text-sm text-steel">
+                Through to the next round, printed as ordinary season cards: {plan.advancing.join(", ")}.
+              </p>
+            ) : null}
+
             <p className="text-sm text-steel">
               {plan.cards.length} card{plan.cards.length === 1 ? "" : "s"} would print, one per player, rated on the
-              whole split. Five of them are crowned Card of the Week among this edition&apos;s own roster.
+              whole split — the fallen as send-offs, the teams through as plain season cards. Five of them are crowned
+              Card of the Week among this edition&apos;s own roster.
             </p>
 
             <div className="flex flex-wrap gap-6">

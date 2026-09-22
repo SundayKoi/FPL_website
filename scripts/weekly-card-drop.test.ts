@@ -180,6 +180,7 @@ describe("weekly card-drop send-off editions", () => {
       { team: "Ember", stage: "finalist", exit: "finals", series: "1–3", opponent: "Storm", week: "2026-09-07" },
       { team: "Storm", stage: "champion", exit: "finals", series: "3–1", opponent: "Ember", week: "2026-09-07" },
     ],
+    advancing: [],
     cards: [sendoffCard],
     unmatched: ["Ghost Squad"],
     exits: ["finals"],
@@ -218,7 +219,7 @@ describe("weekly card-drop send-off editions", () => {
     expect(sendoff?.description).toContain("Vault shuts Sep 21");
   });
 
-  it("warns about an eliminated team no card matched", async () => {
+  it("warns about a team no card matched", async () => {
     // A name the fixtures spell differently from raw_stats prints nobody,
     // and the edition would just come out short with nothing to say why.
     const client = createSupabase();
@@ -227,7 +228,7 @@ describe("weekly card-drop send-off editions", () => {
 
     await processSeason(client, "premier", "S5", null, null);
 
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("[WARN] No cards matched these eliminated teams: Ghost Squad"));
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("[WARN] No cards matched these teams: Ghost Squad"));
   });
 
   it("leaves an undecided playoff week unarchived", async () => {
