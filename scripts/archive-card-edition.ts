@@ -106,7 +106,7 @@ async function main(): Promise<void> {
       const { kind, cards, plan } = await buildEditionForWeek(supabase, season, week, () =>
         fetchSeasonCards(supabase, season));
       if (plan && plan.unmatched.length > 0) {
-        console.warn(`[${league}] [WARN] No cards matched these eliminated teams: ${plan.unmatched.join(", ")}`);
+        console.warn(`[${league}] [WARN] No cards matched these teams: ${plan.unmatched.join(", ")}`);
       }
       if (cards.length === 0) {
         // In `all` mode this leaves the existing rows in place rather than
