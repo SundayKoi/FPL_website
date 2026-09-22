@@ -18,7 +18,10 @@ import {
   isSendoffVaulted,
   sendoffVaultClosesAt,
   sendoffWeekLabel,
-  type SendoffFixture, stampSendoffs, weekRoster } from "./sendoff";
+  stampSendoffs,
+  weekRoster,
+  type SendoffFixture,
+} from "./sendoff";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
 import { aggregateWeeklyPlayerRows, type WeeklyRawStatRow } from "@/lib/stats/weekly";
 import type { GameLogRow, PlayerAggRow, RecordRow } from "@/lib/stats/types";
@@ -429,22 +432,22 @@ export async function fetchSeasonFixtures(supabase: SupabaseClient, season: stri
 export async function fetchCurrentWeekCards(supabase: SupabaseClient, season: string): Promise<PlayerCardData[]> {
   const week = await fetchLatestGameWeek(supabase, season);
   if (!week) return fetchSeasonCards(supabase, season);
-  // During the bracket, the week's cohort is whoever is still in it — 40
-  // people, then 20, then 10 — and rating a finalist against the nine other
+  // During the bracket the hub, browse, compare and the teams page show the
+  // week the way the week's edition prints it (weekRoster): a player whose
+  // split has ended wears the season-rated send-off their team's exit
+  // minted, because rating a knocked-out finalist against the nine other
   // people who played the final is how a runner-up ends up with a bad card
-  // for reaching the final. So the hub, browse, compare, the teams page and
-  // the homepage all show the season build through the playoffs: the whole
-  // collection, rated against the whole league. The archive for such a week
-  // is a Send-off (src/lib/cards/sendoff.ts), which is season-rated for the
-  // same reason.
-  // …narrowed to the WEEK'S roster — the teams named in its playoff
-  // fixtures, the way a regular-season week shows the people who played it
-  // (weekRoster) — with every card whose team has already fallen wearing
-  // its send-off (stampSendoffs), so Browse shows the bracket's story
-  // rather than a season collection that looks untouched by it.
+  // for reaching the final — and everyone still in the bracket is one of
+  // the week's own cards, the way a regular-season week shows the people
+  // who played it. Both builds are read: the fallen come out of the season
+  // one, the rest out of the week's.
   const fixtures = await fetchSeasonFixtures(supabase, season);
   if (isPlayoffWeek(fixtures, week)) {
-    return weekRoster(stampSendoffs(await fetchSeasonCards(supabase, season), fixtures), fixtures, week);
+    const [seasonBuild, weekBuild] = await Promise.all([
+      fetchSeasonCards(supabase, season),
+      fetchWeekCards(supabase, season, week),
+    ]);
+    return weekRoster(seasonBuild, weekBuild, fixtures, week);
   }
   const cards = await fetchWeekCards(supabase, season, week);
   // A week that ingested no usable rows would otherwise blank every card

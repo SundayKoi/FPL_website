@@ -30,13 +30,15 @@ export interface WeekEdition {
  *
  * A week holding a playoff fixture is a SEND-OFF: every player whose team's
  * split ended that week prints once, rated on the whole split, stamped with
- * how far they got (src/lib/cards/sendoff.ts). Every other week is the
- * ordinary weekly print, rated on that week's games against that week's
- * cohort.
+ * how far they got (src/lib/cards/sendoff.ts), and every player whose team
+ * went through prints beside them as one of the week's own cards, rated on
+ * the week. Every other week is the ordinary weekly print, rated on that
+ * week's games against that week's cohort.
  *
  * `seasonCards` is a thunk because the drop already holds the season build
  * and must not fetch it twice, while the archiver — which does not — should
- * not pay for it on a week that turns out to be an ordinary one.
+ * not pay for it on a week that turns out to be an ordinary one. The week
+ * build is read on a playoff week too: the teams through print out of it.
  *
  * A send-off week whose fixtures are undecided returns no cards. That is
  * deliberate: nothing prints until the scores land, and the next run (or a
@@ -55,6 +57,7 @@ export async function buildEditionForWeek(
   if (!isPlayoffWeek(fixtures, week)) {
     return { kind: "weekly", cards: await fetchWeekCards(supabase, season, week), plan: null };
   }
-  const plan = planSendoff(await seasonCards(), fixtures, week);
+  const [seasonBuild, weekly] = await Promise.all([seasonCards(), fetchWeekCards(supabase, season, week)]);
+  const plan = planSendoff(seasonBuild, fixtures, week, weekly);
   return { kind: "sendoff", cards: plan.cards, plan };
 }

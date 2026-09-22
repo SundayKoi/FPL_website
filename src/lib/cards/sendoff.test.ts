@@ -151,43 +151,64 @@ describe("planSendoff", () => {
     card({ slug: "c", name: "C", teamName: "Ember", role: "Top", overall: 60 }),
     card({ slug: "d", name: "D", teamName: "Storm", role: "Mid", overall: 95, standout: true }),
   ];
+  // The same player as season card "d", rated on the week instead: what a
+  // team that went through actually prints.
+  const weekCards = [card({ slug: "d", name: "D", teamName: "Storm", role: "Mid", overall: 60, standout: true })];
 
   it("stamps the fallen team, matching the name however it is spelled, and prints the team through plain", () => {
-    const plan = planSendoff(cards, fixtures, WEEK);
+    const plan = planSendoff(cards, fixtures, WEEK, weekCards);
 
     expect(plan.cards.map((c) => c.slug).sort()).toEqual(["a", "b", "c", "d"]);
     const fallen = plan.cards.filter((c) => c.slug !== "d");
     expect(fallen.every((c) => c.sendoff?.stage === "quarterfinalist")).toBe(true);
     expect(fallen[0].sendoff).toMatchObject({ exit: "quarterfinals", team: "Ember", series: "0–2", week: WEEK });
-    // Storm went through: an ordinary season card in the same edition.
+    // Storm went through: an unstamped card in the same edition.
     expect(plan.cards.find((c) => c.slug === "d")?.sendoff).toBeUndefined();
     expect(plan.advancing).toEqual(["Storm"]);
   });
 
-  it("drops the season crown and crowns one card per role among the printed", () => {
-    // The season's Card of the Week was judged against the whole league; a
-    // send-off edition's five Eclipse slots belong to the cards it prints —
-    // fallen and through alike, so Storm's 95 takes Mid over Ember's 90.
-    const plan = planSendoff(cards, fixtures, WEEK);
+  it("prints the team through off the WEEK build, not the season one", () => {
+    // The rule itself: a team still in the bracket prints the card the week
+    // it just played earned it, and only a finished split is rated against
+    // the whole league.
+    const plan = planSendoff(cards, fixtures, WEEK, weekCards);
 
-    expect(plan.cards.filter((c) => c.standout).map((c) => c.slug).sort()).toEqual(["c", "d"]);
-    expect(plan.cards.find((c) => c.slug === "a")?.standout).toBe(false);
-    expect(plan.cards.find((c) => c.slug === "b")?.standout).toBe(false);
+    expect(plan.cards.find((c) => c.slug === "d")?.overall).toBe(60);
+    expect(plan.cards.find((c) => c.slug === "a")?.overall).toBe(90);
   });
 
-  it("reports a team no card matched, fallen or through", () => {
-    const plan = planSendoff([card({ teamName: "Storm" })], fixtures, WEEK);
+  it("drops both builds' crowns and crowns one card per role among the printed", () => {
+    // The season's Card of the Week was judged against the whole league and
+    // the week's against the week; a send-off edition's five Eclipse slots
+    // belong to the cards it prints, so Ember's 90 takes Mid over Storm's
+    // week-rated 60.
+    const plan = planSendoff(cards, fixtures, WEEK, weekCards);
 
-    expect(plan.cards.map((c) => c.teamName)).toEqual(["Storm"]);
+    expect(plan.cards.filter((c) => c.standout).map((c) => c.slug).sort()).toEqual(["a", "c"]);
+    expect(plan.cards.find((c) => c.slug === "b")?.standout).toBe(false);
+    expect(plan.cards.find((c) => c.slug === "d")?.standout).toBe(false);
+  });
+
+  it("reports a team no card matched, the fallen in the season build and the teams through in the week's", () => {
+    const plan = planSendoff([card({ teamName: "Storm" })], fixtures, WEEK, weekCards);
+
+    expect(plan.cards.map((c) => c.slug)).toEqual(["d"]);
     expect(plan.unmatched).toEqual(["Ember"]);
-    expect(planSendoff([card({ teamName: "Ember" })], fixtures, WEEK).unmatched).toEqual(["Storm"]);
+    // A season card for Storm is not what prints it any more: with no week
+    // card, the team that went through is unmatched however the season
+    // build spells it.
+    expect(planSendoff(cards, fixtures, WEEK, []).unmatched).toEqual(["Storm"]);
+    expect(planSendoff([card({ teamName: "Ember" })], fixtures, WEEK, weekCards).unmatched).toEqual([]);
   });
 
   it("prints nobody plain in the finals week: the winner is the Champion send-off", () => {
-    const plan = planSendoff(cards, [fx("finals", "Storm", "Ember", 3, 0, MONDAY_8PM)], WEEK);
+    const plan = planSendoff(cards, [fx("finals", "Storm", "Ember", 3, 0, MONDAY_8PM)], WEEK, weekCards);
 
     expect(plan.advancing).toEqual([]);
-    expect(plan.cards.find((c) => c.slug === "d")?.sendoff?.stage).toBe("champion");
+    expect(plan.cards.every((c) => Boolean(c.sendoff))).toBe(true);
+    // Season-rated like every other send-off, though a week card for the
+    // same player was on hand.
+    expect(plan.cards.find((c) => c.slug === "d")).toMatchObject({ overall: 95, sendoff: { stage: "champion" } });
   });
 
   it("does not count a gauntlet team through when the same night knocked it out", () => {
@@ -196,18 +217,19 @@ describe("planSendoff", () => {
       fx("gauntlet_r2", "Storm", "Kite", 0, 2, MONDAY_8PM),
     ];
     expect(advancingInWeek(night, WEEK)).toEqual(["Kite"]);
-    const plan = planSendoff(cards, night, WEEK);
-    expect(plan.cards.find((c) => c.slug === "d")?.sendoff?.stage).toBe("gauntlet");
+    const plan = planSendoff(cards, night, WEEK, weekCards);
+    // Storm prints its send-off off the season build, not its week card.
+    expect(plan.cards.find((c) => c.slug === "d")).toMatchObject({ overall: 95, sendoff: { stage: "gauntlet" } });
     expect(plan.advancing).toEqual(["Kite"]);
   });
 
   it("carries the week's exits for the edition label", () => {
-    expect(planSendoff(cards, fixtures, WEEK).exits).toEqual(["quarterfinals"]);
-    expect(sendoffWeekLabel(planSendoff(cards, fixtures, WEEK).exits)).toBe("Send-off · Quarterfinals");
+    expect(planSendoff(cards, fixtures, WEEK, weekCards).exits).toEqual(["quarterfinals"]);
+    expect(sendoffWeekLabel(planSendoff(cards, fixtures, WEEK, weekCards).exits)).toBe("Send-off · Quarterfinals");
   });
 
   it("plans an empty edition for a week whose fixtures are undecided", () => {
-    const plan = planSendoff(cards, [fx("finals", "Storm", "Ember", null, null, MONDAY_8PM)], WEEK);
+    const plan = planSendoff(cards, [fx("finals", "Storm", "Ember", null, null, MONDAY_8PM)], WEEK, weekCards);
 
     expect(plan.cards).toEqual([]);
     expect(plan.eliminations).toEqual([]);
@@ -320,6 +342,7 @@ describe("withSendoff / crownSendoff", () => {
 });
 
 // The bracket's later weeks, for the live-surface helpers.
+const NEXT_WEEK = "2026-09-14";
 const NEXT_WEEK_8PM = "2026-09-15T00:00:00.000Z"; // Monday 2026-09-14 ET
 const FINALS_8PM = "2026-09-22T00:00:00.000Z"; // Monday 2026-09-21 ET
 
@@ -372,32 +395,68 @@ describe("stampSendoffs", () => {
 });
 
 describe("weekRoster", () => {
-  const roster = [
+  /** The season build: what a fallen team's cards print from. */
+  const seasonCards = [
     card({ slug: "a", name: "A", teamName: "Alpha", role: "Mid", overall: 90, standout: true }),
     card({ slug: "b", name: "B", teamName: "bravo", role: "Mid", overall: 95 }),
     card({ slug: "c", name: "C", teamName: "Charlie", role: "Top", overall: 80, standout: true }),
   ];
+  /** The week build: the same people, rated on the week they just played. */
+  const weekCards = [
+    card({ slug: "a", name: "A", teamName: "Alpha", role: "Mid", overall: 40, standout: true }),
+    card({ slug: "b", name: "B", teamName: "bravo", role: "Mid", overall: 50 }),
+    card({ slug: "c", name: "C", teamName: "Charlie", role: "Top", overall: 60, standout: true }),
+  ];
 
-  it("keeps only the teams named in the week's playoff fixtures, decided or not", () => {
-    const out = weekRoster(roster, [fx("quarterfinals", "Alpha", "Bravo", null, null, MONDAY_8PM)], WEEK);
-    expect(out.map((c) => c.slug).sort()).toEqual(["a", "b"]);
-  });
+  it("shows the fallen season-rated and stamped, and everyone still in on the week", () => {
+    const out = weekRoster(seasonCards, weekCards, [fx("quarterfinals", "Alpha", "Bravo", 0, 2, MONDAY_8PM)], WEEK);
 
-  it("crowns per role among the week's roster, like a weekly edition", () => {
-    const out = weekRoster(roster, [fx("quarterfinals", "Alpha", "Bravo", 0, 2, MONDAY_8PM)], WEEK);
-    expect(out.find((c) => c.slug === "b")?.standout).toBe(true);
-    expect(out.find((c) => c.slug === "a")?.standout).toBe(false);
-  });
-
-  it("keeps the send-off a stamped card already wears, and ignores other weeks", () => {
-    const fixtures = [fx("quarterfinals", "Alpha", "Bravo", 0, 2, MONDAY_8PM), fx("semifinals", "Charlie", "Bravo", null, null, NEXT_WEEK_8PM)];
-    const out = weekRoster(stampSendoffs(roster, fixtures), fixtures, WEEK);
-    expect(out.map((c) => c.slug).sort()).toEqual(["a", "b"]);
-    expect(out.find((c) => c.slug === "a")?.sendoff?.stage).toBe("quarterfinalist");
+    expect(out.map((c) => c.slug).sort()).toEqual(["a", "b", "c"]);
+    // Alpha's split ended: the season card, wearing its send-off.
+    expect(out.find((c) => c.slug === "a")?.overall).toBe(90);
+    expect(out.find((c) => c.slug === "a")?.sendoff).toMatchObject({
+      stage: "quarterfinalist",
+      exit: "quarterfinals",
+      team: "Alpha",
+      series: "0–2",
+      week: WEEK,
+    });
+    // Bravo won and Charlie is elsewhere in the bracket: the week's own
+    // cards, unstamped.
+    expect(out.find((c) => c.slug === "b")?.overall).toBe(50);
     expect(out.find((c) => c.slug === "b")?.sendoff).toBeUndefined();
+    expect(out.find((c) => c.slug === "c")?.overall).toBe(60);
+    expect(out.find((c) => c.slug === "c")?.sendoff).toBeUndefined();
   });
 
-  it("is empty for a week with no playoff fixture", () => {
-    expect(weekRoster(roster, [fx("week_5", "Alpha", "Bravo", 2, 0, MONDAY_8PM)], WEEK)).toEqual([]);
+  it("leaves a team that fell in an earlier week off the roster", () => {
+    // Its send-off printed that week; this week's fixtures do not name it,
+    // and it has no week card because it did not play.
+    const fixtures = [
+      fx("quarterfinals", "Alpha", "Bravo", 0, 2, MONDAY_8PM),
+      fx("semifinals", "Bravo", "Charlie", null, null, NEXT_WEEK_8PM),
+    ];
+    const out = weekRoster(seasonCards, [weekCards[1], weekCards[2]], fixtures, NEXT_WEEK);
+
+    expect(out.map((c) => c.slug).sort()).toEqual(["b", "c"]);
+    expect(out.every((c) => c.sendoff === undefined)).toBe(true);
+  });
+
+  it("crowns per role across both builds, like a weekly edition", () => {
+    const out = weekRoster(seasonCards, weekCards, [fx("quarterfinals", "Alpha", "Bravo", 0, 2, MONDAY_8PM)], WEEK);
+
+    // Alpha's season-rated 90 takes Mid over Bravo's week-rated 50, and
+    // Charlie is the only Top.
+    expect(out.find((c) => c.slug === "a")?.standout).toBe(true);
+    expect(out.find((c) => c.slug === "b")?.standout).toBe(false);
+    expect(out.find((c) => c.slug === "c")?.standout).toBe(true);
+  });
+
+  it("is the week's cards, crowned, for a week with no exit fixture", () => {
+    const out = weekRoster(seasonCards, weekCards, [fx("week_5", "Alpha", "Bravo", 2, 0, MONDAY_8PM)], WEEK);
+
+    expect(out.map((c) => c.slug).sort()).toEqual(["a", "b", "c"]);
+    expect(out.every((c) => c.sendoff === undefined)).toBe(true);
+    expect(out.filter((c) => c.standout).map((c) => c.slug).sort()).toEqual(["b", "c"]);
   });
 });

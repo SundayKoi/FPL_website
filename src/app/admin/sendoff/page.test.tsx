@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SENDOFF_LOOKS } from "@/lib/cards/sendoffLooks";
 import { mondayOf } from "@/lib/packs/week";
 
@@ -10,6 +10,7 @@ const {
   fetchSeasonCards,
   fetchSeasonFixtures,
   fetchEditionWeekInfo,
+  fetchWeekCards,
 } = vi.hoisted(() => ({
   fetchStaffTier: vi.fn(),
   redirect: vi.fn(),
@@ -17,6 +18,7 @@ const {
   fetchSeasonCards: vi.fn(),
   fetchSeasonFixtures: vi.fn(),
   fetchEditionWeekInfo: vi.fn(),
+  fetchWeekCards: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ redirect }));
@@ -31,6 +33,7 @@ vi.mock("@/lib/cards/queries", () => ({
   fetchSeasonCards,
   fetchSeasonFixtures,
   fetchEditionWeekInfo,
+  fetchWeekCards,
 }));
 vi.mock("@/components/cards/PlayerCard3D", () => ({
   // The overlay comes back out as attributes so the look wall can be
@@ -58,6 +61,16 @@ vi.mock("@/components/cards/PlayerCard3D", () => ({
 const SendoffPreviewPage = (await import("./page")).default;
 
 afterEach(cleanup);
+
+// Empty reads by default; a test that cares mocks what it needs. The week
+// build is what the teams through print from, so it is read on every render
+// the same way the season build is.
+beforeEach(() => {
+  for (const read of [fetchAllCardSeasons, fetchSeasonCards, fetchSeasonFixtures, fetchEditionWeekInfo, fetchWeekCards]) {
+    read.mockReset();
+    read.mockResolvedValue([]);
+  }
+});
 
 const week = mondayOf(new Date());
 /** Midday Monday UTC of the current Eastern week — safely inside it either
@@ -141,6 +154,8 @@ describe("the send-off preview", () => {
       card("Ana", "Mocha", 88, "Mid"),
       card("Bo", "Untouched", 70, "Jungle"),
     ]);
+    // Gamblers went through, so Doug's card comes out of the WEEK build.
+    fetchWeekCards.mockResolvedValue([card("Doug", "Gamblers", 71, "Top")]);
     fetchSeasonFixtures.mockResolvedValue([fx("quarterfinals", "Mocha", "Gamblers", 1, 3)]);
     fetchEditionWeekInfo.mockResolvedValue([
       { week, label: "Send-off · Quarterfinals", sendoff: { closesAt: null } },
@@ -153,12 +168,15 @@ describe("the send-off preview", () => {
     expect(screen.getByTestId("elimination-Mocha").textContent).toContain("1–3");
     expect(screen.getByTestId("elimination-Mocha").textContent).toContain("Gamblers");
     expect(screen.queryByTestId("elimination-Gamblers")).toBeNull();
-    // ...its player's card prints as a send-off, the winner's as a plain
-    // season card, and a team that did not play prints nothing.
+    // ...its player's card prints as a send-off, the winner's as one of the
+    // week's own cards, and a team that did not play prints nothing.
     expect(screen.getByTestId("printed-ana")).toBeTruthy();
-    expect(screen.getByTestId("printed-doug")).toBeTruthy();
+    // The week's rating, not the season's 92: the caption gives it away.
+    expect(screen.getByTestId("printed-doug").textContent).toContain("71");
     expect(screen.queryByTestId("printed-bo")).toBeNull();
+    expect(screen.getByTestId("advancing").textContent).toContain("rated on the week");
     expect(screen.getByTestId("advancing").textContent).toContain("Gamblers");
+    expect(screen.queryByTestId("unmatched")).toBeNull();
     // The ledger separates who has printed from who is still in it.
     expect(screen.getByTestId("ledger-Mocha").textContent).toContain("printed");
     expect(screen.getByTestId("ledger-Gamblers").textContent).toContain("alive");
@@ -257,6 +275,8 @@ describe("the send-off preview", () => {
       card("Ray", "Ravens", 90, "Sup"),
       card("Kim", "Comets", 78, "Mid"),
     ]);
+    // Ravens and Comets went through: their players are the week's cards.
+    fetchWeekCards.mockResolvedValue([card("Ray", "Ravens", 90, "Sup"), card("Kim", "Comets", 78, "Mid")]);
     fetchSeasonFixtures.mockResolvedValue([
       fx("gauntlet_r1", "Mocha", "Gamblers", 3, 1, inFutureWeek),
       fx("gauntlet_r1", "Sharks", "Bolts", 2, 0, inFutureWeek),
@@ -281,8 +301,8 @@ describe("the send-off preview", () => {
     // later exit, with that fixture's series line.
     expect(screen.getByTestId("elimination-Mocha").textContent).toContain("1–3");
     expect(screen.getByTestId("elimination-Mocha").textContent).toContain("Ravens");
-    // Four losers as send-offs, and the two teams through as plain season
-    // cards in the same edition.
+    // Four losers as send-offs off the season build, and the two teams
+    // through as this week's cards in the same edition.
     for (const slug of ["ana", "doug", "bo", "cy", "ray", "kim"]) expect(screen.getByTestId(`printed-${slug}`)).toBeTruthy();
     expect(screen.getByTestId("advancing").textContent).toContain("Comets, Ravens");
     expect(screen.queryByTestId("unmatched")).toBeNull();
