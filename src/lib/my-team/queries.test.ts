@@ -84,11 +84,13 @@ function fakeClient({
   fixtures = [upcoming],
   captainTeamIds = [],
   teamAggRows = [],
+  matchReports = [],
   errors = {},
 }: {
   fixtures?: Row[];
   captainTeamIds?: string[];
   teamAggRows?: Row[];
+  matchReports?: Row[];
   errors?: Partial<Record<string, { message: string }>>;
 } = {}) {
   const tables: Record<string, Row[]> = {
@@ -112,6 +114,7 @@ function fakeClient({
     })),
     fixtures,
     stats_team_agg: teamAggRows,
+    match_reports: matchReports,
   };
 
   const from = vi.fn((table: string) => {
@@ -299,6 +302,20 @@ describe("loadMyTeamDashboard", () => {
     );
 
     expect(result).toMatchObject({ kind: "ready", codes: [{ code: "OWN-CODE" }] });
+  });
+
+  it("moves on to the next fixture once the current one has a submitted report, even without a score", async () => {
+    // Gauntlet night: round 1 is reported by both captains but the ingest
+    // (which writes the score) does not run between rounds.
+    const roundTwo = { ...upcoming, id: "academy-fixture-r2", scheduled_at: "2026-09-08T00:00:00Z", sort_order: 2 };
+    const result = await loadMyTeamDashboard(
+      fakeClient({
+        fixtures: [upcoming, roundTwo],
+        matchReports: [{ id: "report-1", season: "A1", fixture_id: upcoming.id, status: "pending" }],
+      }) as never,
+      "academy",
+    );
+    expect(result).toMatchObject({ kind: "ready", nextFixture: { id: roundTwo.id } });
   });
 
   it("retains the full team schedule when there is no upcoming match", async () => {

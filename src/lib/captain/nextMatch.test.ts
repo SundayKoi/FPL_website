@@ -48,6 +48,16 @@ describe("pickNextFixture", () => {
     expect(pickNextFixture([played], "Mint Ice Cubes")).toBeNull();
   });
 
+  it("skips a fixture that already has a submitted report, even without a score", () => {
+    // Gauntlet night: round 1 is reported but the ingest has not synced a
+    // score yet, and round 2 is the same evening.
+    const roundOne = fixture({ team_a: "Alpha", team_b: "Beta", stage: "gauntlet_r1", scheduled_at: "2026-09-21T20:00:00-04:00", sort_order: 0 });
+    const roundTwo = fixture({ team_a: "Gamma", team_b: "Alpha", stage: "gauntlet_r2", scheduled_at: "2026-09-21T20:00:00-04:00", sort_order: 1 });
+    expect(pickNextFixture([roundOne, roundTwo], "Alpha")?.id).toBe(roundOne.id);
+    expect(pickNextFixture([roundOne, roundTwo], "Alpha", new Set([roundOne.id]))?.id).toBe(roundTwo.id);
+    expect(pickNextFixture([roundOne, roundTwo], "Alpha", new Set([roundOne.id, roundTwo.id]))).toBeNull();
+  });
+
   it("picks the earliest scheduled_at among candidates", () => {
     const later = fixture({ id: "later", team_a: "Mint Ice Cubes", scheduled_at: "2026-09-01T00:00:00Z" });
     const earlier = fixture({ id: "earlier", team_a: "Mint Ice Cubes", scheduled_at: "2026-08-15T00:00:00Z" });
