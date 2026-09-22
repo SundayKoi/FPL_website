@@ -3,32 +3,67 @@ import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeade
 import CollectibleRenderer from "@/components/cards/CollectibleRenderer";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
-import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
-import { fetchSeasonEndCatalog, fetchSeasonEndOwnedDesignIds, fetchSeasonEndRelease } from "@/lib/season-end/release-queries";
+import { fetchSeasonEndCatalog, fetchSeasonEndOwnedCopies, fetchSeasonEndReleaseById, fetchPublishedSeasonEndReleases, type SeasonEndOwnedCopy } from "@/lib/season-end/release-queries";
+import type { CardLeague } from "@/lib/cards/queries";
 
-export async function SeasonEndCollectionView({ league }: { league: CardLeague }) {
+export async function SeasonEndCollectionView({ league, releaseId }: { league: CardLeague; releaseId?: string }) {
   const service = createBettingServiceClient();
-  const season = await fetchCardSeason(service, league);
-  const user = await getBettingUser();
-  const release = season ? await fetchSeasonEndRelease(service, league, season, { publicOnly: true }) : null;
-  const catalog = release ? await fetchSeasonEndCatalog(service, release) : null;
-  if (!season || !release || !catalog) {
-    return <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 py-10 text-white"><p className="label-dash text-gold">Season&apos;s End</p><h1 className="type-display text-4xl">The collection is not published yet</h1><p className="text-steel">Staff testing must finish before this release appears in the public collection.</p></main>;
+  const published = await fetchPublishedSeasonEndReleases(service, league);
+  const release = releaseId
+    ? await fetchSeasonEndReleaseById(service, releaseId, { publicOnly: true })
+    : published[0] ?? null;
+  const scopedRelease = release && release.league === league ? release : null;
+  let catalog: Awaited<ReturnType<typeof fetchSeasonEndCatalog>> = null;
+  let catalogError = false;
+  if (scopedRelease) {
+    try {
+      catalog = await fetchSeasonEndCatalog(service, scopedRelease);
+    } catch {
+      catalogError = true;
+    }
   }
-  const owned = new Set(user ? await fetchSeasonEndOwnedDesignIds(service, release.id, user.discordId) : []);
-  const previewPulls = catalog.designs.map((design) => ({ design, foil: false, foilType: null, signed: false, autograph: null, guaranteedFoil: false, inventoryId: 0 }));
+  const user = await getBettingUser();
+  const ownedCopies: SeasonEndOwnedCopy[] = scopedRelease && user
+    ? await fetchSeasonEndOwnedCopies(service, scopedRelease.id, user.discordId)
+    : [];
+  if (!scopedRelease || !catalog) {
+    return <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 py-10 text-white"><p className="label-dash text-gold">Season&apos;s End</p><h1 className="type-display text-4xl">{catalogError ? "Release integrity check failed" : "The collection is not published yet"}</h1><p className="text-steel">{catalogError ? "This frozen release could not be verified. Staff must inspect the stored catalog before it can be shown." : "Staff testing must finish before this release appears in the public collection."}</p></main>;
+  }
+
+  const copiesByDesign = new Map<string, SeasonEndOwnedCopy[]>();
+  for (const copy of ownedCopies) copiesByDesign.set(copy.designId, [...(copiesByDesign.get(copy.designId) ?? []), copy]);
+  const preview = (design: typeof catalog.designs[number]) => ({ design, foil: false, foilType: null, signed: false, autograph: null, guaranteedFoil: false, inventoryId: 0 });
+  const base = league === "academy" ? "/academy/cards" : "/cards";
   return (
     <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <CardsPageHeader eyebrow={cardsEyebrow("Season's End", league, season)} title="Season&apos;s End collection">
+      <CardsPageHeader eyebrow={cardsEyebrow("Season's End", league, scopedRelease.season)} title="Season&apos;s End collection">
         Collectible designs are grouped separately from player-card gameplay. Variants sit beneath one base design, so duplicates do not inflate the checklist.
       </CardsPageHeader>
-      <p className="text-sm text-steel">Owned base designs: <span className="text-gold">{catalog.designs.filter((design) => owned.has(design.designId)).length}/{catalog.designs.length}</span> · rules {release.rulesVersion}</p>
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{previewPulls.map((pull) => <div key={pull.design.designId} className="flex flex-col gap-2"><CollectibleRenderer pull={pull} compact={!owned.has(pull.design.designId)} /><p className={`text-xs ${owned.has(pull.design.designId) ? "text-gold" : "text-steel"}`}>{owned.has(pull.design.designId) ? "Owned" : "Not collected"}</p></div>)}</div>
-      <Link href={league === "academy" ? "/academy/cards/packs" : "/cards/packs"} className="w-fit text-sm text-coral underline-offset-4 hover:underline">← Back to packs</Link>
+      <div className="flex flex-wrap items-center gap-3 text-sm text-steel">
+        <span>Release revision {scopedRelease.catalogVersion} · {scopedRelease.paused ? "paused for purchases" : "published"}</span>
+        <Link href={`${base}/season-end/market?release=${encodeURIComponent(scopedRelease.id)}`} className="text-gold underline-offset-4 hover:underline">Market, trades &amp; dust →</Link>
+        <Link href={`${base}/packs?release=${encodeURIComponent(scopedRelease.id)}`} className="text-coral underline-offset-4 hover:underline">Open this release →</Link>
+      </div>
+      {published.length > 1 ? <nav aria-label="Season's End releases" className="flex flex-wrap gap-2 text-xs">{published.map((entry) => <Link key={entry.id} href={`${base}/season-end?release=${encodeURIComponent(entry.id)}`} className={`rounded-full border px-3 py-1 ${entry.id === scopedRelease.id ? "border-gold text-gold" : "border-line text-steel"}`}>{entry.season} · revision {entry.catalogVersion}</Link>)}</nav> : null}
+      <p className="text-sm text-steel">Owned base designs: <span className="text-gold">{copiesByDesign.size}/{catalog.designs.length}</span> · rules {scopedRelease.rulesVersion} · digest <code className="text-xs text-gold">{scopedRelease.revisionDigest.slice(0, 16) || scopedRelease.catalogHash.slice(0, 16)}</code></p>
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {catalog.designs.map((design) => {
+          const copies = copiesByDesign.get(design.designId) ?? [];
+          return (
+            <article key={design.designId} className="flex flex-col gap-2">
+              <CollectibleRenderer pull={preview(design)} compact={copies.length === 0} />
+              <div className="flex items-center justify-between text-xs"><span className={copies.length ? "text-gold" : "text-steel"}>{copies.length ? `${copies.length} owned variant${copies.length === 1 ? "" : "s"}` : "Catalog preview · not collected"}</span><span className="text-steel">{design.kind === "accolade" ? "Accolade" : design.kind === "best_of" ? "Best Of" : "Season Card"}</span></div>
+              {copies.length ? <div className="flex flex-wrap gap-2">{copies.map((copy) => <div key={copy.inventoryId} className="flex min-w-[150px] flex-col gap-1 rounded border border-line p-2"><CollectibleRenderer pull={{ design: copy.payload, foil: copy.foil, foilType: copy.foilType as never, signed: copy.signed, autograph: copy.autograph, guaranteedFoil: copy.slotPosition === 5, inventoryId: copy.inventoryId }} compact /><Link href={`${base}/season-end/copy/${copy.inventoryId}`} className="text-[11px] text-coral underline-offset-4 hover:underline">View copy #{copy.inventoryId}</Link></div>)}</div> : null}
+            </article>
+          );
+        })}
+      </div>
+      <Link href={`${base}/packs?release=${encodeURIComponent(scopedRelease.id)}`} className="w-fit text-sm text-coral underline-offset-4 hover:underline">← Back to packs</Link>
     </main>
   );
 }
 
-export default async function SeasonEndCollectionPage() {
-  return SeasonEndCollectionView({ league: "premier" });
+export default async function SeasonEndCollectionPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams;
+  return SeasonEndCollectionView({ league: "premier", releaseId: typeof params.release === "string" ? params.release : undefined });
 }

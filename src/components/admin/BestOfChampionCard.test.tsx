@@ -96,6 +96,24 @@ describe("BestOfChampionCard", () => {
     expect(screen.queryByText("Selection details")).toBeNull();
   });
 
+  it("can render as a card-only face for compact shelves", () => {
+    render(
+      <BestOfChampionCard
+        award={award({ winners: [winner()] })}
+        winner={winner()}
+        playerCard={card}
+        season="S5"
+        league="premier"
+        headingId="best-of-card-only"
+        showDetails={false}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Best of Azir" })).toBeTruthy();
+    expect(screen.queryByText(/Award record/)).toBeNull();
+    expect(screen.queryByText("One unique played champion per player.")).toBeNull();
+  });
+
   it("keeps the assigned art and identity when the player card is missing", () => {
     render(
       <BestOfChampionCard

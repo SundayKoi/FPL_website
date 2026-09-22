@@ -50,18 +50,25 @@ export async function loadSeasonEndTeamIdentities(
   client: SupabaseClient,
   league: "premier" | "academy",
   season: string,
+  options: { strictSource?: boolean } = {},
 ): Promise<SeasonEndTeamIdentityMap> {
   const { data: settings, error: settingsError } = await client
     .from("league_settings")
     .select("current_season, academy_season, featured_draft_id, academy_draft_id")
     .eq("id", 1)
     .single();
-  if (settingsError || !settings) return {};
+  if (settingsError || !settings) {
+    if (options.strictSource) throw new Error(`Season's End team settings source failed: ${settingsError?.message ?? "missing settings"}`);
+    return {};
+  }
 
   const row = settings as CurrentSettings;
   const expectedSeason = league === "premier" ? row.current_season : row.academy_season;
   const draftId = league === "premier" ? row.featured_draft_id : row.academy_draft_id;
-  if (expectedSeason !== season || !draftId) return {};
+  if (expectedSeason !== season || !draftId) {
+    if (options.strictSource) throw new Error("Season's End team identity source is not scoped to the requested season");
+    return {};
+  }
 
   let teams: SeasonEndTeamRow[];
   let aliases: LeagueTeamAliasRow[];
@@ -79,7 +86,8 @@ export async function loadSeasonEndTeamIdentities(
         .order("id")
         .range(from, to)),
     ]);
-  } catch {
+  } catch (caught) {
+    if (options.strictSource) throw caught;
     return {};
   }
 

@@ -74,6 +74,7 @@ export default async function SeasonsEndPage({
     }
   }
   const bestOfDiagnostics = result?.awards.find((award) => award.id === "best-of-champion")?.bestOfDiagnostics;
+  const viewerId = await readViewerDiscordId(client);
   const release = await fetchSeasonEndRelease(createBettingServiceClient(), league, season);
   const releaseCatalog = release ? await fetchSeasonEndCatalog(createBettingServiceClient(), release) : null;
 
@@ -93,7 +94,7 @@ export default async function SeasonsEndPage({
         </> : null}
       </header>
 
-      {staff ? <SeasonEndReleasePanel league={league} season={season} release={release} catalog={releaseCatalog} /> : null}
+      {staff ? <SeasonEndReleasePanel league={league} season={season} release={release} catalog={releaseCatalog} viewerId={viewerId} /> : null}
 
       {error ? <p role="alert" className="card-brand p-5 text-coral">{error}</p> : null}
       {staff && result ? <section aria-label="Season coverage" className="card-brand flex flex-col gap-3 p-5">
@@ -124,7 +125,7 @@ export default async function SeasonsEndPage({
             <section id={`group-${groupIndex}`} key={group} aria-label={group} className="scroll-mt-8">
               <div className="mb-5 flex items-baseline gap-4 border-b border-line pb-3"><span className="font-mono text-sm text-steel">{String(groupIndex + 1).padStart(2, "0")}</span><h2 className="type-display text-3xl text-gold">{group}</h2></div>
               <div className={`${styles.cardRow} ${group === "Best of Champions" ? styles.bestOfCardRow : styles.ordinaryCardRow}`}>
-                {awards.map((award, index) => <SeasonEndAwardCard key={award.id} award={award} season={season} league={league} index={index} cards={allSeasonCards} teamIdentities={teamIdentities} showAdminDetails={staff} />)}
+                {awards.map((award, index) => <SeasonEndAwardCard key={award.id} award={award} season={season} league={league} index={index} cards={allSeasonCards} teamIdentities={teamIdentities} showAdminDetails={staff} showBestOfDetails={false} showBestOfVariants={false} />)}
               </div>
             </section>
           );

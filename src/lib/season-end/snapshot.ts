@@ -3,12 +3,11 @@ import { cardPlayerKey, teamBadgeKey, type PlayerCardData } from "@/lib/cards/bu
 import type { CardLeague } from "@/lib/cards/queries";
 import type { Division } from "@/lib/schedule/types";
 import { catalogHash, seasonEndDesignId, type AccoladeCollectible, type AccoladeSubject, type BestOfCollectible, type CanonicalPlayerIdentity, type CollectibleArtwork, type CollectibleDisplay, type SeasonCollectible, type SeasonEndCatalog, type SeasonEndCollectible, type WithheldAward } from "./collectibles";
+import { SEASON_END_RULES_VERSION } from "./release";
 import type { AwardWinner, SeasonAward, SeasonEndResult } from "./derive";
 import { formatAwardPresentation } from "./presentation";
 import type { SeasonEndTeamIdentityMap } from "./queries";
 import { championArtCrop } from "./championArt";
-
-export const SEASON_END_RULES_VERSION = "season-end-2026-09-v1";
 
 function canonicalPlayerFromCard(card: PlayerCardData): CanonicalPlayerIdentity {
   return { key: cardPlayerKey(card.name, card.tag), name: card.name, tag: card.tag, slug: card.slug };

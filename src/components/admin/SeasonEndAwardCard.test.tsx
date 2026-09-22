@@ -151,6 +151,43 @@ describe("SeasonEndAwardCard", () => {
     expect(screen.queryByText("Season stories")).toBeNull();
   });
 
+  it("supports a card-only Best of shelf without captions or variant actions", () => {
+    render(
+      <SeasonEndAwardCard
+        award={{
+          id: "best-of-champion",
+          title: "Best of Champion",
+          description: "One unique played champion per player.",
+          group: "Best of Champions",
+          scope: "player",
+          partition: "league",
+          status: "ready",
+          winners: [{
+            name: "Alice#NA1",
+            team: "Wolves",
+            value: 5,
+            games: 7,
+            champion: "Azir",
+            championGames: 7,
+            title: "Best of Azir",
+            evidence: { bestOf: { wins: 5, losses: 2, winRate: 100 * 5 / 7, meanPerformance: 88.4, seasonGames: 8, championGames: 7 } },
+          }],
+        }}
+        season="S5"
+        league="premier"
+        index={0}
+        cards={[card]}
+        showBestOfDetails={false}
+        showBestOfVariants={false}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Best of Azir" })).toBeTruthy();
+    expect(screen.queryByText(/Award record/)).toBeNull();
+    expect(screen.queryByText("One unique played champion per player.")).toBeNull();
+    expect(screen.queryByText("View variants")).toBeNull();
+  });
+
   it("keeps Best of empty states actionable without repeating the assignment description", () => {
     render(
       <SeasonEndAwardCard

@@ -1,11 +1,30 @@
 # Season's End cards
 
-Open **Season's End** (`/admin/seasons-end`). The page is pinned to Premier S5
+Open the public **Season's End** collection at `/cards/season-end` (or
+`/academy/cards/season-end`), and use `/cards/season-end/market` for public
+copy sales, wanted offers, direct trades, and manual dust. Public pages select
+an exact `?release=<uuid>` revision and keep older published releases
+browseable after a newer release or weekly season becomes active. Admins build
+and test a release at **Season's End** (`/admin/seasons-end`). The page is pinned to Premier S5
 and Academy A1; use the league dropdown to swap between the two card sets.
 Admins and owners can view the card calculation diagnostics, while active
 patrons can open the shared URL to view the cards; they see the card collection
 without the staff controls, diagnostics, or developer crop audit. This is a
-read-only awards desk, not a collectible mint or a season-closing operation.
+The admin awards desk remains a calculation and release-control surface; the
+public release is a separate collectible product. A published pack mints five
+distinct, auto-dust-protected Season's End copies: two Season Cards, two award
+cards, and a guaranteed foil in the fifth slot. The collection distinguishes
+catalog previews from owned variants and renders owned signatures, foils,
+frozen artwork, and copy IDs from the inventory row. A copy's detail URL is
+product-namespaced so it cannot be confused with a weekly player-card ID.
+Historical copy links remain readable after a sale or manual dust and show the
+frozen payload with its terminal status; only active public copies appear in
+the owned collection and market actions.
+Purchases are paid only, keyed by a durable request UUID, and a pending opening
+can be resumed after reload or a membership/season change. Community commerce
+uses dedicated Season's End listings, wants, trades, and dust RPCs; those
+boundaries never feed player-card gameplay, sets, lineups, expeditions, or
+auto-dust.
 The former `/admin/season-end` route redirects here for existing admin
 bookmarks.
 
@@ -217,3 +236,22 @@ Focused tests live in `src/lib/season-end/` and
 staff/patron gating, the patron-safe card view, ties, missing data, rates,
 timeline comparisons, chronological streaks, series completion, rosters,
 performance floors and champion mappings.
+
+Release evidence is generated from the frozen catalog, rules, signing book,
+economy version, and revision digest with:
+
+```sh
+npm run simulate:season-end -- --release=<published-release-uuid> --out=docs/reports/seasons-end/<league>-<season>-<revision>.json
+```
+
+The command is read-only and writes adjacent JSON and Markdown reports. With
+no `--patron` flag it records both ordinary and maximum-patron dust scenarios;
+`--patron=true|false` selects one scenario for a focused run. Never run it
+with a linked production credential while a release is being assembled.
+
+Focused Season's End database coverage is in `supabase/tests/0123_season_end_packs_test.sql`
+and `supabase/tests/0126_season_end_release_hardening_test.sql`; the latter
+covers release immutability, request recovery, first-writer outcomes, public
+copy provenance, listings, wants, trades, quotes, and dust. The public smoke
+route is `e2e/season-end.spec.ts`. Publication and production purchase tests
+remain explicit launch gates.

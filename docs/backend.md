@@ -379,6 +379,8 @@ Postgres database and public schema:
 | Card pack openings | `card_pack_openings` | Server-owned identity and outcome for every standard paid, daily, or comped opening. The request UUID makes retries idempotent; the row stores `standard`/`god`, frozen card JSON, inventory ids, reveal order, source, and fulfillment/refund state. Service-role RPCs begin, fulfill, and compensate it. |
 | Card provenance | `card_provenance` | One row per thing that happened to a copy: `minted`, `transferred`, `dusted`. Written by `AFTER` triggers on `card_inventory`, deliberately with no foreign key so a chain outlives the copy it describes. New pack mints also carry `card_pack_openings.opening_id`; the opening id is immutable on the inventory row. Deny-all RLS with a service-role grant, like `card_inventory` itself. See "Print runs and provenance" for the `fpl.provenance_ref` contract. |
 | Card market | `card_listings`, `card_wants` | The for-sale and wanted boards behind `/cards/market`. A listing names one `card_inventory` copy, an ask, and a fourteen-day expiry; a want names a slug and a bounty. Both are deny-all, service-role only. `buy_card_listing` and `fill_card_want` hand off to `execute_card_sale`, which locks the copy and both wallets, writes the ledger pair and moves ownership in one transaction. A partial unique index allows one OPEN listing per copy. |
+| Season's End collectibles | `season_end_releases`, `season_end_designs`, `season_end_openings`, `season_end_inventory`, `season_end_provenance` | Versioned Premier/Academy release contracts. Catalogs, artwork payloads, signing books, numeric rules, economy inputs, and revision digests are frozen before `admin_test`; public copies preserve those references and are not player-card gameplay inputs. `begin_season_end_opening`, `prepare_season_end_opening`, and `fulfill_season_end_opening` are service-only, request-idempotent, first-writer-wins RPCs. Public reads use exact release IDs and paginated server adapters; test openings use isolated wallets and cannot enter the public collection. |
+| Season's End commerce | `season_end_listings`, `season_end_wants`, `season_end_trades` | Dedicated public-only listing, wanted-board, direct-trade, and manual-dust boundaries. Each settlement rechecks release/mode/owner/lifecycle under row locks, locks shared wallets deterministically, records betting ledger and Season's End provenance entries, and leaves a tombstone after dust. Product-qualified routes under `/cards/season-end/market` and `/academy/cards/season-end/market` never resolve numeric IDs through `card_inventory`. |
 | Homepage and announcements | `homepage_briefs`, `homepage_featured_settings`, `announcements`, `draft_chat` | Curated or generated homepage copy, featured matchups, operational announcements, and draft chat. |
 | Broadcaster workspace | `homepage_featured_settings`, `fixtures`, `roster_memberships`, `match_drafts`, `raw_stats`, `stats_*` views | Read-only server composition of each league's featured fixture, rosters, match drafts, and in-house stats for owner/broadcaster commentary preparation. The homepage schedule's active stage follows the bracket once every regular-season week is played (the first playoff stage with an unplayed fixture, skipping stages a league does not play), and its `upcoming` list — the active stage and every later one — is what the admin's featured-match dropdown offers, so staff can feature a playoff game. `/broadcaster` also takes `?fixture=<id>` to caster-switch to any of those games without changing the featured pick. |
 
@@ -1519,6 +1521,38 @@ A completed sale posts a best-effort "SOLD" embed to the cards channel through
 `postCardsWebhook`. Like every other announcement it is garnish: the money has
 already moved, and a Discord outage must never turn a settled sale into an
 error.
+
+### Season's End release and commerce
+
+Season's End is intentionally not a `card_inventory` extension. The release
+contract is a visible, league-scoped revision keyed by `(release_id, league,
+season)`. `replace_season_end_draft_catalog` replaces a draft catalog in one
+transaction, while database triggers reject design and frozen-input mutations
+after `admin_test`. Approval requires the exact revision digest, a separately
+recorded simulator report with passing signature/salvage gates, and fulfilled
+admin openings from that exact revision before the state can become public. A
+newer draft or public revision does not rewrite older copies or hide their
+exact collection URLs. Releases missing the frozen contract are readable for
+historical recovery but cannot start new openings.
+
+The trusted server actions derive the Discord identity from the signed-in
+session and call service-only RPCs. `begin_season_end_opening` binds the
+request UUID, release revision, mode, price, signing book, rules, and economy
+before charging; recovery checks the existing owner/request first, so pause,
+membership loss, active-season rollover, or a newer revision cannot strand a
+paid opening. Preparation locks the opening and stores the canonical design
+payload; fulfillment mints five ordered rows plus provenance atomically.
+
+Public copies use `season_end_inventory` only. The market adapters page
+listings, wants, trades, and owned copies; settlement rechecks ownership,
+expiry, and the public mode, locks copies and wallets in deterministic order,
+and records the ownership transition. Listings and trades pin an ownership
+version, so a promise becomes stale even if a copy later returns to the same
+owner. Manual dust locks the copy, calculates the pinned economy quote, credits
+one ledger entry, cancels conflicting commerce, marks the copy `dusted`, and
+appends provenance without deleting the frozen payload.
+No Season's End copy is accepted by standard-card sets, lineups, expeditions,
+auto-dust, or player-card detail routes.
 
 ### Player renames
 

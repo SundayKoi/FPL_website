@@ -103,7 +103,7 @@ function FrozenBestOf({ pull, design }: { pull: SeasonEndPullResult; design: Ext
     ? { cropPositionX: design.artwork.cropPositionX, cropPositionY: design.artwork.cropPositionY, zoom: design.artwork.zoom }
     : null;
   return (
-    <div data-testid="season-end-best_of-renderer" data-foil={pull.foil ? "true" : "false"}>
+    <div data-testid="season-end-best_of-renderer" data-foil={pull.foil ? "true" : "false"} data-foil-type={pull.foil ? pull.foilType ?? "foil" : "matte"} aria-label={`${design.display.title}. Finish: ${pull.foil ? pull.foilType ?? "foil" : "matte"}`}>
       <BestOfChampionCard
         award={award}
         winner={winner}
@@ -112,6 +112,9 @@ function FrozenBestOf({ pull, design }: { pull: SeasonEndPullResult; design: Ext
         headingId={titleId(design.designId)}
         division={design.division ?? undefined}
         autograph={pull.autograph}
+        frozenArtwork={design.artwork.kind === "single" ? { primaryUrl: design.artwork.primaryUrl, fallbackUrl: design.artwork.fallbackUrl } : undefined}
+        foil={pull.foil}
+        foilType={pull.foilType}
         crop={crop}
         displayOverride={{ headline: design.display.headline, evidence: design.display.evidence }}
         showAdminDetails={false}
@@ -130,6 +133,7 @@ function FrozenAccolade({ pull, design }: { pull: SeasonEndPullResult; design: A
       className={awardStyles.card}
       data-testid="season-end-accolade-renderer"
       data-foil={pull.foil ? "true" : "false"}
+      data-foil-type={pull.foil ? pull.foilType ?? "foil" : "matte"}
     >
       <SeasonEndAwardFace
         titleId={titleId(design.designId)}
@@ -140,6 +144,8 @@ function FrozenAccolade({ pull, design }: { pull: SeasonEndPullResult; design: A
         season={design.season}
         league={design.league}
         division={design.division ?? undefined}
+        foil={pull.foil}
+        foilType={pull.foilType}
         result={(
           <div className={awardStyles.resultPanel}>
             <div className={awardStyles.resultGrid}>

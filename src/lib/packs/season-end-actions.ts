@@ -5,10 +5,10 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import { cardPlayerKey } from "@/lib/cards/build";
 import { validateSeasonEndCatalog } from "@/lib/season-end/collectibles";
-import { fetchSeasonEndCatalog, fetchSeasonEndRelease, type SeasonEndOpeningMode } from "@/lib/season-end/release-queries";
-import { DEFAULT_SEASON_END_RULES, rollSeasonEndPack, type SeasonEndPull, type SeasonEndRollRules } from "./season-end";
+import { fetchSeasonEndCatalog, fetchSeasonEndReleaseById, type SeasonEndOpeningMode } from "@/lib/season-end/release-queries";
+import { rollSeasonEndPack, type SeasonEndPull, type SeasonEndRollRules } from "./season-end";
+import { validateSeasonEndReleaseRules } from "@/lib/season-end/release";
 
 export type SeasonEndPullResult = SeasonEndPull & { inventoryId: number };
 
@@ -24,7 +24,7 @@ export type SeasonEndOpenPackResult =
       revealOrder: number[];
       autoDustProtected: true;
     }
-  | { ok: false; error: string };
+  | { ok: false; error: string; code?: "pending" | "refunded" | "unavailable" | "invalid" };
 
 type OpeningRow = {
   opening_id: string;
@@ -33,7 +33,13 @@ type OpeningRow = {
   mode: SeasonEndOpeningMode;
   test_balance: number | null;
   outcome: SeasonEndPull[] | null;
+  signing_book: Array<{ playerKey: string; autograph: string }> | null;
+  rules_payload: Record<string, unknown> | null;
 };
+
+function validUuid(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
 
 function rand(): number {
   return randomBytes(6).readUIntBE(0, 6) / 2 ** 48;
@@ -45,18 +51,22 @@ async function isStaff(): Promise<boolean> {
   return tier.isAdmin || tier.isOwner;
 }
 
-async function fetchAutographs(): Promise<Map<string, string>> {
-  const service = createBettingServiceClient();
-  const { data, error } = await service.from("card_art_prefs").select("summoner_name, tag, signature").not("signature", "is", null);
-  if (error) return new Map();
-  return new Map(((data as Array<{ summoner_name: string; tag: string; signature: string | null }> | null) ?? [])
-    .filter((row): row is { summoner_name: string; tag: string; signature: string } => Boolean(row.signature))
-    .map((row) => [cardPlayerKey(row.summoner_name, row.tag), row.signature]));
-}
-
-function rulesFor(release: { signatureCalibration: Record<string, unknown> | null }): SeasonEndRollRules {
+function rulesFor(release: { signatureCalibration: Record<string, unknown> | null; rulesPayload: Record<string, unknown> }, frozenRules?: Record<string, unknown> | null): SeasonEndRollRules {
   const calibrated = Number(release.signatureCalibration?.calibratedPerCopyChance ?? 0);
-  return { ...DEFAULT_SEASON_END_RULES, signatureChance: Number.isFinite(calibrated) ? calibrated : 0 };
+  const frozen = frozenRules ?? release.rulesPayload;
+  const rules: SeasonEndRollRules = {
+    foilChance: Number(frozen.foilChance),
+    slot34FamilyWeights: frozen.slot34FamilyWeights as SeasonEndRollRules["slot34FamilyWeights"],
+    slot5FamilyWeights: frozen.slot5FamilyWeights as SeasonEndRollRules["slot5FamilyWeights"],
+    guaranteedSlot: frozen.guaranteedSlot as 5,
+    signatureChanceCap: Number(frozen.signatureChanceCap),
+    foilTypeWeights: frozen.foilTypeWeights as SeasonEndRollRules["foilTypeWeights"],
+    signatureChance: Number.isFinite(calibrated) ? calibrated : 0,
+  };
+  const errors = validateSeasonEndReleaseRules(rules);
+  if (!Number.isFinite(rules.signatureChance) || rules.signatureChance < 0 || rules.signatureChance > rules.signatureChanceCap) errors.push("frozen signature chance is invalid");
+  if (errors.length) throw new Error(`invalid frozen Season's End rules: ${errors.join("; ")}`);
+  return rules;
 }
 
 function asOpening(value: unknown): OpeningRow | null {
@@ -67,9 +77,34 @@ function asOpening(value: unknown): OpeningRow | null {
     status: row.status as OpeningRow["status"],
     price: Number(row.price ?? 500),
     mode: row.mode as SeasonEndOpeningMode,
-    test_balance: row.test_balance === null || row.test_balance === undefined ? null : Number(row.test_balance),
+    test_balance: row.test_balance === null || row.test_balance === undefined
+      ? row.test_balance_after === null || row.test_balance_after === undefined ? null : Number(row.test_balance_after)
+      : Number(row.test_balance),
     outcome: decodeOutcome(row.outcome),
+    signing_book: Array.isArray(row.signing_book) ? row.signing_book as Array<{ playerKey: string; autograph: string }> : null,
+    rules_payload: row.rules_payload && typeof row.rules_payload === "object" ? row.rules_payload as Record<string, unknown> : null,
   };
+}
+
+async function existingOpening(input: { requestId: string; user: string; releaseId: string; mode: SeasonEndOpeningMode }): Promise<OpeningRow | null> {
+  const service = createBettingServiceClient();
+  const { data, error } = await service
+    .from("season_end_openings")
+    .select("opening_id, status, price, mode, test_balance_after, outcome, signing_book, rules_payload")
+    .eq("request_id", input.requestId)
+    .eq("discord_id", input.user)
+    .eq("release_id", input.releaseId)
+    .eq("mode", input.mode)
+    .maybeSingle();
+  if (error) throw new Error(`Season's End opening recovery read failed: ${error.message}`);
+  return asOpening(data);
+}
+
+async function openingStatus(openingId: string): Promise<OpeningRow | null> {
+  const service = createBettingServiceClient();
+  const { data, error } = await service.from("season_end_openings").select("opening_id, status, price, mode, test_balance_after, outcome, signing_book, rules_payload").eq("opening_id", openingId).maybeSingle();
+  if (error) return null;
+  return asOpening(data);
 }
 
 function decodeOutcome(value: unknown): SeasonEndPull[] | null {
@@ -91,17 +126,25 @@ async function fetchInventoryIds(openingId: string): Promise<number[]> {
   const service = createBettingServiceClient();
   const { data, error } = await service
     .from("season_end_inventory")
-    .select("id")
+    .select("id, slot_position")
     .eq("opening_id", openingId)
-    .order("id", { ascending: true });
-  if (error) return [];
-  return ((data as Array<{ id: number }> | null) ?? []).map((row) => Number(row.id));
+    .order("slot_position", { ascending: true });
+  if (error) throw new Error(`Season's End opening inventory read failed: ${error.message}`);
+  return ((data as Array<{ id: number; slot_position: number }> | null) ?? []).map((row) => Number(row.id));
 }
 
 async function publicBalance(discordId: string, fallback: number): Promise<number> {
   const service = createBettingServiceClient();
   const { data } = await service.from("betting_profiles").select("balance").eq("discord_id", discordId).maybeSingle();
   return Number((data as { balance?: number } | null)?.balance ?? fallback);
+}
+
+async function refundPendingOpening(openingId: string): Promise<{ error: string; code: "pending" | "refunded" }> {
+  const service = createBettingServiceClient();
+  const { error } = await service.rpc("refund_season_end_opening", { p_opening: openingId });
+  const terminal = await openingStatus(openingId);
+  if (!error && terminal?.status === "refunded") return { error: `Opening ${openingId} was refunded.`, code: "refunded" };
+  return { error: `Opening ${openingId} is pending recovery; your charge has not been confirmed as refunded.`, code: "pending" };
 }
 
 function outcomeFor(pulls: SeasonEndPull[]): Array<Record<string, unknown>> {
@@ -128,24 +171,37 @@ export async function openSeasonEndPackAction(input: {
   mode: SeasonEndOpeningMode;
   requestId?: string;
 }): Promise<SeasonEndOpenPackResult> {
+  if (!input || (input.league !== "premier" && input.league !== "academy") || typeof input.season !== "string" || !validUuid(input.releaseId) || (input.mode !== "public" && input.mode !== "admin_test")) {
+    return { ok: false, error: "That Season's End opening request is invalid." };
+  }
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in to open a Season's End pack." };
-  if (input.mode === "public" && !user.allowed) return { ok: false, error: "FPL Better members only." };
-  if (input.mode === "admin_test" && !(await isStaff())) return { ok: false, error: "Admins only." };
-
-  const service = createBettingServiceClient();
-  const release = await fetchSeasonEndRelease(service, input.league, input.season, { publicOnly: input.mode === "public" });
-  if (!release || release.id !== input.releaseId) return { ok: false, error: "That Season's End release is not available." };
-  if (release.paused) return { ok: false, error: "Season's End purchases are paused." };
-  if (input.mode === "public" && release.state !== "public") return { ok: false, error: "That release is not public yet." };
-  if (input.mode === "admin_test" && release.state !== "admin_test") return { ok: false, error: "Put the release into admin test mode first." };
-
-  const catalog = await fetchSeasonEndCatalog(service, release);
-  if (!catalog) return { ok: false, error: "The release catalog is incomplete." };
-  const validation = validateSeasonEndCatalog(catalog);
-  if (!validation.ok || catalog.catalogHash !== release.catalogHash) return { ok: false, error: "The release catalog is not locked for opening." };
-
   const requestId = input.requestId ?? randomUUID();
+  if (!validUuid(requestId)) return { ok: false, error: "That Season's End request id is invalid." };
+  const service = createBettingServiceClient();
+  const recovered = await existingOpening({ requestId, user: user.discordId, releaseId: input.releaseId, mode: input.mode });
+  if (input.mode === "admin_test" && !(await isStaff())) return { ok: false, error: "Admins only." };
+  if (!recovered && input.mode === "public" && !user.allowed) return { ok: false, error: "FPL Better members only." };
+
+  // A recovery reads the exact release revision by id and intentionally skips
+  // current pause, active-season, and membership checks. A new purchase has
+  // all three checks enforced before and inside the debit RPC.
+  const release = await fetchSeasonEndReleaseById(service, input.releaseId, { publicOnly: !recovered && input.mode === "public" });
+  if (!release || release.league !== input.league || release.season !== input.season) return { ok: false, error: "That Season's End release is not available." };
+  if (!recovered && release.legacyContract) return { ok: false, error: "That legacy Season's End release is archived; new openings are disabled." };
+  if (recovered?.status === "pending" && !recovered.outcome && release.legacyContract) return { ok: false, error: "That legacy opening needs staff recovery; its frozen release contract is incomplete.", code: "unavailable" };
+  if (!recovered && release.paused) return { ok: false, error: "Season's End purchases are paused." };
+  if (!recovered && input.mode === "public" && release.state !== "public") return { ok: false, error: "That release is not public yet." };
+  if (!recovered && input.mode === "admin_test" && release.state !== "admin_test") return { ok: false, error: "Put the release into admin test mode first." };
+
+  const needsCatalog = !recovered || (recovered.status === "pending" && !recovered.outcome);
+  const catalog = needsCatalog ? await fetchSeasonEndCatalog(service, release) : null;
+  if (needsCatalog) {
+    if (!catalog) return { ok: false, error: "The release catalog is incomplete." };
+    const validation = validateSeasonEndCatalog(catalog);
+    if (!validation.ok || catalog.catalogHash !== release.catalogHash) return { ok: false, error: "The release catalog is not locked for opening." };
+  }
+
   const { data: beginData, error: beginError } = await service.rpc("begin_season_end_opening", {
     p_request_id: requestId,
     p_user: user.discordId,
@@ -154,11 +210,13 @@ export async function openSeasonEndPackAction(input: {
   });
   if (beginError) {
     if (/insufficient/i.test(beginError.message)) return { ok: false, error: "Insufficient balance." };
+    if (/paused/i.test(beginError.message)) return { ok: false, error: "Season's End purchases are paused." };
+    if (/request id was already used/i.test(beginError.message)) return { ok: false, error: "That purchase request belongs to another release." };
     return { ok: false, error: "That Season's End pack could not be started." };
   }
   const opening = asOpening(beginData);
   if (!opening) return { ok: false, error: "That Season's End opening could not be started." };
-  if (opening.status === "refunded") return { ok: false, error: "That opening was refunded; please try again." };
+  if (opening.status === "refunded") return { ok: false, error: "That opening was refunded; choose Open another pack to start a new intent.", code: "refunded" };
   if (opening.status === "fulfilled" && opening.outcome) {
     const balance = input.mode === "public" ? await publicBalance(user.discordId, user.balance) : opening.test_balance ?? 0;
     const ids = await fetchInventoryIds(opening.opening_id);
@@ -167,14 +225,21 @@ export async function openSeasonEndPackAction(input: {
     return resultFromOpening(opening, cards, balance, release.id, input.mode, opening.price);
   }
 
-  const prepared = opening.outcome ?? rollSeasonEndPack(catalog, rand, await fetchAutographs(), rulesFor(release));
+  if (!catalog && !opening.outcome) return { ok: false, error: `Opening ${opening.opening_id} is pending recovery; its frozen catalog is unavailable.`, code: "pending" };
+  let prepared: SeasonEndPull[];
+  try {
+    const signingBook = new Map((opening.signing_book ?? release.signingBook).map((entry) => [entry.playerKey, entry.autograph] as const));
+    prepared = opening.outcome ?? rollSeasonEndPack(catalog!, rand, signingBook, rulesFor(release, opening.rules_payload));
+  } catch (caught) {
+    console.error("season-end: frozen outcome preparation failed", { openingId: opening.opening_id, error: caught });
+    return { ok: false, ...await refundPendingOpening(opening.opening_id) };
+  }
   const { data: preparedData, error: prepareError } = await service.rpc("prepare_season_end_opening", {
     p_opening: opening.opening_id,
     p_outcome: outcomeFor(prepared),
   });
   if (prepareError) {
-    await service.rpc("refund_season_end_opening", { p_opening: opening.opening_id });
-    return { ok: false, error: "That opening could not be prepared; you have not been charged." };
+    return { ok: false, ...await refundPendingOpening(opening.opening_id) };
   }
   const committed = (Array.isArray(preparedData) ? preparedData[0] : preparedData) as { outcome?: unknown } | null;
   const committedOutcome = decodeOutcome(committed?.outcome) ?? prepared;
@@ -182,7 +247,14 @@ export async function openSeasonEndPackAction(input: {
   if (fulfillError) {
     const { error: refundError } = await service.rpc("refund_season_end_opening", { p_opening: opening.opening_id });
     if (refundError) console.error("season-end: refund failed", { openingId: opening.opening_id, fulfillError, refundError });
-    return { ok: false, error: refundError ? "The opening failed and needs staff recovery." : "That opening failed; you have not been charged." };
+    const terminal = await openingStatus(opening.opening_id);
+    if (terminal?.status === "fulfilled" && terminal.outcome) {
+      const ids = await fetchInventoryIds(opening.opening_id);
+      if (ids.length === terminal.outcome.length) return resultFromOpening(terminal, terminal.outcome.map((pull, index) => ({ ...pull, inventoryId: ids[index] })), await publicBalance(user.discordId, user.balance), release.id, input.mode, opening.price);
+    }
+    return !refundError && terminal?.status === "refunded"
+      ? { ok: false, error: `Opening ${opening.opening_id} was refunded; choose Open another pack to start a new intent.`, code: "refunded" }
+      : { ok: false, error: `Opening ${opening.opening_id} is pending recovery; retry the same intent.`, code: "pending" };
   }
   const fulfilledRow = (Array.isArray(fulfilled) ? fulfilled[0] : fulfilled) as { card_ids?: unknown; minted?: boolean; outcome?: unknown } | null;
   const ids = Array.isArray(fulfilledRow?.card_ids) ? fulfilledRow.card_ids.map(Number) : [];

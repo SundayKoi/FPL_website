@@ -12,6 +12,8 @@ export default function SeasonEndAwardFace({
   season,
   league,
   division,
+  foil = false,
+  foilType = null,
   result,
 }: {
   titleId: string;
@@ -22,10 +24,12 @@ export default function SeasonEndAwardFace({
   season: string;
   league: "premier" | "academy";
   division?: Division;
+  foil?: boolean;
+  foilType?: string | null;
   result: ReactNode;
 }) {
   return (
-    <div className={styles.face} data-testid="award-card-face">
+    <div className={styles.face} data-testid="award-card-face" data-foil={foil ? "true" : "false"} data-foil-type={foil ? foilType ?? "foil" : "matte"}>
       <div className={styles.artRegion}>
         <AwardArtwork {...artwork} />
         <div className={styles.artShade} aria-hidden="true" />
@@ -45,6 +49,7 @@ export default function SeasonEndAwardFace({
         </div>
       </div>
       {result}
+      {foil ? <span className={styles.srOnly}>Finish: {foilType ?? "foil"}</span> : null}
     </div>
   );
 }
