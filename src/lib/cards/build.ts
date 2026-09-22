@@ -352,7 +352,9 @@ function playerKey(row: { summoner_name: string; tag: string }): string {
   return `${row.summoner_name.trim().toLowerCase()}#${row.tag.trim().toLowerCase()}`;
 }
 
-const CARD_METRICS = {
+/** Exported for scripts/inspect-card-cohort.ts, which prints the raw value
+ *  each percentile was taken over. */
+export const CARD_METRICS = {
   kda: (r: PlayerAggRow) => r.kda,
   avg_dmg_per_min: (r: PlayerAggRow) => r.avg_dmg_per_min,
   avg_dmg_share_pct: (r: PlayerAggRow) => r.avg_dmg_share_pct,
@@ -380,8 +382,10 @@ const CARD_METRICS = {
   firstBloodsPerGameOrZero: (r: PlayerAggRow) => (r.games > 0 ? r.first_blood_involvements / r.games : 0),
 };
 
-type CardMetric = keyof typeof CARD_METRICS;
-type CardPercentile = (row: PlayerAggRow, metric: CardMetric, invert?: boolean) => number;
+/** Exported for scripts/inspect-card-cohort.ts, which names bar inputs by it. */
+export type CardMetric = keyof typeof CARD_METRICS;
+/** Exported for scripts/inspect-card-cohort.ts alongside createCardPercentiles. */
+export type CardPercentile = (row: PlayerAggRow, metric: CardMetric, invert?: boolean) => number;
 
 /** Midrank preserves tied values, including the single-player rank of zero.
  * Malformed stats retain the comparison behavior of the original scanner. */
@@ -410,8 +414,10 @@ function midrankLookup(values: number[]): (value: number) => number {
 }
 
 /** Build role groups once, and index each requested stat once per group.
- * The cache belongs to one build, so refreshed stats cannot reuse old ranks. */
-function createCardPercentiles(cohort: PlayerAggRow[]): CardPercentile {
+ * The cache belongs to one build, so refreshed stats cannot reuse old ranks.
+ * Exported for scripts/inspect-card-cohort.ts, so the ranks it prints are
+ * the ones the cards got rather than a reimplementation of them. */
+export function createCardPercentiles(cohort: PlayerAggRow[]): CardPercentile {
   const roles = new Map<string, PlayerAggRow[]>();
   for (const row of cohort) {
     const group = roles.get(row.role_mode);
