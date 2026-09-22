@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 import { Suspense } from "react";
 import CardsGate, { PREMIUM_GATE_BODY, PREMIUM_GATE_TITLE } from "@/components/cards/CardsGate";
 import CollectionSections, { CollectionSectionsFallback } from "./CollectionSections";
+import SeasonEndOwnedCollection from "./SeasonEndOwnedCollection";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchOrCreateOwnBinder, type Binder } from "@/lib/binder/queries";
@@ -29,8 +31,10 @@ export const metadata: Metadata = {
 export async function CollectionPageView({
   league = "premier",
   setWeek,
+  view = "weekly",
 }: {
   league?: CardLeague;
+  view?: "weekly" | "season-end";
   /** ?setWeek= — which edition the roster sets open on. Sets are
    *  open-ended, so a collector can go back for a week they finished
    *  later; the newest week they hold copies from is the default. */
@@ -62,8 +66,8 @@ export async function CollectionPageView({
   }
 
   const service = createBettingServiceClient();
-  const season = await fetchCardSeason(service, league);
-  const [binder, dailyRip]: [Binder | null, DailyRipStatus] = season
+  const season = view === "weekly" ? await fetchCardSeason(service, league) : null;
+  const [binder, dailyRip]: [Binder | null, DailyRipStatus] = view === "weekly" && season
     ? await Promise.all([
         // null when the card_binders migration hasn't been applied here —
         // the section is skipped rather than 500ing the whole page.
@@ -75,23 +79,30 @@ export async function CollectionPageView({
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <CardsPageHeader eyebrow={cardsEyebrow("My Collection", league, season)} title="My Collection" glossary>
-        Every copy you own, one shelf per player with the best print on top. Open a player&apos;s
-        prints to see each copy, dust a spare, or pin one to your binder. Roster sets and the binder
-        are further down.
+      <CardsPageHeader eyebrow={view === "season-end" ? `My Collection · ${league === "academy" ? "Academy" : "Premier"} · Season's End` : cardsEyebrow("My Collection", league, season)} title="My Collection" glossary>
+        Your weekly prints and Season&apos;s End pulls, collected in one place. Choose a collection below to see the copies you own.
       </CardsPageHeader>
 
-      <Suspense fallback={<CollectionSectionsFallback />}>
-        <CollectionSections
-          discordId={user.discordId}
-          season={season}
-          base={base}
-          binder={binder}
-          patron={dailyRip.patron}
-          flame={dailyRip.flame}
-          setWeek={setWeek}
-        />
-      </Suspense>
+      <nav aria-label="Choose a collection" className="flex flex-wrap gap-2">
+        <Link href={`${base}/collection`} aria-current={view === "weekly" ? "page" : undefined} className={`rounded-full border px-4 py-2 text-sm font-semibold ${view === "weekly" ? "border-coral bg-coral text-navy" : "border-line text-steel hover:border-coral hover:text-white"}`}>Weekly cards</Link>
+        <Link href={`${base}/collection?view=season-end`} aria-current={view === "season-end" ? "page" : undefined} className={`rounded-full border px-4 py-2 text-sm font-semibold ${view === "season-end" ? "border-coral bg-coral text-navy" : "border-line text-steel hover:border-coral hover:text-white"}`}>Season&apos;s End</Link>
+      </nav>
+
+      {view === "season-end" ? (
+        <SeasonEndOwnedCollection service={service} discordId={user.discordId} league={league} base={base} />
+      ) : (
+        <Suspense fallback={<CollectionSectionsFallback />}>
+          <CollectionSections
+            discordId={user.discordId}
+            season={season}
+            base={base}
+            binder={binder}
+            patron={dailyRip.patron}
+            flame={dailyRip.flame}
+            setWeek={setWeek}
+          />
+        </Suspense>
+      )}
     </main>
   );
 }
@@ -99,8 +110,8 @@ export async function CollectionPageView({
 export default async function CollectionPage({
   searchParams,
 }: {
-  searchParams: Promise<{ setWeek?: string }>;
+  searchParams: Promise<{ setWeek?: string; view?: string }>;
 }) {
-  const { setWeek } = await searchParams;
-  return CollectionPageView({ league: "premier", setWeek });
+  const { setWeek, view } = await searchParams;
+  return CollectionPageView({ league: "premier", setWeek, view: view === "season-end" ? "season-end" : "weekly" });
 }

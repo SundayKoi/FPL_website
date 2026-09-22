@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 export default async function AcademyCollectionPage({
   searchParams,
 }: {
-  searchParams: Promise<{ setWeek?: string }>;
+  searchParams: Promise<{ setWeek?: string; view?: string }>;
 }) {
-  const { setWeek } = await searchParams;
-  return CollectionPageView({ league: "academy", setWeek });
+  const { setWeek, view } = await searchParams;
+  return CollectionPageView({ league: "academy", setWeek, view: view === "season-end" ? "season-end" : "weekly" });
 }

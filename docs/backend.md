@@ -128,6 +128,12 @@ keeps the same page across leagues — every cards page exists under both). Page
 toggles. Every old URL still resolves; the map decides which tab it lights.
 A page the map does not list (`/cards/claims`, a redirect) lights nothing.
 
+My Collection has a local Weekly cards / Season's End selector. The weekly
+shelf, roster sets, and binder use `card_inventory`; the Season's End view
+shows the signed-in collector's active public copies from every published
+release in that league, grouped by release. The public Season's End checklist
+remains under Browse.
+
 Browse is public. Every page under the Browse tab (all cards, team cards,
 Compare, Moments, Season's End, the Vault) and the per-card share pages render without
 a session: ordinary cards use public reads, while Season's End shows only

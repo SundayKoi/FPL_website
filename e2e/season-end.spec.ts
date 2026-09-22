@@ -42,6 +42,10 @@ test("Season's End purchase recovery, commerce, trading and dusting survive relo
     await memberOpening.getByRole("button", { name: "Skip" }).click();
     await expect(member.getByRole("button", { name: /Open another —/i })).toBeVisible();
 
+    await member.goto("/cards/collection?view=season-end");
+    await expect(member.getByRole("navigation", { name: "Choose a collection" }).getByRole("link", { name: "Season's End" })).toHaveAttribute("aria-current", "page");
+    await expect(member.getByRole("region", { name: /S5 Season's End release revision/ }).getByRole("link", { name: /View copy #/ })).toHaveCount(5);
+
     await member.goto("/cards/season-end/market");
     const memberCommerce = member.getByTestId("season-end-commerce").first();
     const memberCopies = memberCommerce.locator("section").first();
