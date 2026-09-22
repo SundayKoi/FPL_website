@@ -20,6 +20,7 @@
 
 import { normalizeTeamName } from "@/lib/league/context";
 import { mondayOf } from "@/lib/packs/week";
+import { round1 } from "@/lib/stats/formulas";
 import type { PlayerCardData } from "./build";
 
 /** How far the team got — the stamp on the card, least to most. */
@@ -126,12 +127,40 @@ export const LOSER_STAGE_BY_EXIT: Record<SendoffExitStage, SendoffStage> = {
 };
 
 /**
- * Stamps a season-rated card as a send-off print. The season build's Card
- * of the Week crown is cleared here: it was judged across the whole
- * collection, and a send-off edition crowns its own five (crownSendoff).
+ * The stamp, and with it the record line every stamped surface prints.
+ *
+ * A send-off's W-L is the PLAYOFF RUN (PlayerCardData.playoffs, attached by
+ * fetchSeasonCards), not the season's. The card is season-RATED — that is
+ * the only cohort that rates a finalist honestly — but printing the whole
+ * season's record beside a bracket stamp reads as a series score: a sub who
+ * played two regular-season games and then won one gauntlet round before
+ * going out shows 3-2, which the league reads as a series they never
+ * played. No run attached (before the bracket, or a player who never played
+ * in it) leaves the season's numbers where they are.
+ */
+function stamped(card: PlayerCardData, mark: SendoffMark): PlayerCardData {
+  const run = card.playoffs;
+  if (!run) return { ...card, sendoff: mark };
+  const games = run.wins + run.losses;
+  return {
+    ...card,
+    sendoff: mark,
+    wins: run.wins,
+    losses: run.losses,
+    // One decimal, the precision winrate_pct is published at everywhere
+    // else — the build passes the agg view's value straight through.
+    winratePct: games > 0 ? round1((run.wins / games) * 100) : 0,
+  };
+}
+
+/**
+ * Stamps a season-rated card as a send-off print, its record line swapped
+ * for the playoff run (stamped). The season build's Card of the Week crown
+ * is cleared here: it was judged across the whole collection, and a
+ * send-off edition crowns its own five (crownSendoff).
  */
 export function withSendoff(card: PlayerCardData, mark: SendoffMark): PlayerCardData {
-  return { ...card, standout: false, sendoff: mark };
+  return { ...stamped(card, mark), standout: false };
 }
 
 /**
@@ -333,6 +362,25 @@ export function isPlayoffWeek(fixtures: SendoffFixture[], week: string): boolean
   );
 }
 
+/**
+ * The Monday the bracket starts: the earliest Eastern week an exit-stage
+ * fixture is scheduled in, or null while the season has none.
+ *
+ * Where a player's playoff run is cut from (fetchSeasonCards). The schedule
+ * decides it rather than a game's `season_phase`, for the same reason the
+ * rest of this module reads fixtures: the phase is a label the ingest was
+ * handed, the bracket is what the fixtures say it is.
+ */
+export function firstPlayoffWeek(fixtures: SendoffFixture[]): string | null {
+  let first: string | null = null;
+  for (const fixture of fixtures) {
+    if (!isExitStage(fixture.stage) || !fixture.scheduled_at) continue;
+    const week = mondayOf(new Date(fixture.scheduled_at));
+    if (first === null || week < first) first = week;
+  }
+  return first;
+}
+
 /** The exit stages a week's playoff fixtures belong to, earliest first —
  *  what names the edition (sendoffWeekLabel). */
 export function exitsInWeek(fixtures: SendoffFixture[], week: string): SendoffExitStage[] {
@@ -468,9 +516,10 @@ export function eliminationsSoFar(fixtures: SendoffFixture[]): Elimination[] {
  * it is an ordinary season card. Browse, the hub, compare, the teams page
  * and a card's own page all go through this, so a player knocked out on
  * Monday IS their send-off everywhere by Tuesday — not only in the pack
- * the shop mints from. The season crown is left alone here: Card of the
- * Week is the season's own judgment, and the edition crowns its own five
- * (crownSendoff) when it prints.
+ * the shop mints from, record line and all: a stamped card prints its
+ * playoff run rather than the season's W-L (stamped). The season crown is
+ * left alone here: Card of the Week is the season's own judgment, and the
+ * edition crowns its own five (crownSendoff) when it prints.
  */
 export function stampSendoffs(cards: PlayerCardData[], fixtures: SendoffFixture[]): PlayerCardData[] {
   const eliminations = eliminationsSoFar(fixtures);
@@ -481,10 +530,13 @@ export function stampSendoffs(cards: PlayerCardData[], fixtures: SendoffFixture[
     const key = normalizeTeamName(card.teamName);
     const elimination = key ? markByTeam.get(key) : undefined;
     if (!elimination) return card;
-    return {
-      ...card,
-      sendoff: { stage: elimination.stage, exit: elimination.exit, team: elimination.team, series: elimination.series, week: elimination.week },
-    };
+    return stamped(card, {
+      stage: elimination.stage,
+      exit: elimination.exit,
+      team: elimination.team,
+      series: elimination.series,
+      week: elimination.week,
+    });
   });
 }
 
@@ -494,11 +546,11 @@ export function stampSendoffs(cards: PlayerCardData[], fixtures: SendoffFixture[
  *
  * A team whose split has ended is done playing, so its players wear their
  * season-rated send-off — the card the week's edition minted, showing
- * everywhere by the next morning rather than only in the pack. Everyone
- * still in the bracket is shown the way a regular-season week shows the
- * people who played it: the week's own build, rated on the games they just
- * played. Crowned per role across both, the way a weekly edition crowns
- * its own.
+ * everywhere by the next morning rather than only in the pack, its record
+ * line the playoff run (stamped). Everyone still in the bracket is shown
+ * the way a regular-season week shows the people who played it: the week's
+ * own build, rated on the games they just played. Crowned per role across
+ * both, the way a weekly edition crowns its own.
  *
  * The fallen are looked for among the teams THIS week's fixtures name, so
  * a split that ended three rounds ago does not walk back onto Browse; the
@@ -531,10 +583,13 @@ export function weekRoster(
     if (!key || !teams.has(key)) continue;
     const elimination = markByTeam.get(key);
     if (!elimination) continue;
-    roster.push({
-      ...card,
-      sendoff: { stage: elimination.stage, exit: elimination.exit, team: elimination.team, series: elimination.series, week: elimination.week },
-    });
+    roster.push(stamped(card, {
+      stage: elimination.stage,
+      exit: elimination.exit,
+      team: elimination.team,
+      series: elimination.series,
+      week: elimination.week,
+    }));
   }
   for (const card of weekCards) {
     const key = normalizeTeamName(card.teamName);
