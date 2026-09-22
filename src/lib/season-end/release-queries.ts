@@ -152,28 +152,27 @@ export async function fetchSeasonEndRecovery(client: SupabaseClient, discordId: 
     .filter((id): id is string => Boolean(id));
   if (!releaseIds.length) return null;
 
-  // A pending opening still represents an unresolved charge. It must win over
-  // a newer refunded receipt, otherwise a refund can obscure a charge that
-  // still needs fulfillment/recovery.
-  for (const status of ["pending", "refunded"] as const) {
-    const { data, error } = await client
-      .from("season_end_openings")
-      .select("release_id, request_id")
-      .eq("discord_id", discordId)
-      .eq("mode", "public")
-      .eq("status", status)
-      .in("release_id", releaseIds)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (error) throw new Error(`Season's End recovery read failed: ${error.message}`);
-    if (!data) continue;
-    const row = data as { release_id: string; request_id: string };
-    const release = await fetchSeasonEndReleaseById(client, row.release_id);
-    if (!release) continue;
-    return { release, requestId: String(row.request_id) };
-  }
-  return null;
+  // Only a pending opening represents an unresolved charge. Refunded receipts
+  // are terminal: surfacing one here would keep routing the owner back into
+  // recovery forever after the client has acknowledged the refund. A member
+  // with the original local intent can still see the terminal response in the
+  // normal shop and explicitly start a fresh request UUID.
+  const { data, error } = await client
+    .from("season_end_openings")
+    .select("release_id, request_id")
+    .eq("discord_id", discordId)
+    .eq("mode", "public")
+    .eq("status", "pending")
+    .in("release_id", releaseIds)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`Season's End recovery read failed: ${error.message}`);
+  if (!data) return null;
+  const row = data as { release_id: string; request_id: string };
+  const release = await fetchSeasonEndReleaseById(client, row.release_id);
+  if (!release) return null;
+  return { release, requestId: String(row.request_id) };
 }
 
 export async function fetchPublishedSeasonEndReleases(client: SupabaseClient, league: CardLeague): Promise<SeasonEndRelease[]> {
