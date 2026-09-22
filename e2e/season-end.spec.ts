@@ -34,9 +34,13 @@ test("Season's End purchase recovery, commerce, trading and dusting survive relo
     // persisted before the server action starts, so the new page must recover
     // the same opening instead of charging a second time.
     await member.reload();
-    await expect(member.getByText("Reveal 0/5 · the guaranteed foil is last")).toBeVisible({ timeout: 30_000 });
-    await member.getByRole("button", { name: "Reveal remaining cards" }).click();
-    await expect(member.getByRole("button", { name: "Open another pack" })).toBeVisible();
+    const memberOpening = member.getByRole("dialog", { name: "Opening a card pack" });
+    await expect(memberOpening).toBeVisible({ timeout: 30_000 });
+    const memberRip = memberOpening.getByRole("button", { name: /rip it open/i });
+    await memberRip.click({ clickCount: 3 });
+    await expect(memberOpening.getByRole("button", { name: /reveal card 1 of 5/i })).toBeVisible({ timeout: 30_000 });
+    await memberOpening.getByRole("button", { name: "Skip" }).click();
+    await expect(member.getByRole("button", { name: /Open another —/i })).toBeVisible();
 
     await member.goto("/cards/season-end/market");
     const memberCommerce = member.getByTestId("season-end-commerce").first();
@@ -50,8 +54,8 @@ test("Season's End purchase recovery, commerce, trading and dusting survive relo
 
     await signIn(partner, SEASON_END_PARTNER_EMAIL, SEASON_END_PASSWORD, "/cards/packs");
     await expect(partner.getByText(/Recover your Season.?s End opening/).first()).toBeVisible({ timeout: 30_000 });
-    await expect(partner.getByTestId("season-end-pack-shop").first().getByText("Reveal 0/5 · the guaranteed foil is last")).toBeVisible({ timeout: 30_000 });
-    await expect(partner.getByRole("button", { name: "Open another pack" })).toBeVisible();
+    await expect(partner.getByRole("dialog", { name: "Opening a card pack" })).toBeVisible({ timeout: 30_000 });
+    await expect(partner.getByRole("button", { name: /reveal card 1 of 5/i })).toHaveCount(0);
 
     await partner.goto("/cards/season-end/market");
     const partnerCommerce = partner.getByTestId("season-end-commerce").first();

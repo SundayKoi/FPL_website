@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { openSeasonEndPackAction, type SeasonEndOpenPackResult, type SeasonEndPullResult } from "@/lib/packs/season-end-actions";
+import { getMuted, getMutedServer, subscribeMuted } from "@/lib/packs/sounds";
+import type { RarityClass } from "@/lib/packs/config";
 import type { SeasonEndRelease } from "@/lib/season-end/release-queries";
 import type { SeasonEndCatalog } from "@/lib/season-end/collectibles";
 import CollectibleRenderer from "./CollectibleRenderer";
+import PackOpening, { type OpenResult, type Pull } from "./PackOpening";
 
 type PurchaseState = "not_started" | "pending" | "fulfilled" | "refunded";
 
@@ -54,6 +57,41 @@ function slotCopy(slot: number): string {
   return "Guaranteed foil from any family";
 }
 
+/** Season's End has no player-card tier, but the shared opening stage still
+ * uses its back aura as a quiet hint. The guaranteed foil is the brightest
+ * back and stays in the server-defined fifth position. */
+function backRarity(pull: SeasonEndPullResult): RarityClass {
+  if (pull.guaranteedFoil) return "legendary";
+  if (pull.foil) return "epic";
+  return pull.design.kind === "accolade" ? "rare" : "common";
+}
+
+function openingPull(pull: SeasonEndPullResult): Pull {
+  return {
+    card: null,
+    foil: pull.foil,
+    foilType: pull.foilType,
+    signed: pull.signed,
+    inventoryId: pull.inventoryId,
+    displayName: pull.design.display.title,
+    newKey: pull.design.designId,
+    backRarity: backRarity(pull),
+    renderFace: <CollectibleRenderer pull={pull} />,
+  };
+}
+
+function openingResult(result: SeasonEndOpenPackResult): OpenResult {
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    cards: result.cards.map(openingPull),
+    balance: result.balance,
+    openingId: result.openingId,
+    revealOrder: result.revealOrder,
+    preserveOrder: true,
+  };
+}
+
 export default function SeasonEndPackShop({
   league,
   season,
@@ -78,40 +116,42 @@ export default function SeasonEndPackShop({
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const [pulls, setPulls] = useState<SeasonEndPullResult[] | null>(null);
-  const [revealedCount, setRevealedCount] = useState(0);
   const [balance, setBalance] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [intent, setIntent] = useState<string | null>(null);
   const [purchaseState, setPurchaseState] = useState<PurchaseState>("not_started");
+  const muted = useSyncExternalStore(subscribeMuted, getMuted, getMutedServer);
   const activeRequest = useRef<string | null>(null);
   const mode = adminTest ? "admin_test" : "public";
   const pendingKey = `season-end-pending:v${PENDING_STORAGE_VERSION}:${viewerId ?? "signed-out"}:${release.id}:${mode}`;
   const legacyPendingKey = `season-end-pending:${viewerId ?? "signed-out"}:${release.id}:${mode}`;
 
-  async function resolve(request: string): Promise<void> {
+  async function resolve(request: string): Promise<SeasonEndOpenPackResult | null> {
     activeRequest.current = request;
     setIntent(request);
     setPurchaseState("pending");
     try {
       const result: SeasonEndOpenPackResult = await openSeasonEndPackAction({ league, season, releaseId: release.id, mode, requestId: request });
-      if (activeRequest.current !== request) return;
+      if (activeRequest.current !== request) return null;
       if (!result.ok) {
         setPurchaseState(result.code === "refunded" ? "refunded" : "pending");
         // Pending, transport, and terminal responses keep the same UUID. Only
         // an explicit terminal acknowledgement clears it.
         setError(result.error);
-        return;
+        return result;
       }
       setPurchaseState("fulfilled");
       setPulls(result.cards);
-      setRevealedCount(0);
       setBalance(result.balance);
       setError(null);
       router.refresh();
+      return result;
     } catch (caught) {
-      if (activeRequest.current !== request) return;
+      if (activeRequest.current !== request) return null;
       setPurchaseState("pending");
-      setError(caught instanceof Error ? `${caught.message} The same purchase intent is still saved; retry recovery.` : "The opening request was interrupted. The same purchase intent is still saved; retry recovery.");
+      const message = caught instanceof Error ? `${caught.message} The same purchase intent is still saved; retry recovery.` : "The opening request was interrupted. The same purchase intent is still saved; retry recovery.";
+      setError(message);
+      return { ok: false, error: message, code: "pending" };
     }
   }
 
@@ -152,9 +192,16 @@ export default function SeasonEndPackShop({
     setIntent(null);
     setPurchaseState("not_started");
     setPulls(null);
-    setRevealedCount(0);
     setBalance(null);
     setError(null);
+  }
+
+  async function openAnotherFromStage(): Promise<OpenResult> {
+    const request = requestId();
+    clearIntent(pendingKey, legacyPendingKey);
+    saveIntent(pendingKey, request);
+    const result = await resolve(request);
+    return result ? openingResult(result) : { ok: false, error: "The opening request was interrupted. Retry recovery." };
   }
 
   const owned = new Set(ownedDesignIds);
@@ -192,8 +239,28 @@ export default function SeasonEndPackShop({
       {recoveryOnly && purchaseState === "not_started" ? <p className="text-sm text-steel">This account can recover its existing Season&apos;s End opening. A new pack requires active membership.</p> : null}
       {error ? <p role="alert" className="text-sm text-coral">{error}</p> : null}
       {balance !== null ? <p className="text-xs text-steel">Balance after opening: {balance.toLocaleString("en-US")}</p> : null}
-      {pulls ? <div aria-live="polite" className="flex flex-col gap-3"><p className="text-xs uppercase tracking-[.18em] text-steel">Reveal {revealedCount}/{pulls.length} · the guaranteed foil is last</p><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">{pulls.map((pull, index) => index < revealedCount ? <CollectibleRenderer key={pull.inventoryId} pull={pull} /> : <div key={pull.inventoryId} className="flex min-h-[180px] flex-col items-center justify-center gap-3 rounded border border-line bg-panel p-4 text-center"><p className="font-mono text-xs text-gold">Card {index + 1}</p><p className="text-sm text-steel">Frozen pull ready</p>{index === revealedCount ? <button type="button" onClick={() => setRevealedCount((count) => Math.min(pulls.length, count + 1))} className="rounded border border-gold px-3 py-2 text-xs text-gold">Reveal card {index + 1}</button> : <p className="text-xs text-steel">Reveal the previous card first.</p>}</div>)}</div>{revealedCount < pulls.length ? <button type="button" onClick={() => setRevealedCount(pulls.length)} className="w-fit text-xs text-coral underline-offset-4 hover:underline">Reveal remaining cards</button> : null}</div> : null}
-      {pulls ? <button type="button" onClick={openAnother} className="w-fit rounded border border-line px-3 py-2 text-sm text-steel hover:border-gold hover:text-gold">Open another pack</button> : null}
+      {pulls ? (
+        <PackOpening
+          pulls={pulls.map(openingPull)}
+          balance={balance ?? 0}
+          packCost={release.price}
+          ownedSlugs={ownedDesignIds}
+          muted={muted}
+          preserveOrder
+          packLabel="Season&apos;s End pack"
+          packValue={null}
+          summaryNote="Guaranteed foil · protected from auto-dust"
+          onOpenAnother={openAnotherFromStage}
+          onExit={() => {
+            clearIntent(pendingKey, legacyPendingKey);
+            activeRequest.current = null;
+            setPulls(null);
+            setPurchaseState("not_started");
+            setIntent(null);
+            router.refresh();
+          }}
+        />
+      ) : null}
       <div>
         <p className="text-xs uppercase tracking-[.18em] text-steel">Base-design checklist · {baseDesigns.filter((design) => owned.has(design.designId)).length}/{baseDesigns.length}</p>
         <div className="mt-2 flex flex-wrap gap-2">{baseDesigns.map((design) => <span key={design.designId} className={`rounded-full border px-3 py-1 text-xs ${owned.has(design.designId) ? "border-gold text-gold" : "border-line text-steel"}`}>{owned.has(design.designId) ? "✓ " : ""}{design.display.title}</span>)}</div>
