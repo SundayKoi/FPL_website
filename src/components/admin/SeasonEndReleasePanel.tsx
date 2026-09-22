@@ -96,7 +96,7 @@ export default function SeasonEndReleasePanel({
             {release.state !== "draft" ? <button type="button" disabled={pending} onClick={() => run(() => pauseSeasonEndReleaseAction({ releaseId: release.id, paused: !release.paused }))} className="rounded border border-line px-3 py-2 text-xs text-steel hover:border-coral hover:text-coral">{release.paused ? "Resume purchases" : "Pause purchases"}</button> : null}
           </div>
           {release.state === "admin_test" ? <section className="rounded border border-line bg-panel/50 p-3"><label className="text-xs uppercase tracking-[.14em] text-steel">Verification report JSON <textarea value={reportJson} onChange={(event) => setReportJson(event.target.value)} placeholder='Paste the simulator report with reportDigest, acceptance, and exact-revision opening evidence.' className="mt-2 min-h-32 w-full rounded border border-line bg-panel p-2 font-mono text-[11px] text-white" /></label><button type="button" disabled={pending || !reportJson.trim()} onClick={recordReport} className="mt-2 rounded border border-gold px-3 py-2 text-xs text-gold disabled:opacity-50">Record report for this revision</button></section> : null}
-          {release.state === "admin_test" && catalog ? <SeasonEndPackShop key={`${release.id}:${viewerId ?? "signed-out"}:admin_test`} league={league} season={season} release={release} catalog={catalog} adminTest viewerId={viewerId} /> : null}
+          {release.state === "admin_test" && catalog ? <SeasonEndPackShop key={`${release.id}:${viewerId ?? "signed-out"}:admin_test`} league={league} season={season} release={release} adminTest viewerId={viewerId} /> : null}
         </>
       )}
     </section>

@@ -6,7 +6,6 @@ import { openSeasonEndPackAction, type SeasonEndOpenPackResult, type SeasonEndPu
 import { getMuted, getMutedServer, subscribeMuted } from "@/lib/packs/sounds";
 import type { RarityClass } from "@/lib/packs/config";
 import type { SeasonEndRelease } from "@/lib/season-end/release-queries";
-import type { SeasonEndCatalog } from "@/lib/season-end/collectibles";
 import CollectibleRenderer from "./CollectibleRenderer";
 import PackOpening, { type OpenResult, type Pull } from "./PackOpening";
 
@@ -96,7 +95,6 @@ export default function SeasonEndPackShop({
   league,
   season,
   release,
-  catalog,
   ownedDesignIds = [],
   adminTest = false,
   viewerId = null,
@@ -106,7 +104,6 @@ export default function SeasonEndPackShop({
   league: "premier" | "academy";
   season: string;
   release: SeasonEndRelease;
-  catalog: SeasonEndCatalog | null;
   ownedDesignIds?: string[];
   adminTest?: boolean;
   viewerId?: string | null;
@@ -204,8 +201,6 @@ export default function SeasonEndPackShop({
     return result ? openingResult(result) : { ok: false, error: "The opening request was interrupted. Retry recovery." };
   }
 
-  const owned = new Set(ownedDesignIds);
-  const baseDesigns = catalog?.designs ?? [];
   const showRecoveryAction = Boolean(intent) || purchaseState === "refunded";
   const primaryAction = purchaseState === "refunded" ? openAnother : open;
   const resolving = pending && purchaseState === "pending";
@@ -261,10 +256,6 @@ export default function SeasonEndPackShop({
           }}
         />
       ) : null}
-      <div>
-        <p className="text-xs uppercase tracking-[.18em] text-steel">Base-design checklist · {baseDesigns.filter((design) => owned.has(design.designId)).length}/{baseDesigns.length}</p>
-        <div className="mt-2 flex flex-wrap gap-2">{baseDesigns.map((design) => <span key={design.designId} className={`rounded-full border px-3 py-1 text-xs ${owned.has(design.designId) ? "border-gold text-gold" : "border-line text-steel"}`}>{owned.has(design.designId) ? "✓ " : ""}{design.display.title}</span>)}</div>
-      </div>
     </section>
   );
 }

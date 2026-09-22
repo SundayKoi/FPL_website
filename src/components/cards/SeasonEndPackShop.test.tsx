@@ -44,7 +44,6 @@ const shopProps = {
   league: "premier" as const,
   season: "S5",
   release,
-  catalog: null,
   viewerId: "viewer-1",
 };
 
