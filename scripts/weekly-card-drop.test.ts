@@ -231,6 +231,25 @@ describe("weekly card-drop send-off editions", () => {
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("[WARN] No cards matched these teams: Ghost Squad"));
   });
 
+  it("says what the teams through print as", async () => {
+    // The post has to be honest about the two builds in one edition: a
+    // pack for this week holds season-rated send-offs and week-rated
+    // players of the week.
+    const client = createSupabase();
+    const embeds = captureEmbeds();
+    buildEditionForWeek.mockResolvedValue({
+      kind: "sendoff",
+      cards: plan.cards,
+      plan: { ...plan, advancing: ["Storm"] },
+    });
+
+    await processSeason(client, "premier", "S5", "https://discord.test/hook", null);
+
+    const sendoff = embeds.find((embed) => embed.title.includes("Send-off"));
+    expect(sendoff?.description).toContain("in the packs as this week's cards, rated on the week: Storm.");
+    expect(sendoff?.description).toContain("send-offs rated on the whole split, the teams through on the week");
+  });
+
   it("leaves an undecided playoff week unarchived", async () => {
     // Nothing prints until the scores land — a weekly fallback would archive
     // the ten people who played the final, rated against each other.
