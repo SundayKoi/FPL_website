@@ -295,8 +295,9 @@ export function eliminationsInWeek(fixtures: SendoffFixture[], week: string): El
  * that won round 1 and lost round 2 is eliminated, not advancing) and
  * less the finals winner, whose stop is the Champion send-off. Spelled as
  * the fixture spells them, deduplicated, sorted. Their players print in
- * the week's edition as ORDINARY season cards, so a pack bought for a
- * playoff week can pull the people still in the bracket too.
+ * the week's edition as the WEEK's cards — players of the week, rated on
+ * the games they just played — so a pack bought for a playoff week can
+ * pull the people still in the bracket too.
  */
 export function advancingInWeek(fixtures: SendoffFixture[], week: string): string[] {
   const out = new Set<string>(eliminationsInWeek(fixtures, week).map((e) => normalizeTeamName(e.team)));
@@ -348,13 +349,15 @@ export interface SendoffPlan {
   week: string;
   eliminations: Elimination[];
   /** The teams that went through this week (advancingInWeek), whose
-   *  players print as ordinary season cards beside the send-offs. */
+   *  players print as the week's own cards beside the send-offs. */
   advancing: string[];
-  /** The edition: every season card whose team played this week — the
-   *  fallen stamped as send-offs, the teams through as plain season cards
-   *  — crowned as one roster. Empty while the week's fixtures are undecided. */
+  /** The edition: every player whose team played this week — the fallen
+   *  stamped as send-offs off the season build, the teams through as this
+   *  week's cards, rated on the week — crowned as one roster. Empty while
+   *  the week's fixtures are undecided. */
   cards: PlayerCardData[];
-  /** Teams no season card matched, fallen or through. A name mismatch
+  /** Teams no card matched, fallen or through — the fallen looked for in
+   *  the season build, the teams through in the week's. A name mismatch
    *  between fixtures and raw_stats would silently print nobody, so it is
    *  reported rather than swallowed. */
   unmatched: string[];
@@ -365,17 +368,20 @@ export interface SendoffPlan {
 /**
  * What a send-off week prints.
  *
- * `seasonCards` is the season-to-DATE build — the whole league rated
- * against the whole league — because that is the only cohort that rates a
- * finalist honestly. Everyone whose team fell this week gets their one
- * playoff card out of it, and everyone whose team went through prints as
- * an ordinary season card beside them, so the week's packs can pull the
- * whole night's players.
+ * The two builds print different people. `seasonCards` is the
+ * season-to-DATE build — the whole league rated against the whole league —
+ * because that is the only cohort that rates a finalist honestly, and a
+ * send-off is the one card a player's split leaves behind. `weekCards` is
+ * the week's own build, and the teams that went THROUGH print out of it:
+ * they are still playing, so their card is the players-of-the-week card any
+ * other week would have given them, unstamped. A finalist is rated against
+ * the league; the team that just won is rated on the night it won.
  */
 export function planSendoff(
   seasonCards: PlayerCardData[],
   fixtures: SendoffFixture[],
   week: string,
+  weekCards: PlayerCardData[],
 ): SendoffPlan {
   const eliminations = eliminationsInWeek(fixtures, week);
   const advancing = advancingInWeek(fixtures, week);
@@ -388,32 +394,34 @@ export function planSendoff(
   for (const elimination of eliminations) markByTeam.set(normalizeTeamName(elimination.team), elimination);
   const throughKeys = new Set(advancing.map((team) => normalizeTeamName(team)));
 
-  const matched = new Set<string>();
+  const fallenMatched = new Set<string>();
   const printed: PlayerCardData[] = [];
   for (const card of seasonCards) {
     const key = normalizeTeamName(card.teamName);
     if (!key) continue;
     const elimination = markByTeam.get(key);
-    if (elimination) {
-      matched.add(key);
-      printed.push(
-        withSendoff(card, {
-          stage: elimination.stage,
-          exit: elimination.exit,
-          team: elimination.team,
-          series: elimination.series,
-          week,
-        }),
-      );
-      continue;
-    }
-    // Through to the next round: the ordinary season card, unstamped. The
-    // season crown is dropped here for the same reason withSendoff drops
-    // it — crownSendoff hands this edition its own five.
-    if (throughKeys.has(key)) {
-      matched.add(key);
-      printed.push({ ...card, standout: false });
-    }
+    if (!elimination) continue;
+    fallenMatched.add(key);
+    printed.push(
+      withSendoff(card, {
+        stage: elimination.stage,
+        exit: elimination.exit,
+        team: elimination.team,
+        series: elimination.series,
+        week,
+      }),
+    );
+  }
+
+  // Through to the next round: this week's card, unstamped. The week
+  // build's crown is dropped for the same reason withSendoff drops the
+  // season one — crownSendoff hands this edition its own five.
+  const throughMatched = new Set<string>();
+  for (const card of weekCards) {
+    const key = normalizeTeamName(card.teamName);
+    if (!key || !throughKeys.has(key)) continue;
+    throughMatched.add(key);
+    printed.push({ ...card, standout: false });
   }
 
   return {
@@ -422,8 +430,8 @@ export function planSendoff(
     advancing,
     cards: crownSendoff(printed),
     unmatched: [
-      ...eliminations.filter((e) => !matched.has(normalizeTeamName(e.team))).map((e) => e.team),
-      ...advancing.filter((team) => !matched.has(normalizeTeamName(team))),
+      ...eliminations.filter((e) => !fallenMatched.has(normalizeTeamName(e.team))).map((e) => e.team),
+      ...advancing.filter((team) => !throughMatched.has(normalizeTeamName(team))),
     ],
     exits,
   };
@@ -481,14 +489,27 @@ export function stampSendoffs(cards: PlayerCardData[], fixtures: SendoffFixture[
 }
 
 /**
- * The week's roster for the live surfaces: the season cards of every team
- * named in the week's playoff fixtures, decided or not, crowned per role
- * among themselves the way a weekly edition crowns its own. During the
- * bracket Browse shows the week the way it shows a regular-season week —
- * the people who played it — rather than the whole season; run it over
- * stampSendoffs' output and the fallen wear their send-off in it.
+ * The week's roster for the live surfaces during the bracket, printing the
+ * same two builds the week's edition prints.
+ *
+ * A team whose split has ended is done playing, so its players wear their
+ * season-rated send-off — the card the week's edition minted, showing
+ * everywhere by the next morning rather than only in the pack. Everyone
+ * still in the bracket is shown the way a regular-season week shows the
+ * people who played it: the week's own build, rated on the games they just
+ * played. Crowned per role across both, the way a weekly edition crowns
+ * its own.
+ *
+ * The fallen are looked for among the teams THIS week's fixtures name, so
+ * a split that ended three rounds ago does not walk back onto Browse; the
+ * week cards need no such filter, being this week's by definition.
  */
-export function weekRoster(cards: PlayerCardData[], fixtures: SendoffFixture[], week: string): PlayerCardData[] {
+export function weekRoster(
+  seasonCards: PlayerCardData[],
+  weekCards: PlayerCardData[],
+  fixtures: SendoffFixture[],
+  week: string,
+): PlayerCardData[] {
   const teams = new Set<string>();
   for (const fixture of fixtures) {
     if (!isExitStage(fixture.stage) || !fixture.scheduled_at) continue;
@@ -498,10 +519,29 @@ export function weekRoster(cards: PlayerCardData[], fixtures: SendoffFixture[], 
       if (key) teams.add(key);
     }
   }
-  return crownSendoff(cards.filter((card) => {
+
+  const markByTeam = new Map<string, Elimination>();
+  for (const elimination of eliminationsSoFar(fixtures)) {
+    markByTeam.set(normalizeTeamName(elimination.team), elimination);
+  }
+
+  const roster: PlayerCardData[] = [];
+  for (const card of seasonCards) {
     const key = normalizeTeamName(card.teamName);
-    return Boolean(key) && teams.has(key);
-  }));
+    if (!key || !teams.has(key)) continue;
+    const elimination = markByTeam.get(key);
+    if (!elimination) continue;
+    roster.push({
+      ...card,
+      sendoff: { stage: elimination.stage, exit: elimination.exit, team: elimination.team, series: elimination.series, week: elimination.week },
+    });
+  }
+  for (const card of weekCards) {
+    const key = normalizeTeamName(card.teamName);
+    if (key && markByTeam.has(key)) continue;
+    roster.push(card);
+  }
+  return crownSendoff(roster);
 }
 
 /** Days a send-off edition stays on sale after the finals. Long enough that

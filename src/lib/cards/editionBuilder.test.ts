@@ -53,9 +53,28 @@ describe("buildEditionForWeek", () => {
     expect(edition.kind).toBe("sendoff");
     expect(edition.cards.map((c) => c.sendoff?.stage)).toEqual(["finalist"]);
     expect(edition.plan?.exits).toEqual(["finals"]);
-    // The weekly build must not even be asked for: a finals week's cohort
-    // is ten people.
-    expect(fetchWeekCards).not.toHaveBeenCalled();
+    // Both builds are read: the fallen print out of the season one, the
+    // teams through out of the week's.
+    expect(fetchWeekCards).toHaveBeenCalledWith(supabase, "S5", WEEK);
+  });
+
+  it("prints the team that went through off the week build", async () => {
+    // A finalist is rated against the league; a team still playing is
+    // rated on the night it just won.
+    fetchSeasonFixtures.mockResolvedValue([
+      { stage: "semifinals", team_a: "Storm", team_b: "Ember", score_a: 3, score_b: 1, scheduled_at: MONDAY_8PM },
+    ]);
+    fetchWeekCards.mockResolvedValue([card({ slug: "storm-week", teamName: "Storm", overall: 60 })]);
+
+    const edition = await buildEditionForWeek(supabase, "S5", WEEK, async () => [
+      card({ slug: "ember-season", teamName: "Ember", overall: 90 }),
+      card({ slug: "storm-season", teamName: "Storm", overall: 95 }),
+    ]);
+
+    expect(edition.plan?.advancing).toEqual(["Storm"]);
+    expect(edition.cards.map((c) => c.slug).sort()).toEqual(["ember-season", "storm-week"]);
+    expect(edition.cards.find((c) => c.slug === "storm-week")?.sendoff).toBeUndefined();
+    expect(edition.plan?.unmatched).toEqual([]);
   });
 
   it("prints nothing for a playoff week nobody has scored yet", async () => {
@@ -69,6 +88,5 @@ describe("buildEditionForWeek", () => {
     const edition = await buildEditionForWeek(supabase, "S5", WEEK, async () => [card()]);
 
     expect(edition).toMatchObject({ kind: "sendoff", cards: [] });
-    expect(fetchWeekCards).not.toHaveBeenCalled();
   });
 });

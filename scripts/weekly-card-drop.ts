@@ -799,10 +799,10 @@ async function postSendoff(
   const lines = [
     ...plan.eliminations.map(sendoffLine),
     ...(plan.advancing.length > 0
-      ? ["", `Through to the next round, in the packs as ordinary season cards: ${plan.advancing.join(", ")}.`]
+      ? ["", `Through to the next round, in the packs as this week's cards, rated on the week: ${plan.advancing.join(", ")}.`]
       : []),
     "",
-    `${plan.cards.length} cards printed, one per player, rated on the whole split.`,
+    `${plan.cards.length} cards printed, one per player — send-offs rated on the whole split, the teams through on the week.`,
   ];
   if (closesAt) {
     lines.push(

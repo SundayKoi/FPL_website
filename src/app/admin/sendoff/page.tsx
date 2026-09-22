@@ -9,6 +9,7 @@ import {
   fetchEditionWeekInfo,
   fetchSeasonCards,
   fetchSeasonFixtures,
+  fetchWeekCards,
 } from "@/lib/cards/queries";
 import {
   EXIT_LABELS,
@@ -175,8 +176,8 @@ export default async function SendoffPreviewPage({
     ?? null;
   const season = chosen?.season ?? null;
 
-  // The season-to-date build is the send-off's rating basis, so the dry run
-  // reads exactly what the drop would hand the planner.
+  // The season-to-date build is what the send-offs themselves are rated on,
+  // so the dry run reads exactly what the drop would hand the planner.
   const cards = season ? await fetchSeasonCards(service, season) : [];
   const fixtures = season ? await fetchSeasonFixtures(service, season) : [];
   const weekInfo = season ? await fetchEditionWeekInfo(service, season) : [];
@@ -193,7 +194,11 @@ export default async function SendoffPreviewPage({
   const leagueQuery = chosen?.league === "academy" ? "league=academy&" : "";
 
   const playoffWeek = isPlayoffWeek(fixtures, week);
-  const plan = planSendoff(cards, fixtures, week);
+  // The other half of what the planner prints: the teams through come out
+  // of the picked week's own build, so the dry run reads it too — on a
+  // bracket week. An ordinary week's planner has nobody to print.
+  const weekCards = season && playoffWeek ? await fetchWeekCards(service, season, week) : [];
+  const plan = planSendoff(cards, fixtures, week, weekCards);
   const ledger = sendoffLedger(cards, fixtures, week);
   const closesAt = sendoffVaultClosesAt(fixtures);
   // A week that has not started yet cannot be missing its scores — its
@@ -528,7 +533,7 @@ export default async function SendoffPreviewPage({
 
             {plan.unmatched.length > 0 ? (
               <p data-testid="unmatched" className="text-sm text-coral">
-                No season card matched {plan.unmatched.join(", ")} — the fixture spells the team differently from
+                No card matched {plan.unmatched.join(", ")} — the fixture spells the team differently from
                 <code className="px-1">raw_stats.team_name</code>, and those players would print nothing. Fix the name
                 before Tuesday.
               </p>
@@ -536,14 +541,15 @@ export default async function SendoffPreviewPage({
 
             {plan.advancing.length > 0 ? (
               <p data-testid="advancing" className="text-sm text-steel">
-                Through to the next round, printed as ordinary season cards: {plan.advancing.join(", ")}.
+                Through to the next round, printed as this week&apos;s cards, rated on the week:{" "}
+                {plan.advancing.join(", ")}.
               </p>
             ) : null}
 
             <p className="text-sm text-steel">
-              {plan.cards.length} card{plan.cards.length === 1 ? "" : "s"} would print, one per player, rated on the
-              whole split — the fallen as send-offs, the teams through as plain season cards. Five of them are crowned
-              Card of the Week among this edition&apos;s own roster.
+              {plan.cards.length} card{plan.cards.length === 1 ? "" : "s"} would print, one per player — the fallen as
+              send-offs rated on the whole split, the teams through as this week&apos;s cards, rated on the week. Five
+              of them are crowned Card of the Week among this edition&apos;s own roster.
             </p>
 
             <div className="flex flex-wrap gap-6">

@@ -255,18 +255,24 @@ describe("fetchCurrentWeekCards", () => {
     scheduled_at: "2026-08-18T00:00:00.000Z",
   };
 
-  it("rates the whole league during the bracket rather than the ten who played", async () => {
+  it("reads both builds during the bracket: the fallen season-rated, everyone still in on the week", async () => {
     // A playoff week's cohort is whoever is still in it — 40 people, then
-    // 20, then 10 — so a weekly build rates a finalist against the nine
-    // other people who played the final and prints a bad card for reaching
-    // it. The season build (stats_player_agg) is the honest cohort.
+    // 20, then 10 — so rating a knocked-out finalist against the nine other
+    // people who played the final prints a bad card for reaching it: a
+    // team whose split has ended comes out of the season build
+    // (stats_player_agg) wearing its send-off. Everyone still in is a
+    // player of the week like any other week, out of raw_stats.
     const tables: string[] = [];
-    await fetchCurrentWeekCards(
+    const cards = await fetchCurrentWeekCards(
       currentWeekSupabase([playoffFixture], [statRow("Finalist", "2026-08-18T00:00:00Z")], tables),
       "S5",
     );
 
     expect(tables).toContain("stats_player_agg");
+    expect(tables).toContain("raw_stats");
+    // Storm won this one, so its player prints as the week's card, unstamped.
+    expect(cards.map((card) => card.name)).toEqual(["Finalist"]);
+    expect(cards[0].sendoff).toBeUndefined();
   });
 
   it("stays on the week's own build outside the bracket", async () => {

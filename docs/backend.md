@@ -1425,20 +1425,30 @@ for a whole-season read it will not use.
 **The teams through.** A playoff week's edition also carries every team
 that advanced that week (`advancingInWeek`; never the finals winner, whose
 stop is the Champion send-off, and never a gauntlet team the same night
-knocked out): their players print as ordinary season cards beside the
-send-offs, crowned as one roster, so a pack bought for the week can pull
-the whole night's players. `SendoffPlan.advancing` names them for the
-drop's post and the admin dry run.
+knocked out) — but out of the WEEK build, not the season one. They are
+still playing, so their card is the players-of-the-week card any other week
+would have given them: rated on that week's games against that week's
+cohort, unstamped, crowned with the send-offs as one roster. Only the
+send-off is season-rated, because only a finished split needs the whole
+league as its cohort. `buildEditionForWeek` therefore reads both builds on
+a playoff week and hands them to `planSendoff(seasonCards, fixtures, week,
+weekCards)`; a team through that no WEEK card matched lands in
+`SendoffPlan.unmatched` exactly as a fallen team no season card matched
+does. `SendoffPlan.advancing` names them for the drop's post and the admin
+dry run.
 
 **On the live surfaces.** During the bracket, Browse, the hub, compare and
-the teams page show the WEEK's roster — the season cards of every team
-named in the week's playoff fixtures, decided or not (`weekRoster`), the
-way a regular-season week shows the people who played it — with every
-fallen team's cards already wearing their send-off (`stampSendoffs` over
-`eliminationsSoFar`, bracket-wide), crowned per role among themselves like
-a weekly edition. A card's own page (`fetchCardBySlug`) falls back to the
-stamped season build for a player off the week's roster (a bye, or a split
-that ended in an earlier round) rather than "Card not found".
+the teams page show the WEEK's roster (`weekRoster`) the way the week's
+edition prints it: every team named in the week's playoff fixtures whose
+split has already ended (`eliminationsSoFar`, bracket-wide) shows its
+season cards wearing their send-off, and everyone still in the bracket
+shows the week's own cards, the way a regular-season week shows the people
+who played it — crowned per role across both, like a weekly edition. So a
+player knocked out on Monday IS their send-off everywhere by Tuesday, not
+only in the pack the shop mints from. A card's own page (`fetchCardBySlug`)
+falls back to the stamped season build (`stampSendoffs`) for a player off
+the week's roster (a bye, or a split that ended in an earlier round) rather
+than "Card not found".
 
 **The vault.** Send-off editions close `SENDOFF_VAULT_DAYS` (14) after the
 finals fixture's `scheduled_at`. `openPackFor` reads the fixtures alongside
