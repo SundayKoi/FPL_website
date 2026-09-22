@@ -81,7 +81,10 @@ function stateFor({
     blueTeam: lobbyTeam(row?.blue_team_name || info.teamA, info),
     redTeam: lobbyTeam(row?.red_team_name || info.teamB, info),
     scheduledTeams: [lobbyTeam(info.teamA, info), lobbyTeam(info.teamB, info)],
-    canChooseSides: gameNumber > 1 && actions.length === 0,
+    // Any game, before its first action: game 1's blue side is only a
+    // default (staff's call in the regular season, the higher seed's in the
+    // playoffs). Games 2+ also require the choice — see sideChoiceRequired.
+    canChooseSides: actions.length === 0,
     blueReady: row?.blue_ready ?? false,
     redReady: row?.red_ready ?? false,
     changeRequest: row?.change_request ?? null,

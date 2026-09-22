@@ -239,6 +239,27 @@ describe("MatchDraftBoard", () => {
     expect(saved.sideChoiceRequired).toBe(false);
   });
 
+  it("lets game one swap sides before the first pick, with the draft still open", () => {
+    const onSave = vi.fn();
+    render(<MatchDraftBoard initialState={{ ...state, gameNumber: 1, canChooseSides: true, sideChoiceRequired: false, actions: [] }} onSave={onSave} />);
+
+    // Offered, not demanded: the fixture's order is the default, so the
+    // draft is not held up waiting for a choice.
+    expect(screen.getByText("Choose sides")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Aatrox" }).hasAttribute("disabled")).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: /red team blue side/i }));
+
+    const saved = onSave.mock.calls[0][0] as MatchDraftState;
+    expect(saved.blueTeam.abbreviation).toBe("RED");
+    expect(saved.redTeam.abbreviation).toBe("BLU");
+  });
+
+  it("hides the side chooser once a game has an action", () => {
+    render(<MatchDraftBoard initialState={{ ...state, gameNumber: 1, canChooseSides: false, sideChoiceRequired: false }} onSave={vi.fn()} />);
+    expect(screen.queryByLabelText("Side selection")).toBeNull();
+  });
+
   it("switches to the board layout", () => {
     render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
 
