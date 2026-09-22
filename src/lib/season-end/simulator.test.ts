@@ -61,5 +61,5 @@ describe("Season's End simulator", () => {
     });
     expect(report.expectedDust).toBe(10);
     expect(report.conservativeSalvageUpperBound).toBe(10);
-  });
+  }, 20_000); // ~5.4s on the CI runner against a 5s default — timed out on develop too.
 });
