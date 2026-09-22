@@ -382,6 +382,57 @@ export function planSendoff(
   };
 }
 
+/**
+ * Every elimination of the bracket so far, across all of its weeks: one
+ * entry per team, the later exit winning (a team falls once; the finals
+ * winner is the champion). What the live surfaces stamp, as opposed to
+ * eliminationsInWeek, which is what one week's edition prints.
+ */
+export function eliminationsSoFar(fixtures: SendoffFixture[]): Elimination[] {
+  const weeks = new Set<string>();
+  for (const fixture of fixtures) {
+    if (isExitStage(fixture.stage) && fixture.scheduled_at) weeks.add(mondayOf(new Date(fixture.scheduled_at)));
+  }
+  const byTeam = new Map<string, Elimination>();
+  for (const week of weeks) {
+    for (const elimination of eliminationsInWeek(fixtures, week)) {
+      const key = normalizeTeamName(elimination.team);
+      const held = byTeam.get(key);
+      if (held && SENDOFF_META[held.stage].order >= SENDOFF_META[elimination.stage].order) continue;
+      byTeam.set(key, elimination);
+    }
+  }
+  return [...byTeam.values()].sort(
+    (a, b) => SENDOFF_META[a.stage].order - SENDOFF_META[b.stage].order || a.team.localeCompare(b.team),
+  );
+}
+
+/**
+ * The season build as the live surfaces show it during the bracket: every
+ * card whose team's split has ended wears its send-off, everyone still in
+ * it is an ordinary season card. Browse, the hub, compare, the teams page
+ * and a card's own page all go through this, so a player knocked out on
+ * Monday IS their send-off everywhere by Tuesday — not only in the pack
+ * the shop mints from. The season crown is left alone here: Card of the
+ * Week is the season's own judgment, and the edition crowns its own five
+ * (crownSendoff) when it prints.
+ */
+export function stampSendoffs(cards: PlayerCardData[], fixtures: SendoffFixture[]): PlayerCardData[] {
+  const eliminations = eliminationsSoFar(fixtures);
+  if (eliminations.length === 0) return cards;
+  const markByTeam = new Map<string, Elimination>();
+  for (const elimination of eliminations) markByTeam.set(normalizeTeamName(elimination.team), elimination);
+  return cards.map((card) => {
+    const key = normalizeTeamName(card.teamName);
+    const elimination = key ? markByTeam.get(key) : undefined;
+    if (!elimination) return card;
+    return {
+      ...card,
+      sendoff: { stage: elimination.stage, exit: elimination.exit, team: elimination.team, series: elimination.series, week: elimination.week },
+    };
+  });
+}
+
 /** Days a send-off edition stays on sale after the finals. Long enough that
  *  someone who hears about it can still buy one; short enough that the
  *  stamp means something. */

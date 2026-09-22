@@ -1420,6 +1420,14 @@ Tuesday drop (`scripts/weekly-card-drop.ts`) and the manual archiver
 in as a thunk: the drop already holds it, and an ordinary week must not pay
 for a whole-season read it will not use.
 
+**On the live surfaces.** During the bracket, Browse, the hub, compare, the
+teams page and a card's own page show the season build with every fallen
+team's cards already wearing their send-off (`stampSendoffs` over
+`eliminationsSoFar`, bracket-wide rather than one week), so a player
+knocked out on Monday is their send-off everywhere by Tuesday, not only
+in the pack the shop mints from. The season crown is left as it is there;
+the edition crowns its own five when it prints.
+
 **The vault.** Send-off editions close `SENDOFF_VAULT_DAYS` (14) after the
 finals fixture's `scheduled_at`. `openPackFor` reads the fixtures alongside
 the edition weeks — before anything is charged — and refuses an explicitly

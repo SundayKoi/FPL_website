@@ -15,8 +15,7 @@ import {
   sendoffVaultClosesAt,
   sendoffWeekLabel,
   withSendoff,
-  type SendoffFixture,
-} from "./sendoff";
+  type SendoffFixture, eliminationsSoFar, stampSendoffs } from "./sendoff";
 
 /** One fixture row, only the columns the planner reads. */
 function fx(
@@ -292,5 +291,57 @@ describe("withSendoff / crownSendoff", () => {
 
     expect(crowned.map((c) => c.slug)).toEqual(["high-mid", "low-mid", "top"]);
     expect(crowned.filter((c) => c.standout).map((c) => c.slug)).toEqual(["high-mid", "top"]);
+  });
+});
+
+// The bracket's later weeks, for the live-surface helpers.
+const NEXT_WEEK_8PM = "2026-09-15T00:00:00.000Z"; // Monday 2026-09-14 ET
+const FINALS_8PM = "2026-09-22T00:00:00.000Z"; // Monday 2026-09-21 ET
+
+describe("eliminationsSoFar", () => {
+  it("collects every fallen team across the bracket's weeks, later exits winning", () => {
+    const fixtures = [
+      fx("gauntlet_r1", "Alpha", "Bravo", 0, 1, MONDAY_8PM),
+      fx("gauntlet_r2", "Bravo", "Charlie", 2, 1, MONDAY_8PM),
+      fx("quarterfinals", "Bravo", "Delta", 3, 1, NEXT_WEEK_8PM),
+      fx("finals", "Echo", "Foxtrot", 3, 2, FINALS_8PM),
+    ];
+    const out = eliminationsSoFar(fixtures);
+    expect(out.map((e) => [e.team, e.stage, e.week])).toEqual([
+      ["Alpha", "gauntlet", WEEK],
+      ["Charlie", "gauntlet", WEEK],
+      ["Delta", "quarterfinalist", "2026-09-14"],
+      ["Foxtrot", "finalist", "2026-09-21"],
+      ["Echo", "champion", "2026-09-21"],
+    ]);
+  });
+
+  it("is empty while nothing in the bracket is decided", () => {
+    expect(eliminationsSoFar([fx("quarterfinals", "Alpha", "Bravo", null, null, MONDAY_8PM)])).toEqual([]);
+    expect(eliminationsSoFar([fx("week_5", "Alpha", "Bravo", 2, 0, MONDAY_8PM)])).toEqual([]);
+  });
+});
+
+describe("stampSendoffs", () => {
+  const fixtures = [fx("gauntlet_r1", "Alpha", "Bravo", 0, 1, MONDAY_8PM)];
+
+  it("stamps the fallen team's cards and leaves everyone still in it alone", () => {
+    const out = stampSendoffs(
+      [card({ slug: "a", teamName: "alpha " }), card({ slug: "b", teamName: "Bravo" })],
+      fixtures,
+    );
+    expect(out[0].sendoff).toMatchObject({ stage: "gauntlet", exit: "gauntlet_r1", team: "Alpha", week: WEEK });
+    expect(out[1].sendoff).toBeUndefined();
+  });
+
+  it("keeps the season crown where it is", () => {
+    const out = stampSendoffs([card({ slug: "a", teamName: "Alpha", standout: true })], fixtures);
+    expect(out[0].standout).toBe(true);
+    expect(out[0].sendoff?.stage).toBe("gauntlet");
+  });
+
+  it("returns the cards untouched when nothing has been decided", () => {
+    const cards = [card({ slug: "a", teamName: "Alpha" })];
+    expect(stampSendoffs(cards, [fx("quarterfinals", "Alpha", "Bravo", null, null, MONDAY_8PM)])).toBe(cards);
   });
 });
