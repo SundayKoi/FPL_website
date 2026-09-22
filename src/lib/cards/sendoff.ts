@@ -480,6 +480,30 @@ export function stampSendoffs(cards: PlayerCardData[], fixtures: SendoffFixture[
   });
 }
 
+/**
+ * The week's roster for the live surfaces: the season cards of every team
+ * named in the week's playoff fixtures, decided or not, crowned per role
+ * among themselves the way a weekly edition crowns its own. During the
+ * bracket Browse shows the week the way it shows a regular-season week —
+ * the people who played it — rather than the whole season; run it over
+ * stampSendoffs' output and the fallen wear their send-off in it.
+ */
+export function weekRoster(cards: PlayerCardData[], fixtures: SendoffFixture[], week: string): PlayerCardData[] {
+  const teams = new Set<string>();
+  for (const fixture of fixtures) {
+    if (!isExitStage(fixture.stage) || !fixture.scheduled_at) continue;
+    if (mondayOf(new Date(fixture.scheduled_at)) !== week) continue;
+    for (const team of [fixture.team_a, fixture.team_b]) {
+      const key = normalizeTeamName(team);
+      if (key) teams.add(key);
+    }
+  }
+  return crownSendoff(cards.filter((card) => {
+    const key = normalizeTeamName(card.teamName);
+    return Boolean(key) && teams.has(key);
+  }));
+}
+
 /** Days a send-off edition stays on sale after the finals. Long enough that
  *  someone who hears about it can still buy one; short enough that the
  *  stamp means something. */

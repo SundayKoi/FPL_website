@@ -15,7 +15,7 @@ import {
   sendoffVaultClosesAt,
   sendoffWeekLabel,
   withSendoff,
-  type SendoffFixture, eliminationsSoFar, stampSendoffs, advancingInWeek } from "./sendoff";
+  type SendoffFixture, eliminationsSoFar, stampSendoffs, advancingInWeek, weekRoster } from "./sendoff";
 
 /** One fixture row, only the columns the planner reads. */
 function fx(
@@ -368,5 +368,36 @@ describe("stampSendoffs", () => {
   it("returns the cards untouched when nothing has been decided", () => {
     const cards = [card({ slug: "a", teamName: "Alpha" })];
     expect(stampSendoffs(cards, [fx("quarterfinals", "Alpha", "Bravo", null, null, MONDAY_8PM)])).toBe(cards);
+  });
+});
+
+describe("weekRoster", () => {
+  const roster = [
+    card({ slug: "a", name: "A", teamName: "Alpha", role: "Mid", overall: 90, standout: true }),
+    card({ slug: "b", name: "B", teamName: "bravo", role: "Mid", overall: 95 }),
+    card({ slug: "c", name: "C", teamName: "Charlie", role: "Top", overall: 80, standout: true }),
+  ];
+
+  it("keeps only the teams named in the week's playoff fixtures, decided or not", () => {
+    const out = weekRoster(roster, [fx("quarterfinals", "Alpha", "Bravo", null, null, MONDAY_8PM)], WEEK);
+    expect(out.map((c) => c.slug).sort()).toEqual(["a", "b"]);
+  });
+
+  it("crowns per role among the week's roster, like a weekly edition", () => {
+    const out = weekRoster(roster, [fx("quarterfinals", "Alpha", "Bravo", 0, 2, MONDAY_8PM)], WEEK);
+    expect(out.find((c) => c.slug === "b")?.standout).toBe(true);
+    expect(out.find((c) => c.slug === "a")?.standout).toBe(false);
+  });
+
+  it("keeps the send-off a stamped card already wears, and ignores other weeks", () => {
+    const fixtures = [fx("quarterfinals", "Alpha", "Bravo", 0, 2, MONDAY_8PM), fx("semifinals", "Charlie", "Bravo", null, null, NEXT_WEEK_8PM)];
+    const out = weekRoster(stampSendoffs(roster, fixtures), fixtures, WEEK);
+    expect(out.map((c) => c.slug).sort()).toEqual(["a", "b"]);
+    expect(out.find((c) => c.slug === "a")?.sendoff?.stage).toBe("quarterfinalist");
+    expect(out.find((c) => c.slug === "b")?.sendoff).toBeUndefined();
+  });
+
+  it("is empty for a week with no playoff fixture", () => {
+    expect(weekRoster(roster, [fx("week_5", "Alpha", "Bravo", 2, 0, MONDAY_8PM)], WEEK)).toEqual([]);
   });
 });
