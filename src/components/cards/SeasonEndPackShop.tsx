@@ -76,7 +76,7 @@ function openingPull(pull: SeasonEndPullResult): Pull {
     displayName: pull.design.display.title,
     newKey: pull.design.designId,
     backRarity: backRarity(pull),
-    renderFace: <CollectibleRenderer pull={pull} />,
+    renderFace: <CollectibleRenderer pull={pull} showBestOfDescription={false} />,
   };
 }
 

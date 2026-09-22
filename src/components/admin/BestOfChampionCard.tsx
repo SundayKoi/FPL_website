@@ -36,6 +36,8 @@ export interface BestOfChampionCardProps {
   showAdminDetails?: boolean;
   /** Hide the supporting text block when the card is rendered in a compact shelf. */
   showDetails?: boolean;
+  /** Hide the award rules description while keeping the pull record visible. */
+  showDescription?: boolean;
 }
 
 function accountName(winner: AwardWinner | null | undefined, playerCard: PlayerCardData | null | undefined): string | null {
@@ -83,6 +85,7 @@ export default function BestOfChampionCard({
   displayOverride,
   showAdminDetails = true,
   showDetails = true,
+  showDescription = true,
 }: BestOfChampionCardProps) {
   const champion = winner?.champion ?? playerCard?.signature?.champion ?? null;
   const championLabel = champion ? championDisplayName(champion) : null;
@@ -204,7 +207,7 @@ export default function BestOfChampionCard({
               <p className={styles.evidence}>{statusNote}</p>
             </>
           )}
-          <p className={styles.description}>{award.description}</p>
+          {showDescription ? <p className={styles.description}>{award.description}</p> : null}
         </div>
       ) : null}
     </article>

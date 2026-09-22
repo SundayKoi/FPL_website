@@ -96,7 +96,7 @@ function displayUnit(design: AccoladeCollectible, award: SeasonAward): string {
   return award.scope === "pair" ? "Duo Impact" : award.unit ?? "";
 }
 
-function FrozenBestOf({ pull, design, compact }: { pull: SeasonEndPullResult; design: Extract<SeasonEndCollectible, { kind: "best_of" }>; compact: boolean }) {
+function FrozenBestOf({ pull, design, compact, showDescription }: { pull: SeasonEndPullResult; design: Extract<SeasonEndCollectible, { kind: "best_of" }>; compact: boolean; showDescription: boolean }) {
   const winner = bestOfWinner(design);
   const award = awardForDesign(design);
   const crop = design.artwork.kind === "single"
@@ -118,6 +118,7 @@ function FrozenBestOf({ pull, design, compact }: { pull: SeasonEndPullResult; de
         crop={crop}
         displayOverride={{ headline: design.display.headline, evidence: design.display.evidence }}
         showAdminDetails={false}
+        showDescription={showDescription}
       />
     </div>
   );
@@ -169,7 +170,7 @@ function FrozenAccolade({ pull, design, compact }: { pull: SeasonEndPullResult; 
   );
 }
 
-export default function CollectibleRenderer({ pull, compact = false }: { pull: SeasonEndPullResult; compact?: boolean }) {
+export default function CollectibleRenderer({ pull, compact = false, showBestOfDescription = true }: { pull: SeasonEndPullResult; compact?: boolean; showBestOfDescription?: boolean }) {
   if (pull.design.kind === "season") {
     return (
       <div className={`${styles.collectible} ${compact ? styles.compact : ""}`} data-testid="season-end-season-renderer" data-card-format="standard" data-compact={compact ? "true" : "false"}>
@@ -183,6 +184,6 @@ export default function CollectibleRenderer({ pull, compact = false }: { pull: S
       </div>
     );
   }
-  if (pull.design.kind === "best_of") return <FrozenBestOf pull={pull} design={pull.design} compact={compact} />;
+  if (pull.design.kind === "best_of") return <FrozenBestOf pull={pull} design={pull.design} compact={compact} showDescription={showBestOfDescription} />;
   return <FrozenAccolade pull={pull} design={pull.design} compact={compact} />;
 }
