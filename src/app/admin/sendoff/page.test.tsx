@@ -153,10 +153,12 @@ describe("the send-off preview", () => {
     expect(screen.getByTestId("elimination-Mocha").textContent).toContain("1–3");
     expect(screen.getByTestId("elimination-Mocha").textContent).toContain("Gamblers");
     expect(screen.queryByTestId("elimination-Gamblers")).toBeNull();
-    // ...and only its player's card prints.
+    // ...its player's card prints as a send-off, the winner's as a plain
+    // season card, and a team that did not play prints nothing.
     expect(screen.getByTestId("printed-ana")).toBeTruthy();
-    expect(screen.queryByTestId("printed-doug")).toBeNull();
+    expect(screen.getByTestId("printed-doug")).toBeTruthy();
     expect(screen.queryByTestId("printed-bo")).toBeNull();
+    expect(screen.getByTestId("advancing").textContent).toContain("Gamblers");
     // The ledger separates who has printed from who is still in it.
     expect(screen.getByTestId("ledger-Mocha").textContent).toContain("printed");
     expect(screen.getByTestId("ledger-Gamblers").textContent).toContain("alive");
@@ -253,6 +255,7 @@ describe("the send-off preview", () => {
       card("Bo", "Sharks", 84, "Jungle"),
       card("Cy", "Bolts", 80, "Bot"),
       card("Ray", "Ravens", 90, "Sup"),
+      card("Kim", "Comets", 78, "Mid"),
     ]);
     fetchSeasonFixtures.mockResolvedValue([
       fx("gauntlet_r1", "Mocha", "Gamblers", 3, 1, inFutureWeek),
@@ -278,9 +281,10 @@ describe("the send-off preview", () => {
     // later exit, with that fixture's series line.
     expect(screen.getByTestId("elimination-Mocha").textContent).toContain("1–3");
     expect(screen.getByTestId("elimination-Mocha").textContent).toContain("Ravens");
-    // Four losers, four cards — and the teams still standing print nothing.
-    for (const slug of ["ana", "doug", "bo", "cy"]) expect(screen.getByTestId(`printed-${slug}`)).toBeTruthy();
-    expect(screen.queryByTestId("printed-ray")).toBeNull();
+    // Four losers as send-offs, and the two teams through as plain season
+    // cards in the same edition.
+    for (const slug of ["ana", "doug", "bo", "cy", "ray", "kim"]) expect(screen.getByTestId(`printed-${slug}`)).toBeTruthy();
+    expect(screen.getByTestId("advancing").textContent).toContain("Comets, Ravens");
     expect(screen.queryByTestId("unmatched")).toBeNull();
     expect(screen.queryByTestId("scheduled")).toBeNull();
     expect(screen.queryByTestId("undecided")).toBeNull();

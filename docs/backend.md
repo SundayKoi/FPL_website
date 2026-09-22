@@ -1422,6 +1422,14 @@ Tuesday drop (`scripts/weekly-card-drop.ts`) and the manual archiver
 in as a thunk: the drop already holds it, and an ordinary week must not pay
 for a whole-season read it will not use.
 
+**The teams through.** A playoff week's edition also carries every team
+that advanced that week (`advancingInWeek`; never the finals winner, whose
+stop is the Champion send-off, and never a gauntlet team the same night
+knocked out): their players print as ordinary season cards beside the
+send-offs, crowned as one roster, so a pack bought for the week can pull
+the whole night's players. `SendoffPlan.advancing` names them for the
+drop's post and the admin dry run.
+
 **On the live surfaces.** During the bracket, Browse, the hub, compare, the
 teams page and a card's own page show the season build with every fallen
 team's cards already wearing their send-off (`stampSendoffs` over
