@@ -26,7 +26,7 @@ vi.mock("@/lib/supabase/client", () => ({
     };
   },
 }));
-import MatchDraftBoard from "./MatchDraftBoard";
+import MatchDraftBoard, { overlaySlotWidthFrom } from "./MatchDraftBoard";
 import { LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
 import { CHAMPIONS } from "@/lib/match-draft/champions";
 import type { MatchDraftState } from "@/lib/match-draft/types";
@@ -731,15 +731,43 @@ describe("MatchDraftBoard", () => {
     ]);
   });
 
-  it("caps the overlay's champion portrait boxes at 700px without a fixed width", () => {
+  it("caps the overlay's portrait boxes at 350px by default, without a fixed width", () => {
     const { container } = render(<MatchDraftBoard initialState={state} overlay onSave={vi.fn()} />);
 
-    // Capped, not fixed: a fixed 700px overflowed narrower browser sources
-    // and the red column painted over the clock and the blue picks.
-    const slots = container.querySelectorAll('[class~="max-w-[700px]"]');
+    // 350 is the width the stream scene was built around; capped, not
+    // fixed, so a narrower browser source never overflows.
+    const slots = container.querySelectorAll('[class~="max-w-[350px]"]');
     expect(slots).toHaveLength(10);
+    expect(container.querySelectorAll('[class~="max-w-[700px]"]')).toHaveLength(0);
     expect(container.querySelectorAll('[class~="w-[700px]"]')).toHaveLength(0);
     for (const slot of slots) expect(slot.className).toContain("w-full");
+  });
+
+  it("widens the overlay's portrait boxes to 700px on ?slot=700", () => {
+    const { container } = render(<MatchDraftBoard initialState={state} overlay overlaySlotWidth={700} onSave={vi.fn()} />);
+
+    expect(container.querySelectorAll('[class~="max-w-[700px]"]')).toHaveLength(10);
+    expect(container.querySelectorAll('[class~="max-w-[350px]"]')).toHaveLength(0);
+    expect(overlaySlotWidthFrom("700")).toBe(700);
+    expect(overlaySlotWidthFrom("350")).toBe(350);
+    expect(overlaySlotWidthFrom(undefined)).toBe(350);
+  });
+
+  it("mirrors the red side's ink to the outer edge of its slot", () => {
+    const { container } = render(<MatchDraftBoard initialState={state} overlay onSave={vi.fn()} />);
+
+    // The label row is reversed on red so the role sits at the right edge,
+    // and the names are right-aligned; blue keeps its ink on the left.
+    const redRows = container.querySelectorAll('[data-testid="red-pick-slot"] [class~="flex-row-reverse"]');
+    const blueRows = container.querySelectorAll('[data-testid="blue-pick-slot"] [class~="flex-row-reverse"]');
+    expect(redRows.length).toBeGreaterThan(0);
+    expect(blueRows).toHaveLength(0);
+    for (const slot of container.querySelectorAll('[data-testid="red-pick-slot"]')) {
+      expect(slot.querySelector("p")?.className).toContain("text-right");
+    }
+    for (const slot of container.querySelectorAll('[data-testid="blue-pick-slot"]')) {
+      expect(slot.querySelector("p")?.className).not.toContain("text-right");
+    }
   });
 
   it("keeps the red-side overlay team header stretched like blue", () => {

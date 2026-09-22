@@ -1,5 +1,5 @@
 import Link from "next/link";
-import MatchDraftBoard from "@/components/match-draft/MatchDraftBoard";
+import MatchDraftBoard, { overlaySlotWidthFrom } from "@/components/match-draft/MatchDraftBoard";
 import { fearlessBlockedByGame, fearlessBlockedChampions } from "@/lib/match-draft/rules";
 import { fetchLiveChampions } from "@/lib/match-draft/liveRoster";
 import type {
@@ -168,6 +168,7 @@ export default async function OpenDraftLobbyPage({
       lobby={{ lobbyId: info.lobbyId, token }}
       followLive={overlay && firstParam(query.game) === undefined}
       overlayTransparent={firstParam(query.bg) === "transparent"}
+      overlaySlotWidth={overlaySlotWidthFrom(firstParam(query.slot))}
     />
   );
 }
