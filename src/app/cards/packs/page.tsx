@@ -11,7 +11,7 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchPatronTenureDays } from "@/lib/patron/queries";
 import { fetchCardSeason, fetchEditionWeekInfo, type CardLeague, type EditionWeekInfo } from "@/lib/cards/queries";
 import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
-import { fetchSeasonEndCatalog, fetchSeasonEndOwnedDesignIds, fetchSeasonEndRelease, type SeasonEndRelease } from "@/lib/season-end/release-queries";
+import { fetchSeasonEndCatalog, fetchSeasonEndOwnedDesignIds, fetchSeasonEndRecovery, fetchSeasonEndReleaseById, fetchPublishedSeasonEndReleases, type SeasonEndRelease } from "@/lib/season-end/release-queries";
 import {
   fetchChampionsWindow,
   fetchChase,
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
  * its own tab now (/cards/collection): "my cards" and "buy cards" are
  * different questions, and nobody looking for the first guessed "Packs".
  */
-export async function PacksPageView({ league = "premier" }: { league?: CardLeague } = {}) {
+export async function PacksPageView({ league = "premier", releaseId }: { league?: CardLeague; releaseId?: string } = {}) {
   const base = league === "academy" ? "/academy/cards" : "/cards";
   const user = await getBettingUser();
 
@@ -55,11 +55,42 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
     );
   }
 
-  if (!user.allowed) {
+  const service = createBettingServiceClient();
+  // A charged opening is recoverable independently of current membership. Do
+  // this lookup before the membership gate so a member who changed devices
+  // cannot accidentally start a second opening while the first is pending.
+  const recovery = await fetchSeasonEndRecovery(service, user.discordId, league);
+
+  if (!user.allowed && !recovery) {
     return <CardsGate section="Packs" title={PREMIUM_GATE_TITLE} body={PREMIUM_GATE_BODY} browse={`${base}/browse`} />;
   }
 
-  const service = createBettingServiceClient();
+  if (recovery) {
+    let recoveryCatalog: Awaited<ReturnType<typeof fetchSeasonEndCatalog>> = null;
+    try {
+      recoveryCatalog = await fetchSeasonEndCatalog(service, recovery.release);
+    } catch {
+      // A pending opening can still be shown as a recovery entry point even
+      // when its frozen catalog needs staff attention before it can finish.
+    }
+    return (
+      <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+        <CardsPageHeader eyebrow={cardsEyebrow("Packs", league, recovery.release.season)} title="Recover your Season&apos;s End opening">
+          {user.allowed ? "An existing charged opening is ready to recover. This page will finish that opening before allowing another purchase." : "Your membership is not currently active, but an existing charged opening can still be recovered. This page does not start new purchases."}
+        </CardsPageHeader>
+        <SeasonEndPackShop
+          league={league}
+          season={recovery.release.season}
+          release={recovery.release}
+          catalog={recoveryCatalog}
+          viewerId={user.discordId}
+          initialRequestId={recovery.requestId}
+          recoveryOnly
+        />
+      </main>
+    );
+  }
+
   const season = await fetchCardSeason(service, league);
   const [ownedSlugs, openCount, editionWeekInfo, dailyRip]: [string[], number, EditionWeekInfo[], DailyRipStatus] = season
     ? await Promise.all([
@@ -79,13 +110,21 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
   let seasonEndRelease: SeasonEndRelease | null = null;
   let seasonEndCatalog: Awaited<ReturnType<typeof fetchSeasonEndCatalog>> = null;
   let seasonEndOwned: string[] = [];
-  if (season) {
-    seasonEndRelease = await fetchSeasonEndRelease(service, league, season, { publicOnly: true });
-    if (seasonEndRelease) {
-      [seasonEndCatalog, seasonEndOwned] = await Promise.all([
-        fetchSeasonEndCatalog(service, seasonEndRelease),
-        fetchSeasonEndOwnedDesignIds(service, seasonEndRelease.id, user.discordId),
-      ]);
+  let seasonEndCatalogError = false;
+  const publishedSeasonEndReleases = await fetchPublishedSeasonEndReleases(service, league);
+  if (publishedSeasonEndReleases.length) {
+    seasonEndRelease = releaseId
+      ? await fetchSeasonEndReleaseById(service, releaseId, { publicOnly: true })
+      : publishedSeasonEndReleases[0];
+    if (seasonEndRelease && seasonEndRelease.league === league) {
+      try {
+        [seasonEndCatalog, seasonEndOwned] = await Promise.all([
+          fetchSeasonEndCatalog(service, seasonEndRelease),
+          fetchSeasonEndOwnedDesignIds(service, seasonEndRelease.id, user.discordId),
+        ]);
+      } catch {
+        seasonEndCatalogError = true;
+      }
     }
   }
   // The banners above the shop: an open Live Drops window and this week's
@@ -152,9 +191,12 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
       </Link>
       <ThisWeekStrip notices={weekNotices({ liveWindow, chase, championsWindow, championComps })} />
 
+      {publishedSeasonEndReleases.length ? <nav aria-label="Season's End release selection" className="flex flex-wrap items-center gap-2 text-xs text-steel"><span>Season&apos;s End release:</span>{publishedSeasonEndReleases.map((entry) => <Link key={entry.id} href={`${base}/packs?release=${encodeURIComponent(entry.id)}`} className={`rounded-full border px-3 py-1 ${entry.id === seasonEndRelease?.id ? "border-gold text-gold" : "border-line hover:border-gold hover:text-gold"}`}>{entry.season} · revision {entry.catalogVersion}</Link>)}</nav> : null}
+
       {seasonEndRelease && seasonEndCatalog ? (
-        <SeasonEndPackShop league={league} season={season!} release={seasonEndRelease} catalog={seasonEndCatalog} ownedDesignIds={seasonEndOwned} />
+        <SeasonEndPackShop key={`${seasonEndRelease.id}:${user.discordId}:public`} league={league} season={seasonEndRelease.season} release={seasonEndRelease} catalog={seasonEndCatalog} ownedDesignIds={seasonEndOwned} viewerId={user.discordId} />
       ) : null}
+      {seasonEndCatalogError ? <p role="alert" className="card-brand p-5 text-coral">The selected Season&apos;s End release failed its integrity check and is unavailable until staff repairs or replaces the revision.</p> : null}
 
       <PackShop
         league={league}
@@ -190,6 +232,8 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
   );
 }
 
-export default async function PacksPage() {
-  return PacksPageView({ league: "premier" });
+export default async function PacksPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams;
+  const releaseId = typeof params.release === "string" ? params.release : undefined;
+  return PacksPageView({ league: "premier", releaseId });
 }

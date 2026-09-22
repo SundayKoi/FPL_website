@@ -15,15 +15,16 @@ export const test = base.extend<{ captains: [Page, Page] }>({
   },
 });
 
-export function seedFixture(scenario: "draft" | "betting" | "fpldle"): void {
+export function seedFixture(scenario: "draft" | "betting" | "fpldle" | "season-end"): void {
   const script = scenario === "draft" ? "seed.ts" : `seed-${scenario}.ts`;
   execFileSync(process.execPath, ["--import", "tsx", `e2e/${script}`], { stdio: "inherit" });
 }
 
 export async function signIn(page: Page, email: string, password: string, redirect = "/"): Promise<void> {
   await page.goto(`/login?redirect=${encodeURIComponent(redirect)}`);
-  await page.getByPlaceholder("email").fill(email);
-  await page.getByPlaceholder("password").fill(password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  const form = page.locator("form").last();
+  await form.getByPlaceholder("email").fill(email);
+  await form.getByPlaceholder("password").fill(password);
+  await form.getByRole("button", { name: "Sign in", exact: true }).click();
   await page.waitForURL(redirect);
 }

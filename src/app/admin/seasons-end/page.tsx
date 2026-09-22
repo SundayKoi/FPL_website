@@ -74,6 +74,7 @@ export default async function SeasonsEndPage({
     }
   }
   const bestOfDiagnostics = result?.awards.find((award) => award.id === "best-of-champion")?.bestOfDiagnostics;
+  const viewerId = await readViewerDiscordId(client);
   const release = await fetchSeasonEndRelease(createBettingServiceClient(), league, season);
   const releaseCatalog = release ? await fetchSeasonEndCatalog(createBettingServiceClient(), release) : null;
 
@@ -93,7 +94,7 @@ export default async function SeasonsEndPage({
         </> : null}
       </header>
 
-      {staff ? <SeasonEndReleasePanel league={league} season={season} release={release} catalog={releaseCatalog} /> : null}
+      {staff ? <SeasonEndReleasePanel league={league} season={season} release={release} catalog={releaseCatalog} viewerId={viewerId} /> : null}
 
       {error ? <p role="alert" className="card-brand p-5 text-coral">{error}</p> : null}
       {staff && result ? <section aria-label="Season coverage" className="card-brand flex flex-col gap-3 p-5">

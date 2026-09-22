@@ -1,7 +1,8 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_betting_fixtures.sql.inc
-select plan(21);
+\ir helpers/_season_end_report.sql.inc
+select plan(22);
 
 select test_profile(6000) as collector \gset
 select test_profile(500) as buyer \gset
@@ -9,7 +10,11 @@ select test_profile(500) as buyer \gset
 insert into public.season_end_releases
   (id, league, season, state, price, catalog_hash, rules_version, signature_calibration, created_by)
 values
-  ('00000000-0000-0000-0000-000000001923', 'premier', 'S_TEST_0123', 'draft', 500, 'hash-0123', 'test-rules', '{"calibratedPerCopyChance":0.01}', :'collector');
+  ('00000000-0000-0000-0000-000000001923', 'premier', 'S_TEST_0123', 'draft', 500, 'hash-0123', 'test-rules', '{"calibratedPerCopyChance":0.01,"achievablePackProbability":0.01}', :'collector');
+
+update public.season_end_releases
+   set revision_digest = 'revision-0123'
+ where id = '00000000-0000-0000-0000-000000001923';
 
 insert into public.season_end_designs (release_id, design_id, kind, payload, base_salvage)
 values
@@ -17,7 +22,8 @@ values
   ('00000000-0000-0000-0000-000000001923', 's2', 'season',  '{"designId":"s2"}', 20),
   ('00000000-0000-0000-0000-000000001923', 'a1', 'accolade', '{"designId":"a1"}', 30),
   ('00000000-0000-0000-0000-000000001923', 'a2', 'accolade', '{"designId":"a2"}', 30),
-  ('00000000-0000-0000-0000-000000001923', 'b1', 'best_of',  '{"designId":"b1"}', 30);
+  ('00000000-0000-0000-0000-000000001923', 'b1', 'best_of',  '{"designId":"b1"}', 30),
+  ('00000000-0000-0000-0000-000000001923', 'b2', 'best_of',  '{"designId":"b2"}', 30);
 
 select ok(not has_table_privilege('anon', 'public.season_end_inventory', 'select'), 'test inventory has no direct anon read grant');
 select ok(not has_function_privilege('anon', 'public.begin_season_end_opening(uuid,text,uuid,text)', 'execute'), 'opening RPC is service-role only');
@@ -67,8 +73,15 @@ select lives_ok(format($sql$ select public.refund_season_end_opening(%L::uuid) $
 select lives_ok(format($sql$ select public.refund_season_end_opening(%L::uuid) $sql$, :'second_opening_id'), 'repeating a refund is idempotent');
 select is((select balance from public.season_end_test_wallets where release_id = '00000000-0000-0000-0000-000000001923' and discord_id = :'collector'), 5500::bigint, 'refund restores the virtual wallet exactly once');
 
-select lives_ok(format($sql$ select public.approve_season_end_release('00000000-0000-0000-0000-000000001923'::uuid, %L) $sql$, :'collector'), 'staff can record a test approval');
-select lives_ok(format($sql$ select public.transition_season_end_release('00000000-0000-0000-0000-000000001923'::uuid, 'public', %L, 'hash-0123') $sql$, :'collector'), 'publication is an explicit state transition');
+select lives_ok($$ select public.record_season_end_verification_report(
+  '00000000-0000-0000-0000-000000001923'::uuid,
+  'revision-0123',
+  test_season_end_report('00000000-0000-0000-0000-000000001923'::uuid) ->> 'reportDigest',
+  test_season_end_report('00000000-0000-0000-0000-000000001923'::uuid),
+  'release-staff'
+) $$, 'the pack fixture records complete approval evidence');
+select lives_ok($$ select public.approve_season_end_release('00000000-0000-0000-0000-000000001923'::uuid, 'release-staff', 'revision-0123') $$, 'staff can record a test approval');
+select lives_ok($$ select public.transition_season_end_release('00000000-0000-0000-0000-000000001923'::uuid, 'public', 'release-staff', 'hash-0123', 'revision-0123') $$, 'publication is an explicit state transition');
 select is((select state from public.season_end_releases where id = '00000000-0000-0000-0000-000000001923'), 'public', 'release is public only after approval');
 
 select * from public.begin_season_end_opening(

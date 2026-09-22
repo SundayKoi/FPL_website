@@ -69,6 +69,16 @@ double_kills, first_blood_assist, first_blood_kill, game_duration_min, gold_at_1
 gold_per_min, kda_challenges, kill_participation_pct, penta_kills, quadra_kills, role, season, \
 season_phase, solo_kills, triple_kills, vision_score, vision_score_per_min, xp_at_10";
 
+async function readOptionalPages<T>(
+  read: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>,
+): Promise<{ data: T[]; error: { message: string } | null }> {
+  try {
+    return { data: await fetchAllPages<T>(read), error: null };
+  } catch (error) {
+    return { data: [], error: { message: error instanceof Error ? error.message : "unknown source error" } };
+  }
+}
+
 /** The season a league's cards rate — Premier's current season or the
  *  Academy's own code. The two leagues share every stats table and are
  *  separated by season code, so the whole card pipeline is league-agnostic
@@ -121,7 +131,7 @@ export interface TeamIdentity {
   colors: Map<string, string>;
 }
 
-export async function fetchTeamIdentity(supabase: SupabaseClient, season: string): Promise<TeamIdentity> {
+export async function fetchTeamIdentity(supabase: SupabaseClient, season: string, options: { strictSource?: boolean } = {}): Promise<TeamIdentity> {
   const [teamsResult, leagueTeamsResult, settingsResult] = await Promise.all([
     // draft_id comes along so the badge can be scoped to THIS season's
     // teams below — team names get reused season to season, and an
@@ -139,7 +149,12 @@ export async function fetchTeamIdentity(supabase: SupabaseClient, season: string
       .maybeSingle(),
   ]);
 
-  // Badges are garnish — a failure here must not take cards down.
+  if (options.strictSource && (teamsResult.error || leagueTeamsResult.error || settingsResult.error || !settingsResult.data)) {
+    throw new Error(`Team identity source failed for ${season}`);
+  }
+
+  // Badges are garnish for normal card reads — a failure here must not take
+  // the wider cards page down. Release snapshots opt into strictSource above.
   const teamRows = teamsResult.error
     ? []
     : ((teamsResult.data as {
@@ -259,7 +274,11 @@ export function backfillTeamIdentity(cards: PlayerCardData[], identity: TeamIden
  * the whole league: the rating engine needs the full cohort anyway (all
  * ratings are league-relative), so per-player fetching would save nothing.
  */
-export async function fetchSeasonCards(supabase: SupabaseClient, season: string): Promise<PlayerCardData[]> {
+export async function fetchSeasonCards(
+  supabase: SupabaseClient,
+  season: string,
+  options: { strictSource?: boolean } = {},
+): Promise<PlayerCardData[]> {
   const [aggRows, gameRows, logRows, recordsResult, teamIdentity, artResult] = await Promise.all([
     fetchAllPages<PlayerAggRow>((from, to) => supabase.from("stats_player_agg").select("*").eq("season", season)
       .order("summoner_name").order("tag").order("season_phase").range(from, to)),
@@ -267,18 +286,18 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
       .eq("season", season).order("id").range(from, to)),
     fetchAllPages<Pick<GameLogRow, "match_id" | "duration_min" | "blue_team" | "red_team">>((from, to) => supabase.from("stats_game_log")
       .select("match_id, duration_min, blue_team, red_team").eq("season", season).order("match_id").range(from, to)),
-    supabase.from("stats_records").select("category, summoner_name, tag").eq("season", season),
-    fetchTeamIdentity(supabase, season),
+    readOptionalPages<Pick<RecordRow, "category" | "summoner_name" | "tag">>((from, to) => supabase.from("stats_records").select("category, summoner_name, tag").eq("season", season).order("category").order("summoner_name").range(from, to)),
+    fetchTeamIdentity(supabase, season, options),
     // select * on purpose: the motto column arrived in a later migration
     // than skin, and naming a missing column would fail the whole select.
-    supabase.from("card_art_prefs").select("*").eq("season", season),
+    readOptionalPages<{ summoner_name: string; tag: string; art_champion?: string | null; skin: number; motto?: string | null }>((from, to) => supabase.from("card_art_prefs").select("*").eq("season", season).order("summoner_name").order("tag").range(from, to)),
   ]);
   // Records / team art / skin prefs are garnish — a failure (e.g. the
   // card_art_prefs migration not applied yet) must not take cards down.
+  if (options.strictSource && recordsResult.error) throw new Error(`Season card record source failed: ${recordsResult.error.message}`);
+  if (options.strictSource && artResult.error) throw new Error(`Season card artwork source failed: ${artResult.error.message}`);
   const recordRows = recordsResult.error ? [] : ((recordsResult.data as Pick<RecordRow, "category" | "summoner_name" | "tag">[]) ?? []);
-  const artRows = artResult.error
-    ? []
-    : ((artResult.data as { summoner_name: string; tag: string; art_champion?: string | null; skin: number; motto?: string | null }[]) ?? []);
+  const artRows = artResult.error ? [] : ((artResult.data as { summoner_name: string; tag: string; art_champion?: string | null; skin: number; motto?: string | null }[]) ?? []);
 
   // The view emits one row per (season, phase) — merge Regular+Playoffs
   // into a single season row per player, same as the stats tabs do.

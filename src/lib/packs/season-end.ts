@@ -1,8 +1,9 @@
 import { DEFAULT_FOIL_TYPE, FOIL_CHANCE, FOIL_TYPE_WEIGHTS, SIGNED_CHANCE_CAP, type MintableFoilType } from "./config";
 import { validateSeasonEndCatalog, type SeasonEndCatalog, type SeasonEndCollectible, type SeasonEndKind } from "@/lib/season-end/collectibles";
+import { SEASON_END_PACK_PRICE, SEASON_END_PACK_SIZE, SEASON_END_RELEASE_RULES, validateSeasonEndReleaseRules } from "@/lib/season-end/release";
 
-export const SEASON_END_PACK_SIZE = 5;
-export const SEASON_END_PRICE = 500;
+export { SEASON_END_PACK_SIZE };
+export const SEASON_END_PRICE = SEASON_END_PACK_PRICE;
 
 export interface SeasonEndRollRules {
   foilChance: number;
@@ -15,13 +16,13 @@ export interface SeasonEndRollRules {
 }
 
 export const DEFAULT_SEASON_END_RULES: SeasonEndRollRules = {
-  foilChance: FOIL_CHANCE,
-  slot34FamilyWeights: { accolade: 50, best_of: 50 },
-  slot5FamilyWeights: { season: 50, accolade: 25, best_of: 25 },
-  guaranteedSlot: 5,
+  foilChance: SEASON_END_RELEASE_RULES.foilChance ?? FOIL_CHANCE,
+  slot34FamilyWeights: { ...SEASON_END_RELEASE_RULES.slot34FamilyWeights },
+  slot5FamilyWeights: { ...SEASON_END_RELEASE_RULES.slot5FamilyWeights },
+  guaranteedSlot: SEASON_END_RELEASE_RULES.guaranteedSlot,
   signatureChance: 0,
-  signatureChanceCap: SIGNED_CHANCE_CAP,
-  foilTypeWeights: { ...FOIL_TYPE_WEIGHTS },
+  signatureChanceCap: SEASON_END_RELEASE_RULES.signatureChanceCap ?? SIGNED_CHANCE_CAP,
+  foilTypeWeights: { ...SEASON_END_RELEASE_RULES.foilTypeWeights, ...FOIL_TYPE_WEIGHTS },
 };
 
 export interface SeasonEndPull {
@@ -82,8 +83,17 @@ function pickFamily(
 export function selectSeasonEndDesigns(
   catalog: Pick<SeasonEndCatalog, "designs" | "releaseId" | "league" | "season">,
   rand: () => number,
-  rules: Pick<SeasonEndRollRules, "slot34FamilyWeights" | "slot5FamilyWeights"> = DEFAULT_SEASON_END_RULES,
+  rules: Pick<SeasonEndRollRules, "foilChance" | "slot34FamilyWeights" | "slot5FamilyWeights"> = DEFAULT_SEASON_END_RULES,
 ): SeasonEndCollectible[] {
+  const ruleErrors = validateSeasonEndReleaseRules({
+    foilChance: rules.foilChance,
+    slot34FamilyWeights: rules.slot34FamilyWeights,
+    slot5FamilyWeights: rules.slot5FamilyWeights,
+    guaranteedSlot: 5,
+    signatureChanceCap: SIGNED_CHANCE_CAP,
+    foilTypeWeights: DEFAULT_SEASON_END_RULES.foilTypeWeights,
+  });
+  if (ruleErrors.length) throw new Error(`invalid Season's End rules: ${ruleErrors.join("; ")}`);
   const validation = validateSeasonEndCatalog(catalog);
   if (!validation.ok) throw new Error(`invalid Season's End catalog: ${validation.errors.join("; ")}`);
 

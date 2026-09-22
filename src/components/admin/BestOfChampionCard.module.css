@@ -3,7 +3,11 @@
 .face.lunari { --celestial-accent:#cfdaff; }
 .art { position:absolute; z-index:0; inset:0; background-color:#10161d; background-repeat:no-repeat; transform:scale(var(--art-zoom, 1)); transform-origin:center; }
 .shade { position:absolute; z-index:1; inset:0; background:linear-gradient(0deg, rgb(3 8 12 / .94), rgb(3 8 12 / .72) 19%, transparent 53%, rgb(3 8 12 / .2)); pointer-events:none; }
-.foil { position:absolute; z-index:2; inset:0; pointer-events:none; opacity:.18; background:repeating-radial-gradient(ellipse at 50% 15%, transparent 0 23px, #d7bf792a 24px, transparent 25px 35px); -webkit-mask-image:linear-gradient(90deg, #000, transparent 20% 80%, #000); mask-image:linear-gradient(90deg, #000, transparent 20% 80%, #000); }
+.foil { position:absolute; z-index:2; inset:0; display:none; pointer-events:none; opacity:.28; background:repeating-radial-gradient(ellipse at 50% 15%, transparent 0 23px, #d7bf7955 24px, transparent 25px 35px); -webkit-mask-image:linear-gradient(90deg, #000, transparent 20% 80%, #000); mask-image:linear-gradient(90deg, #000, transparent 20% 80%, #000); }
+.card[data-foil="true"] .foil { display:block; }
+.card[data-foil-type="aurora"] .foil { background:linear-gradient(120deg, #68d8ff55, #f0a7ff66, #83f1c555); }
+.card[data-foil-type="refractor"] .foil { background:linear-gradient(120deg, #ffdc7a66, #fff9e566, #ff8f8f55); }
+.card[data-foil-type="ice"] .foil { background:linear-gradient(120deg, #b7efff66, #d2e4ff66, #f5fbff66); }
 .frame { position:absolute; z-index:3; inset:9px; border:1px solid var(--celestial-accent); border-radius:11px; box-shadow:0 0 4px color-mix(in srgb, var(--celestial-accent) 24%, transparent); pointer-events:none; }
 .frame::after { position:absolute; inset:5px; border:1px solid color-mix(in srgb, var(--celestial-accent) 36%, transparent); border-radius:7px; content:""; }
 .ornament { position:absolute; z-index:3; inset:0; width:100%; height:100%; color:var(--celestial-accent); pointer-events:none; }
