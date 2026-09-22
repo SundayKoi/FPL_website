@@ -8,6 +8,7 @@ import {
   hasResult,
   nextUp,
   resolveSeason,
+  selectActiveStage,
   selectDefaultOpenStages,
   selectActiveRegularSeasonStage,
   seasonsOf,
@@ -158,6 +159,80 @@ describe("selectActiveRegularSeasonStage", () => {
       fixture({ stage, score_a: 2, score_b: 1 }),
     );
     expect(selectActiveRegularSeasonStage(rows)).toBeNull();
+  });
+});
+
+describe("selectActiveStage", () => {
+  const playedWeeks = (["week_1", "week_2", "week_3", "week_4", "week_5"] as const).map((stage) =>
+    fixture({ stage, score_a: 2, score_b: 1 }),
+  );
+
+  it("answers exactly as the regular-season rule mid-season", () => {
+    const rows = [
+      fixture({ stage: "week_1", score_a: 2, score_b: 1 }),
+      fixture({ stage: "week_2" }),
+      fixture({ stage: "quarterfinals" }),
+    ];
+    expect(selectActiveStage(rows)).toBe(selectActiveRegularSeasonStage(rows));
+    expect(selectActiveStage(rows)).toBe("week_2");
+  });
+
+  it("moves into the gauntlet once every week is played, counting TBD rounds as unplayed", () => {
+    const rows = [
+      ...playedWeeks,
+      fixture({ stage: "gauntlet_r1", team_a: "Alpha", team_b: "Bravo" }),
+      fixture({ stage: "gauntlet_r2", team_a: "Charlie", team_b: null }),
+    ];
+    expect(selectActiveStage(rows)).toBe("gauntlet_r1");
+  });
+
+  it("advances to the gauntlet's second round once its first is played", () => {
+    const rows = [
+      ...playedWeeks,
+      fixture({ stage: "gauntlet_r1", score_a: 1, score_b: 0 }),
+      fixture({ stage: "gauntlet_r2", team_a: "Charlie", team_b: null }),
+    ];
+    expect(selectActiveStage(rows)).toBe("gauntlet_r2");
+  });
+
+  it("advances to the quarterfinals once the whole gauntlet is played", () => {
+    const rows = [
+      ...playedWeeks,
+      fixture({ stage: "gauntlet_r1", score_a: 1, score_b: 0 }),
+      fixture({ stage: "gauntlet_r2", score_a: 2, score_b: 1 }),
+      fixture({ stage: "quarterfinals" }),
+    ];
+    expect(selectActiveStage(rows)).toBe("quarterfinals");
+  });
+
+  it("skips the gauntlet entirely for the Academy, which does not play one", () => {
+    expect(selectActiveStage([...playedWeeks, fixture({ stage: "quarterfinals" })])).toBe(
+      "quarterfinals",
+    );
+  });
+
+  it("stops at a stage whose rows are still TBD placeholders", () => {
+    const rows = [
+      ...playedWeeks,
+      fixture({ stage: "quarterfinals", score_a: 3, score_b: 1 }),
+      fixture({ stage: "semifinals", team_a: null, team_b: null }),
+      fixture({ stage: "semifinals", team_a: null, team_b: null }),
+    ];
+    expect(selectActiveStage(rows)).toBe("semifinals");
+  });
+
+  it("returns null once every fixture of the season has a result", () => {
+    const rows = [
+      ...playedWeeks,
+      fixture({ stage: "quarterfinals", score_a: 3, score_b: 0 }),
+      fixture({ stage: "semifinals", score_a: 3, score_b: 2 }),
+      fixture({ stage: "finals", score_a: 3, score_b: 1 }),
+    ];
+    expect(selectActiveStage(rows)).toBeNull();
+  });
+
+  it("starts an empty season at Week 1", () => {
+    expect(selectActiveStage([])).toBe("week_1");
   });
 });
 

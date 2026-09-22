@@ -36,7 +36,7 @@ vi.mock("@/components/admin/AdminStaff", () => ({ default: ({ profiles }: { prof
 vi.mock("@/components/admin/AdminBangerTitles", () => ({ default: () => <div /> }));
 vi.mock("@/components/admin/AdminGodPackPreview", () => ({ default: () => <div data-testid="admin-god-pack-preview" /> }));
 
-const fixture = (id: string, teamA: string, teamB: string): FixtureRow => ({
+const fixture = (id: string, teamA: string, teamB: string | null): FixtureRow => ({
   id,
   season: "S5",
   stage: "week_1",
@@ -84,7 +84,9 @@ vi.mock("@/lib/supabase/server", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   fetchStaffTier.mockResolvedValue({ isAdmin: true, isOwner: false, isBroadcaster: false });
-  fetchHomepageSchedule.mockResolvedValue({ fixtures: [fixture("premier-fixture", "Premier A", "Premier B")] });
+  fetchHomepageSchedule.mockResolvedValue({
+    upcoming: [fixture("premier-fixture", "Premier A", "Premier B")],
+  });
   fetchHomepageFeaturedSettings.mockImplementation(async (homepage: string) =>
     homepage === "premier"
       ? { fixtureId: "premier-fixture", title: "Premier spotlight", description: "Premier copy", twitchUrl: null }
@@ -103,8 +105,8 @@ describe("AdminPage", () => {
 
   it("shows Premier and Academy featured editors to staff with their scoped settings and fixtures", async () => {
     fetchHomepageSchedule
-      .mockResolvedValueOnce({ fixtures: [fixture("premier-fixture", "Premier A", "Premier B")] })
-      .mockResolvedValueOnce({ fixtures: [fixture("academy-fixture", "Academy A", "Academy B")] });
+      .mockResolvedValueOnce({ upcoming: [fixture("premier-fixture", "Premier A", "Premier B")] })
+      .mockResolvedValueOnce({ upcoming: [fixture("academy-fixture", "Academy A", "Academy B")] });
 
     render(await AdminPage());
 
@@ -135,6 +137,25 @@ describe("AdminPage", () => {
     render(await AdminPage());
 
     expect(fetchHomepageSchedule).toHaveBeenNthCalledWith(1);
+  });
+
+  it("labels the bracket ahead with its stage so staff can feature a playoff game", async () => {
+    fetchHomepageSchedule.mockResolvedValue({
+      upcoming: [
+        fixture("week-1-fixture", "Premier A", "Premier B"),
+        { ...fixture("semi-fixture", "Premier A", null), stage: "semifinals" as const, division: null },
+      ],
+    });
+
+    render(await AdminPage());
+
+    const premierProps = editor.mock.calls
+      .map(([props]) => props as { homepage: string; fixtures: { label: string }[] })
+      .find((props) => props.homepage === "premier");
+    expect(premierProps?.fixtures.map((choice) => choice.label)).toEqual([
+      "Week 1 · Solari · Premier A vs Premier B",
+      "Semifinals · Premier A vs TBD",
+    ]);
   });
 
   it("allows an owner who is not an admin to access the admin page", async () => {

@@ -26,13 +26,22 @@ const sideClass: Record<DraftSide, string> = {
 const imageSizes = MATCH_DRAFT_IMAGE_SIZE_ORDER.map((value) => ({ value, ...MATCH_DRAFT_IMAGE_SIZES[value] }));
 const sizeByValue = MATCH_DRAFT_IMAGE_SIZES;
 
-// OBS contract: champion portrait slots are 700px wide on a canvas with the
-// room for it, and never wider than their column. A fixed 700px overflowed
-// any browser source narrower than ~1600px: the red column, aligned to its
-// right edge, spilled left across the clock and the blue picks. The slot's
-// own w-full fills the grid track; this only caps it. Do not change the
-// 700px figure without explicit permission.
-const OBS_CHAMPION_PORTRAIT_WIDTH = "max-w-[700px]";
+// OBS contract: the overlay's portrait slots fill their column up to a cap,
+// and the cap is a query switch (?slot=). 350px is what the league's stream
+// scene was built around: the match graphic covers the middle of the canvas
+// and only the outer band of each column shows, and a 350px slot fits
+// inside that band whole. ?slot=700 is the wide portrait for a scene with
+// the room for it. A fixed 700px overflowed narrower browser sources and,
+// on the stream scene, pushed the red column's names under the graphic.
+// Both classes are spelled out so Tailwind emits them.
+export type OverlaySlotWidth = 350 | 700;
+export const DEFAULT_OVERLAY_SLOT_WIDTH: OverlaySlotWidth = 350;
+const OBS_SLOT_CAP: Record<OverlaySlotWidth, string> = { 350: "max-w-[350px]", 700: "max-w-[700px]" };
+
+/** Reads ?slot= for the overlay: 700 when asked for, otherwise the default. */
+export function overlaySlotWidthFrom(value: string | undefined): OverlaySlotWidth {
+  return value === "700" ? 700 : DEFAULT_OVERLAY_SLOT_WIDTH;
+}
 
 /** Copies a shareable drafter URL (built from the page's own origin, so it
  *  works on any deploy) with per-button "Copied" feedback. */
@@ -231,6 +240,7 @@ export default function MatchDraftBoard({
   lobby = null,
   followLive = false,
   overlayTransparent = false,
+  overlaySlotWidth = DEFAULT_OVERLAY_SLOT_WIDTH,
   tourneyCodes = {},
   reportHref = null,
   onSave,
@@ -267,6 +277,8 @@ export default function MatchDraftBoard({
   /** Overlay only (?bg=transparent): no page background, so casters can
    *  layer the overlay over their own scene. */
   overlayTransparent?: boolean;
+  /** Overlay only (?slot=700): the cap on a portrait slot's width. */
+  overlaySlotWidth?: OverlaySlotWidth;
   /** Fixture drafts: this fixture's tourney codes by game number. The page
    *  fetches them under RLS, so only the two teams' captains (and admins)
    *  ever receive any — spectators get an empty object. */
@@ -1788,7 +1800,7 @@ export default function MatchDraftBoard({
           imageSize="lg"
           resolve={resolveChampion}
           online={{ blue: captainOnline("blue"), red: captainOnline("red") }}
-          slotClassName={(pick) => pick.side === "red" ? `${OBS_CHAMPION_PORTRAIT_WIDTH} justify-self-end` : OBS_CHAMPION_PORTRAIT_WIDTH}
+          slotClassName={(pick) => pick.side === "red" ? `${OBS_SLOT_CAP[overlaySlotWidth]} justify-self-end` : OBS_SLOT_CAP[overlaySlotWidth]}
           renderRail={() => (
             <div className="flex min-w-32 flex-col items-center justify-center rounded border border-border-subtle bg-surface px-4 py-4 text-center">
               <TurnTimer state={state} currentStep={currentStep} clockRunning={clockRunning} clockOffsetMs={clockOffsetMs} />

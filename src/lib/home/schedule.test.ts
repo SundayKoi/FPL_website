@@ -57,6 +57,71 @@ describe("fetchHomepageSchedule", () => {
       season: "S5",
       activeStage: "week_1",
       fixtures: [expect.objectContaining({ id: "week-1" })],
+      upcoming: [expect.objectContaining({ id: "week-1" }), expect.objectContaining({ id: "week-2" })],
+    });
+  });
+
+  it("lists the active stage's fixtures and the rest of the bracket during the playoffs", async () => {
+    const played = (["week_1", "week_2", "week_3", "week_4", "week_5"] as const).map((stage, index) =>
+      fixture({ id: stage, stage, score_a: 2, score_b: 1, sort_order: index }),
+    );
+    const from = vi.fn(() =>
+      query({
+        data: [
+          ...played,
+          // Deliberately out of bracket order: `upcoming` re-sorts.
+          fixture({ id: "finals", stage: "finals", team_a: null, team_b: null }),
+          fixture({ id: "semi-1", stage: "semifinals", sort_order: 0 }),
+          fixture({ id: "semi-2", stage: "semifinals", sort_order: 1, team_b: null }),
+          fixture({ id: "quarter", stage: "quarterfinals", score_a: 3, score_b: 0 }),
+        ],
+        error: null,
+      }),
+    );
+    createServerSupabase.mockResolvedValue({ from });
+
+    const schedule = await fetchHomepageSchedule();
+
+    expect(schedule.activeStage).toBe("semifinals");
+    expect(schedule.fixtures.map((row) => row.id)).toEqual(["semi-1", "semi-2"]);
+    // Bracket order, then sort_order — the semifinals the league is at, then
+    // everything still to come.
+    expect(schedule.upcoming.map((row) => row.id)).toEqual(["semi-1", "semi-2", "finals"]);
+  });
+
+  it("lists the weeks from the active week on mid-season", async () => {
+    const from = vi.fn(() =>
+      query({
+        data: [
+          fixture({ id: "week-1", stage: "week_1", score_a: 2, score_b: 1 }),
+          fixture({ id: "week-2", stage: "week_2" }),
+          fixture({ id: "week-3", stage: "week_3" }),
+        ],
+        error: null,
+      }),
+    );
+    createServerSupabase.mockResolvedValue({ from });
+
+    const schedule = await fetchHomepageSchedule();
+
+    expect(schedule.activeStage).toBe("week_2");
+    expect(schedule.fixtures.map((row) => row.id)).toEqual(["week-2"]);
+    expect(schedule.upcoming.map((row) => row.id)).toEqual(["week-2", "week-3"]);
+  });
+
+  it("leaves upcoming empty once the whole season is played", async () => {
+    const played = [
+      ...(["week_1", "week_2", "week_3", "week_4", "week_5"] as const).map((stage) =>
+        fixture({ id: stage, stage, score_a: 2, score_b: 1 }),
+      ),
+      fixture({ id: "finals", stage: "finals", score_a: 3, score_b: 2 }),
+    ];
+    createServerSupabase.mockResolvedValue({ from: vi.fn(() => query({ data: played, error: null })) });
+
+    await expect(fetchHomepageSchedule()).resolves.toMatchObject({
+      activeStage: null,
+      fixtures: [],
+      upcoming: [],
     });
   });
 
@@ -73,6 +138,7 @@ describe("fetchHomepageSchedule", () => {
       season: "S5",
       activeStage: "week_2",
       fixtures: [],
+      upcoming: [],
     });
   });
 
@@ -84,6 +150,7 @@ describe("fetchHomepageSchedule", () => {
       isNewestSeason: true,
       activeStage: "week_1",
       fixtures: [],
+      upcoming: [],
     });
   });
 });

@@ -39,7 +39,12 @@ export function stateFromDraftRow(current: MatchDraftState, row: MatchDraftRow):
     blueTeam,
     redTeam,
     actions,
-    canChooseSides: current.gameNumber > 1 && actions.length === 0,
+    // Either captain (or staff) may set which team takes blue before the
+    // first action of ANY game: game 1's side is staff's call in the regular
+    // season and the higher seed's in the playoffs, so the fixture's order is
+    // only a default. Games 2+ additionally REQUIRE the choice (the loser of
+    // the previous game picks), which is sideChoiceRequired below.
+    canChooseSides: actions.length === 0,
     sideChoiceRequired:
       current.gameNumber > 1 &&
       actions.length === 0 &&
@@ -62,7 +67,7 @@ export function emptyDraftState(current: MatchDraftState): MatchDraftState {
     redPendingOvertimeSeconds: 0,
     blueTeam,
     redTeam,
-    canChooseSides: current.gameNumber > 1,
+    canChooseSides: true,
     sideChoiceRequired: current.gameNumber > 1,
     blueReady: false,
     redReady: false,

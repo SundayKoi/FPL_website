@@ -9,6 +9,13 @@ export const REGULAR_SEASON_STAGES = [
   "week_5",
 ] as const satisfies readonly FixtureStage[];
 
+const REGULAR_SEASON_STAGE_SET: ReadonlySet<FixtureStage> = new Set(REGULAR_SEASON_STAGES);
+
+/** The bracket, in rulebook order: everything after the regular season. */
+const PLAYOFF_STAGES: readonly FixtureStage[] = FIXTURE_STAGES.filter(
+  (stage) => !REGULAR_SEASON_STAGE_SET.has(stage),
+);
+
 /** Select the first regular-season week that is empty or has an unplayed fixture. */
 export function selectActiveRegularSeasonStage(rows: FixtureRow[]): FixtureStage | null {
   for (const stage of REGULAR_SEASON_STAGES) {
@@ -16,6 +23,25 @@ export function selectActiveRegularSeasonStage(rows: FixtureRow[]): FixtureStage
     if (stageRows.length === 0 || stageRows.some((row) => !hasResult(row))) {
       return stage;
     }
+  }
+
+  return null;
+}
+
+/**
+ * The stage the league is at. The regular-season rule first (the first week
+ * that is empty or has an unplayed fixture); once every week is played, the
+ * first playoff stage in bracket order that has a fixture without a result.
+ * A placeholder with a TBD side counts as unplayed (the stage is still to be
+ * played); an EMPTY playoff stage is skipped (the Academy has no gauntlet).
+ * Null once every fixture of the season has a result.
+ */
+export function selectActiveStage(rows: FixtureRow[]): FixtureStage | null {
+  const regularSeasonStage = selectActiveRegularSeasonStage(rows);
+  if (regularSeasonStage) return regularSeasonStage;
+
+  for (const stage of PLAYOFF_STAGES) {
+    if (rows.some((row) => row.stage === stage && !hasResult(row))) return stage;
   }
 
   return null;
@@ -111,6 +137,26 @@ export function stageMeta(stage: FixtureStage): StageMeta {
 
 const STAGE_ORDER = new Map(FIXTURE_STAGES.map((s, i) => [s, i]));
 
+/** The rank of a stage in the bracket; unknown stages sort last. */
+export function stageRank(stage: FixtureStage): number {
+  return STAGE_ORDER.get(stage) ?? 99;
+}
+
+/**
+ * Schedule order: bracket order, then sort_order, then division (Solari
+ * before Lunari, nulls last — rulebook order, not alphabetical), then
+ * creation order for stability.
+ */
+export function compareFixtures(a: FixtureRow, b: FixtureRow): number {
+  const divisionRank = (d: FixtureRow["division"]) => (d === "Solari" ? 0 : d === "Lunari" ? 1 : 2);
+  const stageDiff = stageRank(a.stage) - stageRank(b.stage);
+  if (stageDiff !== 0) return stageDiff;
+  if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+  const divDiff = divisionRank(a.division) - divisionRank(b.division);
+  if (divDiff !== 0) return divDiff;
+  return a.created_at.localeCompare(b.created_at);
+}
+
 /**
  * Group fixtures by stage in rulebook order. Every stage appears (with an
  * empty list when nothing is scheduled yet) so the page always shows the
@@ -119,17 +165,7 @@ const STAGE_ORDER = new Map(FIXTURE_STAGES.map((s, i) => [s, i]));
  * last), then creation order for stability.
  */
 export function groupByStage(rows: FixtureRow[]): { meta: StageMeta; fixtures: FixtureRow[] }[] {
-  // Rulebook order, not alphabetical: Solari, then Lunari, then
-  // cross-division (null).
-  const divisionRank = (d: FixtureRow["division"]) => (d === "Solari" ? 0 : d === "Lunari" ? 1 : 2);
-  const sorted = [...rows].sort((a, b) => {
-    const stageDiff = (STAGE_ORDER.get(a.stage) ?? 99) - (STAGE_ORDER.get(b.stage) ?? 99);
-    if (stageDiff !== 0) return stageDiff;
-    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
-    const divDiff = divisionRank(a.division) - divisionRank(b.division);
-    if (divDiff !== 0) return divDiff;
-    return a.created_at.localeCompare(b.created_at);
-  });
+  const sorted = [...rows].sort(compareFixtures);
   return STAGE_META.map((meta) => ({
     meta,
     fixtures: sorted.filter((r) => r.stage === meta.stage),
@@ -155,9 +191,10 @@ export function selectDefaultOpenStages(
 /**
  * The next thing happening in the season, for the schedule's "Up Next"
  * banner: the earliest future-dated unplayed fixture's stage (with its
- * kickoff and how many series share that stage), else the active
- * regular-season week with no date yet (kickoff null), else null when the
- * season's played out. `now` is injected for testability.
+ * kickoff and how many series share that stage), else the active stage with
+ * no date yet (kickoff null — the active regular-season week, or the stage
+ * the bracket is at), else null when the season's played out. `now` is
+ * injected for testability.
  */
 export function nextUp(
   rows: FixtureRow[],
@@ -175,7 +212,7 @@ export function nextUp(
       count: unplayed.filter((r) => r.stage === stage).length,
     };
   }
-  const activeStage = selectActiveRegularSeasonStage(rows);
+  const activeStage = selectActiveStage(rows);
   if (activeStage) {
     return {
       stage: activeStage,

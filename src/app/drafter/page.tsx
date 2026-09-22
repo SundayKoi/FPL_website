@@ -55,7 +55,7 @@ export default async function DrafterLandingPage() {
           <li>Send each captain their link — opening it lets them draft for that team only.</li>
           <li>Both captains ready up, then each turn gets 30 seconds; picks stay selectable in overtime, while expired bans are skipped.</li>
           <li>Misclicked? Ask for a change with ↺ — the other captain approves and the step reopens.</li>
-          <li>Spectators (and OBS with <code>?overlay=1</code>) follow along live on the third link.</li>
+          <li>Spectators (and OBS with <code>?overlay=1</code>) follow along live on the third link. The overlay&apos;s portrait boxes are 350px wide; add <code>&amp;slot=700</code> for a scene with room for the wide ones.</li>
         </ol>
       </section>
     </main>

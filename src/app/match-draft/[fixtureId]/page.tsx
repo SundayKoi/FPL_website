@@ -1,5 +1,5 @@
 import Link from "next/link";
-import MatchDraftBoard from "@/components/match-draft/MatchDraftBoard";
+import MatchDraftBoard, { overlaySlotWidthFrom } from "@/components/match-draft/MatchDraftBoard";
 import { ROLE_ORDER, type LolRole } from "@/lib/draft/types";
 import { fearlessBlockedByGame, fearlessBlockedChampions, matchDraftBestOf, matchDraftGameLinks } from "@/lib/match-draft/rules";
 import { fetchLiveChampions } from "@/lib/match-draft/liveRoster";
@@ -80,7 +80,10 @@ function stateFor({
     blueTeam,
     redTeam,
     scheduledTeams,
-    canChooseSides: gameNumber > 1 && actions.length === 0,
+    // Any game, before its first action: game 1's blue side is only a
+    // default (staff's call in the regular season, the higher seed's in the
+    // playoffs). Games 2+ also require the choice — see sideChoiceRequired.
+    canChooseSides: actions.length === 0,
     blueReady: row?.blue_ready ?? false,
     redReady: row?.red_ready ?? false,
     changeRequest: row?.change_request ?? null,
@@ -226,6 +229,7 @@ export default async function MatchDraftPage({
       canReset={staffTier.isAdmin || staffTier.isOwner}
       followLive={overlay && firstParam(query.game) === undefined}
       overlayTransparent={firstParam(query.bg) === "transparent"}
+      overlaySlotWidth={overlaySlotWidthFrom(firstParam(query.slot))}
       tourneyCodes={tourneyCodes}
       reportHref={reportHref}
     />
