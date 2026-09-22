@@ -55,7 +55,7 @@ function CelestialFrame() {
   return (
     <>
       <span className={styles.frame} aria-hidden="true" />
-      <svg className={styles.ornament} data-testid="best-of-card-ornament" viewBox="0 0 350 490" fill="none" stroke="currentColor" strokeWidth=".9" aria-hidden="true" focusable="false">
+      <svg className={styles.ornament} data-testid="best-of-card-ornament" viewBox="0 0 350 490" preserveAspectRatio="none" fill="none" stroke="currentColor" strokeWidth="1.15" aria-hidden="true" focusable="false">
         <path d={CORNER_ENGRAVING} />
         <path d={CORNER_ENGRAVING} transform="translate(350 0) scale(-1 1)" />
         <path d={CORNER_ENGRAVING} transform="translate(0 490) scale(1 -1)" />
