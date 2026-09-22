@@ -1,7 +1,32 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { AccoladeCollectible, BestOfCollectible } from "@/lib/season-end/collectibles";
+import type { AccoladeCollectible, BestOfCollectible, SeasonCollectible } from "@/lib/season-end/collectibles";
+import { sampleCard } from "@/lib/cards/samples";
 import CollectibleRenderer from "./CollectibleRenderer";
+
+const seasonCard: SeasonCollectible = {
+  designId: "se-release-premier-s5-season-card-alice",
+  releaseId: "release",
+  league: "premier",
+  season: "S5",
+  division: null,
+  schemaVersion: 1,
+  artwork: { kind: "fallback", label: "Season's End" },
+  display: {
+    title: "Card of the Season",
+    subtitle: "Cumulative Season Card",
+    description: "A frozen cumulative card.",
+    headline: "99 OVR",
+    evidence: "99 games",
+  },
+  evidence: { source: "cumulative-season-card", games: 99 },
+  baseSalvage: 20,
+  kind: "season",
+  player: { key: "alice#na1", name: "Alice", tag: "NA1", slug: "alice-na1" },
+  card: { ...sampleCard(), name: "Alice", standout: true },
+  signatureEligible: true,
+  source: { kind: "cumulative-season-card", games: 99 },
+};
 
 const bestOf: BestOfCollectible = {
   designId: "se-release-premier-s5-best-of-champion-alice-azir-solari",
@@ -67,6 +92,14 @@ const accolade: AccoladeCollectible = {
 };
 
 describe("CollectibleRenderer", () => {
+  it("labels a standout Season Card as role of the Season", () => {
+    render(<CollectibleRenderer pull={{ design: seasonCard, foil: false, foilType: null, signed: false, autograph: null, guaranteedFoil: false, inventoryId: 4 }} />);
+
+    expect(screen.getByTestId("season-end-season-renderer")).toBeTruthy();
+    expect(screen.getByText("★ Mid of the Season ★")).toBeTruthy();
+    expect(screen.queryByText("★ Mid of the Week ★")).toBeNull();
+  });
+
   it("uses the preview Best Of face for a frozen pack pull", () => {
     render(<CollectibleRenderer pull={{ design: bestOf, foil: true, foilType: "prisma", signed: false, autograph: null, guaranteedFoil: true, inventoryId: 1 }} />);
 

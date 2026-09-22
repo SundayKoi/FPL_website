@@ -178,6 +178,7 @@ export default function CollectibleRenderer({ pull, compact = false, showBestOfD
           card={{ ...pull.design.card, autograph: pull.autograph }}
           forceFoil={pull.foil}
           foilType={pull.foilType}
+          edition="season"
           interactive={false}
           className={styles.fluidCard}
         />
