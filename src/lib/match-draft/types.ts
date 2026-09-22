@@ -92,7 +92,11 @@ export interface MatchDraftState {
   blueTeam: MatchDraftTeam;
   redTeam: MatchDraftTeam;
   scheduledTeams: [MatchDraftTeam, MatchDraftTeam];
+  /** Sides may still be set: no action has been locked in this game. True
+   *  for game 1 as well — its fixture order is only a default. */
   canChooseSides: boolean;
+  /** Games 2+ only: the choice must be made before the draft can start (the
+   *  loser of the previous game picks). */
   sideChoiceRequired: boolean;
   /** Ready check — the pick/ban countdown only starts once both are true. */
   blueReady: boolean;

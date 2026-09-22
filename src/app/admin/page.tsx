@@ -16,12 +16,15 @@ import { fetchHomepageSchedule } from "@/lib/home/schedule";
 import { fetchAcademyDraftData } from "@/lib/academy/draft";
 import { filterAcademyFixtures } from "@/lib/academy/filtering";
 import { academyTeamNames } from "@/lib/league/context";
+import { stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 
+/** The whole bracket ahead, stage-labelled: staff pick playoff games here too,
+ *  not just the active week's. */
 function featuredFixtureChoices(fixtures: FixtureRow[]): FeaturedFixtureChoice[] {
   return fixtures.map((fixture) => ({
     id: fixture.id,
-    label: `${fixture.division ?? fixture.stage} · ${fixture.team_a ?? "TBD"} vs ${fixture.team_b ?? "TBD"}`,
+    label: `${stageMeta(fixture.stage).label}${fixture.division ? ` · ${fixture.division}` : ""} · ${fixture.team_a ?? "TBD"} vs ${fixture.team_b ?? "TBD"}`,
   }));
 }
 
@@ -279,12 +282,12 @@ export default async function AdminPage() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <AdminFeaturedMatchupEditor
             homepage="premier"
-            fixtures={featuredFixtureChoices(premierSchedule.fixtures)}
+            fixtures={featuredFixtureChoices(premierSchedule.upcoming)}
             settings={premierSettings}
           />
           <AdminFeaturedMatchupEditor
             homepage="academy"
-            fixtures={featuredFixtureChoices(academySchedule.fixtures)}
+            fixtures={featuredFixtureChoices(academySchedule.upcoming)}
             settings={academySettings}
           />
         </div>

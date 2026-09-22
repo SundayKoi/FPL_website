@@ -44,6 +44,7 @@ const fallbackSchedule: HomepageScheduleData = {
   isNewestSeason: true,
   activeStage: "week_1",
   fixtures: [],
+  upcoming: [],
 };
 
 const fallbackFeaturedSettings: HomepageFeaturedSettings = {

@@ -85,10 +85,15 @@ export function DraftPickSlot({
             alt={champion?.name ?? ""}
             className={`absolute inset-0 h-full w-full object-cover object-[center_20%] ${champion ? "" : "opacity-40"}`}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-transparent" />
+          {/* The ink sits on the OUTER edge of the slot — left for blue,
+              right for red — and the shade under it runs the same way. A
+              stream scene lays the match graphic over the middle of the
+              canvas and shows only the outer band of each column, so the
+              names have to be at the edge on BOTH sides, not just blue's. */}
+          <div className={`absolute inset-0 ${side === "red" ? "bg-gradient-to-l" : "bg-gradient-to-r"} from-black/70 via-black/25 to-transparent`} />
         </>
       ) : null}
-      <div className="relative flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-muted [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">
+      <div className={`relative flex items-center justify-between gap-2 ${side === "red" ? "flex-row-reverse" : ""} text-[10px] font-bold uppercase tracking-wide text-muted [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]`}>
         {/* The pick number rides on the label line — it used to be a
             separate pill pinned to the corner, which sat on top of the
             role and hid it ("JUNGLE" read as "NGLE"). */}
@@ -118,10 +123,10 @@ export function DraftPickSlot({
           {side}
         </span>
       </div>
-      <p title={championLabel} className={`relative truncate font-display font-semibold not-italic [text-shadow:0_1px_2px_rgb(0_0_0/0.85)] ${pick.state === "skipped" ? "text-red-400/80" : ghost ? "text-muted" : "text-white"} mt-4 text-base`}>
+      <p title={championLabel} className={`relative truncate font-display font-semibold not-italic [text-shadow:0_1px_2px_rgb(0_0_0/0.85)] ${pick.state === "skipped" ? "text-red-400/80" : ghost ? "text-muted" : "text-white"} ${side === "red" ? "text-right" : ""} mt-4 text-base`}>
         {championLabel}
       </p>
-      {pick.playerName ? <p title={pick.playerName} className="relative mt-1 truncate text-xs text-muted [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">{pick.playerName}</p> : null}
+      {pick.playerName ? <p title={pick.playerName} className={`relative mt-1 truncate text-xs text-muted [text-shadow:0_1px_2px_rgb(0_0_0/0.85)] ${side === "red" ? "text-right" : ""}`}>{pick.playerName}</p> : null}
     </div>
   );
 }

@@ -32,7 +32,7 @@ export default function UpcomingSchedule({
         <div className="min-w-0">
           <span className="label-dash">UPCOMING SCHEDULE</span>
           <h2 id="upcoming-schedule-title" className="type-display mt-2 text-3xl sm:text-4xl">
-            {meta?.label ?? "Regular season complete"}
+            {meta?.label ?? "Season complete"}
           </h2>
           {meta ? <p className="mt-1 text-sm text-muted">{meta.note}</p> : null}
         </div>

@@ -19,6 +19,8 @@ export interface BroadcasterFixtureContext {
   season: string;
   teams: LeagueTeam[];
   fixture: FixtureRow | null;
+  /** Tonight's games and the rest of the bracket, for the tab's game picker. */
+  upcoming: FixtureRow[];
   settings: HomepageFeaturedSettings;
 }
 
@@ -28,10 +30,15 @@ export interface BroadcasterScoutingData {
   playerDetails: BroadcasterPlayerDetails[];
 }
 
-/** Resolve the homepage's selected fixture within its own Premier or Academy schedule. */
+/**
+ * Resolve the fixture the broadcaster tab shows within its own Premier or
+ * Academy schedule: the requested one when `?fixture=` names a game that is
+ * still upcoming, else the homepage's featured selection.
+ */
 export async function resolveBroadcasterFixture(
   supabase: SupabaseClient,
   league: LeagueView,
+  requestedFixtureId?: string | null,
 ): Promise<BroadcasterFixtureContext> {
   const captain = await fetchCaptainContext(supabase, league);
   const academyDraft = league === "academy" ? await fetchAcademyDraftData(supabase) : null;
@@ -42,11 +49,16 @@ export async function resolveBroadcasterFixture(
     fetchHomepageFeaturedSettings(league),
   ]);
 
+  const requested = requestedFixtureId
+    ? schedule.upcoming.find((fixture) => fixture.id === requestedFixtureId) ?? null
+    : null;
+
   return {
     league,
     season: captain.season,
     teams: captain.teams,
-    fixture: selectHomepageFeaturedFixture(schedule.fixtures, settings.fixtureId),
+    fixture: requested ?? selectHomepageFeaturedFixture(schedule.fixtures, settings.fixtureId),
+    upcoming: schedule.upcoming,
     settings,
   };
 }

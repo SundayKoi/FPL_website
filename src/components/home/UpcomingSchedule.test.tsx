@@ -28,6 +28,7 @@ function schedule(overrides: Partial<HomepageScheduleData> = {}): HomepageSchedu
     isNewestSeason: true,
     activeStage: "week_1",
     fixtures: [fixture()],
+    upcoming: [fixture()],
     ...overrides,
   };
 }
@@ -61,10 +62,24 @@ describe("UpcomingSchedule", () => {
     );
   });
 
-  it("renders the regular-season-complete state", () => {
-    render(<UpcomingSchedule schedule={schedule({ activeStage: null, fixtures: [] })} />);
+  it("prints TBD for a bracket slot that has no team yet", () => {
+    render(
+      <UpcomingSchedule
+        schedule={schedule({
+          activeStage: "semifinals",
+          fixtures: [fixture({ stage: "semifinals", division: null, team_b: null, best_of: 5 })],
+        })}
+      />,
+    );
 
-    expect(screen.getByText(/regular season complete/i)).toBeTruthy();
+    expect(screen.getByText("Semifinals")).toBeTruthy();
+    expect(screen.getByText("TBD")).toBeTruthy();
+  });
+
+  it("renders the season-complete state once the bracket is played out", () => {
+    render(<UpcomingSchedule schedule={schedule({ activeStage: null, fixtures: [], upcoming: [] })} />);
+
+    expect(screen.getByText("Season complete")).toBeTruthy();
     expect(screen.queryByRole("link", { name: /view full schedule/i })).toBeNull();
   });
 });

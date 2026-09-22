@@ -67,6 +67,22 @@ describe("match draft synchronization", () => {
     expect(next?.sideChoiceRequired).toBe(false);
   });
 
+  it("lets game one choose sides before its first action, without requiring it", () => {
+    const gameOne = { ...base, gameNumber: 1 };
+    const untouched = stateFromDraftRow(gameOne, row({ revision: 11, game_number: 1 }));
+    expect(untouched?.canChooseSides).toBe(true);
+    expect(untouched?.sideChoiceRequired).toBe(false);
+    // The fixture's order stands until somebody changes it.
+    expect(untouched?.blueTeam.name).toBe("Blue");
+
+    const started = stateFromDraftRow(
+      gameOne,
+      row({ revision: 12, game_number: 1, actions: [{ stepIndex: 0, side: "blue", kind: "ban", slot: 1, champion: "Aatrox" }] as never }),
+    );
+    expect(started?.canChooseSides).toBe(false);
+    expect(started?.sideChoiceRequired).toBe(false);
+  });
+
   it("turns a deleted game into a local reset state", () => {
     const reset = emptyDraftState(base);
     expect(reset.actions).toEqual([]);
