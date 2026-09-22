@@ -6,10 +6,11 @@ export const SEASON_END_RELEASE_PRODUCT = "season_end" as const;
 export const SEASON_END_PACK_SIZE = 5 as const;
 export const SEASON_END_PACK_PRICE = 500 as const;
 export const SEASON_END_RULES_VERSION = "season-end-2026-09-v1" as const;
-export const SEASON_END_ECONOMY_VERSION = "season-end-economy-2026-09-v1" as const;
+export const SEASON_END_ECONOMY_VERSION = "season-end-economy-2026-09-v2" as const;
+export const SEASON_END_LEGACY_ECONOMY_VERSION = "season-end-economy-2026-09-v1" as const;
 
 export interface SeasonEndEconomyRules {
-  version: typeof SEASON_END_ECONOMY_VERSION;
+  version: typeof SEASON_END_ECONOMY_VERSION | typeof SEASON_END_LEGACY_ECONOMY_VERSION;
   patronMultiplier: number;
   signatureBonus: number;
   foilDustMultipliers: Record<MintableFoilType, number>;
@@ -37,7 +38,7 @@ export const SEASON_END_RELEASE_RULES: SeasonEndReleaseRules = {
 export const SEASON_END_ECONOMY: SeasonEndEconomyRules = {
   version: SEASON_END_ECONOMY_VERSION,
   patronMultiplier: 1.2,
-  signatureBonus: 1200,
+  signatureBonus: 700,
   foilDustMultipliers: { prisma: 2, aurora: 3, refractor: 4.5, ice: 6.5 },
   baseSalvageByKind: { season: 20, best_of: 30, accolade: 30 },
 };
@@ -132,7 +133,7 @@ export function validateSeasonEndEconomy(economy: SeasonEndEconomyRules): string
   const candidate = economy as Partial<SeasonEndEconomyRules>;
   const patronMultiplier = candidate.patronMultiplier;
   const signatureBonus = candidate.signatureBonus;
-  if (candidate.version !== SEASON_END_ECONOMY_VERSION) errors.push("unsupported Season's End economy version");
+  if (candidate.version !== SEASON_END_ECONOMY_VERSION && candidate.version !== SEASON_END_LEGACY_ECONOMY_VERSION) errors.push("unsupported Season's End economy version");
   if (typeof patronMultiplier !== "number" || !Number.isFinite(patronMultiplier) || patronMultiplier < 1) errors.push("patron multiplier must be finite and at least 1");
   if (typeof signatureBonus !== "number" || !Number.isFinite(signatureBonus) || signatureBonus < 0) errors.push("signature bonus must be finite and non-negative");
   const foilMultipliers = candidate.foilDustMultipliers && typeof candidate.foilDustMultipliers === "object" ? Object.values(candidate.foilDustMultipliers) : [];
