@@ -1,12 +1,14 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 import { WEEKLY_STAT_COLUMNS } from "@/lib/stats/weekly";
+import type { PlayerAggRow } from "@/lib/stats/types";
 import type { PlayerCardData } from "./build";
 import {
   backfillTeamIdentity,
   fetchCardEditionWeeks,
   fetchCurrentWeekCards,
   fetchEditionWeekInfo,
+  fetchSeasonCards,
   fetchWeekCards,
   fetchWeekMoments,
 } from "./queries";
@@ -287,6 +289,98 @@ describe("fetchCurrentWeekCards", () => {
     );
 
     expect(tables).not.toContain("stats_player_agg");
+  });
+});
+
+/** A Supabase stand-in that hands each table whatever `tables` holds for
+ *  it and [] for everything else — the same shape the rest of these mocks
+ *  use, wide enough for fetchSeasonCards's six-way read. */
+function tableSupabase(tables: Record<string, unknown[]>): SupabaseClient {
+  return {
+    from: (table: string) => {
+      const chain: Record<string, unknown> = {};
+      for (const m of ["select", "eq", "not", "order", "range", "limit", "gte", "lt"]) chain[m] = () => chain;
+      chain.maybeSingle = async () => ({ data: null, error: null });
+      chain.then = (resolve: (r: { data: unknown; error: unknown }) => unknown) =>
+        Promise.resolve({ data: tables[table] ?? [], error: null }).then(resolve);
+      return chain;
+    },
+  } as unknown as SupabaseClient;
+}
+
+/** A stats_player_agg row, only the columns the rating engine reads. */
+function aggRow(summonerName: string, over: Partial<PlayerAggRow> = {}): PlayerAggRow {
+  return {
+    summoner_name: summonerName, tag: "NA1", season: "S5", season_phase: "Regular", role_mode: "MIDDLE",
+    games: 5, wins: 3, winrate_pct: 60, avg_kills: 4, avg_deaths: 4, avg_assists: 6, kda: 2.5, avg_kp_pct: 55,
+    avg_cs_per_min: 6, avg_gold_per_min: 350, avg_dmg_per_min: 500, avg_dmg_share_pct: 20, avg_vision_per_min: 1,
+    avg_solo_kills: 1, total_kills: 20, total_deaths: 20, total_assists: 30, total_solo_kills: 5, total_plates: 5,
+    total_doubles: 1, total_triples: 0, total_quadras: 0, total_pentas: 0, avg_cs_at_10: 70, avg_gold_at_10: 3200,
+    avg_xp_at_10: 4000, avg_dmg_taken_per_min: 400, avg_kda_challenges: 2.5, first_blood_involvements: 1,
+    avg_game_duration: 30,
+    ...over,
+  } as PlayerAggRow;
+}
+
+/** One raw_stats row as fetchSeasonCards reads it — the name, the date and
+ *  the result are all the playoff run counts. */
+function seasonGame(summonerName: string, gameDate: string, win: boolean, matchId: string) {
+  return {
+    summoner_name: summonerName, tag: "NA1", champion: "Ahri", win, game_date: gameDate, match_id: matchId,
+    team_name: "Storm", kills: 5, deaths: 3, assists: 7, cs: 200, total_damage_to_champions: 20000,
+  };
+}
+
+describe("fetchSeasonCards", () => {
+  // The bracket's Monday night, 8 PM ET, and a regular-season Tuesday well
+  // before it.
+  const PLAYOFF_NIGHT = "2026-09-08T00:00:00.000Z";
+  const REGULAR_NIGHT = "2026-09-02T00:00:00.000Z";
+
+  it("attaches each card's playoff run, cut at the bracket's first week", async () => {
+    // The sub the record line exists for: two regular-season games, then
+    // the gauntlet night — won round 1, lost round 2 0-2. The season says
+    // 3-2, which beside a GAUNTLET stamp reads as a series score; the run
+    // is 1-2. "Bench" never played in the bracket at all.
+    const cards = await fetchSeasonCards(
+      tableSupabase({
+        stats_player_agg: [aggRow("Sub"), aggRow("Bench")],
+        raw_stats: [
+          seasonGame("Sub", REGULAR_NIGHT, true, "m1"),
+          seasonGame("Sub", REGULAR_NIGHT, true, "m2"),
+          seasonGame("Sub", PLAYOFF_NIGHT, true, "m3"),
+          seasonGame("Sub", PLAYOFF_NIGHT, false, "m4"),
+          seasonGame("Sub", PLAYOFF_NIGHT, false, "m5"),
+          seasonGame("Bench", REGULAR_NIGHT, true, "m6"),
+        ],
+        fixtures: [{
+          stage: "finals", team_a: "Storm", team_b: "Ember",
+          score_a: null, score_b: null, scheduled_at: PLAYOFF_NIGHT,
+        }],
+      }),
+      "S5",
+    );
+
+    expect(cards.find((c) => c.name === "Sub")?.playoffs).toEqual({ wins: 1, losses: 2 });
+    expect(cards.find((c) => c.name === "Bench")?.playoffs).toBeNull();
+    // The season build itself is untouched — only a send-off swaps the line.
+    expect(cards.find((c) => c.name === "Sub")).toMatchObject({ wins: 3, losses: 2, winratePct: 60 });
+  });
+
+  it("attaches no run at all before the bracket is scheduled", async () => {
+    const cards = await fetchSeasonCards(
+      tableSupabase({
+        stats_player_agg: [aggRow("Sub")],
+        raw_stats: [seasonGame("Sub", REGULAR_NIGHT, true, "m1")],
+        fixtures: [{
+          stage: "week_5", team_a: "Storm", team_b: "Ember",
+          score_a: 2, score_b: 0, scheduled_at: REGULAR_NIGHT,
+        }],
+      }),
+      "S5",
+    );
+
+    expect(cards[0].playoffs).toBeUndefined();
   });
 });
 
