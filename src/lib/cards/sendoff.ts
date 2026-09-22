@@ -157,25 +157,63 @@ function stamped(card: PlayerCardData, mark: SendoffMark): PlayerCardData {
  * Stamps a season-rated card as a send-off print, its record line swapped
  * for the playoff run (stamped). The season build's Card of the Week crown
  * is cleared here: it was judged across the whole collection, and a
- * send-off edition crowns its own five (crownSendoff).
+ * send-off edition crowns its own five on the week's play (crownSendoff).
  */
 export function withSendoff(card: PlayerCardData, mark: SendoffMark): PlayerCardData {
   return { ...stamped(card, mark), standout: false };
 }
 
+/** Best first: rating, then name — the order an edition prints in and the
+ *  order it hands out crowns. */
+function bestFirst(a: PlayerCardData, b: PlayerCardData): number {
+  return b.overall - a.overall || a.name.localeCompare(b.name);
+}
+
 /**
- * Cards of the Week for a send-off edition: the top-rated card in each
- * role among the cards that print, best first — the same rule
- * buildSeasonCards applies to a weekly edition, on the edition's own
- * roster. Eclipse eligibility reads `standout`, so these are the week's
- * five one-of-one slots.
+ * Cards of the Week for a playoff roster — judged on the WEEK, best first.
+ *
+ * The roster mixes two builds, and a send-off is season-RATED, so ranking
+ * it against the week's cards crowns a player for their season on the
+ * night they went out: a mid who lost the gauntlet 4/8/1 and 2/8/7 takes
+ * mid of the week off a mid who went 2-0, purely because the season is a
+ * bigger number than one night. `weekCards` rates everyone who played that
+ * week, fallen teams included, so it is the one fair judge for every role.
+ * The crown goes to whoever played the best week in that role and lands on
+ * that player's printed card, send-off or week card alike; a week card
+ * whose player does not print cannot hold it, since the crown would land
+ * nowhere. A role with nobody printed from the week build falls back to
+ * the best card that prints. Eclipse eligibility reads `standout`, so
+ * these are still the week's five one-of-one slots.
  */
-export function crownSendoff(cards: PlayerCardData[]): PlayerCardData[] {
-  const sorted = [...cards].sort((a, b) => b.overall - a.overall || a.name.localeCompare(b.name));
-  const crowned = new Set<string>();
+export function crownSendoff(cards: PlayerCardData[], weekCards: PlayerCardData[] = []): PlayerCardData[] {
+  const sorted = [...cards].sort(bestFirst);
+  const printed = new Set(sorted.map((card) => card.slug));
+
+  // How the week rated each player who both played it and prints.
+  const weekBySlug = new Map<string, PlayerCardData>();
+  for (const weekCard of weekCards) {
+    if (printed.has(weekCard.slug)) weekBySlug.set(weekCard.slug, weekCard);
+  }
+
+  // Best week in the role, ranked on the week's numbers rather than on
+  // whatever the printed card happens to be rated. Roles are the printed
+  // roster's, so the crown always has a card to land on.
+  const holders = new Map<string, string>();
+  for (const card of sorted) {
+    const played = weekBySlug.get(card.slug);
+    if (!played) continue;
+    const heldSlug = holders.get(card.role);
+    const held = heldSlug === undefined ? undefined : weekBySlug.get(heldSlug);
+    if (held && bestFirst(held, played) <= 0) continue;
+    holders.set(card.role, card.slug);
+  }
+
+  const crownedOnRating = new Set<string>();
   return sorted.map((card) => {
-    if (crowned.has(card.role)) return { ...card, standout: false };
-    crowned.add(card.role);
+    const holder = holders.get(card.role);
+    if (holder !== undefined) return { ...card, standout: card.slug === holder };
+    if (crownedOnRating.has(card.role)) return { ...card, standout: false };
+    crownedOnRating.add(card.role);
     return { ...card, standout: true };
   });
 }
@@ -463,7 +501,8 @@ export function planSendoff(
 
   // Through to the next round: this week's card, unstamped. The week
   // build's crown is dropped for the same reason withSendoff drops the
-  // season one — crownSendoff hands this edition its own five.
+  // season one — crownSendoff hands this edition its own five, judged on
+  // the week the whole roster just played.
   const throughMatched = new Set<string>();
   for (const card of weekCards) {
     const key = normalizeTeamName(card.teamName);
@@ -476,7 +515,7 @@ export function planSendoff(
     week,
     eliminations,
     advancing,
-    cards: crownSendoff(printed),
+    cards: crownSendoff(printed, weekCards),
     unmatched: [
       ...eliminations.filter((e) => !fallenMatched.has(normalizeTeamName(e.team))).map((e) => e.team),
       ...advancing.filter((team) => !throughMatched.has(normalizeTeamName(team))),
@@ -519,7 +558,8 @@ export function eliminationsSoFar(fixtures: SendoffFixture[]): Elimination[] {
  * the shop mints from, record line and all: a stamped card prints its
  * playoff run rather than the season's W-L (stamped). The season crown is
  * left alone here: Card of the Week is the season's own judgment, and the
- * edition crowns its own five (crownSendoff) when it prints.
+ * edition crowns its own five on the week's play (crownSendoff) when it
+ * prints.
  */
 export function stampSendoffs(cards: PlayerCardData[], fixtures: SendoffFixture[]): PlayerCardData[] {
   const eliminations = eliminationsSoFar(fixtures);
@@ -549,8 +589,9 @@ export function stampSendoffs(cards: PlayerCardData[], fixtures: SendoffFixture[
  * everywhere by the next morning rather than only in the pack, its record
  * line the playoff run (stamped). Everyone still in the bracket is shown
  * the way a regular-season week shows the people who played it: the week's
- * own build, rated on the games they just played. Crowned per role across
- * both, the way a weekly edition crowns its own.
+ * own build, rated on the games they just played. Crowned per role on the
+ * WEEK build across both, so the crown goes to whoever played the best
+ * week in that role rather than to a send-off's bigger season number.
  *
  * The fallen are looked for among the teams THIS week's fixtures name, so
  * a split that ended three rounds ago does not walk back onto Browse; the
@@ -596,7 +637,7 @@ export function weekRoster(
     if (key && markByTeam.has(key)) continue;
     roster.push(card);
   }
-  return crownSendoff(roster);
+  return crownSendoff(roster, weekCards);
 }
 
 /** Days a send-off edition stays on sale after the finals. Long enough that
