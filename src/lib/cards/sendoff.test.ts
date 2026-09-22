@@ -15,6 +15,7 @@ import {
   sendoffVaultClosesAt,
   sendoffWeekLabel,
   withSendoff,
+  firstPlayoffWeek,
   type SendoffFixture, eliminationsSoFar, stampSendoffs, advancingInWeek, weekRoster } from "./sendoff";
 
 /** One fixture row, only the columns the planner reads. */
@@ -40,6 +41,20 @@ function card(overrides: Partial<PlayerCardData> = {}): PlayerCardData {
     standout: false,
     ...overrides,
   } as PlayerCardData;
+}
+
+/** A season card with a record on it: 8-2 over the season, 1-2 once the
+ *  bracket started. The sub who played two regular-season games and one
+ *  gauntlet night is the case the record line exists for. */
+function recorded(overrides: Partial<PlayerCardData> = {}): PlayerCardData {
+  return card({
+    wins: 8,
+    losses: 2,
+    winratePct: 80,
+    level: 10,
+    playoffs: { wins: 1, losses: 2 },
+    ...overrides,
+  });
 }
 
 // Monday 2026-09-07 Eastern; the bracket plays Monday nights at 8 PM ET.
@@ -125,6 +140,35 @@ describe("isPlayoffWeek", () => {
   it("is false for a regular-season week and for another week's bracket", () => {
     expect(isPlayoffWeek([fx("week_5", "Storm", "Ember", 2, 0, MONDAY_8PM)], WEEK)).toBe(false);
     expect(isPlayoffWeek([fx("finals", "Storm", "Ember", 3, 0, MONDAY_8PM)], "2026-08-31")).toBe(false);
+  });
+});
+
+describe("firstPlayoffWeek", () => {
+  it("is the earliest week an exit-stage fixture is scheduled in", () => {
+    expect(
+      firstPlayoffWeek([
+        fx("finals", "Alpha", "Bravo", null, null, "2026-09-22T00:00:00.000Z"),
+        fx("gauntlet_r1", "Alpha", "Bravo", null, null, MONDAY_8PM),
+        fx("week_5", "Alpha", "Bravo", 2, 0, "2026-08-25T00:00:00.000Z"),
+      ]),
+    ).toBe(WEEK);
+  });
+
+  it("is null for a season whose bracket has not been scheduled", () => {
+    expect(firstPlayoffWeek([fx("week_5", "Alpha", "Bravo", 2, 0, MONDAY_8PM)])).toBeNull();
+    expect(firstPlayoffWeek([])).toBeNull();
+  });
+
+  it("ignores a playoff fixture with no date on it", () => {
+    // A round in the bracket with no kickoff time cannot start the cut —
+    // it would either be guessed or swallow the whole season.
+    expect(firstPlayoffWeek([fx("semifinals", "Alpha", "Bravo", null, null, null)])).toBeNull();
+    expect(
+      firstPlayoffWeek([
+        fx("semifinals", "Alpha", "Bravo", null, null, null),
+        fx("finals", "Alpha", "Bravo", null, null, MONDAY_8PM),
+      ]),
+    ).toBe(WEEK);
   });
 });
 
@@ -223,6 +267,20 @@ describe("planSendoff", () => {
     expect(plan.advancing).toEqual(["Kite"]);
   });
 
+  it("prints the send-off on its playoff run and the team through on its own card", () => {
+    // The whole point of the change, end to end: the fallen card's record
+    // line is the bracket, the advancing card is untouched.
+    const plan = planSendoff(
+      [recorded({ slug: "a", name: "A", teamName: "Ember", role: "Mid" })],
+      fixtures,
+      WEEK,
+      [recorded({ slug: "d", name: "D", teamName: "Storm", role: "Top", wins: 1, losses: 0, winratePct: 100 })],
+    );
+
+    expect(plan.cards.find((c) => c.slug === "a")).toMatchObject({ wins: 1, losses: 2, winratePct: 33.3 });
+    expect(plan.cards.find((c) => c.slug === "d")).toMatchObject({ wins: 1, losses: 0, winratePct: 100 });
+  });
+
   it("carries the week's exits for the edition label", () => {
     expect(planSendoff(cards, fixtures, WEEK, weekCards).exits).toEqual(["quarterfinals"]);
     expect(sendoffWeekLabel(planSendoff(cards, fixtures, WEEK, weekCards).exits)).toBe("Send-off · Quarterfinals");
@@ -314,6 +372,9 @@ describe("labels", () => {
   });
 });
 
+/** The stamp itself is not what these assert; only the record line is. */
+const MARK = { stage: "finalist", exit: "finals", team: "Ember", series: "1–3", week: WEEK } as const;
+
 describe("withSendoff / crownSendoff", () => {
   it("clears the season crown as it stamps", () => {
     const stamped = withSendoff(card({ standout: true }), {
@@ -327,6 +388,31 @@ describe("withSendoff / crownSendoff", () => {
     expect(stamped.standout).toBe(false);
     expect(stamped.sendoff?.stage).toBe("finalist");
     expect(SENDOFF_META[stamped.sendoff!.stage].stamp).toBe("FINALIST");
+  });
+
+  it("prints the playoff run as the record line, not the season's", () => {
+    // 3-2 beside a GAUNTLET stamp reads as a series score nobody played.
+    const out = withSendoff(recorded(), MARK);
+
+    expect([out.wins, out.losses]).toEqual([1, 2]);
+    // One decimal, the precision winrate_pct carries everywhere else.
+    expect(out.winratePct).toBe(33.3);
+    // The rating is the season's: the cohort that rates a finalist honestly.
+    expect(out.overall).toBe(80);
+    // Games played this season — the card's level is not a playoff count.
+    expect(out.level).toBe(10);
+  });
+
+  it("leaves the season's record alone when no playoff run is attached", () => {
+    const out = withSendoff(recorded({ playoffs: null }), MARK);
+
+    expect([out.wins, out.losses, out.winratePct]).toEqual([8, 2, 80]);
+  });
+
+  it("reads a winless run as 0%, not NaN", () => {
+    const out = withSendoff(recorded({ playoffs: { wins: 0, losses: 2 } }), MARK);
+
+    expect([out.wins, out.losses, out.winratePct]).toEqual([0, 2, 0]);
   });
 
   it("crowns the best card in each role, best first", () => {
@@ -382,6 +468,14 @@ describe("stampSendoffs", () => {
     expect(out[1].sendoff).toBeUndefined();
   });
 
+  it("swaps the fallen team's record line for its playoff run", () => {
+    const out = stampSendoffs([recorded({ slug: "a", teamName: "Alpha" }), recorded({ slug: "b", teamName: "Bravo" })], fixtures);
+
+    expect(out[0]).toMatchObject({ wins: 1, losses: 2, winratePct: 33.3 });
+    // Bravo is still in it: an ordinary season card, season record.
+    expect(out[1]).toMatchObject({ wins: 8, losses: 2, winratePct: 80 });
+  });
+
   it("keeps the season crown where it is", () => {
     const out = stampSendoffs([card({ slug: "a", teamName: "Alpha", standout: true })], fixtures);
     expect(out[0].standout).toBe(true);
@@ -427,6 +521,19 @@ describe("weekRoster", () => {
     expect(out.find((c) => c.slug === "b")?.sendoff).toBeUndefined();
     expect(out.find((c) => c.slug === "c")?.overall).toBe(60);
     expect(out.find((c) => c.slug === "c")?.sendoff).toBeUndefined();
+  });
+
+  it("swaps the fallen team's record line for its playoff run, and leaves the week's cards alone", () => {
+    const out = weekRoster(
+      [recorded({ slug: "a", teamName: "Alpha", role: "Mid" }), recorded({ slug: "b", teamName: "bravo", role: "Top" })],
+      [recorded({ slug: "b", teamName: "bravo", role: "Top", wins: 2, losses: 0, winratePct: 100 })],
+      [fx("quarterfinals", "Alpha", "Bravo", 0, 2, MONDAY_8PM)],
+      WEEK,
+    );
+
+    expect(out.find((c) => c.slug === "a")).toMatchObject({ wins: 1, losses: 2, winratePct: 33.3 });
+    // Bravo went through: its week card, printing the week it just played.
+    expect(out.find((c) => c.slug === "b")).toMatchObject({ wins: 2, losses: 0, winratePct: 100 });
   });
 
   it("leaves a team that fell in an earlier week off the roster", () => {

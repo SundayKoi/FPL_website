@@ -244,6 +244,13 @@ export interface PlayerCardData {
    *  stamp and, for a champion, the frame. Inline type import for the same
    *  reason as `team`: sendoff.ts imports PlayerCardData from here. */
   sendoff?: import("./sendoff").SendoffMark | null;
+  /** The player's playoff run — the games they played from the bracket's
+   *  first week onward — attached by fetchSeasonCards off the season's
+   *  fixtures, and null before the bracket or for a player who never
+   *  played in it. A Send-off prints this as its record line in place of
+   *  the season's (sendoff.ts): the season's W-L on a playoff card reads
+   *  as the series score it is not. */
+  playoffs?: { wins: number; losses: number } | null;
   /** The finishes — src/lib/packs/rarities.ts rolls them at mint, over the
    *  parallel and the ink, and freezes them here like every other stamp.
    *  Shiny: the art hue-shifted, priced ×SHINY_DUST_MULT. */

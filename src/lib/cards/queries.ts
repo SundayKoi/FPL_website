@@ -14,6 +14,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { mondayOf } from "@/lib/packs/week";
 import {
   exitsInWeek,
+  firstPlayoffWeek,
   isPlayoffWeek,
   isSendoffVaulted,
   sendoffVaultClosesAt,
@@ -28,6 +29,7 @@ import type { GameLogRow, PlayerAggRow, RecordRow } from "@/lib/stats/types";
 import {
   buildSeasonCards,
   cardPlayerKey,
+  cardSlug,
   teamBadgeKey,
   type CardGameMeta,
   type CardGameRow,
@@ -272,6 +274,37 @@ export function backfillTeamIdentity(cards: PlayerCardData[], identity: TeamIden
 }
 
 /**
+ * Each card's playoff run — what a Send-off prints as its record line
+ * instead of the season's W-L (see `stamped` in sendoff.ts).
+ *
+ * The cut is the bracket's FIRST WEEK in the schedule, not `season_phase`:
+ * the phase is whatever the ingest was told a game was, while the fixtures
+ * are where the bracket is actually settled — and the send-off already
+ * trusts them to say who fell, when, and how far they got. A season with no
+ * playoff fixture yet has no run to attach and the cards pass through.
+ */
+function withPlayoffRuns(
+  cards: PlayerCardData[],
+  gameRows: CardGameRow[],
+  fixtures: SendoffFixture[],
+): PlayerCardData[] {
+  const from = firstPlayoffWeek(fixtures);
+  if (!from) return cards;
+  const runs = new Map<string, { wins: number; losses: number }>();
+  for (const row of gameRows) {
+    if (!row.game_date || mondayOf(new Date(row.game_date)) < from) continue;
+    const slug = cardSlug(row.summoner_name, row.tag);
+    const run = runs.get(slug) ?? { wins: 0, losses: 0 };
+    // Only a recorded win is a win; a null result is a game they did not
+    // come out of ahead, and the bracket has no third outcome.
+    if (row.win === true) run.wins += 1;
+    else run.losses += 1;
+    runs.set(slug, run);
+  }
+  return cards.map((card) => ({ ...card, playoffs: runs.get(card.slug) ?? null }));
+}
+
+/**
  * Every player's card for `season`, best overall first. One fetch pass for
  * the whole league: the rating engine needs the full cohort anyway (all
  * ratings are league-relative), so per-player fetching would save nothing.
@@ -281,7 +314,7 @@ export async function fetchSeasonCards(
   season: string,
   options: { strictSource?: boolean } = {},
 ): Promise<PlayerCardData[]> {
-  const [aggRows, gameRows, logRows, recordsResult, teamIdentity, artResult] = await Promise.all([
+  const [aggRows, gameRows, logRows, recordsResult, teamIdentity, artResult, fixtures] = await Promise.all([
     fetchAllPages<PlayerAggRow>((from, to) => supabase.from("stats_player_agg").select("*").eq("season", season)
       .order("summoner_name").order("tag").order("season_phase").range(from, to)),
     fetchAllPages<CardGameRow>((from, to) => supabase.from("raw_stats").select(CARD_GAME_COLUMNS)
@@ -293,6 +326,10 @@ export async function fetchSeasonCards(
     // select * on purpose: the motto column arrived in a later migration
     // than skin, and naming a missing column would fail the whole select.
     readOptionalPages<{ summoner_name: string; tag: string; art_champion?: string | null; skin: number; motto?: string | null }>((from, to) => supabase.from("card_art_prefs").select("*").eq("season", season).order("summoner_name").order("tag").range(from, to)),
+    // Garnish too, by the same rule: fetchSeasonFixtures returns [] on
+    // error, and cards with no playoff run attached print the season's
+    // record the way they always did.
+    fetchSeasonFixtures(supabase, season),
   ]);
   // Records / team art / skin prefs are garnish — a failure (e.g. the
   // card_art_prefs migration not applied yet) must not take cards down.
@@ -339,15 +376,19 @@ export async function fetchSeasonCards(
     });
   }
 
-  return buildSeasonCards({
-    cohort,
-    gamesByPlayer,
-    gameLog,
-    recordsByPlayer,
-    teamImages: teamIdentity.badges,
-    teamAbbrs: teamIdentity.abbrs,
-    artPrefs,
-  });
+  return withPlayoffRuns(
+    buildSeasonCards({
+      cohort,
+      gamesByPlayer,
+      gameLog,
+      recordsByPlayer,
+      teamImages: teamIdentity.badges,
+      teamAbbrs: teamIdentity.abbrs,
+      artPrefs,
+    }),
+    gameRows,
+    fixtures,
+  );
 }
 
 /**
