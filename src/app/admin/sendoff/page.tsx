@@ -549,7 +549,7 @@ export default async function SendoffPreviewPage({
             <p className="text-sm text-steel">
               {plan.cards.length} card{plan.cards.length === 1 ? "" : "s"} would print, one per player — the fallen as
               send-offs rated on the whole split, the teams through as this week&apos;s cards, rated on the week. Five
-              of them are crowned Card of the Week among this edition&apos;s own roster.
+              of them are crowned Card of the Week, judged on the week&apos;s games rather than the season&apos;s.
             </p>
 
             <div className="flex flex-wrap gap-6">

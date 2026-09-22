@@ -1372,17 +1372,18 @@ fixture is scheduled in it, so an unscored round prints nothing and is filled
 in later by the card-edition archive.
 
 **The rules module.** `src/lib/cards/sendoff.ts` is pure and owns all of it:
-`eliminationsInWeek` (the loser of each decided playoff fixture in an Eastern
-week, plus the winner of the finals as `champion`; one entry per team, later
-exit wins), `isPlayoffWeek`, `planSendoff` (the week's roster, stamped with
-`withSendoff` and crowned with `crownSendoff`), `sendoffVaultClosesAt` /
-`isSendoffVaulted`, and `sendoffLedger` for the admin page. Fixtures come
-from `public.fixtures` through `fetchSeasonFixtures` (`queries.ts`), which
-returns `[]` on error; team names are matched with `normalizeTeamName`
-because fixtures carry `league_teams.name` while a card's `teamName` is
-`raw_stats.team_name`, and nothing enforces that the two spell a team
-identically. Teams a plan could not match land in `plan.unmatched` and are
-logged with `[WARN]` by both scripts.
+`eliminationsInWeek` (the loser of each decided playoff fixture in an
+Eastern week, plus the winner of the finals as `champion`; one entry per
+team, later exit wins), `isPlayoffWeek`, `planSendoff` (the week's roster,
+stamped with `withSendoff` and crowned off the week build with
+`crownSendoff`), `sendoffVaultClosesAt` / `isSendoffVaulted`, and
+`sendoffLedger` for the admin page. Fixtures come from `public.fixtures`
+through `fetchSeasonFixtures` (`queries.ts`), which returns `[]` on error;
+team names are matched with `normalizeTeamName` because fixtures carry
+`league_teams.name` while a card's `teamName` is `raw_stats.team_name`, and
+nothing enforces that the two spell a team identically. Teams a plan could
+not match land in `plan.unmatched` and are logged with `[WARN]` by both
+scripts.
 
 **The stamp.** `PlayerCardData.sendoff` (`{ stage, exit, team, series, week }`)
 rides on the card json, frozen on the `card_editions` row and on every pulled
@@ -1422,20 +1423,27 @@ Tuesday drop (`scripts/weekly-card-drop.ts`) and the manual archiver
 in as a thunk: the drop already holds it, and an ordinary week must not pay
 for a whole-season read it will not use.
 
-**The teams through.** A playoff week's edition also carries every team
-that advanced that week (`advancingInWeek`; never the finals winner, whose
-stop is the Champion send-off, and never a gauntlet team the same night
-knocked out) — but out of the WEEK build, not the season one. They are
-still playing, so their card is the players-of-the-week card any other week
-would have given them: rated on that week's games against that week's
-cohort, unstamped, crowned with the send-offs as one roster. Only the
-send-off is season-rated, because only a finished split needs the whole
-league as its cohort. `buildEditionForWeek` therefore reads both builds on
-a playoff week and hands them to `planSendoff(seasonCards, fixtures, week,
-weekCards)`; a team through that no WEEK card matched lands in
-`SendoffPlan.unmatched` exactly as a fallen team no season card matched
-does. `SendoffPlan.advancing` names them for the drop's post and the admin
-dry run.
+**The teams through.** A playoff week's edition also carries every team that
+advanced that week (`advancingInWeek`; never the finals winner, whose stop
+is the Champion send-off, and never a gauntlet team the same night knocked
+out) — but out of the WEEK build, not the season one. They are still
+playing, so their card is the players-of-the-week card any other week would
+have given them: rated on that week's games against that week's cohort,
+unstamped, crowned with the send-offs as one roster. That crown is judged on
+the WEEK build (`crownSendoff(printed, weekCards)`), which rates everyone
+who played — fallen teams included — rather than on the printed roster's own
+ratings: a send-off is season-rated, so ranking the two kinds of card
+against each other would crown a player for their season on the night they
+went out, handing mid of the week to a mid who lost in the gauntlet. The
+crown lands on that player's printed card either way, send-off or week card,
+and a role with nobody printed from the week build falls back to the best
+card that prints. Only the send-off is season-rated, because only a finished
+split needs the whole league as its cohort. `buildEditionForWeek` therefore
+reads both builds on a playoff week and hands them to
+`planSendoff(seasonCards, fixtures, week, weekCards)`; a team through that
+no WEEK card matched lands in `SendoffPlan.unmatched` exactly as a fallen
+team no season card matched does. `SendoffPlan.advancing` names them for the
+drop's post and the admin dry run.
 
 **The record line.** A stamped send-off prints the player's PLAYOFF RUN as
 its `wins`/`losses`/`winratePct` — the games they played from the bracket's
@@ -1456,15 +1464,16 @@ games played this season.
 **On the live surfaces.** During the bracket, Browse, the hub, compare and
 the teams page show the WEEK's roster (`weekRoster`) the way the week's
 edition prints it: every team named in the week's playoff fixtures whose
-split has already ended (`eliminationsSoFar`, bracket-wide) shows its
-season cards wearing their send-off, and everyone still in the bracket
-shows the week's own cards, the way a regular-season week shows the people
-who played it — crowned per role across both, like a weekly edition. So a
-player knocked out on Monday IS their send-off everywhere by Tuesday, not
-only in the pack the shop mints from. A card's own page (`fetchCardBySlug`)
-falls back to the stamped season build (`stampSendoffs`) for a player off
-the week's roster (a bye, or a split that ended in an earlier round) rather
-than "Card not found".
+split has already ended (`eliminationsSoFar`, bracket-wide) shows its season
+cards wearing their send-off, and everyone still in the bracket shows the
+week's own cards, the way a regular-season week shows the people who played
+it — crowned per role across both off the WEEK build (`crownSendoff`), so
+Card of the Week goes to whoever played the best week in that role rather
+than to a send-off's bigger season number. So a player knocked out on Monday
+IS their send-off everywhere by Tuesday, not only in the pack the shop mints
+from. A card's own page (`fetchCardBySlug`) falls back to the stamped season
+build (`stampSendoffs`) for a player off the week's roster (a bye, or a
+split that ended in an earlier round) rather than "Card not found".
 
 **The vault.** Send-off editions close `SENDOFF_VAULT_DAYS` (14) after the
 finals fixture's `scheduled_at`. `openPackFor` reads the fixtures alongside
