@@ -26,9 +26,13 @@ const sideClass: Record<DraftSide, string> = {
 const imageSizes = MATCH_DRAFT_IMAGE_SIZE_ORDER.map((value) => ({ value, ...MATCH_DRAFT_IMAGE_SIZES[value] }));
 const sizeByValue = MATCH_DRAFT_IMAGE_SIZES;
 
-// OBS contract: champion portrait slots stay 700px wide. Do not change this
-// dimension without explicit permission.
-const OBS_CHAMPION_PORTRAIT_WIDTH = "w-[700px]";
+// OBS contract: champion portrait slots are 700px wide on a canvas with the
+// room for it, and never wider than their column. A fixed 700px overflowed
+// any browser source narrower than ~1600px: the red column, aligned to its
+// right edge, spilled left across the clock and the blue picks. The slot's
+// own w-full fills the grid track; this only caps it. Do not change the
+// 700px figure without explicit permission.
+const OBS_CHAMPION_PORTRAIT_WIDTH = "max-w-[700px]";
 
 /** Copies a shareable drafter URL (built from the page's own origin, so it
  *  works on any deploy) with per-button "Copied" feedback. */

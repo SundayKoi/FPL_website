@@ -731,10 +731,15 @@ describe("MatchDraftBoard", () => {
     ]);
   });
 
-  it("uses 700px-wide champion portrait boxes in the overlay", () => {
+  it("caps the overlay's champion portrait boxes at 700px without a fixed width", () => {
     const { container } = render(<MatchDraftBoard initialState={state} overlay onSave={vi.fn()} />);
 
-    expect(container.querySelectorAll('[class~="w-[700px]"]')).toHaveLength(10);
+    // Capped, not fixed: a fixed 700px overflowed narrower browser sources
+    // and the red column painted over the clock and the blue picks.
+    const slots = container.querySelectorAll('[class~="max-w-[700px]"]');
+    expect(slots).toHaveLength(10);
+    expect(container.querySelectorAll('[class~="w-[700px]"]')).toHaveLength(0);
+    for (const slot of slots) expect(slot.className).toContain("w-full");
   });
 
   it("keeps the red-side overlay team header stretched like blue", () => {
