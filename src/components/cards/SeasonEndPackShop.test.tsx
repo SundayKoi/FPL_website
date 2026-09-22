@@ -80,7 +80,11 @@ describe("SeasonEndPackShop recovery", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Open for 500 betting dollars" }));
     await screen.findByText("Still recovering.");
-    fireEvent.click(screen.getByRole("button", { name: "Retry recovery" }));
+    // React keeps an async transition pending for a short tick after the
+    // server action resolves; wait for the retry control rather than racing
+    // that transition under a busy CI worker.
+    const retry = await screen.findByRole("button", { name: "Retry recovery" });
+    fireEvent.click(retry);
     await waitFor(() => expect(openAction).toHaveBeenCalledTimes(2));
     expect(openAction.mock.calls[1][0].requestId).toBe(openAction.mock.calls[0][0].requestId);
   });
