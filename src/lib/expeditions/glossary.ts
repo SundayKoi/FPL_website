@@ -19,6 +19,7 @@ import {
   PATRON_INSURANCE_PER_WEEK,
   SURGE_BONUS,
 } from "./config";
+import { REVEAL_FRAGMENTS } from "./reveal";
 import { TRAIL_TITLES } from "./trail";
 
 export type GlossaryKey =
@@ -109,7 +110,7 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   fragment: {
     label: "map fragments",
-    says: `Map fragments come home from Legend Hunts and Deep Raid jackpots. ${EXPEDITION_TIERS.legendary.fragments} of them open the Legendary route.`,
+    says: `Map fragments come home from Legend Hunts and Deep Raid jackpots. ${EXPEDITION_TIERS.legendary.fragments} of them open the Legendary route, and ${REVEAL_FRAGMENTS === 1 ? "one" : REVEAL_FRAGMENTS} shows a squad on the road every checkpoint it has left.`,
     match: /\bfragments?\b/i,
   },
   insurance: {

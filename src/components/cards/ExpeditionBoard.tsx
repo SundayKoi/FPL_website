@@ -25,12 +25,19 @@
 // a run brought back exists for exactly one render.
 //
 // Nothing here is authoritative. `squadMeets` disables a launch button,
-// `forkOptions` greys a choice, `deployedIds` greys a chip — and the RPCs
+// a fork's view greys a choice, `deployedIds` greys a chip — and the RPCs
 // re-check every gate under a row lock, the fork window included. Which is
 // why a refused action renders its error inline rather than being
 // pre-empted.
+//
+// Nor does the board hold the road. What each squad knows of its road —
+// the places, the `?`s, the journal so far, the open fork's options — is
+// derived on the server (views.ts) and handed in as `views`; this module
+// imports neither routes.ts nor journal.ts (expeditionImports.test.ts
+// holds it to that). Each view says when it next changes, and the board
+// re-reads the page then.
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
 import { teamBadgeKey } from "@/lib/cards/build";
@@ -41,6 +48,7 @@ import {
   forgePolicyAction,
   launchExpeditionAction,
   ransomLostCardAction,
+  revealRoadAction,
   startCampaignAction,
   upgradeCampAction,
 } from "@/lib/expeditions/actions";
@@ -58,11 +66,12 @@ import {
   type ExpeditionTierKey,
 } from "@/lib/expeditions/config";
 import { normaliseConvoyCode } from "@/lib/expeditions/convoy";
+import type { ForkChoice } from "@/lib/expeditions/forks";
 import type { ConvoyView, ExpeditionRun, Grave, LostHold } from "@/lib/expeditions/queries";
 import type { LeagueBoard } from "@/lib/expeditions/league";
-import type { ForkChoice } from "@/lib/expeditions/routes";
 import type { Accolade, StandingRow } from "@/lib/expeditions/standings";
 import { bestRoute, firstOpenRoute, freeCopies, routeGate, suggestSquad, type RouteContext, type RouteGate } from "@/lib/expeditions/suggest";
+import type { RunView } from "@/lib/expeditions/views";
 import type { WeatherKey } from "@/lib/expeditions/weather";
 import ClaimCeremony, { type Ceremony } from "./expeditions/ClaimCeremony";
 import { easternClock } from "./expeditions/clock";
@@ -83,7 +92,28 @@ const LIVE_ACTIONS = {
   abandonCampaignAction,
   upgradeCampAction,
   forgePolicyAction,
+  revealRoadAction,
 };
+
+/** setTimeout's ceiling: a longer delay overflows and fires at once. */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
+/** How long after a view's nextAt the board re-reads the page: the line or
+ *  the fork is due AT nextAt, so a moment later it is certainly written. */
+const REFRESH_SLACK_MS = 1_000;
+
+/** When the board should next re-read the page: the soonest view change,
+ *  with the server's clock (asOf) beside it. */
+function soonestChange(views: Record<number, RunView>): { key: string; at: number; asOf: number } | null {
+  let soonest: { key: string; at: number; asOf: number } | null = null;
+  for (const view of Object.values(views)) {
+    if (!view.nextAt) continue;
+    const at = Date.parse(view.nextAt);
+    const asOf = Date.parse(view.asOf);
+    if (!Number.isFinite(at) || !Number.isFinite(asOf)) continue;
+    if (!soonest || at < soonest.at) soonest = { key: view.nextAt, at, asOf };
+  }
+  return soonest;
+}
 
 /** Scroll a zone into view, where a browser can. */
 function reveal(id: string) {
@@ -105,7 +135,7 @@ export default function ExpeditionBoard({
   initialPick = null,
   base = "/cards",
   playingToday = [],
-  rivals = {},
+  views,
   convoys = {},
   rivalries = [],
   weather = null,
@@ -113,6 +143,7 @@ export default function ExpeditionBoard({
   accolades = [],
   viewerId = null,
   campaign = null,
+  campaignRoad = [],
   season = "",
   legendMark = false,
   camp = null,
@@ -126,6 +157,9 @@ export default function ExpeditionBoard({
   legendMark?: boolean;
   /** The viewer's open campaign this season (campaigns.ts), or null. */
   campaign?: CampaignState | null;
+  /** The places the open campaign's next stage walks, by title — named on
+   *  the server (views.ts campaignRoadTitles), so no road ships here. */
+  campaignRoad?: string[];
   /** The season being browsed, for opening a campaign in it. */
   season?: string;
   /** The season's standings (standings.ts), every collector with a
@@ -147,9 +181,11 @@ export default function ExpeditionBoard({
    *  them — a squad carrying one of their cards surges. Presentation:
    *  the claim reads the calendar itself. */
   playingToday?: string[];
-  /** For each run in the field, the squad's team's next real opponent —
-   *  set only on a one-roster squad with a fixture ahead. */
-  rivals?: Record<number, string>;
+  /** What each squad in the field knows of its road, by run id — derived
+   *  on the server (views.ts buildRunViews): the places known and the
+   *  `?`s, the journal so far, the open fork, the edges, the reveal. The
+   *  runs themselves carry no company and no road beyond their row. */
+  views: Record<number, RunView>;
   /** A copy to start the squad with — the shelf's "Send out" action lands
    *  here with ?send=<id>. A hint: ignored unless it is yours and home. */
   initialPick?: number | null;
@@ -269,6 +305,29 @@ export default function ExpeditionBoard({
     return !soonest || at < soonest ? at : soonest;
   }, null);
   const showGuide = runs.length === 0 && holds.length === 0 && copies.length > 0;
+
+  // The road moves on while the page is open: a journal line comes due, a
+  // fork opens or closes, a squad comes home. Every view says when it next
+  // changes; the board re-reads the page a moment after the soonest. By
+  // the browser's clock — unless a refresh already fired for this very
+  // instant and came back with it still ahead, which means the browser's
+  // clock runs fast: then by the server's (the view's asOf), so a skewed
+  // clock is one early refresh rather than one a second.
+  const refreshedFor = useRef<string | null>(null);
+  useEffect(() => {
+    const next = soonestChange(views);
+    if (!next) return;
+    const byServer = next.at - next.asOf;
+    const wait = refreshedFor.current === next.key ? byServer : Math.min(next.at - Date.now(), byServer);
+    const timer = setTimeout(
+      () => {
+        refreshedFor.current = next.key;
+        router.refresh();
+      },
+      Math.min(MAX_TIMEOUT_MS, Math.max(0, wait) + REFRESH_SLACK_MS),
+    );
+    return () => clearTimeout(timer);
+  }, [views, router]);
 
   function toggle(id: number) {
     setLaunchError(null);
@@ -431,7 +490,7 @@ export default function ExpeditionBoard({
           byId={byId}
           busy={pending}
           busyRun={busyRun}
-          rivals={rivals}
+          views={views}
           convoys={convoys}
           forkError={forkError}
           claimError={claimError}
@@ -521,7 +580,19 @@ export default function ExpeditionBoard({
           <h2 className="label-dash">Your runs</h2>
           <ul className="flex flex-col gap-3">
             {active.map((run) => (
-              <RunCard key={run.id} run={run} byId={byId} convoy={convoys[run.id] ?? null} />
+              <RunCard
+                key={run.id}
+                run={run}
+                byId={byId}
+                convoy={convoys[run.id] ?? null}
+                view={views[run.id] ?? null}
+                fragments={fragments}
+                onReveal={async (runId) => {
+                  const result = await actions.revealRoadAction(runId);
+                  if (result.ok) router.refresh();
+                  return result.ok ? null : result.error;
+                }}
+              />
             ))}
           </ul>
         </section>
@@ -536,6 +607,7 @@ export default function ExpeditionBoard({
         rivalries={rivalries}
         graves={graves}
         campaign={campaign}
+        campaignRoad={campaignRoad}
         camp={
           camp
             ? {

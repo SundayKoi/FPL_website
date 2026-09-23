@@ -10,8 +10,9 @@ import { useState, type ReactNode } from "react";
 import { fmtPoints } from "@/lib/betting/format";
 import { championCenteredUrl } from "@/lib/match-draft/champions";
 import { EXPEDITION_TIERS, ransomFor, type CardCopy, type ExpeditionTierKey } from "@/lib/expeditions/config";
-import { roadOf, type ConvoyView, type ExpeditionRun, type LostHold } from "@/lib/expeditions/queries";
-import { forkViews, forksFor, type ForkChoice, type ForkView } from "@/lib/expeditions/routes";
+import { forkViews, type ForkChoice, type ForkView } from "@/lib/expeditions/forks";
+import type { ConvoyView, ExpeditionRun, LostHold } from "@/lib/expeditions/queries";
+import type { OpenForkView, RunView } from "@/lib/expeditions/views";
 import ExpeditionIcon from "../expeditionIcons";
 import { easternClock, untilLabel, useClock } from "./clock";
 import ForkPrompt from "./ForkPrompt";
@@ -182,19 +183,18 @@ function HomeCard({
 /** A second fork, folded to one line until it is opened. */
 function ForkCard({
   item,
-  copies,
+  view,
   primary,
   busy,
-  rival,
   convoy,
   error,
   onDecide,
 }: {
   item: OpenForkItem;
-  copies: CardCopy[];
+  /** The server's word on this run's open fork, or null before it has one. */
+  view: OpenForkView | null;
   primary: boolean;
   busy: boolean;
-  rival: string | null;
   convoy: ConvoyView | null;
   error: string | null;
   onDecide: (choice: ForkChoice) => void;
@@ -203,11 +203,13 @@ function ForkCard({
   const { run, fork } = item;
   const tier = run.tier as ExpeditionTierKey;
   const label = EXPEDITION_TIERS[tier]?.label ?? run.tier;
-  const place = forksFor(tier, roadOf(run))[fork.index];
+  // The place's name is the server's to give; a view from before the fork
+  // opened has none yet, and the fork is named by its number.
+  const place = view && view.index === fork.index ? view.title : null;
   return (
     <li data-testid={`now-${run.id}`} className="card-brand border-gold/60 p-4 sm:p-5">
       {open ? (
-        <ForkPrompt run={run} fork={fork} copies={copies} busy={busy} rival={rival} convoy={convoy} error={error} onDecide={onDecide} />
+        <ForkPrompt run={run} fork={fork} open={view} busy={busy} convoy={convoy} error={error} onDecide={onDecide} />
       ) : (
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
           <div className="min-w-0 flex-1 basis-56">
@@ -216,7 +218,7 @@ function ForkCard({
               A fork
             </p>
             <p className="mt-1 text-base font-semibold text-white">
-              Your {label.replace(/^The /, "")} is at {place ? inSentence(place.title) : `fork ${fork.index + 1}`} — choose by {easternClock(fork.closesAt)} ET.
+              Your {label.replace(/^The /, "")} is at {place ? inSentence(place) : `fork ${fork.index + 1}`} — choose by {easternClock(fork.closesAt)} ET.
             </p>
           </div>
           <button type="button" onClick={() => setOpen(true)} className={`${SECONDARY} min-h-11 w-full sm:w-auto`}>
@@ -252,7 +254,7 @@ export default function RightNow({
   byId,
   busy,
   busyRun,
-  rivals,
+  views,
   convoys,
   forkError,
   claimError,
@@ -268,7 +270,8 @@ export default function RightNow({
   byId: Map<number, CardCopy>;
   busy: boolean;
   busyRun: number | null;
-  rivals: Record<number, string>;
+  /** What the server says each run's squad knows (views.ts), by run id. */
+  views: Record<number, RunView>;
   convoys: Record<number, ConvoyView>;
   forkError: { runId: number; error: string } | null;
   claimError: string | null;
@@ -289,7 +292,6 @@ export default function RightNow({
   const byDeadline = [...holds].sort((a, b) => Date.parse(a.expiresAt) - Date.parse(b.expiresAt));
   const next = nextOnTheRoad(active, now);
   const anyInField = active.length > 0;
-  const squadOf = (run: ExpeditionRun) => run.squad.map((id) => byId.get(id)).filter((copy): copy is CardCopy => Boolean(copy));
   const count = forks.length + home.length + byDeadline.length;
 
   return (
@@ -324,10 +326,9 @@ export default function RightNow({
             <ForkCard
               key={`${item.run.id}-${item.fork.index}`}
               item={item}
-              copies={squadOf(item.run)}
+              view={views[item.run.id]?.openFork ?? null}
               primary={index === 0}
               busy={busy && busyRun === item.run.id}
-              rival={rivals[item.run.id] ?? null}
               convoy={convoys[item.run.id] ?? null}
               error={forkError && forkError.runId === item.run.id ? forkError.error : null}
               onDecide={(choice) => onDecide(item.run, item.fork.index, choice)}

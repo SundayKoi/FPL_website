@@ -33,6 +33,10 @@ import { TRAIL_RULES } from "./queries";
 import { EXPEDITION_TIERS, HARVEST_MERCHANT, MERCHANT_DOLLARS, type CardCopy, type ExpeditionTierKey } from "./config";
 import { DROUGHT_CACHES, WATCH_GHOSTS, WATCH_RIVALS, WEATHERS, WEATHER_RULES, type WeatherKey } from "./weather";
 import { CACHE_LOOT, COMPANY_RULES, EDGE_TITLE, GHOST_HAUNT, RIVAL_LOSS_LOOT, RIVAL_WIN_LOOT, ROAD_RULES, forkWindows, forksFor, type RoadRef, type RouteEncounter } from "./routes";
+// The trail's numbers the rules page quotes live in forks.ts, which the
+// browser may hold; re-exported so every caller keeps reading them here.
+import { HUNTER_FRAGMENT_CHANCE, ROAD_ENCOUNTER_CHANCE, STORM_HOURS } from "./forks";
+export { HUNTER_FRAGMENT_CHANCE, ROAD_ENCOUNTER_CHANCE, STORM_HOURS, STRANDED_BOUNTY } from "./forks";
 import { ARCHETYPE_RULES, EDGE_BIG, GANK_WIN_MULT, MERCHANT_DRAW, activeAbilities, edgeLine, traitsOf, type AbilityTraits } from "./archetypes";
 import type { RoadCompany } from "./company";
 
@@ -41,13 +45,8 @@ export type EncounterKey = "merchant" | "stranded" | "storm" | "cache" | "rival"
 /** How often a leg carries an encounter at all — and on a road, where
  *  there is more to meet. */
 export const ENCOUNTER_CHANCE = 0.35;
-export const ROAD_ENCOUNTER_CHANCE = 0.45;
-/** Hours a storm holds the squad. Applied once per storm by the sweep. */
-export const STORM_HOURS = 2;
-/** What bringing a stranger's lost card home pays the rescuer. */
-export const STRANDED_BOUNTY = 150;
-/** How often a relic hunter actually has a fragment to trade. */
-export const HUNTER_FRAGMENT_CHANCE = 0.3;
+// ROAD_ENCOUNTER_CHANCE (a road's), STORM_HOURS, STRANDED_BOUNTY and
+// HUNTER_FRAGMENT_CHANCE: forks.ts, re-exported above.
 /** How often the squad beats a rival to the spot. */
 export const RIVAL_WIN_CHANCE = 0.5;
 
@@ -88,11 +87,17 @@ type RunRef = {
    *  from its launch week. A run handed over without it walks in no
    *  weather. */
   weather?: WeatherKey | null;
+  /** The road a campaign handed down (expedition_runs.road): one place
+   *  key per checkpoint, the places the resolver, the fork prompt and the
+   *  map all name. Null or absent for every run not on a campaign, which
+   *  reads exactly as it did before the journal knew about campaigns:
+   *  forksFor draws the same stream with or without it. */
+  road?: string[] | null;
 };
 
 const onRoad = (run: Pick<RunRef, "rules">): boolean => (run.rules ?? 1) >= ROAD_RULES;
 
-const roadOf = (run: RunRef): RoadRef => ({ runId: run.id, rules: run.rules ?? 1, convoy: run.convoy ?? null, forks: run.forks });
+const roadOf = (run: RunRef): RoadRef => ({ runId: run.id, rules: run.rules ?? 1, convoy: run.convoy ?? null, forks: run.forks, places: run.road ?? null });
 
 // === the fixed road's voice ==================================================
 

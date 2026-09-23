@@ -1,7 +1,7 @@
 // The half of the road a browser may hold: the words a squad can say at a
 // fork, when each fork opens and closes, what the role calls are called,
-// and how big each route's road is — and nothing about which places a run
-// will actually walk.
+// how big each route's road is and the numbers the rules page quotes — and
+// nothing about which places a run will actually walk.
 //
 // routes.ts holds the road itself (ROADS: every place, its story, its
 // numbers) and the resolver that walks it. That table is the spoiler: a
@@ -14,8 +14,9 @@
 //
 // Pure, like routes.ts: no clock of its own, no randomness, no database.
 
+import type { MutationKey } from "@/lib/cards/mutations";
 import type { AbilityKind } from "./archetypes";
-import type { ExpeditionTierKey, OutcomeGrade } from "./config";
+import { EXPEDITION_TIERS, WOUNDED_HOURS, type CardCopy, type ExpeditionTierKey, type OutcomeGrade } from "./config";
 
 /** What a player can say at a fork. `camp` and `push` are always there;
  *  favour, light and rally are what the squad's prints unlock; the five
@@ -80,6 +81,92 @@ export const FRAGMENT_CHANCE: Partial<Record<ExpeditionTierKey, Partial<Record<O
   raid: { jackpot: 0.25 },
   legend: { solid: 0.35, jackpot: 1 },
 };
+
+/** What the trail's beats do to the multiplier, for the ones that touch
+ *  it. A cache is found; a rival is beaten or not; a shrine keeps its
+ *  hand on the next fork's harm. */
+export const CACHE_LOOT = 0.15;
+export const RIVAL_WIN_LOOT = 0.2;
+export const RIVAL_LOSS_LOOT = 0.1;
+/** A shrine on leg i halves the push risk at fork i — the one the squad
+ *  reaches next. */
+export const SHRINE_RISK = 0.5;
+/** A ghost on leg i walks the camp at fork i: the haunting is rolled at
+ *  GHOST_HAUNT times the fork's own, and never under GHOST_HAUNT_FLOOR —
+ *  a fork whose camp was safe is not safe with a ghost at its edge. */
+export const GHOST_HAUNT = 2;
+export const GHOST_HAUNT_FLOOR = 0.2;
+
+/** Momentum, the Mythic route's own rule: each consecutive push raises the
+ *  NEXT push's bonus by this much and its death roll by this much. A camp
+ *  or a hold lets the momentum go. */
+export const MOMENTUM_BONUS = 0.1;
+export const MOMENTUM_DEATH = 0.05;
+
+/** A Cursed card sent out again on a route that can lose it has this
+ *  chance of not coming back. A curse you ignore compounds. */
+export const CURSED_AGAIN_LOST = 0.15;
+
+// The trail's numbers (journal.ts draws the beats; these are what the
+// rules page quotes about them). journal.ts re-exports every one.
+
+/** How often a leg on a road carries an encounter at all. */
+export const ROAD_ENCOUNTER_CHANCE = 0.45;
+/** Hours a storm holds the squad. Applied once per storm by the sweep. */
+export const STORM_HOURS = 2;
+/** What bringing a stranger's lost card home pays the rescuer. */
+export const STRANDED_BOUNTY = 150;
+/** How often a relic hunter actually has a fragment to trade. */
+export const HUNTER_FRAGMENT_CHANCE = 0.3;
+
+/** One place on a road that can change a card for good, and how. */
+export interface MutationSource {
+  tier: ExpeditionTierKey;
+  /** The place's title, as ROADS prints it. */
+  place: string;
+  mutation: MutationKey;
+  /** Pushing through it, or camping at it. */
+  by: "push" | "camp";
+  chance: number;
+}
+
+/**
+ * Every place a mutation can come from on the road, in ROADS order (route,
+ * checkpoint, place; a push reward, then a camp reward, then a camp's
+ * haunting) — the rules page's "where each comes from". Copied out of ROADS
+ * for the same reason as ROAD_SIZES: the rules are public, the table that
+ * says which place a run will draw is not. routes.test.ts derives this list
+ * from ROADS and holds the two equal.
+ */
+export const MUTATION_SOURCES: readonly MutationSource[] = Object.freeze([
+  { tier: "gilded", place: "The toll bridge", mutation: "hardened", by: "push", chance: 0.15 },
+  { tier: "gilded", place: "The gilded gate", mutation: "hardened", by: "push", chance: 0.15 },
+  { tier: "raid", place: "The reactor", mutation: "irradiated", by: "push", chance: 0.2 },
+  { tier: "raid", place: "The flooded works", mutation: "irradiated", by: "push", chance: 0.2 },
+  { tier: "raid", place: "The signal mast", mutation: "hardened", by: "push", chance: 0.1 },
+  { tier: "raid", place: "The brutal fork", mutation: "hardened", by: "push", chance: 0.2 },
+  { tier: "raid", place: "The barricade", mutation: "hardened", by: "push", chance: 0.2 },
+  { tier: "raid", place: "The dog pits", mutation: "hardened", by: "push", chance: 0.15 },
+  { tier: "legend", place: "The glowing shaft", mutation: "irradiated", by: "push", chance: 0.15 },
+  { tier: "legend", place: "The drowned chapel", mutation: "irradiated", by: "push", chance: 0.15 },
+  { tier: "legend", place: "The furnace hall", mutation: "hardened", by: "push", chance: 0.15 },
+  { tier: "legend", place: "The wrong checkpoint", mutation: "haunted", by: "camp", chance: 0.15 },
+  { tier: "legend", place: "The empty village", mutation: "haunted", by: "camp", chance: 0.15 },
+  { tier: "legend", place: "The bell tower", mutation: "hardened", by: "camp", chance: 0.1 },
+  { tier: "legend", place: "The bell tower", mutation: "haunted", by: "camp", chance: 0.2 },
+  { tier: "legendary", place: "The threshold", mutation: "hardened", by: "push", chance: 0.15 },
+  { tier: "legendary", place: "The stair that goes both ways", mutation: "hardened", by: "push", chance: 0.15 },
+  { tier: "mythic", place: "The unmade road", mutation: "haunted", by: "camp", chance: 0.2 },
+  { tier: "mythic", place: "The stairwell of hours", mutation: "haunted", by: "camp", chance: 0.2 },
+  { tier: "mythic", place: "The blackwater", mutation: "haunted", by: "camp", chance: 0.2 },
+  { tier: "mythic", place: "The orrery", mutation: "haunted", by: "camp", chance: 0.2 },
+  { tier: "mythic", place: "The hollow", mutation: "haunted", by: "camp", chance: 0.3 },
+  { tier: "mythic", place: "The cathedral of teeth", mutation: "haunted", by: "camp", chance: 0.25 },
+  { tier: "mythic", place: "The eclipse", mutation: "haunted", by: "camp", chance: 0.3 },
+  { tier: "mythic", place: "The throne of glass", mutation: "haunted", by: "camp", chance: 0.25 },
+  { tier: "mythic", place: "The far shore", mutation: "haunted", by: "camp", chance: 0.2 },
+  { tier: "mythic", place: "The last door", mutation: "haunted", by: "camp", chance: 0.3 },
+] satisfies MutationSource[]);
 
 /**
  * How many distinct places each route's road can hold: every place in every
@@ -273,4 +360,19 @@ export function openFork(
 export function choiceSheet(forks: number, choices: RecordedChoice[]): (ForkChoice | null)[] {
   const decided = new Map(choices.map((choice) => [choice.index, choice.choice]));
   return Array.from({ length: forks }, (_, index) => decided.get(index) ?? null);
+}
+
+// === the launch card =========================================================
+
+/** The consent line for a launch card: which of the picked cards can be
+ *  hurt on this route, and how badly. */
+export function consentLine(tier: ExpeditionTierKey, copies: Pick<CardCopy, "playerName">[], insured: boolean): string {
+  const def = EXPEDITION_TIERS[tier];
+  const risk = insured ? (def.risk === "dead" ? "lost" : def.risk === "lost" ? "wounded" : def.risk) : def.risk;
+  if (risk === "none") return "Nothing on this run can hurt a card.";
+  const names = copies.map((copy) => copy.playerName);
+  const who = names.length === 0 ? "Every card you send" : names.join(", ");
+  if (risk === "wounded") return `${who} can come home wounded: benched from expeditions for ${WOUNDED_HOURS / 24} days.`;
+  if (risk === "lost") return `${who} can be lost here. A lost card has ${7} days to be rescued or ransomed, then it is gone for good.`;
+  return `${who} can DIE on this route, for good, once the squad has pushed ${DEAD_NEEDS_PUSHES} forks. There is no rescue from dead.`;
 }

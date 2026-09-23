@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const { fetchStaffTier, redirect } = vi.hoisted(() => ({ fetchStaffTier: vi.fn(), redirect: vi.fn() }));
 
 vi.mock("next/navigation", () => ({ redirect, useRouter: () => ({ refresh: vi.fn() }) }));
+// The fixtures derive each run's view the way the live page does, with
+// views.ts — server-only, since it holds the road.
+vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/staffTier", () => ({ fetchStaffTier }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase: vi.fn(async () => ({})) }));
 // "use server" pulls in server-only; the preview never calls the real ones.
@@ -16,6 +19,7 @@ vi.mock("@/lib/expeditions/actions", () => ({
   abandonCampaignAction: vi.fn(),
   upgradeCampAction: vi.fn(),
   forgePolicyAction: vi.fn(),
+  revealRoadAction: vi.fn(),
 }));
 
 const Preview = (await import("./page")).default;
@@ -65,5 +69,24 @@ describe("the expedition board preview", () => {
     expect(screen.getByRole("button", { name: "Claim the Legend Hunt" })).toBeTruthy();
     expect(screen.getByTestId("hold-471")).toBeTruthy();
     expect(screen.queryByTestId("guide")).toBeNull();
+  });
+
+  it("shows the road ahead as the squads know it: fog, dread, and a fragment to spend", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const mid = render(await open("mid"));
+    // The Deep Raid's second checkpoint is a `?`; the fork it stands at
+    // still says what the squad's edges do; a fragment can show the rest.
+    const raid = screen.getByTestId("run-301");
+    expect(raid.querySelector('[data-stop="1"]')?.getAttribute("data-known")).toBe("false");
+    expect(screen.getByTestId("fork-301-0").querySelector("[data-testid^='fork-edges-']")).not.toBeNull();
+    expect((screen.getByTestId("reveal-301").querySelector("button") as HTMLButtonElement).disabled).toBe(false);
+    mid.unmount();
+
+    render(await open("veteran"));
+    const legendary = screen.getByTestId("run-502");
+    expect(legendary.querySelectorAll('[data-known="false"]').length).toBeGreaterThan(0);
+    expect(legendary.querySelector('[data-known="false"] ~ [data-dread], [data-known="false"] [data-dread]')).not.toBeNull();
+    expect(screen.getByTestId("dread-502").textContent).toMatch(/bad feeling about/);
+    expect((screen.getByTestId("reveal-502").querySelector("button") as HTMLButtonElement).disabled).toBe(false);
   });
 });

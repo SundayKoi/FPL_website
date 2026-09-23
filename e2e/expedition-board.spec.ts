@@ -101,6 +101,18 @@ for (const persona of PERSONAS) {
       expect(errors, "errors on the page").toEqual([]);
       expect(await silentDisabled(page), "disabled controls with no visible reason").toEqual([]);
 
+      // A run card with fog on its road: the `?`s, the dread, and the
+      // fragment that shows the rest in the map's corner.
+      const fogged = { mid: 301, veteran: 502 } as const;
+      if (persona !== "new") {
+        const id = fogged[persona];
+        const card = page.getByTestId(`run-${id}`);
+        await card.scrollIntoViewIfNeeded();
+        await expect(card.locator('[data-known="false"]').first()).toBeAttached();
+        await expect(page.getByTestId(`reveal-${id}`).getByRole("button", { name: /See the road ahead/ })).toBeEnabled();
+        await panelShot(page, `run-${id}`, `${OUT}/${persona}-${viewport.width}-runcard.png`);
+      }
+
       if (viewport.width === 390) {
         const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
         expect(scrollWidth, "horizontal page scroll at 390px").toBeLessThanOrEqual(390);

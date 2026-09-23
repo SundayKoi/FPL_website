@@ -13,7 +13,7 @@ import { banterFor, encountersFor, journalFor } from "./journal";
 import { roadOf, type ExpeditionRun } from "./queries";
 import { forkOptions, forksFor, underWeather } from "./routes";
 import { TRAILWORN_MILES } from "./trail";
-import { RIVAL_FORK, buildRunViews, rivalStory, runViewFor, type KnownPlaceView, type RunView, type RunViewInput, type UnknownPlaceView } from "./views";
+import { RIVAL_FORK, buildRunViews, campaignRoadTitles, rivalStory, runViewFor, type KnownPlaceView, type RunView, type RunViewInput, type UnknownPlaceView } from "./views";
 
 const HOUR = 3_600_000;
 const now = new Date("2026-09-23T18:00:00.000Z");
@@ -141,6 +141,21 @@ describe("the road as the squad knows it", () => {
       ["belltower", "campaign"],
       ["sleeper", "campaign"],
     ]);
+  });
+
+  it("writes the campaign's places into the journal too, so the map and the journal agree", () => {
+    // Claimed, so the whole journal is written: every arrival names the
+    // place the map titles, not the one the run's own seed would draw.
+    const handed = legend({ campaign: 12, road: ["furnaces", "belltower", "sleeper"], claimedAt: at(0), startedAt: at(-50), resolvesAt: at(-2) });
+    const campaign = runViewFor(input({ run: handed }));
+    const titles = (campaign.road as KnownPlaceView[]).map((place) => place.title);
+    const arrivals = campaign.journal.filter((line) => line.kind === "arrive").map((line) => line.text.toLowerCase());
+    expect(arrivals).toHaveLength(3);
+    titles.forEach((title, index) => expect(arrivals[index]).toContain(title.toLowerCase()));
+    const seeded = forksFor("legend", roadOf({ ...handed, road: null }));
+    for (const fork of seeded.filter((fork) => !handed.road!.includes(fork.key))) {
+      expect(campaign.journal.map((line) => line.text.toLowerCase()).join("\n")).not.toContain(fork.title.toLowerCase());
+    }
   });
 
   it("carries a landmark on a known place only", () => {
@@ -349,5 +364,22 @@ describe("buildRunViews", () => {
     expect(views[301].reveal?.state).toBe("paid");
     expect(views[302].reveal?.state).not.toBe("paid");
     expect(views[301].tent).toBe(2);
+  });
+});
+
+describe("campaignRoadTitles", () => {
+  const open = { key: "broken_map" as const, stage: 1, road: ["waterworks", "pits"] };
+
+  it("names the places the campaign's next stage walks, and nothing else", () => {
+    // The Broken Map's second stage is a Deep Raid.
+    expect(campaignRoadTitles(open)).toEqual(forksFor("raid", { runId: 0, rules: 3, places: open.road }).map((fork) => fork.title));
+    expect(campaignRoadTitles(open)).toEqual(["The flooded works", "The dog pits"]);
+  });
+
+  it("is empty with no campaign, no road handed down, or no stage left", () => {
+    expect(campaignRoadTitles(null)).toEqual([]);
+    expect(campaignRoadTitles({ ...open, road: null })).toEqual([]);
+    expect(campaignRoadTitles({ ...open, road: [] })).toEqual([]);
+    expect(campaignRoadTitles({ ...open, stage: 3 })).toEqual([]);
   });
 });

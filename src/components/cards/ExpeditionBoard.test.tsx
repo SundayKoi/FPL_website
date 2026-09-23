@@ -1,5 +1,11 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// The board is handed its views by the page, which derives them with
+// views.ts — `import "server-only"`, since it holds the road. The tests
+// derive them the same way, so stand the package in.
+vi.mock("server-only", () => ({}));
+
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { InventoryRow } from "@/lib/packs/queries";
 import { briefFor, shineOf } from "@/lib/expeditions/config";
@@ -15,6 +21,8 @@ import { forkOptions, forksFor } from "@/lib/expeditions/routes";
 import { roadOf } from "@/lib/expeditions/queries";
 import { PERSONAS, boardFixture, type Persona } from "@/lib/expeditions/boardFixtures";
 import { GLOSSARY, glossaryHits } from "@/lib/expeditions/glossary";
+import type { RevealReads } from "@/lib/expeditions/reveal";
+import { buildRunViews, campaignRoadTitles, type RunView } from "@/lib/expeditions/views";
 
 /** A route that changed nothing: every card home, no forks pushed. */
 const QUIET_ROUTE = (ids: number[]) => ({
@@ -42,6 +50,7 @@ const {
   abandonCampaignAction,
   upgradeCampAction,
   forgePolicyAction,
+  revealRoadAction,
 } = vi.hoisted(() => ({
   launchExpeditionAction: vi.fn(),
   claimExpeditionAction: vi.fn(),
@@ -51,6 +60,7 @@ const {
   abandonCampaignAction: vi.fn(),
   upgradeCampAction: vi.fn(),
   forgePolicyAction: vi.fn(),
+  revealRoadAction: vi.fn(),
 }));
 vi.mock("@/lib/expeditions/actions", () => ({
   launchExpeditionAction,
@@ -61,6 +71,7 @@ vi.mock("@/lib/expeditions/actions", () => ({
   abandonCampaignAction,
   upgradeCampAction,
   forgePolicyAction,
+  revealRoadAction,
 }));
 
 const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }));
@@ -202,10 +213,29 @@ function renderBoard(
     forgedThisWeek?: number | null;
     balance?: number;
     league?: LeagueBoard | null;
+    /** The paid reveals, as fetchReveals reads them. Null (the default)
+     *  is the read that failed: the fog stays and the button is hidden. */
+    reveals?: RevealReads | null;
+    /** Views as handed in, in place of the ones derived here. */
+    views?: Record<number, RunView>;
   } = {},
 ) {
+  // The views the page would derive for these runs, at this instant.
+  const views =
+    over.views ??
+    buildRunViews({
+      runs: over.runs ?? [],
+      copies: over.copies ?? COPIES,
+      now: new Date(),
+      reveals: over.reveals ?? null,
+      convoys: over.convoys,
+      rivals: over.rivals,
+      camp: over.camp ? { tent: over.camp.tent } : null,
+      fragments: over.fragments ?? 0,
+    });
   return render(
     <ExpeditionBoard
+      views={views}
       convoys={over.convoys}
       rivalries={over.rivalries}
       weather={over.weather ?? null}
@@ -213,10 +243,10 @@ function renderBoard(
       accolades={over.accolades}
       viewerId={over.viewerId ?? null}
       campaign={over.campaign ?? null}
+      campaignRoad={campaignRoadTitles(over.campaign ?? null)}
       season="S_TEST"
       legendMark={over.legendMark ?? true}
       playingToday={over.playingToday}
-      rivals={over.rivals}
       copies={over.copies ?? COPIES}
       runs={over.runs ?? []}
       deployedIds={over.deployedIds ?? new Set([5])}
@@ -292,6 +322,7 @@ beforeEach(() => {
   decideForkAction.mockReset().mockResolvedValue({ ok: true, closesAt: "2026-08-28T00:00:00.000Z" });
   upgradeCampAction.mockReset().mockResolvedValue({ ok: true, camp: EMPTY_CAMP, balance: 0, fragments: 0 });
   forgePolicyAction.mockReset().mockResolvedValue({ ok: true, camp: EMPTY_CAMP, balance: 0, fragments: 0 });
+  revealRoadAction.mockReset().mockResolvedValue({ ok: true, fragments: 0 });
   ransomLostCardAction.mockReset().mockResolvedValue({ ok: true, balance: 900, paid: 340 });
   refresh.mockReset();
   // The first-visit guide remembers a dismissal here; every case starts
@@ -783,12 +814,12 @@ describe("ExpeditionBoard — the claim ceremony", () => {
 describe("ExpeditionBoard — a copy the shelf named", () => {
   it("starts the squad with ?send='s copy, unless it is away", () => {
     const copies = [makeCopy(1, "Alba", "gold"), makeCopy(2, "Bex", "gold")];
-    render(<ExpeditionBoard copies={copies} runs={[]} deployedIds={new Set()} today={TODAY} initialPick={2} />);
+    render(<ExpeditionBoard copies={copies} runs={[]} views={{}} deployedIds={new Set()} today={TODAY} initialPick={2} />);
     expect(screen.getByRole("button", { name: /^Bex — / }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: /^Alba — / }).getAttribute("aria-pressed")).toBe("false");
     cleanup();
 
-    render(<ExpeditionBoard copies={copies} runs={[]} deployedIds={new Set([2])} today={TODAY} initialPick={2} />);
+    render(<ExpeditionBoard copies={copies} runs={[]} views={{}} deployedIds={new Set([2])} today={TODAY} initialPick={2} />);
     expect(screen.getByRole("button", { name: /^Bex — / }).getAttribute("aria-pressed")).toBe("false");
   });
 });
@@ -1013,12 +1044,20 @@ describe("ExpeditionBoard — the road", () => {
     expect(decideForkAction).toHaveBeenCalledWith(41, 0, "hold");
   });
 
-  it("titles the map's dots with the run's own road", () => {
-    renderBoard({ runs: [onRoad()], deployedIds: new Set([5, 1, 2]) });
+  it("titles the checkpoint the squad has reached, and never the one it has not", () => {
+    const { container } = renderBoard({ runs: [onRoad()], deployedIds: new Set([5, 1, 2]) });
 
     const run = screen.getByTestId("run-41");
-    const place = forksFor("raid", { runId: 41, rules: 3, forks: 2 })[1];
-    expect(within(run).getByTestId("route-map").textContent).toContain(place.title);
+    const [here, next] = forksFor("raid", { runId: 41, rules: 3, forks: 2 });
+    const map = within(run).getByTestId("route-map");
+    expect(map.textContent).toContain(here.title);
+    // Nobody in Eve, Alba and Bex has walked this far before: the second
+    // checkpoint is a `?`, and its name is nowhere on the page at all.
+    expect(map.querySelector('[data-stop="1"]')?.getAttribute("data-known")).toBe("false");
+    expect(map.querySelector('[data-stop="1"] [data-unknown]')).not.toBeNull();
+    expect(container.innerHTML).not.toContain(next.title);
+    expect(container.innerHTML.toLowerCase()).not.toContain(next.title.toLowerCase());
+    expect(within(run).getByTestId("unseen-41").textContent).toBe("?One checkpoint ahead the squad hasn't seen yet.");
   });
 
   it("explains the road and the role calls in the rules of the road", () => {
@@ -1029,6 +1068,169 @@ describe("ExpeditionBoard — the road", () => {
     for (const call of ["hold", "scout", "roam", "kite", "ward"]) expect(within(rules).getByTestId(`rule-call-${call}`)).toBeTruthy();
     expect(rules.textContent).toContain("A rival squad");
     expect(rules.textContent).toContain("A shrine");
+  });
+});
+
+describe("ExpeditionBoard — the road ahead", () => {
+  // Nine hours into a 24h raid, rules 3: the first checkpoint is open, the
+  // second is ahead and nobody in the squad knows it.
+  const raid = () =>
+    makeRun({
+      id: 41,
+      tier: "raid",
+      squad: [5, 1, 2],
+      forks: 2,
+      rules: 3,
+      startedAt: new Date(Date.now() - 9 * HOUR).toISOString(),
+      resolvesAt: new Date(Date.now() + 15 * HOUR).toISOString(),
+    });
+  // Five hours into a 72h Legendary with four checkpoints: all four ahead,
+  // none known — and every place the second can be is one the squad dreads.
+  const legendary = () =>
+    makeRun({
+      id: 52,
+      tier: "legendary",
+      squad: [5, 1, 2],
+      forks: 4,
+      rules: 3,
+      startedAt: new Date(Date.now() - 5 * HOUR).toISOString(),
+      resolvesAt: new Date(Date.now() + 67 * HOUR).toISOString(),
+    });
+  const unpaid: RevealReads = { mine: new Set(), partner: new Set() };
+
+  it("draws a dread mark over a place the squad has not seen but has a bad feeling about", () => {
+    const { container } = renderBoard({ runs: [legendary()], deployedIds: new Set([5, 1, 2]) });
+
+    const map = within(screen.getByTestId("run-52")).getByTestId("route-map");
+    const stops = [...map.querySelectorAll("[data-stop]")];
+    expect(stops).toHaveLength(4);
+    expect(stops.every((stop) => stop.getAttribute("data-known") === "false")).toBe(true);
+    // The second checkpoint is dreaded whichever place it is; the dread is
+    // all that is said about it.
+    expect(map.querySelector('[data-stop="1"] [data-dread]')).not.toBeNull();
+    expect(map.querySelector('[data-stop="1"] title')?.textContent).toBe("An unknown checkpoint — ahead — the squad has a bad feeling about it");
+    expect(screen.getByTestId("dread-52").textContent).toContain("The squad has a bad feeling about the second stop");
+    // No Warden in the squad: nothing about the dark or the tolls.
+    expect(map.querySelector("[data-dark], [data-toll]")).toBeNull();
+    for (const fork of forksFor("legendary", { runId: 52, rules: 3, forks: 4 })) expect(container.innerHTML).not.toContain(fork.title);
+  });
+
+  it("spends a fragment on the road ahead through the action, then re-reads the page", async () => {
+    renderBoard({ runs: [raid()], deployedIds: new Set([5, 1, 2]), reveals: unpaid, fragments: 2 });
+
+    const reveal = within(screen.getByTestId("reveal-41")).getByRole("button", { name: "See the road ahead · 1 map fragment" }) as HTMLButtonElement;
+    expect(reveal.disabled).toBe(false);
+    // "map fragment" is explained where it is spent.
+    expect(within(screen.getByTestId("reveal-41")).getByRole("button", { name: "map fragments" })).toBeTruthy();
+    expect(screen.getByTestId("reveal-41").textContent).toContain("You hold 2");
+
+    await click(reveal);
+
+    expect(revealRoadAction).toHaveBeenCalledWith(41);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("reveal-error-41")).toBeNull();
+  });
+
+  it("shows a refused reveal under the button, and spends nothing more", async () => {
+    revealRoadAction.mockResolvedValue({ ok: false, error: "This road is already revealed." });
+    renderBoard({ runs: [raid()], deployedIds: new Set([5, 1, 2]), reveals: unpaid, fragments: 1 });
+
+    await click(within(screen.getByTestId("reveal-41")).getByRole("button", { name: /See the road ahead/ }));
+
+    expect(screen.getByTestId("reveal-error-41").textContent).toBe("This road is already revealed.");
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("says why the road can't be revealed, in words beside the button", () => {
+    renderBoard({ runs: [raid()], deployedIds: new Set([5, 1, 2]), reveals: unpaid, fragments: 0 });
+    let reveal = within(screen.getByTestId("reveal-41")).getByRole("button", { name: /See the road ahead/ }) as HTMLButtonElement;
+    expect(reveal.disabled).toBe(true);
+    const reason = document.getElementById(reveal.getAttribute("aria-describedby")!)!;
+    expect(reason.hasAttribute("data-reason")).toBe(true);
+    expect(reason.textContent).toBe("Takes 1 map fragment — you have none to spend.");
+    cleanup();
+
+    // Paid for: every checkpoint is on the map, and the button says so.
+    renderBoard({ runs: [raid()], deployedIds: new Set([5, 1, 2]), reveals: { mine: new Set([41]), partner: new Set() }, fragments: 3 });
+    reveal = within(screen.getByTestId("reveal-41")).getByRole("button", { name: /See the road ahead/ }) as HTMLButtonElement;
+    expect(reveal.disabled).toBe(true);
+    expect(document.getElementById(reveal.getAttribute("aria-describedby")!)!.textContent).toMatch(/^You revealed this road/);
+    const next = forksFor("raid", { runId: 41, rules: 3, forks: 2 })[1];
+    expect(within(screen.getByTestId("run-41")).getByTestId("route-map").textContent).toContain(next.title);
+    expect(screen.queryByTestId("unseen-41")).toBeNull();
+  });
+
+  it("offers no reveal when the squad already knows the road, or the reveals could not be read", () => {
+    // A Trailworn Eve knows the next checkpoint: nothing ahead is unknown.
+    const trailworn = COPIES.map((copy) => (copy.id === 5 ? { ...copy, card: { ...copy.card, trail: { miles: 9, runs: 4, deepest: "raid" } } } : copy)) as InventoryRow[];
+    renderBoard({ copies: trailworn, runs: [raid()], deployedIds: new Set([5, 1, 2]), reveals: unpaid, fragments: 3 });
+    expect(screen.queryByTestId("reveal-41")).toBeNull();
+    cleanup();
+
+    renderBoard({ runs: [raid()], deployedIds: new Set([5, 1, 2]), reveals: null, fragments: 3 });
+    expect(screen.queryByTestId("reveal-41")).toBeNull();
+    // The fog does not lift because the button is gone.
+    expect(screen.getByTestId("unseen-41")).toBeTruthy();
+  });
+
+  it("says the squad is reaching the fork when the clock is ahead of the view", () => {
+    // Derived two hours ago, before the first checkpoint opened: the view
+    // has no open fork, but the browser's clock says there is one.
+    const run = raid();
+    const stale = buildRunViews({ runs: [run], copies: COPIES, now: new Date(Date.now() - 2 * HOUR), reveals: null });
+    expect(stale[41].openFork).toBeNull();
+    renderBoard({ runs: [run], deployedIds: new Set([5, 1, 2]), views: stale });
+
+    const waiting = screen.getByTestId("fork-reaching-41");
+    expect(waiting.textContent).toContain("The squad is reaching the fork");
+    expect(waiting.textContent).toContain("the squad plays it safe");
+    expect(screen.queryByTestId("fork-41-0")).toBeNull();
+    expect(within(waiting).queryAllByRole("button").filter((button) => button.classList.contains("btn-coral"))).toHaveLength(0);
+  });
+
+  describe("re-reading the page when the road moves on", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const viewsDueIn = (ms: number) => {
+      const run = raid();
+      const views = buildRunViews({ runs: [run], copies: COPIES, now: new Date(), reveals: null });
+      return { run, views: { 41: { ...views[41], nextAt: new Date(Date.parse(views[41].asOf) + ms).toISOString() } } };
+    };
+
+    it("refreshes a moment after the soonest view's nextAt", () => {
+      const { run, views } = viewsDueIn(5_000);
+      renderBoard({ runs: [run], deployedIds: new Set([5, 1, 2]), views });
+      act(() => {
+        vi.advanceTimersByTime(4_500);
+      });
+      expect(refresh).not.toHaveBeenCalled();
+      act(() => {
+        vi.advanceTimersByTime(2_000);
+      });
+      expect(refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it("never overflows the timer on a view due weeks away, and stops when the board goes", () => {
+      const { run, views } = viewsDueIn(60 * 24 * HOUR);
+      const { unmount } = renderBoard({ runs: [run], deployedIds: new Set([5, 1, 2]), views });
+      act(() => {
+        vi.advanceTimersByTime(10_000);
+      });
+      expect(refresh).not.toHaveBeenCalled();
+      unmount();
+      const soon = viewsDueIn(1_000);
+      const again = renderBoard({ runs: [soon.run], deployedIds: new Set([5, 1, 2]), views: soon.views });
+      again.unmount();
+      act(() => {
+        vi.advanceTimersByTime(5_000);
+      });
+      expect(refresh).not.toHaveBeenCalled();
+    });
   });
 });
 
@@ -1108,6 +1310,8 @@ describe("ExpeditionBoard — campaigns", () => {
     openTab("campaigns");
     expect(screen.getByTestId("campaigns").textContent).toContain("The Broken Map");
     expect(screen.getByTestId("campaign-stage").textContent).toContain("Stage 2 of 3");
+    // The road the stage walks, named on the server as the page names it.
+    expect(screen.getByTestId("campaign-story").textContent).toContain("The road ahead: The flooded works → The dog pits.");
     showRoute("raid");
     expect(screen.getByTestId("tier-raid-campaign").textContent).toContain("Stage 2 of The Broken Map");
     expect(screen.queryByTestId("tier-scout-campaign")).toBeNull();

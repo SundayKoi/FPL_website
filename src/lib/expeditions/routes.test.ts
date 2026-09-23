@@ -1441,6 +1441,7 @@ describe("the rules 5 snapshot", () => {
 import { readFileSync as readSource } from "node:fs";
 import { join as joinPath } from "node:path";
 import * as forkModule from "./forks";
+import type { MutationSource } from "./forks";
 import * as routeModule from "./routes";
 
 describe("forks.ts, the client-safe half", () => {
@@ -1462,13 +1463,35 @@ describe("forks.ts, the client-safe half", () => {
     for (const name of shared) expect((routeModule as Record<string, unknown>)[name]).toBe(forkModule[name]);
   });
 
-  it("never imports the road, the journal, the views or the queries, and imports no value at all", () => {
-    const source = readSource(joinPath(process.cwd(), "src/lib/expeditions/forks.ts"), "utf8");
-    const imports = [...source.matchAll(/^import\s+(type\s+)?[^;]*?from\s+"([^"]+)";/gm)].map((match) => ({ typeOnly: Boolean(match[1]), from: match[2] }));
+  it("never imports the road, the journal, the views or the queries, and no value but the rulebook's", () => {
+    const importsOf = (file: string) =>
+      [...readSource(joinPath(process.cwd(), file), "utf8").matchAll(/^import\s+(type\s+)?[^;]*?from\s+"([^"]+)";/gm)].map((match) => ({ typeOnly: Boolean(match[1]), from: match[2] }));
+    const imports = importsOf("src/lib/expeditions/forks.ts");
     expect(imports.length).toBeGreaterThan(0);
     for (const entry of imports) {
       expect(entry.from).not.toMatch(/(^|\/)(routes|journal|views|queries)$/);
-      expect(entry.typeOnly).toBe(true);
+      // The consent line reads the tier table and the bench (config.ts) —
+      // the rulebook every client surface already holds. Nothing else.
+      if (!entry.typeOnly) expect(entry.from).toBe("./config");
     }
+    // And the rulebook is a leaf of the same kind: no road in it either.
+    for (const entry of importsOf("src/lib/expeditions/config.ts").filter((entry) => !entry.typeOnly)) {
+      expect(entry.from).not.toMatch(/^(\.\/|@\/lib\/expeditions\/)(routes|journal|views|queries|forks)$/);
+    }
+  });
+
+  it("carries every place a mutation can come from, as ROADS does", () => {
+    // The rules page quotes MUTATION_SOURCES without importing ROADS; a
+    // reward added to a place there without a line here fails.
+    const derived: MutationSource[] = [];
+    for (const tier of TIER_ORDER) {
+      for (const fork of ROADS[tier].flat()) {
+        if (fork.pushReward) derived.push({ tier, place: fork.title, mutation: fork.pushReward.mutation, by: "push", chance: fork.pushReward.chance });
+        if (fork.campReward) derived.push({ tier, place: fork.title, mutation: fork.campReward.mutation, by: "camp", chance: fork.campReward.chance });
+        if (fork.campRisk.haunted > 0) derived.push({ tier, place: fork.title, mutation: "haunted", by: "camp", chance: fork.campRisk.haunted });
+      }
+    }
+    expect(derived.length).toBeGreaterThan(20);
+    expect([...forkModule.MUTATION_SOURCES]).toEqual(derived);
   });
 });

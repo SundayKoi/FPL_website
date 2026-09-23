@@ -105,17 +105,27 @@ import {
 } from "./config";
 
 // The client-safe half of the road — the words at a fork, the clock, the
-// role calls, the route sizes — lives in forks.ts so the board can hold it
-// without holding ROADS. Re-exported here so every server caller keeps
-// importing it from routes.ts as before.
+// role calls, the route sizes, the numbers the rules page quotes, the
+// consent line — lives in forks.ts so the board can hold it without
+// holding ROADS. Re-exported here so every server caller keeps importing
+// it from routes.ts as before.
 import {
+  CACHE_LOOT,
+  CURSED_AGAIN_LOST,
   DEAD_NEEDS_PUSHES,
   FRAGMENT_CHANCE,
+  GHOST_HAUNT,
+  GHOST_HAUNT_FLOOR,
   HOLD_LOOT,
+  MOMENTUM_BONUS,
+  MOMENTUM_DEATH,
+  RIVAL_LOSS_LOOT,
+  RIVAL_WIN_LOOT,
   ROAD_RULES,
   ROLE_CALLS,
   ROLE_CALL_BY_CHOICE,
   SCOUTED_CAMP_RISK,
+  SHRINE_RISK,
   TOLL_LOOT,
   VETERAN_HOLD_LOOT,
   VETERAN_TEASE,
@@ -128,20 +138,37 @@ import {
   type RoleCall,
 } from "./forks";
 export {
+  CACHE_LOOT,
   COMPANY_RULES,
+  CURSED_AGAIN_LOST,
   DEAD_NEEDS_PUSHES,
   FORK_CHOICES,
   FRAGMENT_CHANCE,
+  GHOST_HAUNT,
+  GHOST_HAUNT_FLOOR,
   HOLD_LOOT,
+  // The trail's numbers are journal.ts' (and re-exported there); here too so
+  // every name forks.ts exports is also routes.ts', binding for binding.
+  HUNTER_FRAGMENT_CHANCE,
+  MOMENTUM_BONUS,
+  MOMENTUM_DEATH,
+  MUTATION_SOURCES,
+  RIVAL_LOSS_LOOT,
+  RIVAL_WIN_LOOT,
+  ROAD_ENCOUNTER_CHANCE,
   ROAD_RULES,
   ROAD_SIZES,
   ROLE_CALLS,
   ROLE_CALL_BY_CHOICE,
   SCOUTED_CAMP_RISK,
+  SHRINE_RISK,
+  STORM_HOURS,
+  STRANDED_BOUNTY,
   TOLL_LOOT,
   VETERAN_HOLD_LOOT,
   VETERAN_TEASE,
   choiceSheet,
+  consentLine,
   forkViews,
   forkWindows,
   isCampChoice,
@@ -155,6 +182,7 @@ export type {
   ForkStatus,
   ForkView,
   ForkWindow,
+  MutationSource,
   RecordedChoice,
   RoadRef,
   RoleCall,
@@ -1460,20 +1488,9 @@ export interface RouteEncounter {
   ghost?: { name: string; owner?: string; team?: string | null; stood: boolean } | null;
 }
 
-/** What the trail's beats do to the multiplier, for the ones that touch
- *  it. A cache is found; a rival is beaten or not; a shrine keeps its
- *  hand on the next fork's harm. */
-export const CACHE_LOOT = 0.15;
-export const RIVAL_WIN_LOOT = 0.2;
-export const RIVAL_LOSS_LOOT = 0.1;
-/** A shrine on leg i halves the push risk at fork i — the one the squad
- *  reaches next. */
-export const SHRINE_RISK = 0.5;
-/** A ghost on leg i walks the camp at fork i: the haunting is rolled at
- *  GHOST_HAUNT times the fork's own, and never under GHOST_HAUNT_FLOOR —
- *  a fork whose camp was safe is not safe with a ghost at its edge. */
-export const GHOST_HAUNT = 2;
-export const GHOST_HAUNT_FLOOR = 0.2;
+// What the trail's beats do to the multiplier (CACHE_LOOT, RIVAL_WIN_LOOT,
+// RIVAL_LOSS_LOOT, SHRINE_RISK, GHOST_HAUNT, GHOST_HAUNT_FLOOR) lives in
+// forks.ts with the other numbers the rules page quotes.
 
 export interface RouteResult {
   /** What the base payout is multiplied by, capped at LOOT_MULT_CAP. */
@@ -1545,15 +1562,7 @@ function pick<T>(items: T[], rand: () => number): T | undefined {
 /** A second survivor comes home Voidtouched this often; the first always. */
 export const VOIDTOUCHED_SECOND_CHANCE = 0.25;
 
-/** Momentum, the Mythic route's own rule: each consecutive push raises the
- *  NEXT push's bonus by this much and its death roll by this much. A camp
- *  or a hold lets the momentum go. */
-export const MOMENTUM_BONUS = 0.1;
-export const MOMENTUM_DEATH = 0.05;
-
-/** A Cursed card sent out again on a route that can lose it has this
- *  chance of not coming back. A curse you ignore compounds. */
-export const CURSED_AGAIN_LOST = 0.15;
+// Momentum (MOMENTUM_BONUS, MOMENTUM_DEATH) and CURSED_AGAIN_LOST: forks.ts.
 
 /** The Rescue roll: a floor everyone gets, plus shine, capped. */
 export const RESCUE_BASE = 0.45;
@@ -2353,17 +2362,4 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
     cleansed,
     events,
   };
-}
-
-/** The consent line for a launch card: which of the picked cards can be
- *  hurt on this route, and how badly. */
-export function consentLine(tier: ExpeditionTierKey, copies: CardCopy[], insured: boolean): string {
-  const def = EXPEDITION_TIERS[tier];
-  const risk = insured ? (def.risk === "dead" ? "lost" : def.risk === "lost" ? "wounded" : def.risk) : def.risk;
-  if (risk === "none") return "Nothing on this run can hurt a card.";
-  const names = copies.map((copy) => copy.playerName);
-  const who = names.length === 0 ? "Every card you send" : names.join(", ");
-  if (risk === "wounded") return `${who} can come home wounded: benched from expeditions for ${WOUNDED_HOURS / 24} days.`;
-  if (risk === "lost") return `${who} can be lost here. A lost card has ${7} days to be rescued or ransomed, then it is gone for good.`;
-  return `${who} can DIE on this route, for good, once the squad has pushed ${DEAD_NEEDS_PUSHES} forks. There is no rescue from dead.`;
 }

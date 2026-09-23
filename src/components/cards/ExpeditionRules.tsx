@@ -25,6 +25,9 @@ import {
   type ExpeditionTierDef,
   type RouteRisk,
 } from "@/lib/expeditions/config";
+// forks.ts, not routes.ts or journal.ts: this renders inside the board, a
+// client component, and those two modules hold every road there is. The
+// numbers quoted here live in forks.ts for exactly that reason.
 import {
   CACHE_LOOT,
   CURSED_AGAIN_LOST,
@@ -37,14 +40,18 @@ import {
   MOMENTUM_DEATH,
   GHOST_HAUNT_FLOOR,
   HOLD_LOOT,
+  HUNTER_FRAGMENT_CHANCE,
+  MUTATION_SOURCES,
   RIVAL_LOSS_LOOT,
   RIVAL_WIN_LOOT,
-  ROADS,
+  ROAD_ENCOUNTER_CHANCE,
+  ROAD_SIZES,
   ROLE_CALLS,
   SHRINE_RISK,
+  STORM_HOURS,
+  STRANDED_BOUNTY,
   TOLL_LOOT,
-} from "@/lib/expeditions/routes";
-import { HUNTER_FRAGMENT_CHANCE, ROAD_ENCOUNTER_CHANCE, STORM_HOURS, STRANDED_BOUNTY } from "@/lib/expeditions/journal";
+} from "@/lib/expeditions/forks";
 import { MILES_BY_TIER, TRAIL_TITLES, WAYFARER_SHINE } from "@/lib/expeditions/trail";
 import { WEATHERS } from "@/lib/expeditions/weather";
 import { ACCOLADES, ACCOLADE_ORDER } from "@/lib/expeditions/standings";
@@ -97,25 +104,20 @@ export function requirementLine(def: ExpeditionTierDef): string {
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
 /** How many distinct places a route can stop at, across its checkpoints
- *  — the number that says "no two runs walk the same road". */
-function placesOn(tier: keyof typeof ROADS): number {
-  return ROADS[tier].reduce((sum, slot) => sum + slot.length, 0);
+ *  — the number that says "no two runs walk the same road". A count, read
+ *  from ROAD_SIZES (held equal to ROADS by routes.test.ts). */
+function placesOn(tier: keyof typeof ROAD_SIZES): number {
+  return ROAD_SIZES[tier];
 }
 
-/** Where a mutation can come from on the road, read off the tables so
- *  the sentence cannot drift from the odds. */
+/** Where a mutation can come from on the road, read off MUTATION_SOURCES
+ *  (held equal to ROADS by routes.test.ts) so the sentence cannot drift
+ *  from the odds. */
 function mutationSources(): string {
-  const found: string[] = [];
-  for (const tier of TIER_ORDER) {
-    for (const slot of ROADS[tier]) {
-      for (const fork of slot) {
-        if (fork.pushReward) found.push(`${fork.pushReward.mutation} by pushing ${fork.title.toLowerCase()} (${EXPEDITION_TIERS[tier].label}, ${pct(fork.pushReward.chance)})`);
-        if (fork.campReward) found.push(`${fork.campReward.mutation} by camping at ${fork.title.toLowerCase()} (${EXPEDITION_TIERS[tier].label}, ${pct(fork.campReward.chance)})`);
-        if (fork.campRisk.haunted > 0) found.push(`haunted by camping at ${fork.title.toLowerCase()} (${EXPEDITION_TIERS[tier].label}, ${pct(fork.campRisk.haunted)})`);
-      }
-    }
-  }
-  return found.join("; ");
+  return MUTATION_SOURCES.map(
+    (source) =>
+      `${source.mutation} by ${source.by === "push" ? "pushing" : "camping at"} ${source.place.toLowerCase()} (${EXPEDITION_TIERS[source.tier].label}, ${pct(source.chance)})`,
+  ).join("; ");
 }
 
 export default function ExpeditionRules({ id = "expedition-rules" }: { id?: string }) {

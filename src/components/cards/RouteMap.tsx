@@ -1,13 +1,23 @@
-// The route, drawn: a path with a dot per checkpoint and the squad's
+// The route, drawn: a path with a roundel per checkpoint and the squad's
 // marker moving along it. Hook-free and static apart from the marker's
 // position, which the board hands in as a fraction of the run elapsed.
 //
 // Seven routes, seven shapes. The path is what makes a fork a PLACE — "the
 // vault door" is the third bend on the Legend Hunt — and the marker is
 // what makes "back in 14h" a squad somewhere on it.
+//
+// The road it draws is the one the squad KNOWS (views.ts, derived on the
+// server): a known checkpoint is titled, an unknown one is a `?` and
+// nothing else — its name never reached the browser. What a place ahead
+// does give away is drawn as a mark over its roundel: the dread mark when
+// the squad has a bad feeling about it, and, on a `?` The Warden has read,
+// whether it is dark and whether it charges a toll (a known place says
+// both at its fork). The living map (Phase 7) replaces this; until then it
+// stays small and says only that.
 
 import { EXPEDITION_TIERS, type ExpeditionTierKey } from "@/lib/expeditions/config";
-import { forksFor, type ForkStatus, type RoadRef } from "@/lib/expeditions/routes";
+import type { ForkStatus } from "@/lib/expeditions/forks";
+import type { PlaceView } from "@/lib/expeditions/views";
 
 /** Each route's path in a 200×60 box, and where along it the checkpoints
  *  sit. Drawn by hand so each route has its own silhouette: a scout's
@@ -27,7 +37,7 @@ const PATHS: Record<ExpeditionTierKey, string> = {
 
 function pointAt(path: SVGPathElement | null, fraction: number): { x: number; y: number } | null {
   // Only a real renderer knows a path's length; jsdom and any SVG polyfill
-  // without geometry leave the dots on the straight-line fallback.
+  // without geometry leave the roundels on the straight-line fallback.
   if (!path || typeof path.getTotalLength !== "function" || typeof path.getPointAtLength !== "function") return null;
   const length = path.getTotalLength();
   const point = path.getPointAtLength(Math.max(0, Math.min(1, fraction)) * length);
@@ -41,37 +51,63 @@ const STATUS_FILL: Record<ForkStatus, string> = {
   missed: "var(--color-steel)",
 };
 
+const STATUS_WORD: Record<ForkStatus, string> = {
+  pending: "ahead",
+  open: "open now",
+  decided: "answered",
+  missed: "passed in silence",
+};
+
+/** Where the straight-line fallback puts a checkpoint: the server render,
+ *  and jsdom. */
+const fallback = (at: number) => `translate(${6 + at * 188} 30)`;
+
+/** Whether a place's marks are worth drawing: only the road still ahead. A
+ *  warning about a place the squad has walked is a warning nobody needs. */
+const ahead = (place: PlaceView) => place.status === "pending" || place.status === "open";
+
+/** A checkpoint's name for its tooltip and the map's label — the title
+ *  when the squad knows the place, never anything else when it does not. */
+export function placeLabel(place: PlaceView): string {
+  const parts = [place.known ? place.title : `An unknown checkpoint`, STATUS_WORD[place.status]];
+  if (ahead(place)) {
+    if (place.warned) parts.push("the squad has a bad feeling about it");
+    if (!place.known && place.dark === true) parts.push("dark");
+    if (!place.known && place.toll === true) parts.push("a toll to camp");
+  }
+  // One string: React 19 renders a <title> with several children empty on
+  // the server, and hydration then fails.
+  return parts.join(" — ");
+}
+
 export default function RouteMap({
   tier,
-  forks,
+  road,
   progress,
   label,
-  road = null,
 }: {
   tier: ExpeditionTierKey;
-  /** Each fork's status and, for a decided one, whether it was a push. */
-  forks: { status: ForkStatus; pushed: boolean }[];
+  /** The road as the squad knows it (RunView.road): one place per
+   *  checkpoint, each with where it stands. */
+  road: PlaceView[];
   /** How far along the run the squad is, 0..1. Null before the clock is up. */
   progress: number | null;
   label?: string;
-  /** The run's road, so each dot is titled with the place this run
-   *  actually stops at. Without it the fixed road's names are used. */
-  road?: RoadRef | null;
 }) {
   const def = EXPEDITION_TIERS[tier];
-  const stories = forksFor(tier, road);
-  const legs = def.forks + 1;
-  // Checkpoint i sits at the end of leg i+1; the geometry is a straight
-  // walk along the path's length, which is what getPointAtLength gives a
-  // browser and what the SSR fallback below approximates by x.
-  const stops = Array.from({ length: def.forks }, (_, index) => (index + 1) / legs);
+  const unknown = road.filter((place) => !place.known).length;
+  const summary = `${def.label} route${progress !== null ? `, ${Math.round(progress * 100)}% along` : ""}${
+    unknown > 0 ? `; ${unknown} of ${road.length} checkpoint${road.length === 1 ? "" : "s"} unknown` : ""
+  }`;
   return (
     <svg
       viewBox="0 0 200 60"
       role="img"
-      aria-label={label ?? `${def.label} route${progress !== null ? `, ${Math.round(progress * 100)}% along` : ""}`}
+      aria-label={label ?? summary}
       data-testid="route-map"
-      className="h-14 w-full max-w-[16rem] overflow-visible"
+      // Width-led, the height from the box's own 10:3: a phone's card gets
+      // a map as wide as it is, not a strip scaled down to a fixed height.
+      className="aspect-[10/3] h-auto w-full max-w-[22rem] overflow-visible"
     >
       <defs>
         <linearGradient id={`route-${tier}`} x1="0" x2="1">
@@ -82,20 +118,17 @@ export default function RouteMap({
       <path d={PATHS[tier]} fill="none" stroke="var(--color-line)" strokeWidth="4" strokeLinecap="round" />
       <path
         ref={(node) => {
-          // Place the checkpoint dots and the marker along the real path.
-          // Done imperatively because a path's length is only known once it
-          // is drawn; the server render leaves the dots on a straight line.
+          // Place the roundels and the marker along the real path. Done
+          // imperatively because a path's length is only known once it is
+          // drawn; the server render leaves them on a straight line.
           if (!node) return;
           const svg = node.ownerSVGElement;
           if (!svg) return;
-          stops.forEach((stop, index) => {
-            const dot = svg.querySelector<SVGCircleElement>(`[data-stop="${index}"]`);
-            const point = pointAt(node, stop);
-            if (dot && point) {
-              dot.setAttribute("cx", String(point.x));
-              dot.setAttribute("cy", String(point.y));
-            }
-          });
+          for (const place of road) {
+            const stop = svg.querySelector<SVGGElement>(`[data-stop="${place.index}"]`);
+            const point = pointAt(node, place.at);
+            if (stop && point) stop.setAttribute("transform", `translate(${point.x} ${point.y})`);
+          }
           const marker = svg.querySelector<SVGGElement>("[data-marker]");
           const point = progress === null ? null : pointAt(node, progress);
           if (marker && point) marker.setAttribute("transform", `translate(${point.x} ${point.y})`);
@@ -108,27 +141,51 @@ export default function RouteMap({
         pathLength={1}
         strokeDasharray={progress === null ? "0 1" : `${progress} 1`}
       />
-      {stops.map((stop, index) => {
-        const fork = forks[index];
-        return (
-          <circle
-            key={index}
-            data-stop={index}
-            cx={6 + stop * 188}
-            cy={30}
-            r={4}
-            fill={fork ? STATUS_FILL[fork.status] : "transparent"}
-            stroke={fork?.status === "decided" && fork.pushed ? "var(--color-coral)" : "var(--color-steel)"}
-            strokeWidth="1.5"
-          >
-            {/* One string child: React 19 renders a <title> with several
-                children empty on the server, and hydration then fails. */}
-            <title>{`${stories[index]?.title ?? `Fork ${index + 1}`}${fork ? ` — ${fork.status}` : ""}`}</title>
-          </circle>
-        );
-      })}
+      {road.map((place) => (
+        <g key={place.index} data-stop={place.index} data-known={place.known ? "true" : "false"} transform={fallback(place.at)}>
+          <title>{placeLabel(place)}</title>
+          {place.known ? (
+            <circle
+              r={4}
+              fill={STATUS_FILL[place.status]}
+              stroke={place.status === "decided" && place.pushed ? "var(--color-coral)" : "var(--color-steel)"}
+              strokeWidth="1.5"
+            />
+          ) : (
+            // The `?` roundel: a dashed ring round a question, bigger than a
+            // known stop so it reads as a thing and not a hole.
+            <g data-unknown>
+              <circle r={5.5} fill="var(--color-canvas)" stroke="var(--color-steel)" strokeWidth="1.2" strokeDasharray="2 1.5" />
+              <text textAnchor="middle" dominantBaseline="central" fontSize="7.5" fontWeight="700" fill="var(--color-steel)" aria-hidden>
+                ?
+              </text>
+            </g>
+          )}
+          {ahead(place) && place.warned ? (
+            // The dread mark: a small coral warning triangle over the stop.
+            <g data-dread transform="translate(0 -11)">
+              <path d="M0 -4.2 L4 2.8 L-4 2.8 Z" fill="var(--color-coral)" stroke="var(--color-canvas)" strokeWidth="0.8" strokeLinejoin="round" />
+              <text y="1.6" textAnchor="middle" fontSize="5" fontWeight="800" fill="var(--color-canvas)" aria-hidden>
+                !
+              </text>
+            </g>
+          ) : null}
+          {!place.known && ahead(place) && place.dark === true ? (
+            // Dark: a crescent under the stop, the foil's cue — a moon with
+            // a bite of the night taken out of it.
+            <g data-dark>
+              <circle cx={-3.6} cy={10} r={2.3} fill="var(--color-steel)" />
+              <circle cx={-2.6} cy={9.1} r={2} fill="var(--color-canvas)" />
+            </g>
+          ) : null}
+          {!place.known && ahead(place) && place.toll === true ? (
+            // A toll: a gold coin under the stop.
+            <circle data-toll cx={3.6} cy={10} r={2.2} fill="var(--color-gold)" stroke="var(--color-canvas)" strokeWidth="0.6" />
+          ) : null}
+        </g>
+      ))}
       {progress !== null ? (
-        <g data-marker transform={`translate(${6 + progress * 188} 30)`}>
+        <g data-marker transform={fallback(progress)}>
           <circle r="5.5" fill="var(--color-coral)" opacity="0.35">
             <animate attributeName="r" values="5.5;9;5.5" dur="2.4s" repeatCount="indefinite" />
           </circle>

@@ -32,7 +32,7 @@ import {
   type ExpeditionTierKey,
 } from "@/lib/expeditions/config";
 import type { LostHold } from "@/lib/expeditions/queries";
-import { FRAGMENT_CHANCE, consentLine } from "@/lib/expeditions/routes";
+import { FRAGMENT_CHANCE, consentLine } from "@/lib/expeditions/forks";
 import { boardBlocked, type RouteGate } from "@/lib/expeditions/suggest";
 import type { LeagueBoard } from "@/lib/expeditions/league";
 import { WEATHERS, type WeatherKey } from "@/lib/expeditions/weather";

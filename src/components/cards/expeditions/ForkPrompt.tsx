@@ -10,26 +10,23 @@
 // it cannot use yet, locked and saying why — sits in "More choices", so a
 // fork is two buttons rather than eight. Silence is always named: if
 // nobody answers by the deadline, the squad plays it safe.
+//
+// What the fork IS — its place, its story, the squad's banter, every
+// option with its odds and the edges that bend it — is the server's
+// (views.ts, `openFork`): the board holds no road to read it from. The
+// browser's clock only says WHEN a fork opens; when it opens before the
+// view that describes it has arrived, the prompt says the squad is
+// reaching the fork until the board's refresh brings the view.
 
 import { MUTATIONS } from "@/lib/cards/mutations";
-import { EXPEDITION_TIERS, type CardCopy, type ExpeditionTierKey } from "@/lib/expeditions/config";
+import { EXPEDITION_TIERS, type ExpeditionTierKey } from "@/lib/expeditions/config";
 import { convoyVerdict } from "@/lib/expeditions/convoy";
-import { banterFor } from "@/lib/expeditions/journal";
-import { hasRoad, hasTrail, roadOf, type ConvoyView, type ExpeditionRun } from "@/lib/expeditions/queries";
-import { choiceSheet, forkOptions, forksFor, type ForkChoice, type ForkOption, type ForkView } from "@/lib/expeditions/routes";
+import type { ForkChoice, ForkOption, ForkView } from "@/lib/expeditions/forks";
+import { hasRoad, type ConvoyView, type ExpeditionRun } from "@/lib/expeditions/queries";
+import type { OpenForkView } from "@/lib/expeditions/views";
 import ExpeditionIcon from "../expeditionIcons";
 import { easternClock, untilLabel, useClock } from "./clock";
 import Term from "./Term";
-
-/** The Legendary route's singing dark, when a one-roster squad's real
- *  next opponent is known: what is singing under the floor has a name.
- *  Keyed on the PLACE, not the slot — on a drawn road the second fork is
- *  one of three, and only one of them sings. */
-export const RIVAL_FORK: { tier: ExpeditionTierKey; key: string } = { tier: "legendary", key: "singing" };
-
-export function rivalStory(rival: string): string {
-  return `Something is singing under the floor and the squad knows the song — it is ${rival}'s, and they are playing them next. There is light ahead, and the singing gets louder toward it.`;
-}
 
 /** The pushes "Go for it" prefers, gentlest first: a favour carries no
  *  risk, a light halves it, the plain push is always there. */
@@ -94,19 +91,19 @@ function EdgeLines({ option }: { option: ForkOption }) {
 export default function ForkPrompt({
   run,
   fork,
-  copies,
+  open,
   busy,
-  rival = null,
   convoy = null,
   onDecide,
   error = null,
 }: {
   run: ExpeditionRun;
+  /** The fork the browser's clock says is open. */
   fork: ForkView;
-  copies: CardCopy[];
+  /** The server's word on the open fork (RunView.openFork), or null when
+   *  the view was derived before it opened. */
+  open: OpenForkView | null;
   busy: boolean;
-  /** The squad's team's next real opponent, when the squad is one roster. */
-  rival?: string | null;
   /** The convoy this run rides in, with the partner's answer so far. */
   convoy?: ConvoyView | null;
   onDecide: (choice: ForkChoice) => void;
@@ -116,14 +113,36 @@ export default function ForkPrompt({
   const now = useClock();
   const tier = run.tier as ExpeditionTierKey;
   const def = EXPEDITION_TIERS[tier];
-  const road = roadOf(run);
-  const story = forksFor(tier, road)[fork.index];
-  if (!def || !story) return null;
-  const options = forkOptions(tier, fork.index, copies, choiceSheet(run.forks, run.choices), road, run.weather ?? null);
-  const { safe, go, more, missing } = splitChoices(options);
-  const banter = banterFor(tier, fork.index, copies, run.id, road);
+  if (!def) return null;
   const left = fork.closesAt.getTime() - now;
   const deadline = `${easternClock(fork.closesAt)} ET`;
+  const heading = (
+    <Term term="fork" className="label-dash text-gold!">
+      <span>
+        {def.label} · fork {fork.index + 1} of {run.forks}
+      </span>
+    </Term>
+  );
+
+  // The clock got here before the view did: the fork has opened since the
+  // page was derived. Nothing to choose from yet — the board refreshes at
+  // the view's nextAt and the prompt fills in.
+  if (!open || open.index !== fork.index) {
+    return (
+      <div data-testid={`fork-reaching-${run.id}`} className="flex flex-col gap-2">
+        {heading}
+        <p role="status" className="flex min-h-11 items-center gap-2 text-base font-semibold text-white">
+          <ExpeditionIcon name="clock" className="text-gold" />
+          <span>
+            The squad is reaching the <Term term="fork">fork</Term>…
+          </span>
+        </p>
+        <p className="text-sm text-steel">Their word is on its way. If you do nothing by {deadline}, the squad plays it safe.</p>
+      </div>
+    );
+  }
+
+  const { safe, go, more, missing } = splitChoices(open.options);
   // The mutations the two big choices name ("20% to bring home
   // irradiated"), each a Term: the one word on the fork a newcomer cannot
   // guess.
@@ -134,12 +153,8 @@ export default function ForkPrompt({
     <div data-testid={`fork-${run.id}-${fork.index}`} className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
         <div className="min-w-0">
-          <Term term="fork" className="label-dash text-gold!">
-            <span>
-              {def.label} · fork {fork.index + 1} of {run.forks}
-            </span>
-          </Term>
-          <h3 className="type-display mt-0.5 text-2xl">{story.title}</h3>
+          {heading}
+          <h3 className="type-display mt-0.5 text-2xl">{open.title}</h3>
         </div>
         <p className="flex min-h-11 items-center gap-1.5 text-sm font-semibold text-gold">
           <ExpeditionIcon name="clock" />
@@ -148,12 +163,8 @@ export default function ForkPrompt({
       </div>
 
       <p data-story className="max-w-3xl text-sm text-white">
-        {rival && hasTrail(run) && tier === RIVAL_FORK.tier && story.key === RIVAL_FORK.key ? (
-          <span data-testid="rival-story">{rivalStory(rival)}</span>
-        ) : (
-          story.story
-        )}
-        {banter ? <span data-testid="banter" className="text-steel"> {banter}</span> : null}
+        {open.rivalStory ? <span data-testid="rival-story">{open.rivalStory}</span> : open.story}
+        {open.banter ? <span data-testid="banter" className="text-steel"> {open.banter}</span> : null}
       </p>
 
       {convoy ? (

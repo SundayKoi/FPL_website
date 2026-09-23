@@ -963,7 +963,7 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
 
   const { data, error } = await service
     .from("expedition_runs")
-    .select("id, discord_id, season, tier, squad, shine, forks, choices, started_at, resolves_at, pinged, encounters, rules, convoy")
+    .select("id, discord_id, season, tier, squad, shine, forks, choices, started_at, resolves_at, pinged, encounters, rules, convoy, road")
     .is("claimed_at", null)
     .gt("forks", 0)
     .limit(200);
@@ -992,6 +992,8 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
     encounters: { key: string; leg: number }[] | null;
     rules: number | null;
     convoy: number | null;
+    /** A campaign's handed-down road, so the ping names its places. */
+    road?: string[] | null;
   }[]) ?? []) {
     const tier = row.tier as ExpeditionTierKey;
     const rules = Number(row.rules ?? 1);
@@ -1052,7 +1054,7 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
       squadTeams: squad.map((copy) => copy.card?.teamName ?? null).filter((team): team is string => Boolean(team)),
     });
     const weather = weatherOfRun({ startedAt: row.started_at, rules }, watchWeeks);
-    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules, convoy: row.convoy, choices: row.choices ?? [], company, weather: weather?.key ?? null }, squad, now);
+    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules, convoy: row.convoy, choices: row.choices ?? [], company, weather: weather?.key ?? null, road: row.road ?? null }, squad, now);
     try {
       await postCardsWebhook(
         {

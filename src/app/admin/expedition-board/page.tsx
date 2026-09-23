@@ -15,7 +15,9 @@ export const metadata: Metadata = {
  * PREVIEW ONLY. The expedition page as three collectors see it — brand
  * new, mid-game with a fork open, a veteran — drawn from fixtures
  * (boardFixtures.ts) through the same ExpeditionBoard the live page
- * renders, with every action stubbed so nothing is read or written.
+ * renders, with every action stubbed so nothing is read or written. Each
+ * run's view (what its squad knows of the road) is derived here, on the
+ * server, by the same buildRunViews the live page calls.
  *
  * Staff only, except in development: `npm run dev` opens it without a
  * staff profile, so the persona screenshots (e2e/expedition-board.spec.ts)

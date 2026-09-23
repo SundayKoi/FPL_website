@@ -7,6 +7,14 @@
 // Pure data, relative to the `now` it is handed, so the jsdom tests, the
 // staff preview at /admin/expedition-board and the Playwright screenshots
 // all look at the same three boards. Nothing here is read by the live page.
+//
+// What each squad knows of its road (`views`) is derived the way the live
+// page derives it — buildRunViews over the fixture's runs — so the preview
+// shows real fog: the mid-game Deep Raid has a checkpoint ahead nobody has
+// seen, the veteran's Legendary route two, one of them dreaded, and both
+// can spend a fragment to see the rest. That makes this module server-only
+// (views.ts holds the road); the preview page is a server component, and
+// the tests that read it stand `server-only` in.
 
 import type { PlayerCardData } from "@/lib/cards/build";
 import { easternDateOf } from "@/lib/packs/week";
@@ -17,6 +25,7 @@ import type { CardCopy } from "./config";
 import { goalKindFor, leagueBoardFor, targetFor, weeksToWatch, type LeagueBoard, type LeagueProgressRow } from "./league";
 import type { ConvoyView, ExpeditionRun, Grave, LostHold } from "./queries";
 import type { Accolade, StandingRow } from "./standings";
+import { buildRunViews, campaignRoadTitles, type RunView } from "./views";
 import type { WeatherKey } from "./weather";
 
 export type Persona = "new" | "mid" | "veteran";
@@ -46,7 +55,8 @@ export interface BoardFixture {
   policyUsed: boolean;
   insuredThisWeek: number;
   playingToday: string[];
-  rivals: Record<number, string>;
+  /** What each squad in the field knows of its road (buildRunViews). */
+  views: Record<number, RunView>;
   convoys: Record<number, ConvoyView>;
   rivalries: Rivalry[];
   weather: WeatherKey | null;
@@ -54,6 +64,8 @@ export interface BoardFixture {
   accolades: Accolade[];
   viewerId: string | null;
   campaign: CampaignState | null;
+  /** The open campaign's next road, by title (campaignRoadTitles). */
+  campaignRoad: string[];
   season: string;
   legendMark: boolean;
   base: string;
@@ -200,7 +212,11 @@ function standing(discordId: string, username: string, miles: number, loot: numb
 const ago = (now: Date, hours: number) => new Date(now.getTime() - hours * HOUR);
 const ahead = (now: Date, hours: number) => new Date(now.getTime() + hours * HOUR);
 
-function base(now: Date): Omit<BoardFixture, "copies" | "runs" | "deployedIds"> {
+/** A persona before its views: everything the page reads from the
+ *  database, and nothing derived from the road. */
+type PersonaFixture = Omit<BoardFixture, "views" | "campaignRoad">;
+
+function base(now: Date): Omit<PersonaFixture, "copies" | "runs" | "deployedIds"> {
   return {
     today: easternDateOf(now),
     holds: [],
@@ -210,7 +226,6 @@ function base(now: Date): Omit<BoardFixture, "copies" | "runs" | "deployedIds"> 
     policyUsed: false,
     insuredThisWeek: 0,
     playingToday: [],
-    rivals: {},
     convoys: {},
     rivalries: [],
     weather: "clear",
@@ -274,7 +289,7 @@ function leagueFor(
 }
 
 /** A first visit: a handful of cards from the first packs, nothing sent. */
-function newcomer(now: Date): BoardFixture {
+function newcomer(now: Date): PersonaFixture {
   const copies = [
     copyOf({ id: 101, name: "Kai", role: "Jungle", tier: "gold", archetype: "Jungle Diff", champion: "Kayn" }),
     copyOf({ id: 102, name: "Mira", role: "Mid", tier: "platinum", archetype: "Burst Mage", champion: "Syndra", foil: "prisma" }),
@@ -288,8 +303,10 @@ function newcomer(now: Date): BoardFixture {
 }
 
 /** Two runs out — a Deep Raid standing at its first fork, a Scouting Run
- *  still walking — a couple home already, and a match tonight. */
-function midGame(now: Date): BoardFixture {
+ *  still walking — a couple home already, and a match tonight. Nobody on
+ *  the raid has walked far enough to know its second checkpoint: it is a
+ *  `?`, and the fragment the collector holds can show it. */
+function midGame(now: Date): PersonaFixture {
   const copies = [
     copyOf({ id: 201, name: "Kai", role: "Jungle", tier: "diamond", archetype: "Jungle Diff", champion: "Kayn", foil: "prisma", team: "Solari Sun" }),
     copyOf({ id: 202, name: "Mira", role: "Mid", tier: "platinum", archetype: "Burst Mage", champion: "Syndra", team: "Solari Sun" }),
@@ -376,8 +393,11 @@ function midGame(now: Date): BoardFixture {
 
 /** Deep in the season: a Legend Hunt home and unclaimed, the Legendary
  *  route out in a convoy, a card lost on the last hunt, two graves, a
- *  campaign on its second stage, a patron's second policy still unspent. */
-function veteran(now: Date): BoardFixture {
+ *  campaign on its second stage, a patron's second policy still unspent.
+ *  The Legendary squad's only trail title is Tobi's Trailworn, which sees
+ *  one checkpoint ahead: the two after it are `?`s, and the squad dreads
+ *  the last of them. */
+function veteran(now: Date): PersonaFixture {
   const copies = [
     copyOf({ id: 401, name: "Dov", role: "Support", tier: "challenger", archetype: "The Bodyguard", champion: "Braum", foil: "ice", signed: true, team: "Solari Sun", card: { trail: { miles: 31, runs: 14, deepest: "legendary" } } }),
     copyOf({ id: 402, name: "Kai", role: "Jungle", tier: "diamond", archetype: "Jungle Diff", champion: "Kayn", foil: "prisma", card: { trail: { miles: 17, runs: 8, deepest: "legend" } } }),
@@ -403,7 +423,7 @@ function veteran(now: Date): BoardFixture {
   const legend = run({
     id: 501,
     tier: "legend",
-    squad: [402, 403, 404],
+    squad: [402, 403, 401],
     shine: 30,
     forks: 3,
     insured: true,
@@ -418,7 +438,7 @@ function veteran(now: Date): BoardFixture {
   const legendary = run({
     id: 502,
     tier: "legendary",
-    squad: [401, 411, 414],
+    squad: [404, 411, 414],
     shine: 44,
     forks: 4,
     convoy: 77,
@@ -524,9 +544,22 @@ function veteran(now: Date): BoardFixture {
   };
 }
 
-/** One persona's board, anchored to `now`. */
+/** One persona's board, anchored to `now`, with its views derived as the
+ *  live page derives them. No reveal is paid in any fixture, so a road
+ *  with a `?` ahead offers the button. */
 export function boardFixture(persona: Persona, now: Date = new Date()): BoardFixture {
-  if (persona === "mid") return midGame(now);
-  if (persona === "veteran") return veteran(now);
-  return newcomer(now);
+  const fixture = persona === "mid" ? midGame(now) : persona === "veteran" ? veteran(now) : newcomer(now);
+  return {
+    ...fixture,
+    views: buildRunViews({
+      runs: fixture.runs,
+      copies: fixture.copies,
+      now,
+      reveals: { mine: new Set(), partner: new Set() },
+      convoys: fixture.convoys,
+      camp: fixture.camp ? { tent: fixture.camp.tent } : null,
+      fragments: fixture.fragments,
+    }),
+    campaignRoad: campaignRoadTitles(fixture.campaign),
+  };
 }

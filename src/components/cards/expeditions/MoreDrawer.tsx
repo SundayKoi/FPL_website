@@ -262,6 +262,7 @@ export default function MoreDrawer({
   rivalries,
   graves,
   campaign,
+  campaignRoad = [],
   camp = null,
   league = null,
   ledgerHref,
@@ -276,6 +277,9 @@ export default function MoreDrawer({
   rivalries: Rivalry[];
   graves: Grave[];
   campaign: CampaignState | null;
+  /** The titles of the places the campaign's next stage walks, named on
+   *  the server (views.ts campaignRoadTitles). */
+  campaignRoad?: string[];
   /** The Camp tab's panel, whole; null (or a null camp inside it) hides
    *  the tab — the camp could not be read, or is not here yet. */
   camp?: CampPanelProps | null;
@@ -301,7 +305,7 @@ export default function MoreDrawer({
       key: "campaigns",
       label: "Campaigns",
       when: true,
-      render: () => <CampaignPanel campaign={campaign} onStart={onStartCampaign} onAbandon={onAbandonCampaign} />,
+      render: () => <CampaignPanel campaign={campaign} places={campaignRoad} onStart={onStartCampaign} onAbandon={onAbandonCampaign} />,
     },
     { key: "camp", label: "Camp", when: camp !== null && camp.camp !== null, render: () => (camp ? <CampPanel {...camp} /> : null) },
     { key: "league", label: "League", when: league !== null, render: () => <LeagueGoalPanel league={league} /> },

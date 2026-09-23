@@ -23,9 +23,10 @@
 
 import "server-only";
 import { ARCHETYPE_RULES, abilitySheet, traitsOf, type AbilityKind } from "./archetypes";
+import { nextTier, type CampaignState } from "./campaigns";
 import type { CardCopy, ExpeditionTierKey } from "./config";
 import type { RoadCompany } from "./company";
-import { choiceSheet, forkViews, isCampChoice, type ForkChoice, type ForkOption, type ForkStatus, type ForkView } from "./forks";
+import { ROAD_RULES, choiceSheet, forkViews, isCampChoice, type ForkChoice, type ForkOption, type ForkStatus, type ForkView } from "./forks";
 import { STORM_HOURS, banterFor, encountersFor, journalFor, type EncounterKey, type JournalEntry } from "./journal";
 import { hasTrail, roadOf, type ConvoyView, type ExpeditionRun } from "./queries";
 import { REVEAL_FRAGMENTS, dangerOf, knownCheckpoints, wardenActive, type PaidReveals, type RevealReads, type RevealedBy } from "./reveal";
@@ -315,6 +316,8 @@ export function runViewFor(input: RunViewInput): RunView {
     choices: run.choices,
     company,
     weather,
+    // A campaign's road: the journal names the places the map does.
+    road: run.road ?? null,
   };
 
   // The whole journal, then cut at the clock: the future half is what
@@ -498,4 +501,20 @@ export function buildRunViews(input: RunViewsInput): Record<number, RunView> {
     });
   }
   return views;
+}
+
+// === a campaign's road =======================================================
+
+/**
+ * The places a campaign's next stage will walk, by title — the Campaigns
+ * tab's "The road ahead: The flooded works → The dog pits". A campaign's
+ * road is handed down, so a squad that walks it knows it before it sets
+ * out (reveal.ts, `campaign`); only the titles leave the server, never the
+ * table they come from. Empty once the campaign is finished, or when its
+ * next stage draws a road of its own.
+ */
+export function campaignRoadTitles(campaign: Pick<CampaignState, "key" | "stage" | "road"> | null): string[] {
+  const next = campaign ? nextTier(campaign) : null;
+  if (!campaign || !next || !campaign.road || campaign.road.length === 0) return [];
+  return forksFor(next, { runId: 0, rules: ROAD_RULES, places: campaign.road }).map((fork) => fork.title);
 }

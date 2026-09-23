@@ -11,7 +11,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { easternDateOf } from "@/lib/packs/week";
 import type { ExpeditionMark, ExpeditionOutcome, ExpeditionTierKey, OutcomeGrade } from "./config";
-import { ROAD_RULES, type CardFate, type RecordedChoice, type RoadRef, type RouteEvent } from "./routes";
+// ROAD_RULES from forks.ts, not routes.ts: the board's client components
+// read hasRoad/roadOf from here, and routes.ts is the road itself.
+import { ROAD_RULES, type RecordedChoice, type RoadRef } from "./forks";
+import type { CardFate, RouteEvent } from "./routes";
 import type { RivalRecord, RoadCompany } from "./company";
 import type { WeatherKey } from "./weather";
 import { campFromRow, type CampState } from "./camp";

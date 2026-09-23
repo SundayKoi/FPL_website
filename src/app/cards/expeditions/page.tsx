@@ -18,15 +18,18 @@ import {
   fetchLostHolds,
   fetchInsuredThisWeek,
   fetchPolicyUsed,
+  fetchReveals,
   fetchRuns,
   type ExpeditionRun,
   type Grave,
   type LostHold,
+  type PartnerRun,
 } from "@/lib/expeditions/queries";
 import { nextOpponent, rosterTeam, teamsPlayingOn } from "@/lib/expeditions/matchday";
 import { fetchCompanies, fetchRivalries } from "@/lib/expeditions/companyReads";
 import { fetchAccolades, fetchOpenCampaign, fetchStandings, hasLegendMark } from "@/lib/expeditions/queries";
 import type { Rivalry, RoadCompany } from "@/lib/expeditions/company";
+import { buildRunViews, campaignRoadTitles } from "@/lib/expeditions/views";
 import { watchWeeksOf, weatherNow, weatherOfRun } from "@/lib/expeditions/weather";
 import { fetchInventory, fetchInventoryByIds, type InventoryRow } from "@/lib/packs/queries";
 import { easternDateOf, mondayOf } from "@/lib/packs/week";
@@ -190,7 +193,7 @@ export async function ExpeditionsPageView({
   // Who else is on the road with each squad in the field (company.ts):
   // the rivals it races, decided by shine, and the graveyard's ghosts.
   // Read here with the service role — the runs and graves it needs are
-  // other people's — and handed to the journal through the run.
+  // other people's — and handed to the views below, never to the board.
   const [fixtures, convoys, companies, rivalries, standings, accolades, campaign, legendMark, camp, forgedThisWeek, leagueGoal] = await Promise.all([
     fetchFixturesSince(service, new Date(oldest - DAY_MS).toISOString()),
     fetchConvoyViews(service, discordId, active),
@@ -230,11 +233,15 @@ export async function ExpeditionsPageView({
   // own — the week it launched under — for its journal and its forks.
   const watchWeeks = watchWeeksOf(fixtures);
   const weather = weatherNow(now, watchWeeks);
-  const runsWithCompany = runs.map((run) => ({
+  // Each run with the weather it launched under — what the board shows on
+  // its chip. The company rides only into the views below: it names the
+  // rivals and ghosts on every leg, walked or not, and the legs ahead are
+  // not the squad's to know yet.
+  const runsWithWeather = runs.map((run) => ({
     ...run,
-    ...(companies[run.id] ? { company: companies[run.id] } : {}),
     weather: run.tier === "lost" ? null : (weatherOfRun(run, watchWeeks)?.key ?? null),
   }));
+  const runsWithCompany = runsWithWeather.map((run) => (companies[run.id] ? { ...run, company: companies[run.id] } : run));
   const rivals: Record<number, string> = {};
   for (const run of active) {
     if (run.tier !== "legendary") continue;
@@ -244,19 +251,47 @@ export async function ExpeditionsPageView({
     if (rival) rivals[run.id] = rival;
   }
 
+  // The road ahead is earned (views.ts): what each squad in the field
+  // knows of its road, derived here on the server so the browser is handed
+  // only that — the places known, the `?`s and their danger, the journal
+  // written so far, the open fork. A fragment someone paid (theirs, or a
+  // convoy partner's on the same road) opens the rest; a read that fails
+  // leaves the fog and hides the button.
+  const partners: PartnerRun[] = Object.values(convoys).flatMap((convoy) =>
+    convoy.partner ? [{ discordId: convoy.partner.discordId, runId: convoy.partner.runId }] : [],
+  );
+  const reveals = await fetchReveals(
+    service,
+    discordId,
+    active.map((run) => run.id),
+    partners,
+  );
+  const views = buildRunViews({
+    runs: runsWithCompany,
+    copies,
+    now,
+    reveals,
+    convoys,
+    rivals,
+    camp: camp ? { tent: camp.tent } : null,
+    fragments,
+  });
+
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <ExpeditionsHeader league={league} season={season} base={base} />
 
       <ExpeditionBoard
         copies={copies}
-        runs={runsWithCompany}
+        runs={runsWithWeather}
+        views={views}
         rivalries={rivalries}
         weather={weather.key}
         standings={standings}
         accolades={accolades}
         viewerId={discordId}
         campaign={campaign}
+        campaignRoad={campaignRoadTitles(campaign)}
         season={season ?? ""}
         legendMark={legendMark}
         deployedIds={deployedIds}
@@ -273,7 +308,6 @@ export async function ExpeditionsPageView({
         balance={Number(wallet?.balance ?? 0) || 0}
         league={leagueGoal}
         playingToday={playingToday}
-        rivals={rivals}
         convoys={convoys}
         // Resolved server-side on the Eastern calendar the whole card
         // economy keeps, so the banner names the brief a launch is actually
