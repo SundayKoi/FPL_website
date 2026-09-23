@@ -106,6 +106,16 @@ export async function MyTeamPageView({
   }
 
   const canReport = dashboard.isCaptain || dashboard.isAdmin;
+  let teamReports: MyReportRow[] = [];
+  let teamReportsUnavailable = false;
+  if (!canReport) {
+    try {
+      teamReports = await fetchMyReports(supabase, dashboard.team.id, dashboard.season, dashboard.teams);
+    } catch (error) {
+      console.error("Unable to load team match reports", error);
+      teamReportsUnavailable = true;
+    }
+  }
   let captainData: {
     defaultPhase: string;
     myReports: MyReportRow[];
@@ -246,7 +256,7 @@ export async function MyTeamPageView({
 
   return (
     <>
-      <MyTeamGate dashboard={dashboard} league={league} />
+      <MyTeamGate dashboard={dashboard} league={league} teamReports={teamReports} teamReportsUnavailable={teamReportsUnavailable} />
       {(dashboard.isAdmin || captainTools) ? (
         <div className="page-backdrop pb-12 sm:pb-16">
           <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-6 px-4 sm:px-6">

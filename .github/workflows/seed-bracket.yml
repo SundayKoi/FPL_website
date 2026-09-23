@@ -1,20 +1,8 @@
 name: Seed bracket
 
-# Manual only: a bracket is seeded when the league announces one, which is
-# not a schedule. It runs scripts/seed-bracket.ts over a bracket file in the
-# repo (scripts/data/brackets/*.json) with the service key, so the league
-# owner can put the playoffs on the schedule without SQL and without typing
-# eight fixtures into the editor by hand.
-#
-# **Dry run is ticked by default and leaves it ticked until you have read the
-# plan.** A dry run reads the database, validates every team name against
-# league_teams and prints exactly what it would insert, update or leave
-# alone — then writes nothing. Untick it to write that same plan.
-#
-# Writing is safe to repeat: the script keys rows by (season, stage,
-# sort_order), so a second run rewrites the rows it wrote rather than adding
-# a second copy, it never deletes, and it refuses to touch a fixture that
-# already has a score. Change the bracket file and run it again.
+# Manual only: seeding a bracket is a reviewed operational action, not a
+# schedule. Runs against a committed file with the service key so staff do not
+# need direct SQL access.
 on:
   workflow_dispatch:
     inputs:
@@ -23,13 +11,12 @@ on:
         type: string
         default: "scripts/data/brackets/academy-2026-playoffs.json"
       dry_run:
-        description: "Print the plan and write nothing. Leave this ticked first — the run's log is how you check the matchups, kickoffs and team spellings before they reach the schedule."
+        description: "Print and review the plan before any write. Leave this ticked first."
         type: boolean
         default: true
 
 concurrency:
-  # Two seeds of the same bracket at once would both read "missing" and both
-  # insert. Never cancel one mid-write.
+  # Two seeds of the same bracket at once could both read a missing slot.
   group: seed-bracket
   cancel-in-progress: false
 
@@ -44,10 +31,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx tsx scripts/seed-bracket.ts "$BRACKET" $([ "$DRY_RUN" = true ] && echo --dry-run)
+      - name: Validate or seed bracket
+        shell: bash
+        run: |
+          args=()
+          if [[ "$DRY_RUN" == "false" ]]; then args+=(--write); fi
+          npx tsx scripts/seed-bracket.ts "$BRACKET" "${args[@]}"
         env:
-          # Through the environment, not interpolated into the command: the
-          # bracket path is free text somebody types into the form.
+          # Values arrive via the environment rather than interpolated shell text.
           BRACKET: ${{ inputs.bracket }}
           DRY_RUN: ${{ inputs.dry_run }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

@@ -70,7 +70,7 @@ export default async function AdminPage() {
     supabase.from("drafts").select("*").order("created_at", { ascending: false }),
     supabase
       .from("league_settings")
-      .select("current_season, current_phase, signups_open, homepage_mode")
+      .select("current_season, academy_season, current_phase, signups_open, homepage_mode")
       .eq("id", 1)
       .single(),
     supabase.from("signups").select("*", { count: "exact", head: true }),
@@ -80,6 +80,7 @@ export default async function AdminPage() {
   const drafts = (draftsResult.data as Draft[]) ?? [];
   const settings = settingsResult.data as {
     current_season: string;
+    academy_season: string;
     current_phase: string;
     signups_open: boolean;
     homepage_mode: HomepageMode;
@@ -95,8 +96,8 @@ export default async function AdminPage() {
   ]);
   const academyTeamNameSet = academyTeamNames(academyDraftData.teams);
   const [premierSchedule, academySchedule] = await Promise.all([
-    fetchHomepageSchedule(),
-    fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, academyTeamNameSet)),
+    fetchHomepageSchedule(undefined, settings?.current_season),
+    fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, academyTeamNameSet), settings?.academy_season),
   ]);
 
   const cards = [

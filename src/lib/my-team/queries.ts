@@ -15,6 +15,7 @@ import {
 } from "@/lib/opgg/multiSearch";
 import { resolvePlayerIdentity, type LeagueKey } from "@/lib/players/identity";
 import type { FixtureRow } from "@/lib/schedule/types";
+import { resolvePlayoffSeries, type PlayoffEntrant, type PlayoffReport } from "@/lib/schedule/playoffs";
 import { combineTeamRows } from "@/lib/stats/formulas";
 import type { TeamAggRow } from "@/lib/stats/types";
 import { DEFAULT_TEAM_BANNER_COLOR, normalizeBannerColor } from "@/lib/teams/bannerColor";
@@ -106,6 +107,101 @@ function teamFixtures(fixtures: FixtureRow[], teamName: string): FixtureRow[] {
   return fixtures.filter(
     (fixture) => normalizeName(fixture.team_a) === name || normalizeName(fixture.team_b) === name,
   );
+}
+
+async function isAwaitingPremierSemifinalDraw(
+  supabase: SupabaseClient,
+  season: string,
+  teamId: string,
+  schedule: FixtureRow[],
+): Promise<boolean> {
+  const quarterfinals = schedule.filter((fixture) => fixture.stage === "quarterfinals");
+  const semifinals = schedule.filter((fixture) => fixture.stage === "semifinals");
+  if (quarterfinals.length === 0 || semifinals.length !== 2
+    || semifinals.some((fixture) => fixture.team_a !== null || fixture.team_b !== null)) return false;
+
+  const [entrantsResult, reportsResult] = await Promise.all([
+    supabase.from("premier_playoff_entrants").select("team_id, canonical_name, division, seed").eq("season", season),
+    supabase.from("match_reports").select("*").in("fixture_id", quarterfinals.map((fixture) => fixture.id)),
+  ]);
+  if (entrantsResult.error || reportsResult.error) return false;
+  const entrants = ((entrantsResult.data ?? []) as {
+    team_id: string;
+    canonical_name: string;
+    division: "Solari" | "Lunari";
+    seed: number;
+  }[]).map((row): PlayoffEntrant => ({
+    teamId: row.team_id,
+    name: row.canonical_name,
+    division: row.division,
+    seed: row.seed,
+  }));
+  if (!entrants.some((entrant) => entrant.teamId === teamId)) return false;
+  const reports = (reportsResult.data ?? []) as PlayoffReport[];
+  const reportIds = reports.map((report) => report.id);
+  const gamesResult = reportIds.length
+    ? await supabase.from("match_report_games").select("id, report_id, game_number, status").in("report_id", reportIds)
+    : { data: [], error: null };
+  if (gamesResult.error) return false;
+  const games = (gamesResult.data ?? []) as { id: string; report_id: string; game_number: number; status: string }[];
+  const reportsWithGames = reports.map((report) => ({
+    ...report,
+    games: games.filter((game) => game.report_id === report.id)
+      .map(({ id, game_number, status }) => ({ id, game_number, status })),
+  }));
+  return quarterfinals.some((fixture) => resolvePlayoffSeries(fixture, entrants, reportsWithGames).winnerTeamId === teamId);
+}
+
+async function resolvedPremierPlayoffReportFixtureIds(
+  supabase: SupabaseClient,
+  season: string,
+  fixtures: FixtureRow[],
+): Promise<Set<string>> {
+  const playoffFixtures = fixtures.filter((fixture) =>
+    fixture.stage === "quarterfinals" || fixture.stage === "semifinals" || fixture.stage === "finals",
+  );
+  if (playoffFixtures.length === 0) return new Set();
+
+  const entrantsResult = await supabase
+    .from("premier_playoff_entrants")
+    .select("team_id, canonical_name, division, seed")
+    .eq("season", season);
+  if (entrantsResult.error || !entrantsResult.data?.length) return new Set();
+  const entrants = (entrantsResult.data as {
+    team_id: string;
+    canonical_name: string;
+    division: "Solari" | "Lunari";
+    seed: number;
+  }[]).map((row): PlayoffEntrant => ({
+    teamId: row.team_id,
+    name: row.canonical_name,
+    division: row.division,
+    seed: row.seed,
+  }));
+
+  const reportResult = await supabase
+    .from("match_reports")
+    .select("id, fixture_id, season, season_phase, team_a_id, team_b_id, score_a, score_b, status, submitted_at, forfeit_team_id")
+    .eq("season", season)
+    .in("fixture_id", playoffFixtures.map((fixture) => fixture.id));
+  if (reportResult.error || !reportResult.data?.length) return new Set();
+  const reports = reportResult.data as PlayoffReport[];
+  const reportIds = reports.map((report) => report.id);
+  const gamesResult = await supabase
+    .from("match_report_games")
+    .select("id, report_id, game_number, status")
+    .in("report_id", reportIds);
+  if (gamesResult.error) return new Set();
+  const games = (gamesResult.data ?? []) as { id: string; report_id: string; game_number: number; status: string }[];
+  const reportsWithGames = reports.map((report) => ({
+    ...report,
+    games: games.filter((game) => game.report_id === report.id)
+      .map(({ id, game_number, status }) => ({ id, game_number, status })),
+  }));
+
+  return new Set(playoffFixtures
+    .filter((fixture) => resolvePlayoffSeries(fixture, entrants, reportsWithGames).status === "ready")
+    .map((fixture) => fixture.id));
 }
 
 export async function fetchTeamStats(
@@ -226,10 +322,8 @@ export async function loadMyTeamDashboard(
     .select("*")
     .eq("season", identity.season);
   throwIfError(fixturesResult.error);
-  const fixtures = leagueFixtures(
-    (fixturesResult.data as FixtureRow[] | null) ?? [],
-    teams,
-  );
+  const seasonFixtures = (fixturesResult.data as FixtureRow[] | null) ?? [];
+  const fixtures = leagueFixtures(seasonFixtures, teams);
   const schedule = teamFixtures(fixtures, team.name);
   // Fixtures this season already has a submitted report for. The score
   // only reaches the fixture when the ingest syncs the report, and the
@@ -247,7 +341,21 @@ export async function loadMyTeamDashboard(
           .map((report) => report.fixture_id)
           .filter((id): id is string => Boolean(id)),
   );
+  if (league === "premier") {
+    const playoffFixtureIds = new Set(seasonFixtures
+      .filter((fixture) => fixture.stage === "quarterfinals" || fixture.stage === "semifinals" || fixture.stage === "finals")
+      .map((fixture) => fixture.id));
+    const resolvedPlayoffIds = await resolvedPremierPlayoffReportFixtureIds(supabase, identity.season, seasonFixtures);
+    for (const fixtureId of playoffFixtureIds) {
+      // An unfinished or conflicted playoff report must leave its fixture in
+      // the upcoming series list so the signed-in team can still see it.
+      if (!resolvedPlayoffIds.has(fixtureId)) reportedFixtureIds.delete(fixtureId);
+    }
+  }
   const nextFixture = pickNextFixture(schedule, team.name, reportedFixtureIds);
+  const awaitingPlayoffDrawPromise = league === "premier" && !nextFixture
+    ? isAwaitingPremierSemifinalDraw(supabase, identity.season, team.id, seasonFixtures)
+    : Promise.resolve(false);
 
   const opponentName = nextFixture
     ? normalizeName(nextFixture.team_a) === normalizeName(team.name)
@@ -282,12 +390,13 @@ export async function loadMyTeamDashboard(
       })()
     : Promise.resolve(null);
 
-  const [codes, draftGames, roster, results, opponent] = await Promise.all([
+  const [codes, draftGames, roster, results, opponent, awaitingPlayoffDraw] = await Promise.all([
     nextFixture ? fetchCodes(supabase, nextFixture.id) : Promise.resolve([]),
     nextFixture ? fetchDraftGames(supabase, nextFixture.id, teams) : Promise.resolve([]),
     fetchMyRoster(supabase, activeTeamId, identity.season, league),
     fetchMyResults(supabase, team.name, identity.season),
     opponentPromise,
+    awaitingPlayoffDrawPromise,
   ]);
 
   return {
@@ -300,6 +409,7 @@ export async function loadMyTeamDashboard(
     teams,
     activeTeams,
     nextFixture,
+    awaitingPlayoffDraw,
     codes,
     draftGames,
     schedule,

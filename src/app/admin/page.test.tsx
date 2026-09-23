@@ -65,7 +65,7 @@ function chain(result: unknown) {
 
 function defaultFrom(table: string) {
     if (table === "league_settings") {
-      return chain({ data: { current_season: "S5", current_phase: "week_1", signups_open: true, homepage_mode: "auto" } });
+      return chain({ data: { current_season: "S5", academy_season: "A1", current_phase: "week_1", signups_open: true, homepage_mode: "auto" } });
     }
     if (table === "signups") return chain({ count: 3 });
     if (table === "fixtures") return chain({ count: 8 });
@@ -136,7 +136,8 @@ describe("AdminPage", () => {
   it("uses the same unfiltered Premier schedule scope as the homepage", async () => {
     render(await AdminPage());
 
-    expect(fetchHomepageSchedule).toHaveBeenNthCalledWith(1);
+    expect(fetchHomepageSchedule).toHaveBeenNthCalledWith(1, undefined, "S5");
+    expect(fetchHomepageSchedule).toHaveBeenNthCalledWith(2, expect.any(Function), "A1");
   });
 
   it("labels the bracket ahead with its stage so staff can feature a playoff game", async () => {

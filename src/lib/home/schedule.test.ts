@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchHomepageSchedule, selectHomepageFeaturedFixture } from "./schedule";
+import { fetchHomepageSchedule, selectHomepageFeaturedFixture, selectHomepageStage } from "./schedule";
 import type { FixtureRow } from "@/lib/schedule/types";
 
 const { createServerSupabase } = vi.hoisted(() => ({
@@ -153,6 +153,17 @@ describe("fetchHomepageSchedule", () => {
       upcoming: [],
     });
   });
+
+  it("keeps an explicitly selected Premier season isolated even if no fixtures exist for it", async () => {
+    createServerSupabase.mockResolvedValue({
+      from: vi.fn(() => query({ data: [fixture({ season: "S5" })], error: null })),
+    });
+
+    await expect(fetchHomepageSchedule(undefined, "S6")).resolves.toMatchObject({
+      season: "S6",
+      fixtures: [],
+    });
+  });
 });
 
 describe("selectHomepageFeaturedFixture", () => {
@@ -171,5 +182,41 @@ describe("selectHomepageFeaturedFixture", () => {
     expect(selectHomepageFeaturedFixture(fixtures, "fixture-from-another-schedule")).toEqual(
       fixtures[0],
     );
+  });
+});
+
+describe("selectHomepageStage", () => {
+  it("moves to playoffs once all regular weeks are complete", () => {
+    const completedWeeks = Array.from({ length: 5 }, (_, index) => fixture({
+      id: `week-${index + 1}`,
+      stage: `week_${index + 1}` as FixtureRow["stage"],
+      score_a: 2,
+      score_b: 1,
+    }));
+    expect(selectHomepageStage([
+      ...completedWeeks,
+      fixture({ id: "qf", stage: "quarterfinals", best_of: 5 }),
+      fixture({ id: "semi", stage: "semifinals", best_of: 5 }),
+    ])).toBe("quarterfinals");
+  });
+
+  it("moves to the next playoff round after the previous round completes", () => {
+    const completedWeeks = Array.from({ length: 5 }, (_, index) => fixture({
+      id: `week-${index + 1}`,
+      stage: `week_${index + 1}` as FixtureRow["stage"],
+      score_a: 2,
+      score_b: 1,
+    }));
+    expect(selectHomepageStage([
+      ...completedWeeks,
+      fixture({ id: "qf", stage: "quarterfinals", best_of: 5, score_a: 3, score_b: 1 }),
+      fixture({ id: "semi", stage: "semifinals", best_of: 5 }),
+    ])).toBe("semifinals");
+  });
+
+  it("does not let empty regular-season stages hide a playoffs-only schedule", () => {
+    expect(selectHomepageStage([
+      fixture({ id: "qf", stage: "quarterfinals", best_of: 5 }),
+    ])).toBe("quarterfinals");
   });
 });

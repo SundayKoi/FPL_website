@@ -44,8 +44,8 @@ export async function resolveBroadcasterFixture(
   const academyDraft = league === "academy" ? await fetchAcademyDraftData(supabase) : null;
   const [schedule, settings] = await Promise.all([
     league === "academy"
-      ? fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, academyTeamNames(academyDraft?.teams ?? [])))
-      : fetchHomepageSchedule(),
+      ? fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, academyTeamNames(academyDraft?.teams ?? [])), captain.season || null)
+      : fetchHomepageSchedule(undefined, captain.season || null),
     fetchHomepageFeaturedSettings(league),
   ]);
 
