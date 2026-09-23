@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { parseInventoryId } from "@/lib/cards/params";
-import Link from "next/link";
 import CardsGate from "@/components/cards/CardsGate";
-import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 import ExpeditionBoard from "@/components/cards/ExpeditionBoard";
+import ExpeditionsHeader from "@/components/cards/expeditions/ExpeditionsHeader";
 import { bettingAccess } from "@/lib/betting/access";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
@@ -234,22 +233,7 @@ export async function ExpeditionsPageView({
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <CardsPageHeader
-        eyebrow={cardsEyebrow("Play", league, season)}
-        title="Expeditions"
-        tabHref={`${base}/play`}
-        below={
-          <Link href={`${base}/expeditions/ledger`} className="mt-3 inline-block text-sm text-coral underline-offset-4 hover:underline">
-            The league&apos;s ledger of the fallen and the found →
-          </Link>
-        }
-      >
-        Send three cards out on a route. The squad stops at forks and asks you what to do; push for
-        more and someone can get hurt, camp and keep what you have. They come home with betting
-        dollars, sometimes a pack or a map fragment — and sometimes changed for good: wounded,
-        mutated, lost, or on the deepest route, dead. Every rule is on this page, and the launch
-        button names which of your cards can be hurt before you press it.
-      </CardsPageHeader>
+      <ExpeditionsHeader league={league} season={season} base={base} />
 
       <ExpeditionBoard
         copies={copies}

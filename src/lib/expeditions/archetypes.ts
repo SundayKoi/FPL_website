@@ -96,6 +96,34 @@ export type AbilityKind =
   | "loot" | "finale" | "guard" | "shield" | "front" | "camp" | "hold" | "toll" | "gamble" | "find" | "merchant"
   | "rival" | "ghost" | "warned" | "momentum" | "call" | "clock" | "reveal" | "mutation" | "rescue" | "jack";
 
+/** Each kind in the words the picker prints: "edges Guard, Rival, Camp —
+ *  all three count". Player words, not the table's keys — `warned` is the
+ *  nerve to push where the squad was warned off, `front` the card that
+ *  steps in front, `jack` the all-rounder every unknown title reads as. */
+export const ABILITY_KIND_LABELS: Record<AbilityKind, string> = {
+  loot: "Loot",
+  finale: "Finale",
+  guard: "Guard",
+  shield: "Shield",
+  front: "Frontline",
+  camp: "Camp",
+  hold: "Hold",
+  toll: "Toll",
+  gamble: "Gamble",
+  find: "Finder",
+  merchant: "Merchant",
+  rival: "Rival",
+  ghost: "Ghost",
+  warned: "Nerve",
+  momentum: "Momentum",
+  call: "Role call",
+  clock: "Speed",
+  reveal: "Sight",
+  mutation: "Mutation",
+  rescue: "Rescue",
+  jack: "All-rounder",
+};
+
 export interface ArchetypeAbility {
   /** The title exactly as the card json carries it. */
   title: string;

@@ -9,7 +9,10 @@ import type { WeatherKey } from "@/lib/expeditions/weather";
 import type { Accolade, StandingRow } from "@/lib/expeditions/standings";
 import type { CampaignState } from "@/lib/expeditions/campaigns";
 import ExpeditionBoard from "./ExpeditionBoard";
-import { forksFor } from "@/lib/expeditions/routes";
+import { forkOptions, forksFor } from "@/lib/expeditions/routes";
+import { roadOf } from "@/lib/expeditions/queries";
+import { PERSONAS, boardFixture, type Persona } from "@/lib/expeditions/boardFixtures";
+import { GLOSSARY, glossaryHits } from "@/lib/expeditions/glossary";
 
 /** A route that changed nothing: every card home, no forks pushed. */
 const QUIET_ROUTE = (ids: number[]) => ({
@@ -222,6 +225,18 @@ function pickTwelveShineSquad() {
   pick("Cyn", 7);
 }
 
+/** One route card renders at a time, under the row of route pills: show
+ *  `key`'s. The best route the squad can run is preselected; every other
+ *  route is a tap away. */
+function showRoute(key: string) {
+  fireEvent.click(screen.getByTestId(`route-pill-${key}`));
+}
+
+/** The drawer mounts one panel at a time (the log by default): open `key`. */
+function openTab(key: string) {
+  fireEvent.click(screen.getByTestId(`tab-${key}`));
+}
+
 async function click(button: HTMLElement) {
   await act(async () => {
     fireEvent.click(button);
@@ -246,6 +261,9 @@ beforeEach(() => {
   decideForkAction.mockReset().mockResolvedValue({ ok: true, closesAt: "2026-08-28T00:00:00.000Z" });
   ransomLostCardAction.mockReset().mockResolvedValue({ ok: true, balance: 900, paid: 340 });
   refresh.mockReset();
+  // The first-visit guide remembers a dismissal here; every case starts
+  // as a first visit.
+  window.localStorage.clear();
 });
 
 describe("ExpeditionBoard — the day's brief", () => {
@@ -268,22 +286,26 @@ describe("ExpeditionBoard — tier cards", () => {
   it("prints each tier's entry requirements and duration", () => {
     renderBoard();
 
+    showRoute("raid");
     const raid = screen.getByTestId("tier-raid");
     expect(within(raid).getByText("Deep Raid")).toBeTruthy();
     expect(within(raid).getByText("12 shine · 1 foil")).toBeTruthy();
     expect(within(raid).getByText("24 hours away · 2 forks")).toBeTruthy();
 
+    showRoute("legend");
     const legend = screen.getByTestId("tier-legend");
     expect(within(legend).getByText("20 shine · 2 foils · 1 signed")).toBeTruthy();
     expect(within(legend).getByText("48 hours away · 3 forks")).toBeTruthy();
 
     // The ungated tier says so rather than showing an empty line.
+    showRoute("scout");
     expect(within(screen.getByTestId("tier-scout")).getByText("Anyone can run it")).toBeTruthy();
   });
 
   it("locks the Gilded Road for everyone but a patron", () => {
     renderBoard();
 
+    showRoute("gilded");
     const gilded = screen.getByTestId("tier-gilded");
     expect(within(gilded).getByTestId("tier-gilded-patron")).toBeTruthy();
     expect(within(gilded).getByText("patrons only · 6 shine · 3 signed")).toBeTruthy();
@@ -295,6 +317,7 @@ describe("ExpeditionBoard — tier cards", () => {
 
   it("explains trail miles and the three titles in the rules of the road", () => {
     renderBoard();
+    openTab("rules");
     const rule = screen.getByTestId("rule-miles");
     expect(rule.textContent).toContain("Scouting Run 1");
     expect(rule.textContent).toContain("Legendary route 4");
@@ -307,6 +330,7 @@ describe("ExpeditionBoard — tier cards", () => {
 
   it("explains the Gilded Road in the rules of the road", () => {
     renderBoard();
+    openTab("rules");
     const rule = screen.getByTestId("rule-gilded");
     expect(rule.textContent).toContain("3 signed cards");
     expect(rule.textContent).toContain("$1,000–$3,000");
@@ -316,6 +340,7 @@ describe("ExpeditionBoard — tier cards", () => {
   it("opens the Gilded Road to a patron", () => {
     renderBoard({ patron: true });
 
+    showRoute("gilded");
     const gilded = screen.getByTestId("tier-gilded");
     expect(within(gilded).queryByTestId("tier-gilded-locked")).toBeNull();
     expect((screen.getByRole("button", { name: "Launch The Gilded Road" }) as HTMLButtonElement).textContent).toBe("Send them out");
@@ -325,6 +350,7 @@ describe("ExpeditionBoard — tier cards", () => {
     renderBoard();
     pickTwelveShineSquad();
 
+    showRoute("legend");
     const legend = screen.getByTestId("tier-legend");
     // Verbatim from squadMeets — the board must not restate the gates in
     // its own words, or the two drift.
@@ -334,6 +360,7 @@ describe("ExpeditionBoard — tier cards", () => {
     expect((screen.getByRole("button", { name: "Launch Legend Hunt" }) as HTMLButtonElement).disabled).toBe(true);
 
     // The same squad clears Deep Raid on the nose: 12 shine, one foil.
+    showRoute("raid");
     expect((screen.getByRole("button", { name: "Launch Deep Raid" }) as HTMLButtonElement).disabled).toBe(false);
     expect(within(screen.getByTestId("tier-raid")).queryByRole("listitem")).toBeNull();
   });
@@ -344,11 +371,13 @@ describe("ExpeditionBoard — tier cards", () => {
     renderBoard({ runs: [makeRun({ id: 30, tier: "legend", squad: [9, 8, 7] })] });
     pickTwelveShineSquad();
 
+    showRoute("legend");
     const legend = screen.getByTestId("tier-legend");
     expect(within(legend).getByText(/One Legend Hunt at a time/)).toBeTruthy();
     expect((screen.getByRole("button", { name: "Launch Legend Hunt" }) as HTMLButtonElement).disabled).toBe(true);
 
     // The raid slot is untouched — a tier is a slot, not a lock on the board.
+    showRoute("raid");
     expect((screen.getByRole("button", { name: "Launch Deep Raid" }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.queryByTestId("tier-raid-out")).toBeNull();
   });
@@ -358,6 +387,7 @@ describe("ExpeditionBoard — tier cards", () => {
       runs: [makeRun({ id: 31, tier: "raid", squad: [9, 8, 7], claimedAt: new Date().toISOString() })],
     });
     pickTwelveShineSquad();
+    showRoute("raid");
 
     expect(screen.queryByTestId("tier-raid-out")).toBeNull();
     expect((screen.getByRole("button", { name: "Launch Deep Raid" }) as HTMLButtonElement).disabled).toBe(false);
@@ -367,6 +397,7 @@ describe("ExpeditionBoard — tier cards", () => {
     renderBoard();
     pick("Alba", 3);
 
+    showRoute("scout");
     expect((screen.getByRole("button", { name: "Launch Scouting Run" }) as HTMLButtonElement).disabled).toBe(true);
     expect(
       within(screen.getByTestId("tier-scout")).getByText(
@@ -378,6 +409,7 @@ describe("ExpeditionBoard — tier cards", () => {
   it("launches the chosen tier with the chosen squad", async () => {
     renderBoard();
     pickTwelveShineSquad();
+    showRoute("raid");
 
     await click(screen.getByRole("button", { name: "Launch Deep Raid" }));
 
@@ -393,6 +425,7 @@ describe("ExpeditionBoard — tier cards", () => {
     launchExpeditionAction.mockResolvedValue({ ok: false, error: "One of those cards is already out on an expedition." });
     renderBoard();
     pickTwelveShineSquad();
+    showRoute("raid");
 
     await click(screen.getByRole("button", { name: "Launch Deep Raid" }));
 
@@ -414,8 +447,10 @@ describe("ExpeditionBoard — the squad picker", () => {
   it("chips every copy with what it is worth", () => {
     renderBoard();
 
-    expect(screen.getByText("+7")).toBeTruthy();
-    expect(screen.getByText("+16")).toBeTruthy();
+    // "power" on the chip, the rules' shine behind it (the chips' names
+    // still say shine, for the screen reader and these tests).
+    expect(screen.getByText("power 7")).toBeTruthy();
+    expect(screen.getByText("power 16")).toBeTruthy();
   });
 
   it("locks copies that are already out and says why", () => {
@@ -433,8 +468,12 @@ describe("ExpeditionBoard — the squad picker", () => {
     renderBoard();
     pickTwelveShineSquad();
 
+    // The third pick folds the grid into a summary; "Change" opens it again.
+    expect(screen.queryByRole("button", { name: "Dov — 16 shine" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
     const dov = screen.getByRole("button", { name: "Dov — 16 shine" }) as HTMLButtonElement;
     expect(dov.disabled).toBe(true);
+    expect(dov.textContent).toContain("three picked");
 
     // Dropping one frees the slot again.
     pick("Bex", 2);
@@ -718,6 +757,7 @@ describe("ExpeditionBoard — a copy the shelf named", () => {
 describe("ExpeditionBoard — the rules of the road", () => {
   it("prints every run's worst case and every mutation's consequences", () => {
     renderBoard();
+    openTab("rules");
 
     const rules = screen.getByTestId("expedition-rules");
     expect(within(rules).getByText("The rules of the road")).toBeTruthy();
@@ -735,12 +775,16 @@ describe("ExpeditionBoard — the rules of the road", () => {
     renderBoard();
     pickTwelveShineSquad();
 
+    showRoute("scout");
     expect(screen.getByTestId("consent-scout").textContent).toBe("Nothing on this run can hurt a card.");
+    showRoute("raid");
     expect(screen.getByTestId("consent-raid").textContent).toContain("Alba, Bex, Cyn can come home wounded");
+    showRoute("legendary");
     expect(screen.getByTestId("consent-legendary").textContent).toContain("can DIE");
 
     fireEvent.click(screen.getByRole("checkbox", { name: /Insure this run/ }));
     expect(screen.getByTestId("consent-legendary").textContent).toContain("can be lost");
+    showRoute("legend");
     expect(screen.getByTestId("consent-legend").textContent).toContain("wounded");
   });
 
@@ -767,9 +811,11 @@ describe("ExpeditionBoard — the rules of the road", () => {
     pick("Dov", 16);
     pick("Cyn", 7);
 
+    showRoute("legend");
     const legend = screen.getByTestId("tier-legend");
     expect(within(legend).getByText("Fen is one of one and cannot go on a route where a card can be lost.")).toBeTruthy();
     expect((screen.getByRole("button", { name: "Launch Legend Hunt" }) as HTMLButtonElement).disabled).toBe(true);
+    showRoute("raid");
     expect((screen.getByRole("button", { name: "Launch Deep Raid" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
@@ -783,6 +829,7 @@ describe("ExpeditionBoard — the rules of the road", () => {
     pick("Dov", 16);
     pick("Cyn", 7);
 
+    showRoute("legend");
     const legend = screen.getByTestId("tier-legend");
     expect(within(legend).getByText("Big Game is a relic and cannot go on a route where a card can be lost.")).toBeTruthy();
   });
@@ -793,6 +840,7 @@ describe("ExpeditionBoard — the rules of the road", () => {
     pick("Cyn", 7);
     pick("Alba", 3);
 
+    showRoute("legendary");
     const legendary = screen.getByTestId("tier-legendary");
     expect(within(legendary).getByText(/Needs 3 map fragments — you hold 1\./)).toBeTruthy();
     expect((screen.getByRole("button", { name: "Launch Legendary route" }) as HTMLButtonElement).disabled).toBe(true);
@@ -808,7 +856,11 @@ describe("ExpeditionBoard — the rules of the road", () => {
     pick("Gil", 3);
     pick("Bex", 2);
     pick("Alba", 3);
+    // The policy is offered on a route that can hurt a card; switching to
+    // the Exorcism after ticking it must not send it.
+    showRoute("raid");
     fireEvent.click(screen.getByRole("checkbox", { name: /Insure this run/ }));
+    showRoute("exorcism");
 
     await click(screen.getByRole("button", { name: "Launch Exorcism" }));
 
@@ -845,7 +897,9 @@ describe("ExpeditionBoard — forks", () => {
     const favour = within(fork).getByRole("button", { name: "Call in a favour — favour" }) as HTMLButtonElement;
     expect(favour.disabled).toBe(true);
     expect(favour.textContent).toContain("Needs a signed card");
-    expect(fork.textContent).toContain("silence camps");
+    // Silence is named in plain words: no answer, the squad plays it safe.
+    expect(fork.textContent).toContain("If you do nothing by");
+    expect(fork.textContent).toContain("the squad plays it safe");
   });
 
   it("lets a squad card speak at the fork", () => {
@@ -930,6 +984,7 @@ describe("ExpeditionBoard — the road", () => {
 
   it("explains the road and the role calls in the rules of the road", () => {
     renderBoard();
+    openTab("rules");
     const rules = screen.getByTestId("expedition-rules");
     expect(rules.textContent).toContain("The road is drawn when you launch.");
     for (const call of ["hold", "scout", "roam", "kite", "ward"]) expect(within(rules).getByTestId(`rule-call-${call}`)).toBeTruthy();
@@ -969,6 +1024,7 @@ describe("ExpeditionBoard — missing cards", () => {
     pick("Alba", 3);
     pick("Bex", 2);
     pick("Cyn", 7);
+    showRoute("rescue");
 
     await click(screen.getByRole("button", { name: "Launch Rescue" }));
 
@@ -979,6 +1035,7 @@ describe("ExpeditionBoard — missing cards", () => {
     renderBoard();
     pickTwelveShineSquad();
 
+    showRoute("rescue");
     expect(within(screen.getByTestId("tier-rescue")).getByText(/Nothing is lost/)).toBeTruthy();
     expect((screen.getByRole("button", { name: "Launch Rescue" }) as HTMLButtonElement).disabled).toBe(true);
   });
@@ -987,11 +1044,13 @@ describe("ExpeditionBoard — missing cards", () => {
 describe("ExpeditionBoard — the Mythic route", () => {
   it("prints the route past the rift with its own gates, and explains it in the rules", () => {
     renderBoard({ legendMark: false });
+    showRoute("mythic");
     const card = screen.getByTestId("tier-mythic");
     expect(card.textContent).toContain("Mythic route");
     expect(card.textContent).toContain("a Voidtouched card");
     expect(card.textContent).toContain("a Legend mark");
     expect(card.textContent).toContain("3 map fragments");
+    openTab("rules");
     const rule = screen.getByTestId("rule-mythic");
     expect(rule.textContent).toContain("Momentum");
     expect(rule.textContent).toContain("Voidborn");
@@ -1007,8 +1066,10 @@ describe("ExpeditionBoard — campaigns", () => {
 
   it("follows the open campaign and marks the route its next stage walks", () => {
     renderBoard({ campaign: open });
+    openTab("campaigns");
     expect(screen.getByTestId("campaigns").textContent).toContain("The Broken Map");
     expect(screen.getByTestId("campaign-stage").textContent).toContain("Stage 2 of 3");
+    showRoute("raid");
     expect(screen.getByTestId("tier-raid-campaign").textContent).toContain("Stage 2 of The Broken Map");
     expect(screen.queryByTestId("tier-scout-campaign")).toBeNull();
     expect(screen.queryByTestId("tier-legend-campaign")).toBeNull();
@@ -1017,9 +1078,11 @@ describe("ExpeditionBoard — campaigns", () => {
   it("offers both campaigns when none is open, and opens one through the action", async () => {
     startCampaignAction.mockResolvedValue({ ok: true });
     renderBoard();
+    openTab("campaigns");
     expect(screen.getByTestId("campaign-broken_map")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Begin The Lost Print/ }));
     await waitFor(() => expect(startCampaignAction).toHaveBeenCalledWith("lost_print", "S_TEST"));
+    openTab("rules");
     expect(screen.getByTestId("rule-campaigns").textContent).toContain("campaign relic");
   });
 });
@@ -1041,6 +1104,7 @@ describe("ExpeditionBoard — season standings", () => {
       { kind: "plunderer", discordId: "bo", username: "Bo", value: 1200, awardedAt: "2026-09-09T00:00:00Z" },
     ];
     renderBoard({ standings: rows, accolades, viewerId: "me" });
+    openTab("standings");
     const table = screen.getByTestId("standings");
     const ids = [...table.querySelectorAll("tbody tr")].map((row) => row.getAttribute("data-testid"));
     // Eight rows and the viewer's own, out past them.
@@ -1052,6 +1116,7 @@ describe("ExpeditionBoard — season standings", () => {
     expect(within(table).getByTestId("standing-ann").textContent).toContain("⟟");
     expect(within(table).getByTestId("standing-bo").textContent).toContain("◈");
     expect(within(table).getByTestId("accolade-pathfinder").textContent).toContain("Ann");
+    openTab("rules");
     const rule = screen.getByTestId("rule-standings");
     expect(within(rule).getByTestId("rule-mark-survivor").textContent).toContain("Legendary routes brought home whole");
   });
@@ -1071,6 +1136,7 @@ describe("ExpeditionBoard — the weather", () => {
     expect(banner.textContent).toContain("A run keeps the weather it launched under");
     expect(screen.getByTestId("weather-7").textContent).toContain("under drought");
     expect(screen.queryByTestId("weather-8")).toBeNull();
+    openTab("rules");
     const rule = screen.getByTestId("rule-weather");
     for (const key of ["clear", "fog", "drought", "harvest", "watch"]) expect(within(rule).getByTestId(`rule-weather-${key}`)).toBeTruthy();
     expect(within(rule).getByTestId("rule-weather-watch").textContent).toContain("playoff week");
@@ -1091,6 +1157,7 @@ describe("ExpeditionBoard — rivalries", () => {
         { who: "bo", name: "Bo", beaten: 1, beatenBy: 1, last: "2026-09-01T00:00:00Z" },
       ],
     });
+    openTab("standings");
     const strip = screen.getByTestId("rivalries");
     expect(within(strip).getByTestId("rivalry-doug").textContent).toContain("Doug2–1yours ahead");
     expect(within(strip).getByTestId("rivalry-ann").textContent).toContain("Ann0–1theirs ahead");
@@ -1100,6 +1167,7 @@ describe("ExpeditionBoard — rivalries", () => {
   it("says nothing about rivalries until there is one, and explains company in the rules", () => {
     renderBoard();
     expect(screen.queryByTestId("rivalries")).toBeNull();
+    openTab("rules");
     const rule = screen.getByTestId("rule-company");
     expect(rule.textContent).toContain("more shine");
     expect(rule.textContent).toContain("The dead walk");
@@ -1115,6 +1183,7 @@ describe("ExpeditionBoard — the graveyard and a changed squad", () => {
     };
     renderBoard({ graves: [grave] });
 
+    openTab("graveyard");
     const stone = screen.getByTestId("grave-1");
     expect(within(stone).getByText("Hal")).toBeTruthy();
     expect(stone.textContent).toContain("Fell on the Legendary route");
@@ -1129,6 +1198,7 @@ describe("ExpeditionBoard — the graveyard and a changed squad", () => {
     };
     renderBoard({ graves: [grave] });
 
+    openTab("graveyard");
     expect(screen.getByTestId("grave-miles-2").textContent).toBe("17 miles walked · Veteran");
   });
 
@@ -1279,6 +1349,7 @@ describe("ExpeditionBoard — convoys", () => {
   it("sends the convoy choice with the launch, tidied", async () => {
     renderBoard();
     pickTwelveShineSquad();
+    showRoute("raid");
     fireEvent.change(screen.getByTestId("convoy-mode"), { target: { value: "join" } });
     fireEvent.change(screen.getByLabelText("Convoy code"), { target: { value: " abc234 " } });
 
@@ -1311,5 +1382,262 @@ describe("ExpeditionBoard — convoys", () => {
     const line = within(screen.getByTestId("fork-50-0")).getByTestId("convoy-fork");
     expect(line.textContent).toContain("Rio says camp");
     expect(line.textContent).toContain("camps here whatever you say");
+  });
+});
+
+// ── §10.4 of the design: the board, as three collectors first see it ─────
+//
+// The screenshots (e2e/expedition-board.spec.ts) are where a person judges
+// the page; these hold the parts of the checklist a DOM can prove, on the
+// same three fixture collectors the staff preview shows.
+
+function renderPersona(persona: Persona) {
+  return render(<ExpeditionBoard {...boardFixture(persona, new Date())} />);
+}
+
+/** The zones a phone shows before any scrolling: the guide or Right now,
+ *  the heads of the steps, the route row and the This-week line. */
+function aboveTheFold(): Element[] {
+  const zones: (Element | null)[] = [
+    screen.queryByTestId("guide"),
+    screen.queryByTestId("right-now"),
+    screen.getByTestId("step-squad").querySelector("h2"),
+    screen.getByTestId("squad-shine"),
+    screen.getByTestId("step-route").querySelector("h2"),
+    screen.getByTestId("expedition-brief"),
+  ];
+  return zones.filter((node): node is Element => node !== null);
+}
+
+/** Visible text nodes in `root`, outside controls and outside Terms. A
+ *  control's label is a verb ("Go for it", "Send a rescue"); the words it
+ *  acts on are explained by the Terms around it. */
+function looseText(root: Element): string[] {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const found: string[] = [];
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const parent = node.parentElement;
+    if (!parent || !node.textContent?.trim()) continue;
+    if (parent.closest("[data-term], [data-edge-title], [hidden], button, summary, select, a")) continue;
+    // The place's story and a squadmate's banter are the road talking:
+    // "they camp by the river" is English there, not the camp choice.
+    if (parent.closest("[data-story]")) continue;
+    found.push(node.textContent);
+  }
+  return found;
+}
+
+/** What a disabled control says about why, in text a reader can see. */
+function visibleReason(control: Element): string {
+  const inside = control.querySelector("[data-reason]")?.textContent?.trim();
+  if (inside) return inside;
+  return (control.getAttribute("aria-describedby") ?? "")
+    .split(/\s+/)
+    .map((id) => (id ? document.getElementById(id) : null))
+    .filter((node): node is HTMLElement => node !== null && node.hasAttribute("data-reason") && !node.closest("[hidden]"))
+    .map((node) => node.textContent?.trim() ?? "")
+    .join(" ")
+    .trim();
+}
+
+describe("ExpeditionBoard — the page experience (§10.4) on the three personas", () => {
+  for (const persona of PERSONAS) {
+    it(`${persona}: shows exactly one primary button before the stepper — the one next thing to do`, () => {
+      renderPersona(persona);
+      const stepper = screen.getByTestId("stepper");
+      const primary = [...screen.getByTestId("expedition-board").querySelectorAll(".btn-coral")].filter(
+        (button) => button.compareDocumentPosition(stepper) & Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+      expect(primary).toHaveLength(1);
+    });
+
+    it(`${persona}: puts every game word above the fold inside a Term`, () => {
+      renderPersona(persona);
+      const unexplained = aboveTheFold()
+        .flatMap(looseText)
+        .flatMap((text) => glossaryHits(text).map((key) => `"${GLOSSARY[key].label}" in "${text.trim()}"`));
+      expect(unexplained).toEqual([]);
+    });
+
+    it(`${persona}: says why every disabled control is disabled, in visible text`, () => {
+      renderPersona(persona);
+      const disabled = [...screen.getByTestId("expedition-board").querySelectorAll("button:disabled, input:disabled, select:disabled")];
+      const silent = disabled.filter((control) => visibleReason(control) === "").map((control) => control.getAttribute("aria-label") ?? control.textContent);
+      expect(silent).toEqual([]);
+    });
+  }
+
+  it("says nothing needs you, and what is next, when nothing does — with no primary button to find", () => {
+    const now = new Date();
+    renderBoard({
+      runs: [makeRun({ id: 60, tier: "scout", forks: 1, startedAt: new Date(now.getTime() - HOUR).toISOString(), resolvesAt: new Date(now.getTime() + 7 * HOUR).toISOString() })],
+      deployedIds: new Set([5, 1, 2]),
+    });
+    const none = screen.getByTestId("now-none");
+    expect(none.textContent).toContain("Nothing needs you.");
+    expect(none.textContent).toContain("reaches a");
+    expect(within(screen.getByTestId("right-now")).queryAllByRole("button").filter((button) => button.classList.contains("btn-coral"))).toHaveLength(0);
+  });
+
+  it("new: picks, chooses a run and launches from what is on screen, never opening the rules", async () => {
+    renderPersona("new");
+    await click(screen.getByRole("button", { name: "Suggest a squad and a run" }));
+    expect(screen.getByTestId("squad-shine").textContent).toContain("3 picked");
+    const launch = screen.getByRole("button", { name: "Launch Scouting Run" }) as HTMLButtonElement;
+    expect(launch.disabled).toBe(false);
+    expect(launch.classList.contains("btn-coral")).toBe(true);
+    await click(launch);
+    expect(launchExpeditionAction).toHaveBeenCalledWith("scout", expect.any(Array), { insured: false, target: null, convoy: null });
+    expect(screen.queryByTestId("expedition-rules")).toBeNull();
+  });
+
+  it("mid: answers the fork with one of the two big choices, never opening the rules", async () => {
+    renderPersona("mid");
+    const fork = screen.getByTestId("fork-301-0");
+    const go = within(fork)
+      .getAllByRole("button")
+      .find((button) => button.classList.contains("btn-coral"))!;
+    await click(go);
+    expect(decideForkAction).toHaveBeenCalledWith(301, 0, expect.stringMatching(/^(push|favour|light)$/));
+    expect(within(fork).getByText(/If you do nothing by/)).toBeTruthy();
+    expect(screen.queryByTestId("expedition-rules")).toBeNull();
+  });
+
+  it("veteran: brings the squad home from the top of the page, never opening the rules", async () => {
+    renderPersona("veteran");
+    await click(screen.getByRole("button", { name: "Claim the Legend Hunt" }));
+    expect(claimExpeditionAction).toHaveBeenCalledWith(501);
+    expect(screen.queryByTestId("expedition-rules")).toBeNull();
+  });
+
+  it("explains a word in place, and its 'More in the rules' opens the Rules tab", async () => {
+    renderPersona("new");
+    const term = within(screen.getByTestId("guide")).getByRole("button", { name: "fork" });
+    expect(term.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(term);
+    expect(term.getAttribute("aria-expanded")).toBe("true");
+    const note = document.getElementById(term.getAttribute("aria-controls")!)!;
+    expect(note.hidden).toBe(false);
+    expect(note.textContent).toContain(GLOSSARY.fork.says);
+    await click(within(note).getByRole("link", { name: /More in the rules/ }));
+    expect(screen.getByTestId("tab-rules").getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByTestId("expedition-rules")).toBeTruthy();
+  });
+
+  it("cycles Suggest to a squad of three different edge kinds on the second press", () => {
+    renderPersona("veteran");
+    fireEvent.click(screen.getByTestId("suggest-squad"));
+    const first = screen.getByTestId("squad-shine").textContent;
+    fireEvent.click(screen.getByTestId("suggest-squad"));
+    const second = screen.getByTestId("squad-shine").textContent;
+    expect(second).toContain("3 picked");
+    expect(second).toContain("all three count");
+    expect(second).not.toBe(first);
+  });
+
+  it("mid: opens the route card on a route this collector could run, not one already out", () => {
+    // Both the Scouting Run and the Deep Raid are in the field; the card
+    // under the row opens on the first route nothing but the squad shuts.
+    renderPersona("mid");
+    expect(screen.getByTestId("route-pill-scout").textContent).toContain("out now");
+    expect(screen.queryByTestId("tier-scout")).toBeNull();
+    expect(screen.getByTestId("tier-legend")).toBeTruthy();
+    expect(screen.getByTestId("route-pill-legend").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("hides the first-visit guide once dismissed, and remembers it", () => {
+    const { unmount } = renderPersona("new");
+    fireEvent.click(screen.getByRole("button", { name: "Got it, hide this" }));
+    expect(screen.queryByTestId("guide")).toBeNull();
+    unmount();
+    renderPersona("new");
+    expect(screen.queryByTestId("guide")).toBeNull();
+  });
+});
+
+describe("ExpeditionBoard — edges on the board", () => {
+  const titled = (copy: InventoryRow, archetype: string): InventoryRow => ({ ...copy, card: { ...copy.card, archetype } });
+  // Eve, Alba, Bex carrying edges that act at a fork, on a run stamped
+  // with the edge rulebook and standing at its first fork.
+  const edged = [titled(COPIES[0], "Unkillable"), titled(COPIES[1], "Farm Demon"), COPIES[2], COPIES[3], titled(COPIES[4], "Playmaker")];
+  const atEdgedFork = () =>
+    makeRun({
+      id: 70,
+      tier: "raid",
+      squad: [5, 1, 2],
+      forks: 2,
+      rules: 6,
+      startedAt: new Date(Date.now() - 9 * HOUR).toISOString(),
+      resolvesAt: new Date(Date.now() + 15 * HOUR).toISOString(),
+    });
+
+  it("prints each edge that changes a choice on its own line, under that choice", () => {
+    const run = atEdgedFork();
+    renderBoard({ copies: edged, runs: [run], deployedIds: new Set([5, 1, 2]) });
+    const options = forkOptions("raid", 0, [edged[4], edged[0], edged[1]], [], roadOf(run));
+    const withEdges = options.filter((option) => option.edges && option.edges.length > 0 && option.locked === null);
+    expect(withEdges.length).toBeGreaterThan(0);
+    const fork = screen.getByTestId("fork-70-0");
+    for (const option of withEdges) {
+      const lines = within(fork).getByTestId(`fork-edges-${option.choice}`);
+      for (const edge of option.edges!) expect(lines.textContent).toContain(edge.line);
+      const button = within(fork).getByRole("button", { name: `${option.label} — ${option.choice}` });
+      // The button keeps what the choice does; the edges are the line under it.
+      expect(button.textContent).toContain(option.baseTease!);
+      for (const edge of option.edges!) expect(button.textContent).not.toContain(edge.line);
+    }
+  });
+
+  it("says nothing about edges on a run stamped before them", () => {
+    renderBoard({ copies: edged, runs: [{ ...atEdgedFork(), rules: 5 }], deployedIds: new Set([5, 1, 2]) });
+    expect(within(screen.getByTestId("fork-70-0")).queryByTestId(/^fork-edges-/)).toBeNull();
+  });
+
+  it("lists the edges that fired in the ceremony, each title once", async () => {
+    claimExpeditionAction.mockResolvedValue({
+      ok: true,
+      outcome: { grade: "solid", dollars: 210, comp: false, mark: null, briefHit: false },
+      route: {
+        ...QUIET_ROUTE([5, 1, 2]),
+        events: [
+          { fork: 0, tone: "good", text: "Farm Demon: the camp paid a little more.", ability: "Farm Demon" },
+          { fork: 1, tone: "good", text: "Farm Demon: and again.", ability: "Farm Demon" },
+          { fork: 1, tone: "good", text: "The wound meant for Alba never landed.", ability: "Unkillable" },
+          { fork: null, tone: "neutral", text: "The squad came home." },
+        ],
+      },
+      baseDollars: 180,
+      merchant: 0,
+      stranded: null,
+      surge: [],
+      echo: null,
+      bearerId: null,
+      balance: 5000,
+      fragments: 0,
+    });
+    renderBoard({
+      copies: edged,
+      runs: [makeRun({ id: 21, rules: 6, resolvesAt: new Date(Date.now() - HOUR).toISOString() })],
+      deployedIds: new Set([5, 1, 2]),
+    });
+
+    await click(screen.getByRole("button", { name: "Claim the Deep Raid" }));
+
+    const edges = screen.getByTestId("ceremony-edges");
+    expect(within(edges).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(edges).getByTestId("ceremony-edge-Farm Demon").textContent).toContain("2 times");
+    expect(within(edges).getByTestId("ceremony-edge-Unkillable").textContent).toContain("never landed");
+    // The full event list still has every line, edges included.
+    expect(screen.getByTestId("ceremony-events").textContent).toContain("The squad came home.");
+  });
+
+  it("has no edges section when none fired", async () => {
+    renderBoard({
+      runs: [makeRun({ id: 21, resolvesAt: new Date(Date.now() - HOUR).toISOString() })],
+      deployedIds: new Set([5, 1, 2]),
+    });
+    await click(screen.getByRole("button", { name: "Claim the Deep Raid" }));
+    expect(screen.getByTestId("expedition-ceremony")).toBeTruthy();
+    expect(screen.queryByTestId("ceremony-edges")).toBeNull();
   });
 });

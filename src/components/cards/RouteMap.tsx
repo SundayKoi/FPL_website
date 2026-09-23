@@ -121,7 +121,9 @@ export default function RouteMap({
             stroke={fork?.status === "decided" && fork.pushed ? "var(--color-coral)" : "var(--color-steel)"}
             strokeWidth="1.5"
           >
-            <title>{stories[index]?.title ?? `Fork ${index + 1}`}{fork ? ` — ${fork.status}` : ""}</title>
+            {/* One string child: React 19 renders a <title> with several
+                children empty on the server, and hydration then fails. */}
+            <title>{`${stories[index]?.title ?? `Fork ${index + 1}`}${fork ? ` — ${fork.status}` : ""}`}</title>
           </circle>
         );
       })}

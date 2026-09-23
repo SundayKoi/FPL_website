@@ -5045,3 +5045,99 @@ body {
     transform: none;
   }
 }
+
+/* ── The expedition board (src/components/cards/expeditions/) ─────────────
+   Three pieces the board is built from, in the site's own panel language:
+   a step of "Send a squad", a route pill, and a Term's definition. */
+
+/* One step of the stepper: the brand panel, its state on the left edge —
+   strong steel while it waits, mint once the step is done. */
+@utility step-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border-subtle);
+  border-left: 3px solid var(--color-border-strong);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  @media (width >= 40rem) {
+    padding: 1.25rem;
+  }
+  &[data-done="true"] {
+    border-left-color: var(--color-mint);
+  }
+}
+
+/* A route in the row under step 2: the name, and under it one or two words
+   on whether this squad can go. A 44px target; the row scrolls sideways on
+   a phone and snaps to each pill. */
+@utility route-pill {
+  display: inline-flex;
+  min-height: 2.75rem;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.125rem;
+  padding: 0.375rem 1rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 9999px;
+  background: var(--color-canvas);
+  white-space: nowrap;
+  text-align: left;
+  scroll-snap-align: start;
+  transition: border-color 120ms ease, background-color 120ms ease;
+  &:hover {
+    border-color: var(--color-border-strong);
+  }
+  &[aria-pressed="true"] {
+    border-color: var(--color-coral);
+    background: color-mix(in srgb, var(--color-coral) 12%, var(--color-canvas));
+    box-shadow: inset 0 0 0 1px var(--color-coral);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+}
+
+/* A Term's definition: fixed to the viewport (Term.tsx places and clamps
+   it), so it never widens the page. It resets the type it inherits — a
+   Term can sit inside an uppercase eyebrow or an italic display heading. */
+@keyframes term-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@utility term-popover {
+  position: fixed;
+  z-index: 60;
+  max-width: calc(100vw - 2rem);
+  padding: 0.75rem 0.875rem 0.25rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0.5rem;
+  background: var(--color-raised);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.55);
+  font-family: var(--font-body);
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+  white-space: normal;
+  animation: term-pop 120ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .term-popover {
+    animation: none;
+  }
+}

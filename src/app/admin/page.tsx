@@ -222,6 +222,13 @@ export default async function AdminPage() {
       href: "/admin/analytics",
     },
     {
+      label: "Expedition board",
+      stat: "Persona preview",
+      statTone: "text-gold",
+      description: "The expedition page as three collectors see it — brand new, mid-game with a fork open, a veteran. Fixtures only; nothing is read or sent.",
+      href: "/admin/expedition-board",
+    },
+    {
       label: "Expedition seasons",
       stat: "Standings & marks",
       statTone: "text-gold",
