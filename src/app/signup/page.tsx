@@ -47,7 +47,7 @@ export default async function SignupPage() {
 
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
+      <div className="page-container page-spacing w-full">
         <header className="border-b border-border-subtle pb-8">
           <span className="label-dash">JOIN THE LEAGUE</span>
           <h1 className="type-display mt-3 text-5xl sm:text-6xl">Sign Up</h1>

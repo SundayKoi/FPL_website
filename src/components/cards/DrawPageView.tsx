@@ -63,7 +63,7 @@ export async function DrawPageView({ league = "premier" }: { league?: CardLeague
   const names = await loadWinnerNames(history.map((row) => row.discordId));
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
       <CardsPageHeader eyebrow={cardsEyebrow("Play", league, season)} title="Weekly Draw" tabHref={`${cardsBase(league)}/play`}>
         {DRAW_TAGLINE} Every copy in your collection is a ticket, and the draw treats them all the
         same — a Bronze common has exactly the odds a Challenger foil does. Nothing to enter: every

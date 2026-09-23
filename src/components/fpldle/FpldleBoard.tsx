@@ -533,7 +533,7 @@ export default function FpldleBoard({
   const finished = status !== "playing";
 
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-[1800px] min-w-0 flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing-compact page-backdrop flex w-full min-w-0 flex-1 flex-col gap-8 text-white">
       <aside aria-label="FPL&apos;dle reward" className="rounded border border-gold/40 bg-gold/5 px-4 py-3 text-sm text-muted">
         <span className="label-dash">Daily reward</span>
         <p className="mt-2 text-white">{DAILY_REWARD_SENTENCE} FPL&apos;dle pays when you solve within five guesses.</p>

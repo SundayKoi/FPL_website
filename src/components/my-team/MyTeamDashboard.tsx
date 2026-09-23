@@ -40,7 +40,7 @@ export function MyTeamDashboard({
 
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-10 sm:px-6 sm:py-14">
+      <div className="page-container page-spacing w-full">
         <MyTeamHeader team={dashboard.team} season={dashboard.season} record={record} />
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.3fr_0.7fr] lg:items-start">

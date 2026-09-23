@@ -91,7 +91,7 @@ export default async function BettingIndexPage() {
           </div>
         </div>
       ) : (
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="mt-8 grid grid-cols-[repeat(auto-fit,minmax(min(100%,22rem),1fr))] gap-4">
           {events.map((e) => (
             <EventCard key={e.id} event={e} />
           ))}

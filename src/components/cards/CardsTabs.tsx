@@ -53,7 +53,7 @@ export default function CardsTabs({
 
   return (
     <nav aria-label="Cards" className="border-b border-line bg-panel/60">
-      <div className="mx-auto flex w-full max-w-[1800px] items-center gap-3 px-4 py-2 sm:px-6">
+      <div className="page-container flex w-full items-center gap-3 py-2">
         <ul className="flex min-w-0 items-center gap-1 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,black_88%,transparent)] sm:flex-wrap sm:overflow-visible sm:pb-0 sm:[mask-image:none]">
           {sections.map((section) => {
             const current = active?.key === section.key;
@@ -79,7 +79,7 @@ export default function CardsTabs({
       </div>
       {active?.children ? (
         <div className="border-t border-line/60">
-          <ul className="mx-auto flex w-full max-w-[1800px] items-center gap-x-4 gap-y-1 overflow-x-auto px-4 py-1.5 [mask-image:linear-gradient(to_right,black_88%,transparent)] sm:flex-wrap sm:overflow-visible sm:px-6 sm:[mask-image:none]">
+          <ul className="page-container flex w-full items-center gap-x-4 gap-y-1 overflow-x-auto py-1.5 [mask-image:linear-gradient(to_right,black_88%,transparent)] sm:flex-wrap sm:overflow-visible sm:[mask-image:none]">
             {active.children.map((child) => {
               const current = activeChild?.href === child.href;
               return (

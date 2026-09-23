@@ -21,7 +21,7 @@ export default function AdminBettingTabs() {
   const pathname = usePathname();
   return (
     <nav aria-label="Betting admin" className="border-b border-border-subtle bg-surface/60">
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-1 px-4 py-2 sm:px-6">
+      <div className="page-container flex w-full flex-wrap items-center gap-1 py-2">
         <span className="label-dash mr-3">Betting admin</span>
         {TABS.map((tab) => {
           const active = isActive(pathname, tab.href);

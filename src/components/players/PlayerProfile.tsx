@@ -15,7 +15,7 @@ export default function PlayerProfile({ summonerName, tag }: { summonerName: str
   const router = useRouter();
   return (
     <main className="grid-neon flex-1">
-      <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
+      <div className="page-container page-spacing w-full">
         <PlayerDetail
           summonerName={summonerName}
           tag={tag}

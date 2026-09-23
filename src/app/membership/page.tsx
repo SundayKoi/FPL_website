@@ -30,7 +30,7 @@ const PREMIUM_GETS = [
 export default async function MembershipPage() {
   const paymentHref = await loadPremiumPaymentHref();
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-6xl flex-1 flex-col gap-10 px-4 py-12 text-white sm:px-6">
+    <main className="page-container page-spacing page-backdrop flex w-full flex-1 flex-col gap-10 text-white">
       <header className="max-w-3xl">
         <span className="label-dash">How to be part of it</span>
         <h1 className="type-display mt-3 text-5xl sm:text-6xl">Premium and Patron</h1>

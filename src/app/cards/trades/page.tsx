@@ -138,7 +138,7 @@ export async function TradesPageView({
   }));
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
       <CardsPageHeader eyebrow={cardsEyebrow("Market", league, season)} title="Trade offers" tabHref={`${cardsBase(league)}/market`}>
         Trade cards and betting dollars with other collectors — either side of an offer can be cards,
         money, or both. Nothing moves until the other person accepts, and a card fielded in this

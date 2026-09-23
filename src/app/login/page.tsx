@@ -26,7 +26,7 @@ export default function LoginPage() {
   const redirect = safeNextPath(useSearchParams().get("redirect"));
 
   return (
-    <main className="page-backdrop flex min-h-full flex-1 flex-col items-center justify-center gap-6 px-6 py-16">
+    <main className="page-container page-spacing page-backdrop flex min-h-full flex-1 flex-col items-center justify-center gap-6">
       <div className="flex max-w-sm flex-1 flex-col items-center justify-center gap-6">
         <div className="flex flex-col items-center gap-3 text-center">
           <Image src="/fpl-logo.png" width={96} height={96} alt="" />

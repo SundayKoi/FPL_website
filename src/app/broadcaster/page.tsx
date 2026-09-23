@@ -117,7 +117,7 @@ export default async function BroadcasterPage({ searchParams }: { searchParams: 
   if (!context.fixture) {
     return (
       <main className="page-backdrop flex-1">
-        <div className="mx-auto w-full max-w-[1800px] space-y-8 px-4 py-12 sm:px-6 sm:py-16">
+        <div className="page-container page-spacing w-full space-y-8">
           <header className="border-b border-border-subtle pb-8">
             <span className="label-dash">Broadcast desk</span>
             <h1 className="type-display mt-3 text-5xl sm:text-6xl">Broadcaster workspace</h1>
@@ -147,7 +147,7 @@ export default async function BroadcasterPage({ searchParams }: { searchParams: 
   if (!scouting) {
     return (
       <main className="page-backdrop flex-1">
-        <div className="mx-auto w-full max-w-[1800px] space-y-6 px-4 py-12 sm:px-6 sm:py-16">
+        <div className="page-container page-spacing w-full space-y-6">
           <BroadcasterFixtureHeader fixture={context.fixture} twitchUrl={context.settings.twitchUrl} />
           <LeagueLinks league={league} />
           {games}
@@ -161,7 +161,7 @@ export default async function BroadcasterPage({ searchParams }: { searchParams: 
 
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-[1800px] space-y-6 px-4 py-12 sm:px-6 sm:py-16">
+      <div className="page-container page-spacing w-full space-y-6">
         {games}
         <BroadcasterWorkspace
           league={league}

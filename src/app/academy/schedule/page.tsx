@@ -45,7 +45,7 @@ export default async function AcademySchedulePage({ searchParams }: { searchPara
   const upNext = nextUp(seasonFixtures, new Date());
   const defaultOpenStages = selectDefaultOpenStages(seasonFixtures, upNext?.stage ?? null);
   return (
-    <main className="page-backdrop flex-1"><div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
+    <main className="page-backdrop flex-1"><div className="page-container page-spacing w-full">
       <header className="border-b border-border-subtle pb-8"><span className="label-dash">ACADEMY LEAGUE CALENDAR</span><h1 className="type-display mt-3 text-5xl sm:text-6xl">Academy Schedule</h1><p className="mt-4 max-w-2xl text-lg leading-8 text-muted">Academy fixtures filtered to the teams in the S1 Academy draft.</p></header>
       {upNext ? <UpNextBanner stageId={upNext.stage} stageLabel={stageMeta(upNext.stage).label} kickoffText={formatKickoff(upNext.kickoff)} kickoff={upNext.kickoff} count={upNext.count} /> : null}
       {seasonsOf(fixtures).length > 1 ? <nav aria-label="Season" className="mt-8 flex flex-wrap gap-2">{seasonsOf(fixtures).map((value) => <Link key={value} href={`/academy/schedule?season=${encodeURIComponent(value)}`} className="rounded-full border border-border-subtle bg-surface px-3 py-1 text-xs text-muted">{value}</Link>)}</nav> : null}

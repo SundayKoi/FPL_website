@@ -74,7 +74,7 @@ export async function CollectionPageView({
     : [null, { left: 0, patron: false, flame: null }];
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
       <CardsPageHeader eyebrow={cardsEyebrow("My Collection", league, season)} title="My Collection" glossary>
         Every copy you own, one shelf per player with the best print on top. Open a player&apos;s
         prints to see each copy, dust a spare, or pin one to your binder. Roster sets and the binder

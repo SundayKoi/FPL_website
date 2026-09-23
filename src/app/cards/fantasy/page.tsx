@@ -91,7 +91,7 @@ export async function FantasyPageView({
   const season = await fetchCardSeason(service, league);
   if (!season) {
     return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+      <main className="page-container page-spacing bg-hash flex flex-1 flex-col items-center justify-center gap-4 text-center">
         <span className="label-dash">Fantasy</span>
         <h1 className="type-display text-3xl sm:text-4xl">No season yet</h1>
         <p className="max-w-md text-sm text-steel">Fantasy opens once a season is set up for this league.</p>
@@ -163,7 +163,7 @@ export async function FantasyPageView({
   }));
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
       <CardsPageHeader
         eyebrow={cardsEyebrow("Play", league, season)}
         title="Fantasy"

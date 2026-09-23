@@ -58,7 +58,7 @@ export default function AccessWall({
         ? `Everything you own is still here. Get ${PREMIUM_NAME} back and it opens again exactly as you left it.`
         : `${PREMIUM_NAME} is the Discord role that opens the cards, the wallet and the games. Join the Discord, grab the role, and sign in again.`);
   return (
-    <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center" data-testid="access-wall" data-reason={reason}>
+    <main className="page-container page-spacing bg-hash flex flex-1 flex-col items-center justify-center gap-4 text-center" data-testid="access-wall" data-reason={reason}>
       <span className="label-dash">{section}</span>
       <h1 className="type-display text-3xl sm:text-4xl">{heading}</h1>
       <p className="max-w-md text-sm text-steel">{line}</p>

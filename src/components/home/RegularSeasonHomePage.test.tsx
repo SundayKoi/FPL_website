@@ -135,13 +135,8 @@ describe("RegularSeasonHomePage", () => {
     render(await RegularSeasonHomePage());
 
     const main = screen.getByRole("main");
-    expect(main.firstElementChild).toHaveClass(
-      "max-w-[1800px]",
-      "px-4",
-      "sm:px-6",
-      "py-8",
-      "sm:py-10",
-    );
+    expect(main.firstElementChild).toHaveClass("page-container", "page-spacing");
+    expect(main.firstElementChild).not.toHaveClass("mx-auto", "max-w-[1800px]", "px-4", "sm:px-6", "py-8", "sm:py-10");
     expect(screen.getByRole("region", { name: /homepage dashboard/i })).toHaveClass("space-y-6");
   });
 

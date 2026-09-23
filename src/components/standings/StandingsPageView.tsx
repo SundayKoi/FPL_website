@@ -44,7 +44,7 @@ export default async function StandingsPageView({ league }: { league: LeagueView
 
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
+      <div className="page-container page-spacing w-full">
         <header className="max-w-3xl">
           <span className="label-dash">
             {academy ? "FPL Academy" : "Franchise Premier League"}

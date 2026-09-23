@@ -34,7 +34,7 @@ export default async function ProfilePage() {
       <span className="label-dash">Player Profile</span>
       <h1 className="type-display mt-2 text-4xl sm:text-5xl">{user.username}</h1>
 
-      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="mt-8 grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3">
         <StatBox label="Balance" value={fmtPoints(user.balance)} valueClass="text-mint" />
         <StatBox
           label="Record"

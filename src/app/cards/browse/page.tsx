@@ -21,7 +21,7 @@ export async function BrowsePageView({ league = "premier" }: { league?: CardLeag
   const cards = season ? await fetchCurrentWeekCards(supabase, season) : [];
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
       <CardsPageHeader eyebrow={cardsEyebrow("Browse", league, season)} title="All cards" tabHref={`${cardsBase(league)}/browse`}>
         The whole league as living trading cards — overall rating, tier, archetype, and form, rebuilt from
         real season stats after every match night. Hover to tilt, click to flip, and open a card to share

@@ -24,7 +24,7 @@ export default async function AdminDraftPage({
   if (!draftRes.data) redirect("/admin");
 
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-6 py-16">
+    <main className="page-container page-spacing page-backdrop flex w-full flex-1 flex-col gap-6">
       <h1 className="type-display text-2xl text-white">
         Setup — {(draftRes.data as Draft).name}
       </h1>
