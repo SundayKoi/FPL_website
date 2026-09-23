@@ -7,7 +7,7 @@ import Link from "next/link";
  */
 export default function NotFound() {
   return (
-    <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-5 px-6 py-24 text-center text-white">
+    <main className="page-container page-spacing page-backdrop flex flex-1 flex-col items-center justify-center gap-5 text-center text-white">
       <span className="label-dash">404</span>
       <h1 className="type-display text-4xl sm:text-5xl">Nothing here</h1>
       <p className="max-w-md text-sm leading-6 text-muted">

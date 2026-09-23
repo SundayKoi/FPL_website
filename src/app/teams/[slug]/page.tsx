@@ -192,7 +192,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
 
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
+      <div className="page-container page-spacing w-full">
         <Link
           href={league === "academy" ? "/academy/teams" : "/teams"}
           className="flex w-fit items-center gap-1.5 rounded-full border border-border-strong bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"

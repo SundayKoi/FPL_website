@@ -167,7 +167,7 @@ export default function PlayersDirectory({
 
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
+      <div className="page-container page-spacing w-full">
         <header className="flex flex-col gap-6 border-b border-border-subtle pb-8 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <span className="label-dash">PLAYER POOL</span>
@@ -260,13 +260,13 @@ export default function PlayersDirectory({
           </div>
         </header>
 
-        <section aria-label="Player directory" className="card-brand mt-10 overflow-x-auto p-4 sm:p-6">
+        <section aria-label="Player directory" className="card-brand mt-10 min-w-0 p-4 sm:p-6">
           {!hasPlayers ? (
             <p className="text-muted">{emptyStateMessage}</p>
           ) : (
             <>
             {saveError && isOwner && isFreeAgency ? <p className="mb-4 text-sm text-red-400">{saveError}</p> : null}
-            <div className="grid gap-5 sm:grid-cols-2 xl:min-w-[1500px] xl:grid-cols-5">
+            <div className="player-role-grid">
               {displaySections.map((section) => (
                 <section
                   key={section.key}

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const { openAction, refresh } = vi.hoisted(() => ({
@@ -44,17 +44,65 @@ const shopProps = {
   league: "premier" as const,
   season: "S5",
   release,
-  catalog: null,
   viewerId: "viewer-1",
 };
 
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   window.localStorage.clear();
   vi.resetAllMocks();
 });
 
 describe("SeasonEndPackShop recovery", () => {
+  it("uses the shared clickable card-back reveal stage", async () => {
+    vi.useFakeTimers();
+    const cards = Array.from({ length: 5 }, (_, index) => ({
+      design: {
+        kind: index === 4 ? "best_of" : "season",
+        designId: `design-${index}`,
+        display: { title: `Season card ${index + 1}` },
+      },
+      foil: index === 4,
+      foilType: index === 4 ? "prisma" : null,
+      signed: false,
+      autograph: null,
+      guaranteedFoil: index === 4,
+      inventoryId: index + 1,
+    })) as never;
+    openAction.mockResolvedValue({
+      ok: true,
+      cards,
+      balance: 500,
+      openingId: "opening",
+      releaseId: release.id,
+      mode: "public",
+      price: 500,
+      revealOrder: [1, 2, 3, 4, 5],
+      autoDustProtected: true,
+    });
+
+    render(<SeasonEndPackShop {...shopProps} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Open for 500 betting dollars" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getByRole("dialog", { name: "Opening a card pack" })).toBeTruthy();
+
+    const rip = screen.getByRole("button", { name: /rip it open/i });
+    fireEvent.click(rip);
+    fireEvent.click(rip);
+    fireEvent.click(rip);
+    await act(async () => {
+      vi.advanceTimersByTime(2_000);
+    });
+
+    expect(screen.getAllByRole("button", { name: /reveal card \d+ of 5/i })).toHaveLength(5);
+    fireEvent.click(screen.getByRole("button", { name: "Reveal card 1 of 5" }));
+    expect(screen.getByTestId("collectible")).toBeTruthy();
+  });
+
   it("acknowledges a refund before allowing a new UUID", async () => {
     openAction.mockResolvedValueOnce({ ok: false, code: "refunded", error: "Opening was refunded." });
     openAction.mockResolvedValueOnce({ ok: true, cards: [], balance: 500, openingId: "opening", releaseId: release.id, mode: "public", price: 500, revealOrder: [], autoDustProtected: true });

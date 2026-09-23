@@ -15,7 +15,7 @@ export default async function BestOfChampionCropAuditPage() {
   if (!staff.isAdmin && !staff.isOwner) redirect("/admin");
 
   return (
-    <main className="page-backdrop flex w-full flex-1 flex-col gap-6 px-3 py-8 sm:px-5 lg:px-7 2xl:px-10">
+    <main className="page-container page-spacing-compact page-backdrop flex w-full flex-1 flex-col gap-6">
       <header className="flex flex-col gap-3">
         <Link href="/admin/seasons-end" className="label-dash w-fit hover:text-coral">← Season&apos;s End</Link>
         <p className="text-xs uppercase tracking-[.3em] text-gold">Developer visual audit</p>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSeasonEndSigningBook, validateSeasonEndEconomy, validateSeasonEndReleaseRules } from "./release";
+import { buildSeasonEndSigningBook, SEASON_END_ECONOMY, validateSeasonEndEconomy, validateSeasonEndReleaseRules } from "./release";
 import { releaseRevisionDigest, type SeasonEndCatalog, type SeasonEndCollectible } from "./collectibles";
 
 function playerDesign(kind: "season" | "best_of", id: string, playerKey: string): SeasonEndCollectible {
@@ -30,6 +30,8 @@ describe("Season's End release contracts", () => {
   it("rejects malformed economy payloads without throwing", () => {
     expect(validateSeasonEndEconomy(null as never)).toContain("Season's End economy must be an object");
     expect(validateSeasonEndEconomy({ version: "wrong" } as never).length).toBeGreaterThan(0);
+    expect(validateSeasonEndEconomy(SEASON_END_ECONOMY)).toEqual([]);
+    expect(validateSeasonEndEconomy({ ...SEASON_END_ECONOMY, version: "season-end-economy-2026-09-v1", signatureBonus: 1200 })).toEqual([]);
   });
 
   it("deduplicates the signing book by canonical player identity", () => {

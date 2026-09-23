@@ -213,7 +213,7 @@ export default async function SchedulePage({
 
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
+      <div className="page-container page-spacing w-full">
         <header className="border-b border-border-subtle pb-8">
           <div>
             <span className="label-dash">LEAGUE CALENDAR</span>

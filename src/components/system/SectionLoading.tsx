@@ -8,7 +8,7 @@
 export default function SectionLoading({ label = "Loading…", rows = 4 }: { label?: string; rows?: number }) {
   return (
     <main className="page-backdrop flex flex-1" aria-busy="true">
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-8 sm:px-6 sm:py-10">
+      <div className="page-container page-spacing w-full">
         <p role="status" className="label-dash text-action-text">
           {label}
         </p>

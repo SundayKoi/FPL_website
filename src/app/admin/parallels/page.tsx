@@ -89,7 +89,7 @@ export default async function ParallelsPreviewPage() {
   };
 
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-10 px-6 py-16">
+    <main className="page-container page-spacing page-backdrop flex w-full flex-1 flex-col gap-10">
       <header className="flex flex-col gap-2">
         <Link href="/admin" className="label-dash w-fit hover:text-action-text">
           ← Admin

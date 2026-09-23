@@ -46,7 +46,7 @@ const infoDestinations = [
 export default async function InfoPage() {
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
+      <div className="page-container page-spacing w-full">
         <header className="max-w-3xl">
           <span className="label-dash">FRANCHISE PREMIER LEAGUE</span>
           <h1 className="type-display mt-3 text-5xl sm:text-6xl">About the league</h1>

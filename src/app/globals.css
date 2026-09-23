@@ -106,6 +106,21 @@
   text-transform: uppercase;
 }
 
+@media (max-width: 359px) {
+  .league-brand-division,
+  .league-brand-academy-mark {
+    display: none;
+  }
+
+  .site-navigation-actions {
+    gap: 0;
+  }
+
+  .site-navigation-auth .btn-pill {
+    padding-inline: 0.5rem;
+  }
+}
+
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 5rem;
@@ -121,6 +136,63 @@ body {
   background-color: var(--color-canvas);
   color: var(--color-content);
   font-family: var(--font-body);
+}
+
+:root {
+  --page-gutter: 16px;
+  --page-gap-compact: 16px;
+  --page-gap-panel: 24px;
+  --page-gap-section: 32px;
+}
+
+@media (min-width: 640px) {
+  :root { --page-gutter: 24px; }
+}
+
+@media (min-width: 1024px) {
+  :root { --page-gutter: 32px; }
+}
+
+/* Shared page edge and vertical rhythm. Keep wide content fluid and give
+   readable copy, controls, dialogs, and artwork their own local measures. */
+.page-container {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  padding-inline: calc(var(--page-gutter) + env(safe-area-inset-left))
+    calc(var(--page-gutter) + env(safe-area-inset-right));
+}
+
+.page-spacing {
+  padding-block: 32px;
+}
+
+.page-spacing-compact {
+  padding-block: 24px;
+}
+
+@media (min-width: 640px) {
+  .page-spacing { padding-block: 40px; }
+}
+
+.page-gap-compact { gap: var(--page-gap-compact); }
+.page-gap-panel { gap: var(--page-gap-panel); }
+.page-gap-section { gap: var(--page-gap-section); }
+
+/* Intrinsic grids retain useful card widths at any viewport size. */
+.player-role-grid,
+.team-directory-grid,
+.preseason-team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--page-gap-panel);
+}
+
+.banger-post-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 36rem));
+  gap: var(--page-gap-panel);
 }
 
 @utility page-backdrop {

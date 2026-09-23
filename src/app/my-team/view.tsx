@@ -28,8 +28,8 @@ function first(value: string | string[] | undefined): string | undefined {
 function Unavailable({ message }: { message: string }) {
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
-        <section className="card-brand p-6 sm:p-8" aria-label="My Team unavailable">
+      <div className="page-container page-spacing w-full">
+        <section className="card-brand mx-auto w-full max-w-3xl p-6 sm:p-8" aria-label="My Team unavailable">
           <span className="label-dash">My Team</span>
           <h1 className="type-display mt-3 text-3xl sm:text-4xl">Temporarily unavailable</h1>
           <p className="mt-3 text-sm leading-6 text-muted">{message}</p>
@@ -259,7 +259,7 @@ export async function MyTeamPageView({
       <MyTeamGate dashboard={dashboard} league={league} teamReports={teamReports} teamReportsUnavailable={teamReportsUnavailable} />
       {(dashboard.isAdmin || captainTools) ? (
         <div className="page-backdrop pb-12 sm:pb-16">
-          <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-6 px-4 sm:px-6">
+          <div className="page-container flex w-full min-w-0 flex-col gap-6">
             {dashboard.isAdmin && dashboard.activeTeams.length > 1 ? (
               <form action={leaguePath("my-team", league)} method="get" className="flex flex-wrap items-end gap-2">
                 <label htmlFor="my-team-switch" className="flex flex-col gap-1 text-xs text-muted">

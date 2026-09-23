@@ -100,7 +100,7 @@ export default async function SkinLinesPreviewPage() {
   const exampleLine = skinLineByKey(EXAMPLE_SEASON_SET.line)!;
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-12 px-6 py-16">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-12">
       <header className="flex flex-col gap-3">
         <Link href={staff ? "/admin" : "/cards"} className="label-dash w-fit hover:text-coral">
           {staff ? "← Admin" : "← Cards"}

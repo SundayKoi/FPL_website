@@ -43,7 +43,7 @@ function scoutingRoster(roster: Awaited<ReturnType<typeof fetchMyRoster>>): Scou
 function ScoutingUnavailable({ core = false }: { core?: boolean }) {
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
+      <div className="page-container page-spacing w-full">
         <section className="card-brand p-5" aria-label={core ? "My Team unavailable" : "Scouting unavailable"}>
           <span className="label-dash text-prestige">My Team · Scouting</span>
           <p className="mt-2 text-sm text-muted">
@@ -156,7 +156,7 @@ export async function MyTeamScoutingPageView({
 
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
+      <div className="page-container page-spacing w-full">
         <BackLink href={leaguePath("my-team", league)} label="My Team" className="mb-5" />
         <header className="border-b border-border-subtle pb-8">
           <div>

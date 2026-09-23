@@ -18,7 +18,7 @@ export async function MomentsPageView({ league = "premier" }: { league?: CardLea
   const moments = season ? await fetchSeasonMoments(supabase, season) : [];
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
       <CardsPageHeader eyebrow={cardsEyebrow("Browse", league, season)} title="Moments" tabHref={`${cardsBase(league)}/browse`}>
         A player card is a season average, which is exactly what buries the one night someone went off.
         These are the other half — one game, the real stat line, the date it happened. At most{" "}

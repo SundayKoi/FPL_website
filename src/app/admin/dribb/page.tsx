@@ -35,7 +35,7 @@ export default async function DribbPreviewPage() {
   const card = dribb();
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-12 px-6 py-16">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-12">
       <header className="flex flex-col gap-3">
         <Link href="/admin" className="label-dash w-fit hover:text-coral">
           ← Admin
@@ -61,7 +61,7 @@ export default async function DribbPreviewPage() {
           pack is {PACK_SIZE} rolls. For scale, a Secret is {oneIn(SECRET_CHANCE)} cards and an Eclipse is{" "}
           {oneIn(ECLIPSE_CHANCE)} Cards of the Week.
         </p>
-        <table className="w-full max-w-xl border-collapse text-left text-sm">
+        <table className="w-full border-collapse text-left text-sm">
           <thead>
             <tr className="text-[11px] uppercase tracking-[0.14em] text-steel">
               <th className="py-2 pr-3 font-semibold">Per card</th>

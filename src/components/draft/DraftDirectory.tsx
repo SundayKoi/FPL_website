@@ -9,8 +9,7 @@ export default function DraftDirectory({ drafts, showAdmin = false }: { drafts: 
 
   return (
     <main className="page-backdrop flex-1">
-      <section
-        className="mx-auto w-full max-w-7xl px-6 py-10 sm:py-16"
+      <section className="page-container page-spacing w-full"
         aria-labelledby="draft-central-title"
       >
         <div className="mb-6 flex items-end justify-between gap-4">

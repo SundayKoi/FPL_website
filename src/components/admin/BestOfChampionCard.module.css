@@ -1,5 +1,5 @@
-.card { min-width:0; color:#f5f1e8; }
-.face { --celestial-accent:#ebcc8b; container-type:inline-size; position:relative; isolation:isolate; aspect-ratio:63 / 100; overflow:hidden; border-radius:16px; background:#10161d; box-shadow:0 16px 38px #0005; }
+.card { min-width:0; width:min(100%, 20rem); color:#f5f1e8; }
+.face { --celestial-accent:#ebcc8b; container-type:inline-size; position:relative; isolation:isolate; width:100%; aspect-ratio:5 / 7; overflow:hidden; border:1px solid color-mix(in srgb, var(--celestial-accent) 48%, transparent); border-radius:13px; background:#10161d; box-shadow:0 16px 38px #0005, inset 0 0 0 3px rgb(5 9 13 / .52); }
 .face.lunari { --celestial-accent:#cfdaff; }
 .art { position:absolute; z-index:0; inset:0; background-color:#10161d; background-repeat:no-repeat; transform:scale(var(--art-zoom, 1)); transform-origin:center; }
 .shade { position:absolute; z-index:1; inset:0; background:linear-gradient(0deg, rgb(3 8 12 / .94), rgb(3 8 12 / .72) 19%, transparent 53%, rgb(3 8 12 / .2)); pointer-events:none; }
@@ -8,12 +8,11 @@
 .card[data-foil-type="aurora"] .foil { background:linear-gradient(120deg, #68d8ff55, #f0a7ff66, #83f1c555); }
 .card[data-foil-type="refractor"] .foil { background:linear-gradient(120deg, #ffdc7a66, #fff9e566, #ff8f8f55); }
 .card[data-foil-type="ice"] .foil { background:linear-gradient(120deg, #b7efff66, #d2e4ff66, #f5fbff66); }
-.frame { position:absolute; z-index:3; inset:9px; border:1px solid var(--celestial-accent); border-radius:11px; box-shadow:0 0 4px color-mix(in srgb, var(--celestial-accent) 24%, transparent); pointer-events:none; }
-.frame::after { position:absolute; inset:5px; border:1px solid color-mix(in srgb, var(--celestial-accent) 36%, transparent); border-radius:7px; content:""; }
 .ornament { position:absolute; z-index:3; inset:0; width:100%; height:100%; color:var(--celestial-accent); pointer-events:none; }
+.frameOuter { filter:drop-shadow(0 0 2px color-mix(in srgb, var(--celestial-accent) 28%, transparent)); }
+.frameInner { opacity:.48; }
 .solari .ornament { color:#ebcc8b; }
 .lunari .ornament { color:#cfdaff; }
-.lunari .frame { border-color:#b9c8e4; box-shadow:0 0 4px rgb(141 229 211 / .2); }
 .lunari .foil { background:repeating-radial-gradient(ellipse at 50% 15%, transparent 0 23px, #cad8ff24 24px, transparent 25px 35px); }
 .identity { position:absolute; z-index:4; right:8%; bottom:15%; left:8%; }
 .kicker { margin:0 0 8px; color:#e7c780; font-family:var(--font-body, sans-serif); font-size:clamp(9px, 3.5cqw, 12px); font-weight:700; letter-spacing:.16em; line-height:1.1; text-transform:uppercase; text-shadow:0 1px 5px #000; }
@@ -33,7 +32,7 @@
 .selectionDetails p { margin:4px 0 0; }
 .srOnly { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 .emptyState .face { background:#121920; }
-.emptyState .frame,.emptyState .ornament,.emptyState .gem { opacity:.72; }
+.emptyState .ornament,.emptyState .gem { opacity:.72; }
 
 @media (prefers-reduced-motion:reduce) {
   .face { scroll-behavior:auto; }

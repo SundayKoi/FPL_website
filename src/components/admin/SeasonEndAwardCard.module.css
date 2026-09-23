@@ -1,10 +1,10 @@
 /* Multiple winners occupy adjacent tracks in the page's award grid. */
 .cardGroup { display:contents; }
-.card { container-type:inline-size; min-width:0; width:min(100%, 22.5rem); color:#fff8eb; }
+.card { container-type:inline-size; min-width:0; width:min(100%, 20rem); color:#fff8eb; }
 .srOnly { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 
-/* A minimum height based on the 63:100 ratio: long titles, pairs, and evidence
-   can grow the face instead of being clipped at narrow widths. */
+/* Season's End faces use the same 5:7 format as released player cards so
+   every family occupies the same pack, collection, and storage slot. */
 .face {
   --award-accent:#e8c687;
   --award-inset:clamp(18px, 6cqw, 24px);
@@ -14,7 +14,8 @@
   display:flex;
   flex-direction:column;
   width:100%;
-  min-height:158.73cqw;
+  min-height:0;
+  aspect-ratio:5 / 7;
   box-sizing:border-box;
   overflow:hidden;
   border:1px solid rgb(198 172 112 / .5);

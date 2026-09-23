@@ -280,7 +280,7 @@ export default async function CardSharePage({
 
   if (!card) {
     return (
-      <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+      <main className="page-container page-spacing page-backdrop flex flex-1 flex-col items-center justify-center gap-4 text-center">
         <span className="label-dash">Player cards</span>
         <h1 className="type-display text-3xl">Card not found</h1>
         <p className="max-w-md text-sm text-muted">
@@ -324,7 +324,7 @@ export default async function CardSharePage({
   const collectionBase = collectionHref;
 
   return (
-    <main className="page-backdrop flex flex-1 flex-col items-center gap-6 px-4 py-12 text-white">
+    <main className="page-container page-spacing page-backdrop flex flex-1 flex-col items-center gap-6 text-white">
       <div className="w-full max-w-4xl">
         <BackLink href={`${collectionHref}/browse`} label="All cards" />
       </div>

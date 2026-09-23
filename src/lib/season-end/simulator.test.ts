@@ -50,6 +50,7 @@ describe("Season's End simulator", () => {
       openings: 100,
       seed: 42,
       patron: true,
+      collectorTrajectories: 1,
       rules: { ...DEFAULT_SEASON_END_RULES, foilChance: 0, signatureChance: 0 },
       economy: {
         version: "season-end-economy-2026-09-v1",

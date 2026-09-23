@@ -176,11 +176,42 @@ describe("buildPostseasonCodePreview", () => {
     expect(preview.fixtures).toEqual([]);
   });
 
-  it("rejects duplicate, reused, and ambiguous names before producing a preview", () => {
+  it("reclaims an assigned unused code and fills the slot it vacates", () => {
+    const open = fixture({ id: "gauntlet-bo3", stage: "gauntlet_r1", team_a: "Team A", team_b: "Team B", best_of: 3 });
+    const assigned = { id: "old-game-3", fixtureId: open.id, gameNumber: 3, code: "RECLAIM-ME" };
+
+    const preview = buildPostseasonCodePreview(
+      [open],
+      [assigned],
+      ["RECLAIM-ME", "NEW-GAME-2", "NEW-GAME-3"],
+      "gauntlet",
+      teams,
+    );
+
+    expect(preview.requiredCodeCount).toBe(3);
+    expect(preview.reusedAssignmentCount).toBe(1);
+    expect(preview.fixtures[0].existing).toEqual([]);
+    expect(preview.assignments).toEqual([
+      { fixtureId: open.id, gameNumber: 1, code: "RECLAIM-ME" },
+      { fixtureId: open.id, gameNumber: 2, code: "NEW-GAME-2" },
+      { fixtureId: open.id, gameNumber: 3, code: "NEW-GAME-3" },
+    ]);
+    expect(preview.existingCodeSnapshot).toEqual([assigned]);
+  });
+
+  it("rejects duplicate input and ambiguous names while previewing assigned code reuse", () => {
     const open = fixture({ id: "gauntlet-1", stage: "gauntlet_r1", team_a: "Team A", team_b: "Team B", best_of: 1 });
 
     expect(() => buildPostseasonCodePreview([open], [], ["DUP", "DUP"], "gauntlet", teams)).toThrow("Duplicate tournament code");
-    expect(() => buildPostseasonCodePreview([open], [{ id: "old", fixtureId: "other", gameNumber: 1, code: "USED" }], ["USED"], "gauntlet", teams)).toThrow("already assigned");
+    const reassigned = buildPostseasonCodePreview(
+      [open],
+      [{ id: "old", fixtureId: "other", gameNumber: 1, code: "UNUSED-ASSIGNMENT" }],
+      ["UNUSED-ASSIGNMENT"],
+      "gauntlet",
+      teams,
+    );
+    expect(reassigned.assignments).toEqual([{ fixtureId: open.id, gameNumber: 1, code: "UNUSED-ASSIGNMENT" }]);
+    expect(reassigned.reusedAssignmentCount).toBe(1);
     expect(() => buildPostseasonCodePreview([open], [], ["NEW"], "gauntlet", [
       ...teams,
       { id: "team-a-duplicate", name: " team a ", abbreviation: "A2", active: true },

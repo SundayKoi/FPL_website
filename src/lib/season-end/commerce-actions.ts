@@ -30,6 +30,8 @@ function friendly(message: string): string {
 }
 
 function revalidateCommerce(): void {
+  revalidatePath("/cards/collection");
+  revalidatePath("/academy/cards/collection");
   revalidatePath("/cards/season-end");
   revalidatePath("/academy/cards/season-end");
   revalidatePath("/cards/season-end/market");

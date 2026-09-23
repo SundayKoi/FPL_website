@@ -66,15 +66,8 @@ export async function PacksPageView({ league = "premier", releaseId }: { league?
   }
 
   if (recovery) {
-    let recoveryCatalog: Awaited<ReturnType<typeof fetchSeasonEndCatalog>> = null;
-    try {
-      recoveryCatalog = await fetchSeasonEndCatalog(service, recovery.release);
-    } catch {
-      // A pending opening can still be shown as a recovery entry point even
-      // when its frozen catalog needs staff attention before it can finish.
-    }
     return (
-      <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+      <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
         <CardsPageHeader eyebrow={cardsEyebrow("Packs", league, recovery.release.season)} title="Recover your Season&apos;s End opening">
           {user.allowed ? "An existing charged opening is ready to recover. This page will finish that opening before allowing another purchase." : "Your membership is not currently active, but an existing charged opening can still be recovered. This page does not start new purchases."}
         </CardsPageHeader>
@@ -82,7 +75,6 @@ export async function PacksPageView({ league = "premier", releaseId }: { league?
           league={league}
           season={recovery.release.season}
           release={recovery.release}
-          catalog={recoveryCatalog}
           viewerId={user.discordId}
           initialRequestId={recovery.requestId}
           recoveryOnly
@@ -162,7 +154,7 @@ export async function PacksPageView({ league = "premier", releaseId }: { league?
   [liveWindow, chase, championsWindow, championComps, standardComps] = shopReads;
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
       <CardsPageHeader eyebrow={cardsEyebrow("Packs", league, season)} title="Packs">
         Packs cost betting dollars and contain {PACK_SIZE} player cards, each frozen at this week&apos;s
         ratings — every card is stamped with the week it was pulled, so a player you open twice in
@@ -194,7 +186,7 @@ export async function PacksPageView({ league = "premier", releaseId }: { league?
       {publishedSeasonEndReleases.length ? <nav aria-label="Season's End release selection" className="flex flex-wrap items-center gap-2 text-xs text-steel"><span>Season&apos;s End release:</span>{publishedSeasonEndReleases.map((entry) => <Link key={entry.id} href={`${base}/packs?release=${encodeURIComponent(entry.id)}`} className={`rounded-full border px-3 py-1 ${entry.id === seasonEndRelease?.id ? "border-gold text-gold" : "border-line hover:border-gold hover:text-gold"}`}>{entry.season} · revision {entry.catalogVersion}</Link>)}</nav> : null}
 
       {seasonEndRelease && seasonEndCatalog ? (
-        <SeasonEndPackShop key={`${seasonEndRelease.id}:${user.discordId}:public`} league={league} season={seasonEndRelease.season} release={seasonEndRelease} catalog={seasonEndCatalog} ownedDesignIds={seasonEndOwned} viewerId={user.discordId} />
+        <SeasonEndPackShop key={`${seasonEndRelease.id}:${user.discordId}:public`} league={league} season={seasonEndRelease.season} release={seasonEndRelease} ownedDesignIds={seasonEndOwned} viewerId={user.discordId} />
       ) : null}
       {seasonEndCatalogError ? <p role="alert" className="card-brand p-5 text-coral">The selected Season&apos;s End release failed its integrity check and is unavailable until staff repairs or replaces the revision.</p> : null}
 

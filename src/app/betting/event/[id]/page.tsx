@@ -46,7 +46,7 @@ export default async function BettingEventPage({ params }: { params: Promise<{ i
           No {event.name} markets are open right now — check back closer to game time.
         </div>
       ) : (
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid grid-cols-[repeat(auto-fit,minmax(min(100%,22rem),1fr))] gap-4">
           {markets.map((m) => (
             <MarketCard key={m.id} market={m} />
           ))}

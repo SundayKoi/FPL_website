@@ -112,6 +112,15 @@ describe("Season's End admin page", () => {
     expect(screen.queryByRole("button", { name: "Calculate cards" })).toBeNull();
   });
 
+  it("keeps awards usable when release loading fails", async () => {
+    fetchRelease.mockRejectedValueOnce(new Error("catalog digest does not match"));
+
+    render(await Page({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByRole("heading", { name: "Body Count" })).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("the awards remain available below");
+  });
+
   it("renders Best of Champions as its own category after Season stories", async () => {
     load.mockResolvedValueOnce({
       games: 6,

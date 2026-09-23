@@ -3,7 +3,7 @@ import Link from "next/link";
 export function RouteLoadingState() {
   return (
     <main className="page-backdrop flex flex-1" aria-busy="true">
-      <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
+      <div className="page-container page-spacing w-full">
         <p role="status" className="label-dash text-action-text">
           Loading page…
         </p>
@@ -23,7 +23,7 @@ export function RouteLoadingState() {
 
 export function RouteErrorState({ onRetry }: { onRetry: () => void }) {
   return (
-    <main className="page-backdrop flex flex-1 items-center justify-center px-6 py-20 text-center">
+    <main className="page-container page-spacing page-backdrop flex flex-1 items-center justify-center text-center">
       <section className="card-brand w-full max-w-xl p-8" role="alert">
         <span className="label-dash text-red-300">Something went wrong</span>
         <h1 className="type-display mt-3 text-3xl text-white">Couldn&apos;t load this page</h1>

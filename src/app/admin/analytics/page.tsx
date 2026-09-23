@@ -133,7 +133,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
 
   if (missing || error || !data) {
     return (
-      <main className="page-backdrop mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-16">
+      <main className="page-container page-spacing page-backdrop flex w-full flex-1 flex-col gap-6">
         <Link href="/admin" className="label-dash w-fit hover:text-action-text">
           ← Admin
         </Link>
@@ -163,7 +163,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const paidOut = data.economy.by_week.reduce((total, week) => total + week.paid_out, 0);
 
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-6 py-16">
+    <main className="page-container page-spacing page-backdrop flex w-full flex-1 flex-col gap-8">
       <header className="flex flex-col gap-3">
         <Link href="/admin" className="label-dash w-fit hover:text-action-text">
           ← Admin

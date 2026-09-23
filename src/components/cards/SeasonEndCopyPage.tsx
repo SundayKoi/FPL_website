@@ -11,7 +11,7 @@ export async function SeasonEndCopyView({ id, league }: { id: string; league: "p
   if (!copy || copy.payload.league !== league) notFound();
   const base = league === "academy" ? "/academy/cards" : "/cards";
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-4 py-10 text-white">
+    <main className="page-container page-spacing flex w-full flex-1 flex-col gap-5 text-white">
       <p className="label-dash text-gold">Season&apos;s End · public copy</p>
       <h1 className="type-display text-4xl">{copy.payload.display.title}</h1>
       <p className="text-sm text-steel">Release {copy.payload.season} · copy #{copy.inventoryId} · slot {copy.slotPosition} · {copy.lifecycleStatus === "active" ? "currently held" : `historical · ${copy.lifecycleStatus}`}</p>

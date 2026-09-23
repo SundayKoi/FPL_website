@@ -149,6 +149,7 @@ export default function SiteNavigation({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const adminSection = pathname?.startsWith("/admin") ?? false;
   const league = resolveLeagueFromPath(pathname ?? "/");
   const premiumHref =
     league === "academy" || (pathname === "/premium" && searchParams?.get("league") === "academy")
@@ -210,9 +211,12 @@ export default function SiteNavigation({
     <header
       ref={navRef}
       className="sticky top-0 z-40 border-b border-gold/30 backdrop-blur"
-      style={{ backgroundColor: "rgba(0,18,31,0.9)" }}
+      style={{
+        backgroundColor: adminSection ? "rgba(20,20,23,0.97)" : "rgba(0,18,31,0.9)",
+        borderColor: adminSection ? "#303036" : undefined,
+      }}
     >
-      <div className="relative flex w-full items-center gap-4 px-4 py-3 sm:min-h-[5.5rem] sm:gap-6 sm:px-8 sm:py-4 lg:px-10">
+      <div className="relative flex w-full items-center gap-2 page-container py-3 sm:min-h-[5.5rem] sm:gap-6 sm:py-4">
         <LeagueBrandChooser
           pathname={pathname ?? "/"}
           search={searchParams?.toString() ?? ""}
@@ -226,7 +230,7 @@ export default function SiteNavigation({
           className={`${
             open ? "flex" : "hidden"
           } absolute inset-x-0 top-full flex-col gap-1 border-b border-line px-2 py-2 shadow-lg backdrop-blur md:static md:flex md:min-w-0 md:flex-1 md:flex-row md:items-center md:justify-evenly md:gap-2 md:border-0 md:p-0 md:shadow-none md:backdrop-blur-0 lg:gap-6`}
-          style={{ backgroundColor: "rgba(0,18,31,0.97)" }}
+          style={{ backgroundColor: adminSection ? "rgba(20,20,23,0.99)" : "rgba(0,18,31,0.97)" }}
         >
           {directLinks.map((link) => {
             const active = isActive(pathname, link.href);
@@ -298,7 +302,7 @@ export default function SiteNavigation({
           })}
         </nav>
 
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="site-navigation-actions ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           <SiteSearch league={league} />
           {showAdmin ? (
             // Staff-only, beside the avatar rather than buried in About.
@@ -306,12 +310,16 @@ export default function SiteNavigation({
             <Link
               href="/admin"
               aria-current={isActive(pathname, "/admin") ? "page" : undefined}
-              className="hidden rounded-full border border-border-strong px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-white md:inline-flex"
+              className={`hidden rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide transition md:inline-flex ${
+                adminSection
+                  ? "border-[#6241a5] text-[#c8b5ff] hover:border-[#b59aff] hover:text-white"
+                  : "border-border-strong text-muted hover:border-action-text hover:text-white"
+              }`}
             >
               Admin
             </Link>
           ) : null}
-          <div className="shrink-0">{authSlot}</div>
+          <div className="site-navigation-auth shrink-0">{authSlot}</div>
           <button
             type="button"
             onClick={() => {

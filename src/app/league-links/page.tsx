@@ -14,7 +14,7 @@ export default async function LeagueLinksPage() {
 
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
+      <div className="page-container page-spacing w-full">
         <BackLink href="/info" label="About the league" className="mb-5" />
         <header className="max-w-3xl">
           <span className="label-dash">THE LEAGUE</span>

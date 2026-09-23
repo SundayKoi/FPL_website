@@ -28,6 +28,7 @@ The site now also includes:
 - [AGENTS.md](AGENTS.md) — repository constraints and task-specific guidance.
 - [Backend](docs/backend.md) — architecture, domain contracts, and source locations.
 - [Testing](docs/testing.md) — check selection, fixtures, and focused commands.
+- [Page spacing](docs/page-spacing.md) — shared page gutters, spacing, route owners, and intentional inner limits.
 - [Releases](docs/releases.md) — migration ordering and database rollout requirements.
 - [Domain glossary](CONTEXT.md) — daily-game terminology.
 - [Plans and designs](docs/superpowers/README.md) — historical implementation context.

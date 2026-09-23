@@ -9,6 +9,7 @@ import { validateSeasonEndCatalog } from "@/lib/season-end/collectibles";
 import { fetchSeasonEndCatalog, fetchSeasonEndReleaseById, type SeasonEndOpeningMode } from "@/lib/season-end/release-queries";
 import { rollSeasonEndPack, type SeasonEndPull, type SeasonEndRollRules } from "./season-end";
 import { validateSeasonEndReleaseRules } from "@/lib/season-end/release";
+import { runSeasonEndAutoDust } from "@/lib/season-end/autoDustServer";
 
 export type SeasonEndPullResult = SeasonEndPull & { inventoryId: number };
 
@@ -22,7 +23,7 @@ export type SeasonEndOpenPackResult =
       mode: SeasonEndOpeningMode;
       price: number;
       revealOrder: number[];
-      autoDustProtected: true;
+      autoDusted?: { ids: number[]; dusted: number; value: number };
     }
   | { ok: false; error: string; code?: "pending" | "refunded" | "unavailable" | "invalid" };
 
@@ -161,7 +162,22 @@ function outcomeFor(pulls: SeasonEndPull[]): Array<Record<string, unknown>> {
 }
 
 function resultFromOpening(opening: OpeningRow, cards: SeasonEndPullResult[], balance: number, releaseId: string, mode: SeasonEndOpeningMode, price: number): SeasonEndOpenPackResult {
-  return { ok: true, cards, balance, openingId: opening.opening_id, releaseId, mode, price, revealOrder: cards.map((card) => card.inventoryId), autoDustProtected: true };
+  return { ok: true, cards, balance, openingId: opening.opening_id, releaseId, mode, price, revealOrder: cards.map((card) => card.inventoryId) };
+}
+
+async function withSeasonEndAutoDust(result: SeasonEndOpenPackResult, discordId: string, league: "premier" | "academy"): Promise<SeasonEndOpenPackResult> {
+  if (!result.ok || result.mode !== "public") return result;
+  try {
+    const dust = await runSeasonEndAutoDust(createBettingServiceClient(), discordId, league, result.openingId);
+    return dust.dusted > 0
+      ? { ...result, balance: dust.balance ?? result.balance, autoDusted: { ids: dust.ids, dusted: dust.dusted, value: dust.value } }
+      : result;
+  } catch (error) {
+    // Fulfillment has already committed. A dust failure cannot turn a paid
+    // opening into a failed one; the collector can run the rule on the shelf.
+    console.error("season-end: auto-dust after opening failed", { openingId: result.openingId, error });
+    return result;
+  }
 }
 
 export async function openSeasonEndPackAction(input: {
@@ -222,7 +238,7 @@ export async function openSeasonEndPackAction(input: {
     const ids = await fetchInventoryIds(opening.opening_id);
     if (ids.length !== opening.outcome.length) return { ok: false, error: "That opening has incomplete inventory." };
     const cards = opening.outcome.map((pull, index) => ({ ...pull, inventoryId: ids[index] }));
-    return resultFromOpening(opening, cards, balance, release.id, input.mode, opening.price);
+    return withSeasonEndAutoDust(resultFromOpening(opening, cards, balance, release.id, input.mode, opening.price), user.discordId, input.league);
   }
 
   if (!catalog && !opening.outcome) return { ok: false, error: `Opening ${opening.opening_id} is pending recovery; its frozen catalog is unavailable.`, code: "pending" };
@@ -250,7 +266,7 @@ export async function openSeasonEndPackAction(input: {
     const terminal = await openingStatus(opening.opening_id);
     if (terminal?.status === "fulfilled" && terminal.outcome) {
       const ids = await fetchInventoryIds(opening.opening_id);
-      if (ids.length === terminal.outcome.length) return resultFromOpening(terminal, terminal.outcome.map((pull, index) => ({ ...pull, inventoryId: ids[index] })), await publicBalance(user.discordId, user.balance), release.id, input.mode, opening.price);
+      if (ids.length === terminal.outcome.length) return withSeasonEndAutoDust(resultFromOpening(terminal, terminal.outcome.map((pull, index) => ({ ...pull, inventoryId: ids[index] })), await publicBalance(user.discordId, user.balance), release.id, input.mode, opening.price), user.discordId, input.league);
     }
     return !refundError && terminal?.status === "refunded"
       ? { ok: false, error: `Opening ${opening.opening_id} was refunded; choose Open another pack to start a new intent.`, code: "refunded" }
@@ -261,5 +277,5 @@ export async function openSeasonEndPackAction(input: {
   if (ids.length !== committedOutcome.length) return { ok: false, error: "That opening returned an invalid fulfillment." };
   const cards = committedOutcome.map((pull, index) => ({ ...pull, inventoryId: ids[index] }));
   const balance = input.mode === "public" ? await publicBalance(user.discordId, user.balance - release.price) : Number((fulfilledRow as { test_balance?: number } | null)?.test_balance ?? opening.test_balance ?? 0);
-  return resultFromOpening(opening, cards, balance, release.id, input.mode, release.price);
+  return withSeasonEndAutoDust(resultFromOpening(opening, cards, balance, release.id, input.mode, release.price), user.discordId, input.league);
 }

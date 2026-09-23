@@ -24,7 +24,7 @@ describe("cardsSections", () => {
 
   it("keeps every old destination reachable as a sub-tab", () => {
     const hrefs = cardsSections("/cards").flatMap((section) => (section.children ?? []).map((child) => child.href));
-    for (const page of ["teams", "compare", "moments", "vault", "trades", "fantasy", "expeditions", "draw", "rarities"]) {
+    for (const page of ["teams", "compare", "moments", "season-end", "vault", "trades", "fantasy", "expeditions", "draw", "rarities"]) {
       expect(hrefs).toContain(`/cards/${page}`);
     }
   });
@@ -60,6 +60,8 @@ describe("activeCardsSection", () => {
     const vault = activeCardsSection(sections, "/cards/vault");
     expect(vault.section?.key).toBe("browse");
     expect(vault.child?.label).toBe("The Vault");
+    expect(activeCardsSection(sections, "/cards/season-end").child?.label).toBe("Season's End");
+    expect(activeCardsSection(sections, "/cards/season-end/copy/42").section?.key).toBe("browse");
   });
 
   it("lights the first sub-tab on the tab's own page", () => {

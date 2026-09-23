@@ -28,8 +28,9 @@ auto-dust.
 The former `/admin/season-end` route redirects here for existing admin
 bookmarks.
 
-Ordinary accolade entries use a unified collectible treatment: a framed dark
-face with champion art, season/league and known-division metadata, and the
+Ordinary accolade entries use a unified 5:7 collectible treatment matching the
+normal released-card format and 20rem display shell: a framed dark face with
+champion art, season/league and known-division metadata, and the
 award title and description over a bottom-weighted art gradient. The lower
 result panel holds the winner identity, headline value/unit, and concise
 evidence. Long evidence, status notes, and team rosters remain available in
@@ -40,7 +41,9 @@ crop for each member. Team honors use a scoped team logo (or an abbreviation/
 monogram fallback) on the dark face; they never borrow champion art or require a
 complete roster card. Best of
 Champion is the visual exception: its face is a 5:7 full-bleed champion splash
-with a clean continuous double gold edge frame, a manually calibrated crop, the
+in the same standard shell. Its double gold edge frame and ornaments share one
+5:7 coordinate system so the perimeter remains evenly aligned at every size. It
+also uses a manually calibrated crop, the
 player name in the lower title region, and the selected season/league in the
 lower-left footer. A resolved division adds one small Solari or Lunari seal in
 the upper-right; there is no OVR or replacement rating. Its award record and

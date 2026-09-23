@@ -13,7 +13,7 @@ export default async function RulebookPage() {
 
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
+      <div className="page-container page-spacing w-full">
         <section className="space-y-8" aria-labelledby="rulebook-heading">
           <BackLink href="/info" label="About the league" />
           <div className="flex flex-col gap-4 border-b border-border-subtle pb-6 sm:flex-row sm:items-end sm:justify-between">

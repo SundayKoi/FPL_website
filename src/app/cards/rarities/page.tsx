@@ -59,7 +59,7 @@ export async function RaritiesPageView({ league = "premier" }: { league?: CardLe
   const guide = rarityGuide(season, league);
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-10 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-10 text-white">
       <CardsPageHeader eyebrow={cardsEyebrow("Packs", league, season)} title="Rarities" tabHref={`${cardsBase(league)}/packs`}>
         Everything a card can come out of a pack as, how often, and what it can become in your hands. Every
         number is read from the setting the shop rolls with. Each entry is shown on the same made-up card —

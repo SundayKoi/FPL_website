@@ -27,7 +27,7 @@ export async function BountiesPageView({ league = "premier" }: { league?: CardLe
   }
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
       <CardsPageHeader eyebrow={cardsEyebrow("Market", league, market.season)} title="Bounties" tabHref={`${cardsBase(league)}/market`}>
         The market from the other side: post a bounty on a card you need, and whoever holds one can sell
         it to you at that price. Holding a card somebody wants? Fill their bounty from your shelf.

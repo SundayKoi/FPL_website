@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import CardsGallery from "@/components/cards/CardsGallery";
 import { fetchCardSeason, fetchCurrentWeekCards, type CardLeague } from "@/lib/cards/queries";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -21,7 +22,7 @@ export async function BrowsePageView({ league = "premier" }: { league?: CardLeag
   const cards = season ? await fetchCurrentWeekCards(supabase, season) : [];
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
       <CardsPageHeader eyebrow={cardsEyebrow("Browse", league, season)} title="All cards" tabHref={`${cardsBase(league)}/browse`}>
         The whole league as living trading cards — overall rating, tier, archetype, and form, rebuilt from
         real season stats after every match night. Hover to tilt, click to flip, and open a card to share
@@ -32,6 +33,12 @@ export async function BrowsePageView({ league = "premier" }: { league?: CardLeag
       ) : (
         <CardsGallery cards={cards} />
       )}
+      <section aria-labelledby="season-end-heading" className="card-brand flex flex-col gap-3 p-5 sm:p-7">
+        <p className="label-dash text-gold">Season&apos;s End</p>
+        <h2 id="season-end-heading" className="type-display text-3xl">The season in cards</h2>
+        <p className="max-w-2xl text-sm text-steel">Browse the published award winners, Best of Champions, and cumulative Season Cards for this league.</p>
+        <Link href={`${cardsBase(league)}/season-end`} className="w-fit text-sm font-semibold text-coral underline-offset-4 hover:underline">Explore Season&apos;s End →</Link>
+      </section>
     </main>
   );
 }

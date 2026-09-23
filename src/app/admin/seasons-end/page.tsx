@@ -52,6 +52,7 @@ export default async function SeasonsEndPage({
   let teamIdentities: SeasonEndTeamIdentityMap = {};
   let error: string | null = null;
   let seasonCardsError = false;
+  let releaseError = false;
 
   try {
     result = await loadSeasonEnd(client, league, season);
@@ -75,11 +76,20 @@ export default async function SeasonsEndPage({
   }
   const bestOfDiagnostics = result?.awards.find((award) => award.id === "best-of-champion")?.bestOfDiagnostics;
   const viewerId = await readViewerDiscordId(client);
-  const release = await fetchSeasonEndRelease(createBettingServiceClient(), league, season);
-  const releaseCatalog = release ? await fetchSeasonEndCatalog(createBettingServiceClient(), release) : null;
+  let release: Awaited<ReturnType<typeof fetchSeasonEndRelease>> = null;
+  let releaseCatalog: Awaited<ReturnType<typeof fetchSeasonEndCatalog>> = null;
+  try {
+    const service = createBettingServiceClient();
+    release = await fetchSeasonEndRelease(service, league, season);
+    releaseCatalog = release ? await fetchSeasonEndCatalog(service, release) : null;
+  } catch {
+    // Release metadata is an admin/shop diagnostic. A malformed or unavailable
+    // release must not hide the underlying awards that staff came to inspect.
+    releaseError = true;
+  }
 
   return (
-    <main className={`${styles.preview} page-backdrop flex w-full flex-1 flex-col gap-10 px-3 py-8 sm:px-5 lg:px-7 2xl:px-10`}>
+    <main className={`${styles.preview} page-container page-spacing-compact page-backdrop flex w-full flex-1 flex-col gap-10`}>
       <header className="flex flex-col gap-4">
         <Link href={staff ? "/admin" : "/cards"} className="label-dash w-fit hover:text-coral">{staff ? "← Admin" : "← Cards"}</Link>
         <p className="text-xs uppercase tracking-[.3em] text-gold">The season, in good company</p>
@@ -97,6 +107,7 @@ export default async function SeasonsEndPage({
       {staff ? <SeasonEndReleasePanel league={league} season={season} release={release} catalog={releaseCatalog} viewerId={viewerId} /> : null}
 
       {error ? <p role="alert" className="card-brand p-5 text-coral">{error}</p> : null}
+      {releaseError ? <p role="alert" className="card-brand p-5 text-coral">Season&apos;s End release controls are temporarily unavailable; the awards remain available below.</p> : null}
       {staff && result ? <section aria-label="Season coverage" className="card-brand flex flex-col gap-3 p-5">
         <p className="font-semibold">{league === "premier" ? "Premier" : "Academy"} · {season} · {result.games} games · {result.players} players</p>
         <p className="text-sm text-gold">{result.complete ? "All scheduled regular-season series are complete. Results reflect currently ingested stats." : "Provisional leaders — regular-season fixtures are unfinished or unavailable."}</p>

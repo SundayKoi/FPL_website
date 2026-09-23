@@ -198,9 +198,13 @@ function canonicalNumber(value: number): string {
 
 /** JSON with sorted object keys and portable decimal numbers. */
 export function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  // Keep the hash input identical to JSON serialization: undefined/function/
+  // symbol object properties are omitted, while the same values in arrays are
+  // serialized as null. This matters for optional display fields such as unit.
+  if (Array.isArray(value)) return `[${Array.from(value, (item) => stableJson(item)).join(",")}]`;
   if (value && typeof value === "object") {
     return `{${Object.entries(value as Record<string, unknown>)
+      .filter(([, child]) => child !== undefined && typeof child !== "function" && typeof child !== "symbol")
       .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
       .map(([key, child]) => `${JSON.stringify(key)}:${stableJson(child)}`)
       .join(",")}}`;
