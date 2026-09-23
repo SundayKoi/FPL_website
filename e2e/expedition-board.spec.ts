@@ -150,6 +150,16 @@ for (const persona of PERSONAS) {
           await page.getByTestId("tab-atlas").click();
           await expect(page.getByTestId("atlas")).toBeVisible();
           await panelShot(page, "more-drawer", `${OUT}/${persona}-${viewport.width}-atlas.png`);
+          // The rulebook on a phone, scrolled to the edges: every title
+          // grouped by kind, one kind opened to show its rows.
+          await page.getByTestId("tab-rules").click();
+          const edges = page.getByTestId("rule-edges");
+          await expect(edges).toBeVisible();
+          await edges.locator("summary").first().click();
+          await edges.evaluate((node) => node.scrollIntoView({ block: "start", behavior: "instant" }));
+          const style = await page.addStyleTag({ content: "a[aria-label='Support the devs'] { visibility: hidden !important; }" });
+          await page.screenshot({ path: `${OUT}/${persona}-${viewport.width}-rules.png` });
+          await style.evaluate((node) => (node as HTMLElement).remove());
         }
       }
 

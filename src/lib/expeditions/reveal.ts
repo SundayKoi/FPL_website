@@ -76,8 +76,9 @@ export interface RevealReads {
   partner: ReadonlySet<number>;
 }
 
-/** How many pending checkpoints ahead each trail title sees. */
-const TRAIL_SIGHT: Record<TrailTitleKey, number> = {
+/** How many pending checkpoints ahead each trail title sees (Infinity:
+ *  the whole road). Exported for the rules page, which says it in words. */
+export const TRAIL_SIGHT: Readonly<Record<TrailTitleKey, number>> = {
   trailworn: 1,
   veteran: 2,
   wayfarer: Number.POSITIVE_INFINITY,

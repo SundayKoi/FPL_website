@@ -1169,6 +1169,189 @@ loot and harm off it. `encountersFor` leaves storms out of a convoy so the
 shared clock never drifts. Every check is the RPC's; the page's
 `ConvoyView` (`fetchConvoyViews`) is presentation.
 
+### Expeditions, the next level
+
+Six features on top of the routes above, designed in
+[the next-level spec](superpowers/specs/2026-09-23-expeditions-next-level-design.md).
+The rules above still hold. What a run is stays derived from its row and its
+squad's frozen card json. A table exists only for real state: a purchase, a
+paid reveal, a goal that fell, a place named first or a road paid. Every
+dollar or fragment moves in one service-role, security-definer RPC under a
+row lock, and a dollar movement writes its `betting_ledger` row in the same
+transaction. Every new read is its own fail-soft query: it hides the feature
+and is never added to `RUN_COLUMNS`. `resolve_expedition` is not redeclared.
+Every gain lands inside `LOOT_MULT_CAP`, the 0–3 fragment cap, a boolean comp
+or the Harvest merchant price, so `maxExpeditionPayout()` stays 19050.
+
+**Edges** (`src/lib/expeditions/archetypes.ts`, pure; rules gate
+`ARCHETYPE_RULES` = 6, migration `20261101000001_expedition_rules_six.sql`).
+A card's minted title (`card.archetype`) is its edge. `ARCHETYPE_ABILITIES` is
+the one table: 57 titles, each with a kind, a power and a `does` line.
+`archetypes.test.ts` holds its keys equal to `ARCHETYPE_TITLES` plus
+`FALLBACK_ARCHETYPE`, and every magnitude is a named constant beside it.
+`abilitySheet`/`activeAbilities` apply the stacking rule: one counting edge
+per kind, the higher power, then more trail miles, then the lower inventory
+id. The squad picker prints the same sheet the resolver reads.
+`resolveRoute` reads the counting edges only when `road.rules >= 6`, and
+every new draw comes after the existing draws of its block. It emits
+`RouteEvent`s carrying `ability`, which the ceremony lists as "Edges that
+fired". `traitsOf(copies, rules)` gives the derivation-time traits (storm
+immunity, merchant draw, hunter finds, sight, the Speedrunner's clock).
+`encountersFor`, the page, the sweep and the claim each pass those traits,
+so all four agree without a table. The claim stores the counting edges as
+`p_outcome.abilities`. The launch cuts `SPEEDRUN_HOURS` off a route of at most
+`SPEEDRUN_MAX_HOURS` only when `fetchRulesVersion()` (the
+`expedition_rules_version()` function, which reads the `rules` column
+default) reports 6. The function is missing until the migration is applied,
+and `fetchRulesVersion` reads that as 1, so the clock is never cut ahead of
+the rulebook. A run stamped below 6 resolves exactly as before: the same
+draws, the same journal and the same events.
+
+**Base camp** (`src/lib/expeditions/camp.ts`, pure; `CampPanel.tsx` on the
+drawer's Camp tab; `20261102000001_expedition_base_camp.sql`).
+`expedition_camps` is keyed by `discord_id` alone, like the wallet and the
+fragment pouch, so the camp follows the collector across seasons and leagues.
+The owner can read it, and only the RPCs write it. `expedition_camp_price` is
+the price table; `CAMP_PRICES` shows the same numbers, and `camp.test.ts` holds
+the two equal. `upgrade_expedition_camp(p_user, p_upgrade, p_dollars,
+p_fragments)` recomputes the price of the next level under the wallet,
+pouch and camp locks and refuses any other (`'bad price'`, the
+`open_card_pack` discipline). It writes the `expedition_camp` ledger row.
+`'policy'` forges `FORGE_FRAGMENTS` into a forged policy, and a forge holds
+up to `FORGE_HOLD` (`upgradeCampAction`, `forgePolicyAction`). The migration
+redeclares the 12-argument `launch_expedition` with two changes: a camp's slot
+lets a second Scouting Run out, and forged runs leave the weekly insured count.
+It also adds a 14-argument wrapper with `p_forged`, which spends a policy
+(`FORGED_PER_WEEK` a week, never on a scout or an exorcism), launches through
+the 13-argument path uninsured and then marks the run `insured` and `forged`.
+`runs.ts` calls the 14-argument form only when a forged policy is asked for. At
+the claim, `resolveRoute` reads the tent (`input.camp.tent`) only under rules 6.
+
+**The league's expedition of the week** (`src/lib/expeditions/league.ts`,
+pure; `leagueSweep.ts`; `LeagueGoalPanel.tsx` and its This-week line;
+`20261103000001_expedition_league_goal.sql`). The goal is derived, not
+configured. `goalKindFor` alternates the week between a landmark
+(`LANDMARK_MILES` trail miles) and a boss (`BOSS_HEALTH` pushes), and
+`describeGoal` names it from the week's first fixture. The
+`expedition_league_progress` view sums claimed runs per season, Eastern
+launch week and collector. It is public like `expedition_standings`, because
+a view reads with its owner's rights. `expedition_league_goals` and
+`expedition_league_rewards` are league news: anyone can read them, and only
+`fell_expedition_league_goal(p_season, p_week, p_kind, p_target)` writes them.
+That RPC recomputes the week itself, writes the goal once (its primary key is
+the lock) and pays `LEAGUE_GOAL_FRAGMENTS` to each contributor, flagging the
+top one as Vanguard. `sweepExpeditions` calls `sweepLeagueGoals` once per
+pass, for this week and last, inside a try/catch that reports and skips. It
+posts one embed when a goal falls. Every read and write is keyed by the
+season label, so Premier and Academy never share a goal.
+
+**The road ahead** (`src/lib/expeditions/reveal.ts`, pure; `views.ts`,
+`server-only`; `20261104000001_expedition_road_ahead.sql`).
+`knownCheckpoints` decides which checkpoints a squad knows:
+
+- places it has walked, or every place once the run is claimed;
+- a campaign's handed-down road;
+- a paid reveal, its own or a convoy partner's;
+- the checkpoint after a `scout`;
+- Jungle Diff or The Warden, under rules 6 only;
+- a Trailworn, Veteran or Wayfarer card (`TRAIL_SIGHT`).
+
+`dangerOf` gives what an unknown checkpoint shows: always its `warned` dread
+mark, and with The Warden its `dark` and toll flags. Every rule except the
+edges is presentation, so the fog covers every run in the field from deploy.
+`expedition_reveals` has one owner-read row per revealed run.
+`reveal_expedition_road(p_user, p_run)` takes the convoy row, the run and then
+the pouch lock. It charges `REVEAL_FRAGMENTS` with no ledger row, because
+fragments are not dollars, and a convoy's one road is paid once.
+`revealRoadAction` maps a missing function to "nothing was spent".
+`fetchReveals` failing hides the button while the fog still applies.
+
+**Hidden places stay on the server.** The page is a server component. It
+builds `buildRunViews` → `RunView` per run in the field and hands the board
+only that. An unknown place is absent from the view: no key, no title, no
+story, only a `?` and its danger flags. Client modules import the client-safe
+half of the road instead of `routes.ts`: `forks.ts` holds the fork windows,
+choices, role calls and `ROAD_SIZES` (a count, never the places), and
+`routes.ts` re-exports it. They import `atlasWords.ts` instead of `atlas.ts`,
+and `import type` from `views.ts`. `src/components/cards/expeditionImports.test.ts`
+walks the value-import graph from every `"use client"` module and every board
+module, stopping at `"use server"` modules. It fails on any value import of
+`routes.ts`, `journal.ts` or `views.ts`.
+
+**The atlas** (`src/lib/expeditions/atlas.ts`, used by the server and
+scripts only; `atlasWords.ts` for the browser; `AtlasPanel.tsx`;
+`20261105000001_expedition_atlas.sql`). `atlasFor` derives the codex from the
+collector's claimed runs. The claim stamps `outcome.atlas` (`atlasStamp`:
+places, encounters, ghosts), and `resolve_expedition` stores the whole
+document, so no SQL change is needed. Older runs are re-derived for display,
+but only stamps count toward a reward. `expedition_landmarks` (public read,
+one row per season and place) records the first collector to reach a place.
+The player text calls these places named after their first visitor, because
+"landmark" is the league goal's word. `expedition_atlas_awards` (owner read)
+records roads paid. `expedition_road_size` and `expedition_road_reward` are
+held equal to `ROAD_SIZES` and `ROAD_REWARDS` by `atlas.test.ts`. After a
+successful resolve, the claim calls `name_expedition_landmarks` with the
+run's stamped places (first claim wins, and it returns only the rows it
+created). When `atlasFor` says the road is complete, it then calls
+`award_expedition_road`, which counts distinct stamped places for the season
+and tier and pays fragments, plus the Legendary route's pack, once. Both calls
+are best effort and logged, and never fail a paid claim. The panel receives
+counts for unreached places, never their names.
+`scripts/backfill-expedition-atlas.ts` is run by the owner with the service
+role. It stamps older claimed runs and names their landmarks in `claimed_at`
+order. Run it with `--dry-run` first. Only `--award` pays history through
+`award_expedition_road`, because it moves fragments and packs. It is
+idempotent.
+
+**The page** (`ExpeditionBoard.tsx` composes `src/components/cards/expeditions/`).
+The board has three zones and a drawer:
+
+- **Right now** (`RightNow.tsx`, `ForkPrompt.tsx`): one card per thing that
+  needs the collector, or "Nothing needs you".
+- **Send a squad** (`SquadStep.tsx`, `RouteStep.tsx`, `suggest.ts`): pick
+  three cards, pick a run, send them.
+- **Your runs** (`RunCard.tsx`, the map with the reveal button).
+- **More** (`MoreDrawer.tsx`): Log, Standings, Campaigns, Camp, League, Atlas,
+  Graveyard and Rules. A tab whose read failed is hidden.
+
+Game words are either said plainly or wrapped in `<Term>`, with definitions
+in `glossary.ts`. The board says "power" for shine. Status icons come from
+`expeditionIcons.tsx`. `ExpeditionRules.tsx` renders the Edges, Base camp,
+League goal, Road ahead and Atlas sections from the modules above and states
+no number of its own. `/admin/expedition-board?persona=new|mid|veteran`
+renders the board from `boardFixtures.ts` without a staff profile under
+`npm run dev`. `e2e/expedition-board.spec.ts` screenshots it and checks phone
+width, tap targets and disabled-control reasons.
+
+**Deploy safety.** Code for all five features can ship first.
+
+| Migration | Before it is applied, the code… | Apply |
+|---|---|---|
+| `20261101000001_expedition_rules_six.sql` | sees runs stamped 5, and `fetchRulesVersion` reads 1. No edge fires, no tent covers, edge sight and Speedrunner are off. The picker and Rules tab already describe edges. | Only after the code with edges is live in production. |
+| `20261102000001_expedition_base_camp.sql` | gets null from `fetchCamp`, hides the Camp tab, allows one scout slot, never requests a forged launch and calls the 13-argument launch as before. | Before or after its code. |
+| `20261103000001_expedition_league_goal.sql` | hides the League tab and This-week line because the reads fail soft, and the sweep step logs and skips. | Before or after its code. |
+| `20261104000001_expedition_road_ahead.sql` | still shows the fog because it is derived, but hides the reveal button because `fetchReveals` returns null. | Before or after its code. |
+| `20261105000001_expedition_atlas.sql` | still shows derived codex places, but hides landmarks and awards. The claim still stamps `outcome.atlas`, and its landmark and award calls log and carry on. | Before or after its code. |
+
+**Apply order.** Apply `20261101000001_expedition_rules_six.sql` only after
+the release carrying edges is live in production. Applied earlier, the
+database stamps 6 on runs that older code launches and walks without edges.
+Once the new code ships, those runs start firing edges part-way through,
+changing a half-written journal and the draw order under them. The other four
+can be applied before or after their code, because each read fails soft. They
+depend on no data. Base camp needs only `20261020000001`, whose launch body it
+carries forward.
+
+`node scripts/supabase-migrations.mjs push` applies every pending version in
+order, and rules six sorts first. The practical sequence is to ship the code,
+confirm it is live, then push all five together. Applying one of the other
+four early by hand would leave rules six behind a newer version, and a later
+push would refuse it without a reviewed `--include-all` ([releases](releases.md)).
+If the atlas migration lands after its code, claims in the window carry
+their stamps but named no landmarks. The backfill script names them in
+`claimed_at` order, and the next claim on a finished road asks for its award
+again.
+
 ### Auto-dust
 
 A collector can set one rule (`card_auto_dust`, one row per Discord id,

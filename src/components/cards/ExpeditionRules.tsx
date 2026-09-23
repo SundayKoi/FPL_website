@@ -3,10 +3,18 @@
 //
 // Hook-free and server-renderable. Every number is imported from the
 // config that enforces it (the packs/config → perks.ts discipline), so the
-// page cannot promise a three-day bench while the RPC writes four.
+// page cannot promise a three-day bench while the RPC writes four. The
+// same goes for the edges, the camp, the league goal, the road ahead and
+// the atlas: their tables are rendered from archetypes.ts, camp.ts,
+// league.ts, reveal.ts and config.ts/forks.ts, never restated.
 
+import type { ReactNode } from "react";
 import { fmtPoints } from "@/lib/betting/format";
+import { FALLBACK_ARCHETYPE } from "@/lib/cards/build";
 import { MUTATIONS } from "@/lib/cards/mutations";
+import { ABILITY_KIND_LABELS, ARCHETYPE_ABILITIES, type AbilityKind } from "@/lib/expeditions/archetypes";
+import { rewardWords } from "@/lib/expeditions/atlasWords";
+import { CAMP_LINES, CAMP_PRICES, CAMP_UPGRADES, POLICY_LINE, priceLine, type CampPrice } from "@/lib/expeditions/camp";
 import {
   ECHO_CHANCE,
   EXPEDITION_TIERS,
@@ -15,6 +23,7 @@ import {
   PATRON_INSURANCE_PER_WEEK,
   MERCHANT_DOLLARS,
   MYTHIC_NEEDS,
+  ROAD_REWARDS,
   SURGE_BONUS,
   LOST_DAYS,
   RANSOM_BASE,
@@ -25,6 +34,9 @@ import {
   type ExpeditionTierDef,
   type RouteRisk,
 } from "@/lib/expeditions/config";
+import { BOSS_HEALTH, LANDMARK_MILES, LEAGUE_GOAL_FRAGMENTS, unitCount } from "@/lib/expeditions/league";
+import { REVEAL_FRAGMENTS, TRAIL_SIGHT, type RevealedBy } from "@/lib/expeditions/reveal";
+import ExpeditionIcon from "./expeditionIcons";
 // forks.ts, not routes.ts or journal.ts: this renders inside the board, a
 // client component, and those two modules hold every road there is. The
 // numbers quoted here live in forks.ts for exactly that reason.
@@ -118,6 +130,374 @@ function mutationSources(): string {
     (source) =>
       `${source.mutation} by ${source.by === "push" ? "pushing" : "camping at"} ${source.place.toLowerCase()} (${EXPEDITION_TIERS[source.tier].label}, ${pct(source.chance)})`,
   ).join("; ");
+}
+
+// === the next level: edges, the road ahead, the camp, the league, the atlas ===
+// Plain words first, the game's word second. The board says "power" where
+// the rest of this rulebook says "shine", and "landmark" is the league
+// goal's word, so a place named after whoever reached it first is said as
+// exactly that.
+
+/** "one map fragment", "2 map fragments". */
+function fragmentsWord(n: number): string {
+  return `${n === 1 ? "one" : n} map fragment${n === 1 ? "" : "s"}`;
+}
+
+/** The edge table as the rules print it: one group per kind, in
+ *  ABILITY_KIND_LABELS' order, the strongest first inside each — the one
+ *  that counts when two of a kind meet. */
+const EDGE_GROUPS = (Object.keys(ABILITY_KIND_LABELS) as AbilityKind[])
+  .map((kind) => ({
+    kind,
+    label: ABILITY_KIND_LABELS[kind],
+    edges: Object.values(ARCHETYPE_ABILITIES)
+      .filter((edge) => edge.kind === kind)
+      .sort((a, b) => b.power - a.power),
+  }))
+  .filter((group) => group.edges.length > 0);
+
+/** The strongest an edge comes: the scale its dots are drawn on. */
+const EDGE_STRENGTH_MAX = Math.max(...Object.values(ARCHETYPE_ABILITIES).map((edge) => edge.power));
+
+/** "Camp Thief" → "camp-thief": a row's test id. */
+export function edgeSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+/** An edge's strength as dots, filled up to its strength and hollow past
+ *  it, with the number for a screen reader. Shape carries it, not colour. */
+function Strength({ power }: { power: number }) {
+  return (
+    <span className="shrink-0 font-mono text-xs tracking-[0.15em] text-gold">
+      <span aria-hidden="true">
+        {"●".repeat(power)}
+        {"○".repeat(Math.max(0, EDGE_STRENGTH_MAX - power))}
+      </span>
+      <span className="sr-only">
+        strength {power} of {EDGE_STRENGTH_MAX}
+      </span>
+    </span>
+  );
+}
+
+function EdgeRules({ id }: { id: string }) {
+  return (
+    <div
+      id={`${id}-edges`}
+      data-testid="rule-edges"
+      className="flex flex-col gap-3 rounded-lg border border-gold/40 bg-gold/5 p-3 text-sm text-steel"
+    >
+      <h3 className="type-display flex items-center gap-2 text-lg text-white">
+        <ExpeditionIcon name="edge" className="text-gold" />
+        Edges: what a card&apos;s title does on the road
+      </h3>
+      <p>
+        Every card carries a title from the day it was printed, and each title is an <strong className="text-white">edge</strong>:
+        one small way that card bends a run — softer harm, more loot at camp, a clock that beats the storm. The squad picker shows
+        each card&apos;s edge and whether it counts, a fork&apos;s choices say when an edge changes them, and the homecoming lists
+        the edges that fired.
+      </p>
+      <p data-testid="rule-edges-stacking" className="rounded-md border border-gold/40 bg-black/30 px-3 py-2">
+        <strong className="text-white">
+          Only one edge of each kind counts in a squad: the strongest; a tie goes to the card with more trail miles.
+        </strong>{" "}
+        Three guards are one guard; a guard, a rival edge and a camp edge are three — so send three different kinds.
+      </p>
+      <p className="text-xs">Find your card&apos;s title below and open its kind to read what it does. The dots are its strength.</p>
+      <ul className="grid items-start gap-1.5 sm:grid-cols-2">
+        {EDGE_GROUPS.map((group) => (
+          <li key={group.kind}>
+            <details data-testid={`rule-edges-${group.kind}`} className="group rounded-md border border-line bg-black/30">
+              <summary className="flex min-h-11 cursor-pointer list-none items-start gap-2 px-3 py-2 marker:hidden">
+                <ExpeditionIcon name="chevron" className="mt-1 text-steel transition group-open:rotate-90" />
+                <span className="flex min-w-0 flex-col">
+                  <span className="text-sm font-semibold text-white">
+                    {group.label}{" "}
+                    <span className="text-xs font-normal text-steel">
+                      · {group.edges.length} {group.edges.length === 1 ? "title" : "titles"}
+                    </span>
+                  </span>
+                  {/* A title never breaks across a line: "The / Assassin" reads as two. */}
+                  <span className="text-xs text-steel group-open:hidden">
+                    {group.edges.map((edge, index) => (
+                      <span key={edge.title}>
+                        <span className="whitespace-nowrap">
+                          {edge.title}
+                          {index < group.edges.length - 1 ? " ·" : ""}
+                        </span>{" "}
+                      </span>
+                    ))}
+                  </span>
+                </span>
+              </summary>
+              <ul className="flex flex-col border-t border-line/60">
+                {group.edges.map((edge) => (
+                  <li
+                    key={edge.title}
+                    data-testid={`rule-edge-${edgeSlug(edge.title)}`}
+                    className="flex flex-col gap-0.5 border-b border-line/40 px-3 py-2 last:border-b-0"
+                  >
+                    <span className="flex items-baseline justify-between gap-3">
+                      <span className="font-semibold text-white">{edge.title}</span>
+                      <Strength power={edge.power} />
+                    </span>
+                    <span className="text-xs">{edge.does}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs">
+        A title this list does not know counts as {FALLBACK_ARCHETYPE}. A card that dies on the road takes its edge with it from
+        that moment, and the edge of the same kind it outranked does not step in. A squad already on the road when a rule changes
+        keeps the rules it left with.
+      </p>
+    </div>
+  );
+}
+
+/** "the next checkpoint", "the next two checkpoints", "the whole road". */
+function sightWords(n: number): string {
+  if (!Number.isFinite(n)) return "the whole road";
+  if (n === 1) return "the next checkpoint";
+  return `the next ${n === 2 ? "two" : n === 3 ? "three" : n} checkpoints`;
+}
+
+/** The edges that see down the road: every title of the sight kind. */
+const SIGHT_EDGES = Object.values(ARCHETYPE_ABILITIES).filter((edge) => edge.kind === "reveal");
+
+/**
+ * Every way a checkpoint ahead becomes known (reveal.ts), in the order a
+ * player meets them. Keyed on RevealedBy, so a new way to know a place
+ * does not build until it is said here too.
+ */
+export const REVEAL_WAYS: Readonly<Record<RevealedBy, { title: string; says: ReactNode }>> = {
+  walked: {
+    title: "Getting there",
+    says: "A checkpoint is known once its fork opens, and the whole road once the squad is home.",
+  },
+  scout: {
+    title: "A scout",
+    says: "Answer a fork with the Jungle's scout and the squad knows the checkpoint after it.",
+  },
+  trail: {
+    title: "Trail titles",
+    says: `${TRAIL_TITLES.map((title, index) => `${index === 0 ? "A" : "a"} ${title.label}${index === 0 ? " card knows" : ","} ${sightWords(TRAIL_SIGHT[title.key])}`).join("; ")}. The best in the squad counts, and the sight moves on as each fork opens.`,
+  },
+  edge: {
+    title: "Sight edges",
+    says: (
+      <>
+        {SIGHT_EDGES.map((edge, index) => (
+          <span key={edge.title}>
+            {index > 0 ? " " : ""}
+            <strong className="text-white">{edge.title}.</strong> {edge.does}
+          </span>
+        ))}
+      </>
+    ),
+  },
+  fragment: {
+    title: "A map fragment",
+    says: `Spend ${fragmentsWord(REVEAL_FRAGMENTS)} on a squad in the field (See the road ahead, in the corner of its map) and it knows every checkpoint it has left. Once per road.`,
+  },
+  convoy: {
+    title: "A convoy partner",
+    says: "Two squads in a convoy walk one road, so when either of you pays to see it, you both do, and nobody pays twice.",
+  },
+  campaign: {
+    title: "A campaign",
+    says: "A campaign stage's road is handed down from the stage before it, so the squad sets out with the map.",
+  },
+};
+
+function RoadAheadRules() {
+  return (
+    <div data-testid="rule-road-ahead" className="flex flex-col gap-2 rounded-lg border border-line bg-panel/60 p-3 text-sm text-steel">
+      <h3 className="type-display text-lg text-white">The road ahead: what the squad can see</h3>
+      <p>
+        A squad sees only what it knows. A checkpoint it has not seen yet shows on its map as a{" "}
+        <span
+          aria-hidden="true"
+          className="inline-grid h-5 w-5 place-content-center rounded-full border border-dashed border-steel align-[-4px] text-[11px] font-bold leading-none"
+        >
+          ?
+        </span>
+        <span className="sr-only">question mark</span>; if the squad has a bad feeling about the place, a dread mark{" "}
+        <ExpeditionIcon name="risk" className="inline align-[-2px] text-coral" /> sits over it (the fork is warned). That is all an
+        unseen checkpoint gives away: its name is not sent to your browser until the squad knows it, so nobody can peek.
+      </p>
+      <p>What shows more:</p>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {(Object.keys(REVEAL_WAYS) as RevealedBy[]).map((by) => (
+          <li key={by} data-testid={`rule-reveal-${by}`} className="flex flex-col gap-1 rounded-md border border-line bg-black/30 p-2.5">
+            <span className="text-sm font-semibold text-white">{REVEAL_WAYS[by].title}</span>
+            <span className="text-xs">{REVEAL_WAYS[by].says}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs">
+        Knowing a place changes nothing about it: the odds are the same seen or unseen, and every fork prints its own when it opens.
+      </p>
+    </div>
+  );
+}
+
+/** A camp level's game word, when it is not just its plain one: "squad
+ *  slot" beside "A second scouting squad", nothing beside "A tent". */
+function alsoCalled(title: string, term: string): string | null {
+  const plain = title.toLowerCase().replace(/^(a|an|the)\s+/, "");
+  return plain === term.toLowerCase() ? null : term.toLowerCase();
+}
+
+/** Every level of every upgrade, bought: what the whole camp costs. */
+const CAMP_TOTAL: CampPrice = CAMP_UPGRADES.flatMap((upgrade) => CAMP_PRICES[upgrade]).reduce(
+  (sum, price) => ({ dollars: sum.dollars + price.dollars, fragments: sum.fragments + price.fragments }),
+  { dollars: 0, fragments: 0 },
+);
+
+function BaseCampRules() {
+  const policyTerm = alsoCalled(POLICY_LINE.title, POLICY_LINE.term);
+  return (
+    <div data-testid="rule-base-camp" className="flex flex-col gap-2 rounded-lg border border-line bg-panel/60 p-3 text-sm text-steel">
+      <h3 className="type-display text-lg text-white">Base camp: what you build between runs</h3>
+      <p>
+        Your camp is yours for good: every season, in both leagues. Build it a level at a time on the Camp tab, with dollars and
+        sometimes map fragments. Every level of everything comes to{" "}
+        <strong data-testid="rule-camp-total" className="text-white">
+          {priceLine(CAMP_TOTAL)}
+        </strong>
+        .
+      </p>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {CAMP_UPGRADES.map((upgrade) => {
+          const first = CAMP_LINES[upgrade][0];
+          const term = alsoCalled(first.title, first.term);
+          const levels = CAMP_PRICES[upgrade];
+          return (
+            <li key={upgrade} data-testid={`rule-camp-${upgrade}`} className="flex flex-col gap-1.5 rounded-md border border-line bg-black/30 p-2.5">
+              <span className="text-sm font-semibold text-white">
+                {first.title}
+                {term ? <span className="font-normal text-steel"> ({term})</span> : null}
+              </span>
+              <ol className="flex flex-col gap-1.5">
+                {levels.map((price, index) => {
+                  const line = CAMP_LINES[upgrade][index] ?? first;
+                  return (
+                    <li key={index} data-testid={`rule-camp-${upgrade}-${index + 1}`} className="flex flex-col gap-0.5 text-xs">
+                      <span className="font-semibold text-gold">
+                        {levels.length > 1 ? `Level ${index + 1}${index > 0 ? ` · ${line.title}` : ""} · ` : ""}
+                        {priceLine(price)}
+                      </span>
+                      <span>{line.does}</span>
+                    </li>
+                  );
+                })}
+              </ol>
+            </li>
+          );
+        })}
+        <li data-testid="rule-camp-policy" className="flex flex-col gap-1.5 rounded-md border border-line bg-black/30 p-2.5">
+          <span className="text-sm font-semibold text-white">
+            {POLICY_LINE.title}
+            {policyTerm ? <span className="font-normal text-steel"> ({policyTerm})</span> : null}
+          </span>
+          <span className="flex flex-col gap-0.5 text-xs">
+            <span className="font-semibold text-gold">
+              {priceLine(CAMP_PRICES.policy[0])} · needs {CAMP_LINES.forge[0].title.toLowerCase()}
+            </span>
+            <span>{POLICY_LINE.does}</span>
+          </span>
+        </li>
+      </ul>
+    </div>
+  );
+}
+
+function LeagueGoalRules() {
+  // The shortest walk and the longest, off the miles table.
+  const walks = TIER_ORDER.filter((tier) => MILES_BY_TIER[tier] > 0).sort((a, b) => MILES_BY_TIER[a] - MILES_BY_TIER[b]);
+  const fewest = walks[0];
+  const most = walks[walks.length - 1];
+  return (
+    <div data-testid="rule-league" className="flex flex-col gap-2 rounded-lg border border-mint/40 bg-mint/5 p-3 text-sm text-steel">
+      <h3 className="type-display text-lg text-white">The league&apos;s expedition of the week</h3>
+      <p>
+        Every week the whole league shares one goal, and every run anyone brings home moves it along. A run counts for the week it
+        set out in, once you bring the squad home. The weeks take turns, each named after one of that week&apos;s matches:
+      </p>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        <li data-testid="rule-league-landmark" className="flex flex-col gap-1 rounded-md border border-line bg-black/30 p-2.5">
+          <span className="text-sm font-semibold text-white">
+            A place to walk to <span className="font-normal text-steel">(a landmark)</span>
+          </span>
+          <span className="font-mono text-xs text-gold">{unitCount(LANDMARK_MILES, "miles")} away</span>
+          <span className="text-xs">
+            Every run brought home walks its route&apos;s miles toward it: {EXPEDITION_TIERS[fewest].label} {MILES_BY_TIER[fewest]},{" "}
+            {EXPEDITION_TIERS[most].label} {MILES_BY_TIER[most]}.
+          </span>
+        </li>
+        <li data-testid="rule-league-boss" className="flex flex-col gap-1 rounded-md border border-line bg-black/30 p-2.5">
+          <span className="text-sm font-semibold text-white">
+            A monster to wear down <span className="font-normal text-steel">(a boss)</span>
+          </span>
+          <span className="font-mono text-xs text-gold">{BOSS_HEALTH} health</span>
+          <span className="text-xs">Every fork where a squad goes for it (a push), anywhere in the league, takes one off.</span>
+        </li>
+      </ul>
+      <p data-testid="rule-league-reward">
+        When the league gets there, everyone who helped — one mile or one push is enough — gets{" "}
+        <strong className="text-white">{fragmentsWord(LEAGUE_GOAL_FRAGMENTS)}</strong>, and whoever did the most is named{" "}
+        <strong className="text-white">Vanguard</strong> for the week. Map fragments, not dollars.
+      </p>
+      <p className="text-xs">
+        A goal the league has not reached stays open through the next week, for squads that set out in its week and come home late;
+        then it closes. Premier and Academy each walk their own.
+      </p>
+    </div>
+  );
+}
+
+function AtlasRules() {
+  const roads = TIER_ORDER.filter((tier) => ROAD_SIZES[tier] > 0);
+  const plaque = CAMP_LINES.wall[CAMP_LINES.wall.length - 1];
+  return (
+    <div data-testid="rule-atlas" className="flex flex-col gap-2 rounded-lg border border-line bg-panel/60 p-3 text-sm text-steel">
+      <h3 className="type-display text-lg text-white">The atlas: every place your squads reach</h3>
+      <p>
+        The Atlas tab marks every place your squads reach, route by route, each season. Reach every place a route can stop at —
+        across all your runs on it that season — and the road pays once, in map fragments, not dollars:
+      </p>
+      <ul className="grid gap-1.5 sm:grid-cols-2">
+        {roads.map((tier) => (
+          <li
+            key={tier}
+            data-testid={`rule-road-${tier}`}
+            className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-md border border-line bg-black/30 px-2.5 py-1.5"
+          >
+            <span className="text-sm font-semibold text-white">
+              {EXPEDITION_TIERS[tier].label} <span className="text-xs font-normal text-steel">· {ROAD_SIZES[tier]} places</span>
+            </span>
+            <span className="text-xs text-mint">{rewardWords(ROAD_REWARDS[tier])}</span>
+          </li>
+        ))}
+      </ul>
+      <p data-testid="rule-atlas-named">
+        <strong className="text-white">Places named after their first visitor.</strong> The first collector in the league to reach a
+        place, counted when the squad is brought home, has it named after them for the season, on everyone&apos;s map and in
+        everyone&apos;s atlas. With {plaque.title.toLowerCase()} on the trophy wall, their crest shows beside it.
+      </p>
+      <p className="text-xs">
+        Only runs brought home since the atlas opened count toward a road. Premier and Academy keep separate atlases: half a road in
+        each completes neither.
+      </p>
+    </div>
+  );
 }
 
 export default function ExpeditionRules({ id = "expedition-rules" }: { id?: string }) {
@@ -456,6 +836,13 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
           Wayfarer&apos;s {WAYFARER_SHINE} shine is a reason to send it again, never a way past a gate.
         </p>
       </div>
+
+      {/* ── Edges, the road ahead, the camp, the league, the atlas ── */}
+      <EdgeRules id={id} />
+      <RoadAheadRules />
+      <BaseCampRules />
+      <LeagueGoalRules />
+      <AtlasRules />
 
       {/* ── Mutations ─────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3">

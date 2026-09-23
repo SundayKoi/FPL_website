@@ -31,10 +31,13 @@ import {
   PATRON_INSURANCE_PER_WEEK,
   RANSOM_BASE,
   RANSOM_PER_SHINE,
+  ROAD_REWARDS,
   TIER_ORDER,
   payoutRange,
 } from "@/lib/expeditions/config";
 import { STRANDED_BOUNTY } from "@/lib/expeditions/journal";
+import { LEAGUE_GOAL_FRAGMENTS } from "@/lib/expeditions/league";
+import { REVEAL_FRAGMENTS } from "@/lib/expeditions/reveal";
 import {
   CAMP_LINES,
   CAMP_PRICES,
@@ -95,6 +98,31 @@ function campLevels(): string {
     const prices = CAMP_PRICES[upgrade].map(priceLine).join(", then ");
     return `${CAMP_LINES[upgrade][0].title.toLowerCase()} (${prices})`;
   }).join(", ");
+}
+
+/** "one map fragment", "2 map fragments". */
+const fragmentWords = (n: number) => `${n === 1 ? "one" : n} map fragment${n === 1 ? "" : "s"}`;
+
+/** What walking a route's whole road pays, across the routes that pay:
+ *  "1–3 map fragments", and the routes that add a free pack. Read off
+ *  ROAD_REWARDS, which atlas.test.ts holds equal to expedition_road_reward. */
+function roadRewards(): { fragments: string; packs: string[] } {
+  const paying = TIER_ORDER.filter((tier) => ROAD_REWARDS[tier].fragments > 0).map((tier) => ROAD_REWARDS[tier].fragments);
+  const min = Math.min(...paying);
+  const max = Math.max(...paying);
+  return {
+    fragments: min === max ? fragmentWords(min) : `${min}–${max} map fragments`,
+    packs: TIER_ORDER.filter((tier) => ROAD_REWARDS[tier].comp).map((tier) => EXPEDITION_TIERS[tier].label),
+  };
+}
+
+/** The fragments an expedition pays besides its loot, in one sentence.
+ *  Fragments are not dollars: they open the Legendary route, forge
+ *  policies and reveal roads, and none of them is cashed out. */
+function fragmentRewards(): string {
+  const road = roadRewards();
+  const pack = road.packs.length > 0 ? ` (the ${road.packs.join(" and the ")} adds a free pack)` : "";
+  return `Squads also earn map fragments, which are not dollars: ${fragmentWords(LEAGUE_GOAL_FRAGMENTS)} for everyone who helped when the league's expedition of the week is reached, and ${road.fragments} for reaching every place on a route in one season${pack}.`;
 }
 
 /** Every dollar every camp level costs, and the cheapest and dearest one. */
@@ -181,7 +209,7 @@ export const EARN: LedgerRow[] = [
     key: "expeditions",
     title: "Expeditions",
     figure: expeditionRange(),
-    detail: `Send three cards out on a route and answer the forks. They come home with dollars — and sometimes changed. Along the way a merchant pays ${dollars(MERCHANT_DOLLARS)} for what the squad has found, and carrying home another player's stranded card is worth ${dollars(STRANDED_BOUNTY)}.`,
+    detail: `Send three cards out on a route and answer the forks. They come home with dollars — and sometimes changed. Along the way a merchant pays ${dollars(MERCHANT_DOLLARS)} for what the squad has found, and carrying home another player's stranded card is worth ${dollars(STRANDED_BOUNTY)}. ${fragmentRewards()}`,
     href: "/cards/expeditions",
     linkLabel: "Send a squad",
   },
@@ -279,6 +307,14 @@ export const SPEND: LedgerRow[] = [
     detail: `With a forge built, ${FORGE_FRAGMENTS} map fragments make one free insurance policy: no ${dollars(INSURANCE_FEE)} fee, and it does not use up your policy for the week. Hold up to ${FORGE_HOLD}; ${FORGED_PER_WEEK === 1 ? "one forged launch" : `${FORGED_PER_WEEK} forged launches`} a week.`,
     href: "/cards/expeditions",
     linkLabel: "Visit your camp",
+  },
+  {
+    key: "reveal",
+    title: "Revealing a road",
+    figure: `${REVEAL_FRAGMENTS} map fragment${REVEAL_FRAGMENTS === 1 ? "" : "s"}, no dollars`,
+    detail: `Show a squad in the field every checkpoint left on its road, for ${fragmentWords(REVEAL_FRAGMENTS)}. Once per road: in a convoy, one reveal shows both squads.`,
+    href: "/cards/expeditions",
+    linkLabel: "See your runs",
   },
 ];
 
