@@ -28,7 +28,7 @@
 // to skip the lot — it flips everything face-up and jumps to the summary,
 // because a user who doesn't want the theater has still bought the cards.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { cardArtUrls, preloadArt } from "@/lib/cards/artUrls";
 import { fmtPoints } from "@/lib/betting/format";
 import type { PlayerCardData } from "@/lib/cards/build";
@@ -42,13 +42,19 @@ import PlayerCard3D from "./PlayerCard3D";
 
 /** One card out of a pack, exactly as openPackAction hands it over. */
 export interface Pull {
-  card: PlayerCardData;
+  /** Standard packs carry a player card; collectible packs render their own face. */
+  card: PlayerCardData | null;
   foil: boolean;
   /** Which parallel — null on a matte pull. */
   foilType: string | null;
   /** This copy pulled autographed — rarer than foil, and stung louder. */
   signed: boolean;
   inventoryId: number;
+  /** Metadata used by non-player collectible packs. */
+  displayName?: string;
+  newKey?: string;
+  backRarity?: RarityClass;
+  renderFace?: ReactNode;
 }
 
 /** openPackAction's return, structurally. The overlay never calls the action
@@ -73,6 +79,7 @@ export type OpenResult =
       variant?: PackVariant;
       openingId?: string | null;
       revealOrder?: number[];
+      preserveOrder?: boolean;
     }
   | { ok: false; error: string };
 
@@ -116,14 +123,19 @@ const STORM_SPARKS = [
 /** Worst → best, so the chase card is the last back in the line. Rarity is
  *  the headline; overall breaks ties inside a class. */
 function byRarityAscending(a: Pull, b: Pull): number {
-  const gap = rarityRank(rarityOf(a.card.tier.key)) - rarityRank(rarityOf(b.card.tier.key));
-  return gap !== 0 ? gap : a.card.overall - b.card.overall;
+  const gap = rarityRank(pullRarity(a)) - rarityRank(pullRarity(b));
+  return gap !== 0 ? gap : (a.card?.overall ?? 0) - (b.card?.overall ?? 0);
+}
+
+function pullRarity(pull: Pull): RarityClass {
+  return pull.backRarity ?? (pull.card ? rarityOf(pull.card.tier.key) : "common");
 }
 
 /** God Packs carry a server-owned order. Ordinary packs keep the familiar
  *  worst-to-best contact sheet, but an event pack must reveal in its persisted
  *  1–3 / Cracked Ice / finale sequence. */
-function orderPulls(pulls: Pull[], variant: PackVariant | undefined, revealOrder: number[] | undefined): Pull[] {
+function orderPulls(pulls: Pull[], variant: PackVariant | undefined, revealOrder: number[] | undefined, preserveOrder = false): Pull[] {
+  if (preserveOrder) return [...pulls];
   if (variant === "god" && revealOrder && revealOrder.length === pulls.length) {
     const byId = new Map(pulls.map((pull) => [pull.inventoryId, pull]));
     const ordered = revealOrder.map((id) => byId.get(id)).filter((pull): pull is Pull => Boolean(pull));
@@ -134,7 +146,7 @@ function orderPulls(pulls: Pull[], variant: PackVariant | undefined, revealOrder
 
 /** This copy printed in something other than the player's base splash. */
 function isAltArt(pull: Pull): boolean {
-  return (pull.card.artSkin ?? 0) > 0;
+  return Boolean(pull.card && (pull.card.artSkin ?? 0) > 0);
 }
 
 /**
@@ -145,6 +157,7 @@ function isAltArt(pull: Pull): boolean {
  * the same card, which is why that pair qualifies and neither half does.
  */
 function walkoutLabels(pull: Pull): string[] {
+  if (!pull.card) return [];
   const rarity = rarityOf(pull.card.tier.key);
   const labels: string[] = [];
   if (rarity === "legendary") labels.push("👑 LEGENDARY");
@@ -168,8 +181,9 @@ function walkoutLabels(pull: Pull): string[] {
 function markNew(pulls: Pull[], owned: Set<string>): { flags: boolean[]; seen: Set<string> } {
   const seen = new Set(owned);
   const flags = pulls.map((pull) => {
-    if (seen.has(pull.card.slug)) return false;
-    seen.add(pull.card.slug);
+    const key = pull.newKey ?? pull.card?.slug;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
     return true;
   });
   return { flags, seen };
@@ -274,8 +288,12 @@ export default function PackOpening({
   variant: initialVariant = "standard",
   openingId: initialOpeningId = null,
   revealOrder: initialRevealOrder = [],
+  preserveOrder: initialPreserveOrder = false,
   autoDustProtected: initialAutoDustProtected = false,
   diagnosticStartedAt = null,
+  packLabel = "Pack",
+  packValue,
+  summaryNote,
   preview = false,
 }: {
   /** The pack that's just been paid for. God Packs use the persisted order. */
@@ -308,9 +326,15 @@ export default function PackOpening({
   variant?: PackVariant;
   openingId?: string | null;
   revealOrder?: number[];
+  /** Keep a server-defined order for event packs instead of sorting by rarity. */
+  preserveOrder?: boolean;
   autoDustProtected?: boolean;
   /** Local diagnostic timestamp from the click that bought this pack. */
   diagnosticStartedAt?: number | null;
+  /** Optional presentation overrides for non-player collectible packs. */
+  packLabel?: string;
+  packValue?: number | null;
+  summaryNote?: string;
   /** Admin fixture mode: no wallet controls or production actions. */
   preview?: boolean;
 }) {
@@ -318,7 +342,7 @@ export default function PackOpening({
   // re-deciding mid-ritual whether to have a ritual is worse than either
   // answer. Same call PackRip makes, so the two can't disagree.
   const [reduced] = useState(prefersReducedMotion);
-  const initialPulls = orderPulls(firstPack, initialVariant, initialRevealOrder);
+  const initialPulls = orderPulls(firstPack, initialVariant, initialRevealOrder, initialPreserveOrder);
 
   // One state object for everything that turns over together when a new pack
   // arrives — the pulls, their NEW flags, and the running set of slugs the
@@ -334,6 +358,7 @@ export default function PackOpening({
       variant: initialVariant,
       openingId: initialOpeningId,
       revealOrder: initialRevealOrder,
+      preserveOrder: initialPreserveOrder,
       autoDustProtected: initialAutoDustProtected,
     };
   });
@@ -408,7 +433,7 @@ export default function PackOpening({
   // animation — the slowest-feeling part of opening a pack was the part
   // that had already finished.
   useEffect(() => {
-    preloadArt(pack.pulls.flatMap((pull) => cardArtUrls(pull.card)));
+    preloadArt(pack.pulls.flatMap((pull) => (pull.card ? cardArtUrls(pull.card) : [])));
   }, [pack.pulls]);
 
   useEffect(() => {
@@ -425,7 +450,7 @@ export default function PackOpening({
   const isGodPack = pack.variant === "god";
   // Sorted worst→best, so the chase card is the last one — and the room's
   // color is read off it, the same thing the sealed pack was already leaking.
-  const bestRarity: RarityClass = count > 0 ? rarityOf(pack.pulls[count - 1].card.tier.key) : "common";
+  const bestRarity: RarityClass = count > 0 ? pullRarity(pack.pulls[count - 1]) : "common";
   const hasSigned = pack.pulls.some((pull) => pull.signed);
   const sealed = phase === "drop" || phase === "rip";
 
@@ -488,10 +513,10 @@ export default function PackOpening({
   const notePull = useCallback((pull: Pull) => {
     setBestPull((previous) => {
       if (!previous) return pull;
-      const before = rarityRank(rarityOf(previous.card.tier.key));
-      const after = rarityRank(rarityOf(pull.card.tier.key));
+      const before = rarityRank(pullRarity(previous));
+      const after = rarityRank(pullRarity(pull));
       if (after > before) return pull;
-      if (after === before && pull.card.overall > previous.card.overall) return pull;
+      if (after === before && (pull.card?.overall ?? 0) > (previous.card?.overall ?? 0)) return pull;
       return previous;
     });
   }, []);
@@ -509,7 +534,7 @@ export default function PackOpening({
 
       const pull = pack.pulls[index];
       if (!pull) return;
-      const rarity = rarityOf(pull.card.tier.key);
+      const rarity = pullRarity(pull);
       if (!mutedRef.current) flipTone(rarityRank(rarity));
       const godFinale = pack.variant === "god" && index === pack.pulls.length - 1;
       if (walkoutLabels(pull).length === 0 && !godFinale) return;
@@ -553,7 +578,7 @@ export default function PackOpening({
     const pull = pack.pulls[activeWalkout];
     if (!pull) return;
     if (isGodPack && activeWalkout === count - 1) godPackFinaleSting(pull.signed);
-    else walkoutSting(rarityOf(pull.card.tier.key), pull.signed);
+    else walkoutSting(pullRarity(pull), pull.signed);
   }, [activeWalkout, count, isGodPack, pack.pulls]);
 
   // "Flip all" turns the rest one at a time rather than all at once, and
@@ -610,7 +635,7 @@ export default function PackOpening({
       return;
     }
     const variant = result.variant ?? "standard";
-    const pulls = orderPulls(result.cards, variant, result.revealOrder);
+    const pulls = orderPulls(result.cards, variant, result.revealOrder, result.preserveOrder ?? pack.preserveOrder);
     const marked = markNew(pulls, pack.seen);
     const blank = pulls.map(() => false);
     flippedRef.current = blank;
@@ -623,6 +648,7 @@ export default function PackOpening({
       variant,
       openingId: result.openingId ?? null,
       revealOrder: result.revealOrder ?? pulls.map((pull) => pull.inventoryId),
+      preserveOrder: result.preserveOrder ?? pack.preserveOrder,
       autoDustProtected: result.autoDustProtected === true,
     });
     setFlipped(blank);
@@ -646,7 +672,7 @@ export default function PackOpening({
   function togglePick(inventoryId: number) {
     if (dustedIds.has(inventoryId)) return;
     // A one-of-one is never in the dust set, whatever was tapped.
-    if (pack.pulls.some((pull) => pull.inventoryId === inventoryId && !canDust(pull))) return;
+    if (pack.pulls.some((pull) => pull.inventoryId === inventoryId && pull.card && !canDust(pull))) return;
     setSellError(null);
     // A changed selection un-arms: the confirm you are about to give must
     // belong to the set currently on screen.
@@ -669,7 +695,7 @@ export default function PackOpening({
     if (!onSellPack || selling) return;
     const ids =
       mode === "all"
-        ? pack.pulls.filter((pull) => canDust(pull)).map((pull) => pull.inventoryId).filter((id) => !dustedIds.has(id))
+        ? pack.pulls.filter((pull) => pull.card && canDust(pull)).map((pull) => pull.inventoryId).filter((id) => !dustedIds.has(id))
         : [...picked];
     if (ids.length === 0) return;
 
@@ -719,7 +745,8 @@ export default function PackOpening({
    *  relic. Priced on the client only to LABEL the button — the action
    *  re-derives every value server-side from the row's own columns. */
   const dustValueOfPull = (pull: Pull): number =>
-    patronDustValue(
+    pull.card
+      ? patronDustValue(
       {
         tier: pull.card.tier.key,
         foil: pull.foil,
@@ -731,7 +758,8 @@ export default function PackOpening({
         secret: Boolean(pull.card.secret),
       },
       patron,
-    );
+      )
+      : 0;
 
   const dustTotal = pack.pulls.reduce((sum, pull) => sum + dustValueOfPull(pull), 0);
   /** What is still on the stage, and what the two buttons are worth. */
@@ -767,7 +795,7 @@ export default function PackOpening({
 
       <div className="relative z-10 flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <span className="label-dash">
-          Pack {sessionCount} · {fmtPoints(balance)}
+          {packLabel} {sessionCount} · {fmtPoints(balance)}
         </span>
         <div className="flex items-center gap-2">
           <button
@@ -801,7 +829,7 @@ export default function PackOpening({
               godPack={isGodPack}
               // The wrapper knows what it holds: a Faceless Pack prints the
               // drop's markings instead of the five-cards-one-rare promise.
-              champions={pack.pulls.some((pull) => Boolean(pull.card.champWin))}
+              champions={pack.pulls.some((pull) => Boolean(pull.card?.champWin))}
               muted={muted}
               onOpened={handleOpened}
               onProgress={handleProgress}
@@ -813,7 +841,7 @@ export default function PackOpening({
               {pack.pulls.map((pull, index) => {
                 // Phones show one card; the summary still lays them all out.
                 if (solo && index !== soloIndex) return null;
-                const rarity = rarityOf(pull.card.tier.key);
+                const rarity = pullRarity(pull);
                 const face = flipped[index];
                 // A lone card has nothing to fan against, so it sits straight.
                 const straight = view === "summary" || solo;
@@ -861,13 +889,15 @@ export default function PackOpening({
                               {/* gyro on the phone reveal: this is the card
                                   being looked at, and on a phone it is the
                                   only one on screen. */}
-                              <PlayerCard3D
-                                card={pull.card}
-                                gyro={solo}
-                                forceFoil={pull.foil}
-                                foilType={pull.foilType}
-                                flame={flame}
-                              />
+                              {pull.renderFace ?? (pull.card ? (
+                                <PlayerCard3D
+                                  card={pull.card}
+                                  gyro={solo}
+                                  forceFoil={pull.foil}
+                                  foilType={pull.foilType}
+                                  flame={flame}
+                                />
+                              ) : null)}
                             </div>
                           ) : null}
                         </div>
@@ -875,7 +905,7 @@ export default function PackOpening({
                     </div>
                     {face ? (
                       <div className="flex max-w-[13rem] flex-wrap items-center justify-center gap-1 text-center">
-                        <span className="w-full truncate text-xs font-semibold text-white">{pull.card.name}</span>
+                        <span className="w-full truncate text-xs font-semibold text-white">{pull.card?.name ?? pull.displayName ?? "Collectible"}</span>
                         {pack.isNew[index] ? (
                           <span className="rounded-full border border-mint bg-mint/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-mint">
                             New
@@ -905,7 +935,7 @@ export default function PackOpening({
                             Alt
                           </span>
                         ) : null}
-                        {pull.card.shiny ? (
+                        {pull.card?.shiny ? (
                           <span
                             title="Shiny — the art in the wrong colours"
                             className="rounded-full border border-[#ff9be7]/60 bg-[#ff9be7]/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-[#ffd1f3]"
@@ -913,7 +943,7 @@ export default function PackOpening({
                             Shiny
                           </span>
                         ) : null}
-                        {pull.card.secret ? (
+                        {pull.card?.secret ? (
                           <span
                             title={`Secret — numbered past the checklist, #${pull.card.secret.number}/${pull.card.secret.of}`}
                             className="rounded-full border border-gold bg-gold/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-gold"
@@ -921,7 +951,7 @@ export default function PackOpening({
                             Secret
                           </span>
                         ) : null}
-                        {pull.card.stattrak ? (
+                        {pull.card?.stattrak ? (
                           <span
                             title="StatTrak — counts the fantasy points it scores for you"
                             className="rounded-full border border-[#ff8a2a]/60 bg-[#ff8a2a]/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-[#ff8a2a]"
@@ -1012,10 +1042,12 @@ export default function PackOpening({
               <span className="text-sm font-semibold text-white">Five guaranteed special foils</span>
             </div>
           ) : null}
-          <div className="flex flex-col">
-            <span className="label-dash">Pack value</span>
-            <span className="text-lg font-bold text-gold">{fmtPoints(dustTotal)}</span>
-          </div>
+          {packValue !== null ? (
+            <div className="flex flex-col">
+              <span className="label-dash">Pack value</span>
+              <span className="text-lg font-bold text-gold">{fmtPoints(packValue === undefined ? dustTotal : packValue)}</span>
+            </div>
+          ) : null}
           <div className="flex flex-col">
             <span className="label-dash">New cards</span>
             <span className="text-lg font-bold text-white">
@@ -1034,9 +1066,10 @@ export default function PackOpening({
           </div>
           {bestPull ? (
             <span className="rounded-full border border-gold/50 bg-gold/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-gold">
-              ★ Best pull · {bestPull.card.name}
+              ★ Best pull · {bestPull.card?.name ?? bestPull.displayName ?? "Collectible"}
             </span>
           ) : null}
+          {summaryNote ? <span className="rounded-full border border-gold/50 bg-gold/10 px-3 py-1 text-xs font-semibold text-gold">{summaryNote}</span> : null}
 
           <div className="ml-auto flex flex-wrap items-center gap-3">
             {error ? (
@@ -1120,7 +1153,7 @@ export default function PackOpening({
 
       {walkoutPull ? (
         <div
-          className={`pack-walkout ${RARITY_GLOW[rarityOf(walkoutPull.card.tier.key)]} ${isGodPack && activeWalkout === count - 1 ? "god-pack-finale" : ""}`}
+          className={`pack-walkout ${RARITY_GLOW[pullRarity(walkoutPull)]} ${isGodPack && activeWalkout === count - 1 ? "god-pack-finale" : ""}`}
           onClick={dismissWalkout}
           role="presentation"
         >
@@ -1149,7 +1182,7 @@ export default function PackOpening({
               backdrop — the walkout is dismissed by its own button or by the
               space around it. */}
           <div className="pack-walkout-card" onClick={(event) => event.stopPropagation()} role="presentation">
-            <PlayerCard3D card={walkoutPull.card} bloom gyro forceFoil={walkoutPull.foil} foilType={walkoutPull.foilType} flame={flame} />
+            {walkoutPull.card ? <PlayerCard3D card={walkoutPull.card} bloom gyro forceFoil={walkoutPull.foil} foilType={walkoutPull.foilType} flame={flame} /> : walkoutPull.renderFace}
           </div>
           <button
             type="button"

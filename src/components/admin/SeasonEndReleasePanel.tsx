@@ -23,17 +23,27 @@ export default function SeasonEndReleasePanel({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [reportJson, setReportJson] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
   const run = (task: () => Promise<{ ok: boolean; error?: string }>) => startTransition(async () => {
-    const result = await task();
-    if (!result.ok) window.alert(result.error ?? "The release action failed.");
-    else router.refresh();
+    setActionError(null);
+    try {
+      const result = await task();
+      if (!result.ok) {
+        setActionError(result.error ?? "The release action failed.");
+        return;
+      }
+      router.refresh();
+    } catch (error) {
+      console.error("season-end: release action failed", error);
+      setActionError(error instanceof Error ? error.message : "The release action failed. Refresh and try again.");
+    }
   });
   const recordReport = () => {
     let report: Record<string, unknown>;
     try {
       report = JSON.parse(reportJson) as Record<string, unknown>;
     } catch {
-      window.alert("Paste a valid JSON report first.");
+      setActionError("Paste a valid JSON report first.");
       return;
     }
     const reportDigest = typeof report.reportDigest === "string" ? report.reportDigest : "";
@@ -50,6 +60,7 @@ export default function SeasonEndReleasePanel({
         </div>
         {release ? <span className="rounded-full border border-gold/60 px-3 py-1 text-xs font-bold uppercase tracking-[.14em] text-gold">{release.state}{release.paused ? " · paused" : ""}</span> : null}
       </div>
+      {actionError ? <p role="alert" aria-live="polite" className="border border-coral/50 bg-coral/5 p-3 text-sm text-coral">{actionError}</p> : null}
       {!release ? (
         <button type="button" disabled={pending} onClick={() => run(() => createSeasonEndDraftAction({ league, season }))} className="w-fit rounded border border-gold px-4 py-2 text-sm text-gold disabled:opacity-50">{pending ? "Building catalog…" : "Build draft catalog"}</button>
       ) : (
@@ -85,7 +96,7 @@ export default function SeasonEndReleasePanel({
             {release.state !== "draft" ? <button type="button" disabled={pending} onClick={() => run(() => pauseSeasonEndReleaseAction({ releaseId: release.id, paused: !release.paused }))} className="rounded border border-line px-3 py-2 text-xs text-steel hover:border-coral hover:text-coral">{release.paused ? "Resume purchases" : "Pause purchases"}</button> : null}
           </div>
           {release.state === "admin_test" ? <section className="rounded border border-line bg-panel/50 p-3"><label className="text-xs uppercase tracking-[.14em] text-steel">Verification report JSON <textarea value={reportJson} onChange={(event) => setReportJson(event.target.value)} placeholder='Paste the simulator report with reportDigest, acceptance, and exact-revision opening evidence.' className="mt-2 min-h-32 w-full rounded border border-line bg-panel p-2 font-mono text-[11px] text-white" /></label><button type="button" disabled={pending || !reportJson.trim()} onClick={recordReport} className="mt-2 rounded border border-gold px-3 py-2 text-xs text-gold disabled:opacity-50">Record report for this revision</button></section> : null}
-          {release.state === "admin_test" && catalog ? <SeasonEndPackShop key={`${release.id}:${viewerId ?? "signed-out"}:admin_test`} league={league} season={season} release={release} catalog={catalog} adminTest viewerId={viewerId} /> : null}
+          {release.state === "admin_test" && catalog ? <SeasonEndPackShop key={`${release.id}:${viewerId ?? "signed-out"}:admin_test`} league={league} season={season} release={release} adminTest viewerId={viewerId} /> : null}
         </>
       )}
     </section>

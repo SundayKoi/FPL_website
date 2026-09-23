@@ -96,14 +96,14 @@ function displayUnit(design: AccoladeCollectible, award: SeasonAward): string {
   return award.scope === "pair" ? "Duo Impact" : award.unit ?? "";
 }
 
-function FrozenBestOf({ pull, design }: { pull: SeasonEndPullResult; design: Extract<SeasonEndCollectible, { kind: "best_of" }> }) {
+function FrozenBestOf({ pull, design, compact, showDescription }: { pull: SeasonEndPullResult; design: Extract<SeasonEndCollectible, { kind: "best_of" }>; compact: boolean; showDescription: boolean }) {
   const winner = bestOfWinner(design);
   const award = awardForDesign(design);
   const crop = design.artwork.kind === "single"
     ? { cropPositionX: design.artwork.cropPositionX, cropPositionY: design.artwork.cropPositionY, zoom: design.artwork.zoom }
     : null;
   return (
-    <div data-testid="season-end-best_of-renderer" data-foil={pull.foil ? "true" : "false"} data-foil-type={pull.foil ? pull.foilType ?? "foil" : "matte"} aria-label={`${design.display.title}. Finish: ${pull.foil ? pull.foilType ?? "foil" : "matte"}`}>
+    <div className={`${styles.collectible} ${compact ? styles.compact : ""}`} data-testid="season-end-best_of-renderer" data-card-format="standard" data-compact={compact ? "true" : "false"} data-foil={pull.foil ? "true" : "false"} data-foil-type={pull.foil ? pull.foilType ?? "foil" : "matte"} aria-label={`${design.display.title}. Finish: ${pull.foil ? pull.foilType ?? "foil" : "matte"}`}>
       <BestOfChampionCard
         award={award}
         winner={winner}
@@ -118,20 +118,23 @@ function FrozenBestOf({ pull, design }: { pull: SeasonEndPullResult; design: Ext
         crop={crop}
         displayOverride={{ headline: design.display.headline, evidence: design.display.evidence }}
         showAdminDetails={false}
+        showDescription={showDescription}
       />
     </div>
   );
 }
 
-function FrozenAccolade({ pull, design }: { pull: SeasonEndPullResult; design: AccoladeCollectible }) {
+function FrozenAccolade({ pull, design, compact }: { pull: SeasonEndPullResult; design: AccoladeCollectible; compact: boolean }) {
   const award = awardForDesign(design);
   const unit = displayUnit(design, award);
   const duo = design.source.scope === "pair";
   return (
     <article
       aria-labelledby={titleId(design.designId)}
-      className={awardStyles.card}
+      className={`${awardStyles.card} ${styles.collectible} ${compact ? styles.compact : ""}`}
       data-testid="season-end-accolade-renderer"
+      data-card-format="standard"
+      data-compact={compact ? "true" : "false"}
       data-foil={pull.foil ? "true" : "false"}
       data-foil-type={pull.foil ? pull.foilType ?? "foil" : "matte"}
     >
@@ -167,19 +170,21 @@ function FrozenAccolade({ pull, design }: { pull: SeasonEndPullResult; design: A
   );
 }
 
-export default function CollectibleRenderer({ pull, compact = false }: { pull: SeasonEndPullResult; compact?: boolean }) {
+export default function CollectibleRenderer({ pull, compact = false, showBestOfDescription = true }: { pull: SeasonEndPullResult; compact?: boolean; showBestOfDescription?: boolean }) {
   if (pull.design.kind === "season") {
     return (
-      <div className={compact ? styles.compact : ""} data-testid="season-end-season-renderer">
+      <div className={`${styles.collectible} ${compact ? styles.compact : ""}`} data-testid="season-end-season-renderer" data-card-format="standard" data-compact={compact ? "true" : "false"}>
         <PlayerCard3D
           card={{ ...pull.design.card, autograph: pull.autograph }}
           forceFoil={pull.foil}
           foilType={pull.foilType}
+          edition="season"
           interactive={false}
+          className={styles.fluidCard}
         />
       </div>
     );
   }
-  if (pull.design.kind === "best_of") return <FrozenBestOf pull={pull} design={pull.design} />;
-  return <FrozenAccolade pull={pull} design={pull.design} />;
+  if (pull.design.kind === "best_of") return <FrozenBestOf pull={pull} design={pull.design} compact={compact} showDescription={showBestOfDescription} />;
+  return <FrozenAccolade pull={pull} design={pull.design} compact={compact} />;
 }

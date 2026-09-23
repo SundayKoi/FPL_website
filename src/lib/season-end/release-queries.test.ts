@@ -19,7 +19,7 @@ const release = {
 };
 
 describe("fetchSeasonEndRecovery", () => {
-  it("scopes the opening before recency and prefers pending over refunded", async () => {
+  it("scopes the pending opening before recency", async () => {
     const log: SupabaseFilterCall[] = [];
     const from = makeSupabaseFrom({
       season_end_releases: [
@@ -43,5 +43,18 @@ describe("fetchSeasonEndRecovery", () => {
     expect(openingScope?.args).toEqual(["release_id", [release.id, "00000000-0000-0000-0000-000000000202"]]);
     const statuses = log.filter((call) => call.table === "season_end_openings" && call.method === "eq" && call.args[0] === "status");
     expect(statuses).toEqual([{ table: "season_end_openings", method: "eq", args: ["status", "pending"] }]);
+  });
+
+  it("does not route a terminal refund back into recovery", async () => {
+    const log: SupabaseFilterCall[] = [];
+    const from = makeSupabaseFrom({
+      season_end_releases: [{ data: [{ id: release.id }] }],
+      season_end_openings: [{ data: null }],
+    }, log);
+
+    await expect(fetchSeasonEndRecovery({ from } as unknown as SupabaseClient, "collector", "premier")).resolves.toBeNull();
+    expect(log.filter((call) => call.table === "season_end_openings" && call.method === "eq" && call.args[0] === "status")).toEqual([
+      { table: "season_end_openings", method: "eq", args: ["status", "pending"] },
+    ]);
   });
 });

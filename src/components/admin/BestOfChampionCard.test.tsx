@@ -258,6 +258,23 @@ describe("BestOfChampionCard", () => {
     expect(screen.queryByText("☾")).toBeNull();
   });
 
+  it("keeps the aligned frame and face in the standard released-card format", () => {
+    render(
+      <BestOfChampionCard
+        award={award({ winners: [winner()] })}
+        winner={winner()}
+        season="S5"
+        league="premier"
+        headingId="best-of-standard-format"
+      />,
+    );
+
+    const ornament = screen.getByTestId("best-of-card-ornament");
+    expect(ornament.getAttribute("viewBox")).toBe("0 0 350 490");
+    expect(ornament.querySelectorAll("rect")).toHaveLength(2);
+    expect(ornament.parentElement?.getAttribute("data-card-format")).toBe("standard");
+  });
+
   it("keeps a crop override local to the rendered card", () => {
     render(
       <BestOfChampionCard

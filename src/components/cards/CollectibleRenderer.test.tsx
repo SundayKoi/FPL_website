@@ -1,7 +1,32 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { AccoladeCollectible, BestOfCollectible } from "@/lib/season-end/collectibles";
+import type { AccoladeCollectible, BestOfCollectible, SeasonCollectible } from "@/lib/season-end/collectibles";
+import { sampleCard } from "@/lib/cards/samples";
 import CollectibleRenderer from "./CollectibleRenderer";
+
+const seasonCard: SeasonCollectible = {
+  designId: "se-release-premier-s5-season-card-alice",
+  releaseId: "release",
+  league: "premier",
+  season: "S5",
+  division: null,
+  schemaVersion: 1,
+  artwork: { kind: "fallback", label: "Season's End" },
+  display: {
+    title: "Card of the Season",
+    subtitle: "Cumulative Season Card",
+    description: "A frozen cumulative card.",
+    headline: "99 OVR",
+    evidence: "99 games",
+  },
+  evidence: { source: "cumulative-season-card", games: 99 },
+  baseSalvage: 20,
+  kind: "season",
+  player: { key: "alice#na1", name: "Alice", tag: "NA1", slug: "alice-na1" },
+  card: { ...sampleCard(), name: "Alice", standout: true },
+  signatureEligible: true,
+  source: { kind: "cumulative-season-card", games: 99 },
+};
 
 const bestOf: BestOfCollectible = {
   designId: "se-release-premier-s5-best-of-champion-alice-azir-solari",
@@ -67,6 +92,14 @@ const accolade: AccoladeCollectible = {
 };
 
 describe("CollectibleRenderer", () => {
+  it("labels a standout Season Card as role of the Season", () => {
+    render(<CollectibleRenderer pull={{ design: seasonCard, foil: false, foilType: null, signed: false, autograph: null, guaranteedFoil: false, inventoryId: 4 }} />);
+
+    expect(screen.getByTestId("season-end-season-renderer")).toBeTruthy();
+    expect(screen.getByText("★ Mid of the Season ★")).toBeTruthy();
+    expect(screen.queryByText("★ Mid of the Week ★")).toBeNull();
+  });
+
   it("uses the preview Best Of face for a frozen pack pull", () => {
     render(<CollectibleRenderer pull={{ design: bestOf, foil: true, foilType: "prisma", signed: false, autograph: null, guaranteedFoil: true, inventoryId: 1 }} />);
 
@@ -74,17 +107,29 @@ describe("CollectibleRenderer", () => {
     expect(screen.getByTestId("best-of-card-art").getAttribute("style")).toContain("Azir_0.jpg");
     expect(screen.getByText("Alice")).toBeTruthy();
     expect(screen.getByText("S5 Premier")).toBeTruthy();
-    expect(screen.getByTestId("season-end-best_of-renderer").querySelector(".collectible")).toBeNull();
+    expect(screen.getByTestId("season-end-best_of-renderer").getAttribute("data-card-format")).toBe("standard");
   });
 
   it("uses the preview accolade face and frozen display values", () => {
     render(<CollectibleRenderer pull={{ design: accolade, foil: false, foilType: null, signed: false, autograph: null, guaranteedFoil: false, inventoryId: 2 }} />);
 
     expect(screen.getByTestId("award-card-face")).toBeTruthy();
+    expect(screen.getByTestId("season-end-accolade-renderer").getAttribute("data-card-format")).toBe("standard");
     expect(screen.getByTestId("award-card-art").querySelector("img")?.getAttribute("src")).toContain("Ahri_0.jpg");
     expect(screen.getByText("Record breakers")).toBeTruthy();
     expect(screen.getByText("kills/game")).toBeTruthy();
     expect(screen.getByLabelText("Solari division")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Body Count" })).toBeTruthy();
+  });
+
+  it.each([
+    ["Best Of", bestOf],
+    ["Accolade", accolade],
+  ] as const)("applies the shared compact storage treatment to %s cards", (_label, design) => {
+    render(<CollectibleRenderer compact pull={{ design, foil: false, foilType: null, signed: false, autograph: null, guaranteedFoil: false, inventoryId: 3 }} />);
+
+    const renderer = screen.getByTestId(`season-end-${design.kind}-renderer`);
+    expect(renderer.getAttribute("data-card-format")).toBe("standard");
+    expect(renderer.getAttribute("data-compact")).toBe("true");
   });
 });

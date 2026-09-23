@@ -19,6 +19,7 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { measureStandardSignatureReference, type StandardSignatureReferencePool, type StandardSignatureReferenceSubstitutions } from "./calibration";
 import { buildSeasonEndSigningBook, validateSeasonEndEconomy, validateSeasonEndReleaseRules } from "./release";
 import { fetchAllPages } from "@/lib/supabase/pagination";
+import { formatSeasonEndCatalogActionError, seasonEndSourceReadinessError } from "./errors";
 
 type ActionResult = { ok: true; releaseId?: string } | { ok: false; error: string };
 
@@ -30,13 +31,19 @@ async function requireStaff(): Promise<{ id: string } | null> {
   return user ? { id: user.discordId } : null;
 }
 
-async function buildCatalog(releaseId: string, league: CardLeague, season: string) {
+async function buildCatalog(releaseId: string, league: CardLeague, season: string, operation: "build" | "rebuild") {
   const service = createBettingServiceClient();
-  const [result, cards, teamIdentities] = await Promise.all([
+  const [result, cards] = await Promise.all([
     loadSeasonEnd(service, league, season),
     fetchSeasonCards(service, season, { strictSource: true }),
-    loadSeasonEndTeamIdentities(service, league, season, { strictSource: true }),
   ]);
+  const sourceError = seasonEndSourceReadinessError(league, season, {
+    games: result.games,
+    players: result.players,
+    cards: cards.length,
+  }, operation);
+  if (sourceError) throw new Error(sourceError);
+  const teamIdentities = await loadSeasonEndTeamIdentities(service, league, season, { strictSource: true });
   return { catalog: buildDraftSeasonEndCatalog({ releaseId, league, season, result, seasonCards: cards, teamIdentities }), cards };
 }
 
@@ -49,7 +56,7 @@ async function persistCatalog(
   const service = createBettingServiceClient();
   const catalog = built.catalog;
   const validation = validateSeasonEndCatalogForLock(catalog);
-  if (!validation.ok) return { ok: false as const, error: validation.errors.join(" ") };
+  if (!validation.ok) return { ok: false as const, error: `Catalog validation failed: ${validation.errors.join(" ")}` };
   // Season's End eligibility remains season-scoped. The ordinary-pack
   // calibration below deliberately uses a separate cross-season book because
   // that is what the production standard opener uses.
@@ -225,12 +232,12 @@ export async function createSeasonEndDraftAction(input: { league: CardLeague; se
   });
   if (error) return { ok: false, error: "Could not create the release draft." };
   try {
-    const built = await buildCatalog(releaseId, input.league, input.season);
+    const built = await buildCatalog(releaseId, input.league, input.season, "build");
     const saved = await persistCatalog(releaseId, built, "", actor.id);
     if (!saved.ok) return saved;
   } catch (caught) {
     console.error("season-end: build draft failed", caught);
-    return { ok: false, error: "The draft catalog could not be assembled completely." };
+    return { ok: false, error: formatSeasonEndCatalogActionError(caught, "build", input.season) };
   }
   revalidatePath("/admin/seasons-end");
   return { ok: true, releaseId };
@@ -246,12 +253,12 @@ export async function rebuildSeasonEndDraftAction(releaseId: string): Promise<Ac
   if (row.state === "public") return { ok: false, error: "Published releases are immutable; create a new revision." };
   if (row.state === "admin_test") return createSeasonEndDraftAction({ league: row.league, season: row.season });
   try {
-    const built = await buildCatalog(releaseId, row.league, row.season);
+    const built = await buildCatalog(releaseId, row.league, row.season, "rebuild");
     const saved = await persistCatalog(releaseId, built, row.catalog_hash, actor.id);
     if (!saved.ok) return saved;
   } catch (caught) {
     console.error("season-end: rebuild failed", caught);
-    return { ok: false, error: "The draft catalog could not be assembled completely." };
+    return { ok: false, error: formatSeasonEndCatalogActionError(caught, "rebuild", row.season) };
   }
   revalidatePath("/admin/seasons-end");
   return { ok: true, releaseId };

@@ -120,7 +120,7 @@ manually visited.
 **The cards section** (`/cards/*`, mirrored under `/academy/cards/*`) is laid
 out by one map, `src/lib/cards/sections.ts`: six tabs — Home, My Collection,
 Packs, Browse, Market, Play — the last three with sub-tabs (Team cards,
-Compare, Moments, the Vault under Browse; Listings & bounties and Trade
+Compare, Moments, Season's End, the Vault under Browse; Listings & bounties and Trade
 offers under Market; Fantasy, Expeditions, The ledger and Weekly Draw
 under Play). `CardsTabs` renders that map on every cards page from the two
 `layout.tsx` files, marks the current tab and sub-tab from the pathname, and
@@ -129,10 +129,17 @@ keeps the same page across leagues — every cards page exists under both). Page
 toggles. Every old URL still resolves; the map decides which tab it lights.
 A page the map does not list (`/cards/claims`, a redirect) lights nothing.
 
+My Collection has a local Weekly cards / Season's End selector. The weekly
+shelf, roster sets, and binder use `card_inventory`; the Season's End view
+shows the signed-in collector's active public copies from every published
+release in that league, grouped by release. The public Season's End checklist
+remains under Browse.
+
 Browse is public. Every page under the Browse tab (all cards, team cards,
-Compare, Moments, the Vault) and the per-card share pages render without
-a session: everything they read carries an `anon` select grant, and
-nothing on them claims, customises, buys, trades or fields a card. The
+Compare, Moments, Season's End, the Vault) and the per-card share pages render without
+a session: ordinary cards use public reads, while Season's End shows only
+published, verified release designs through its trusted server reader.
+Nothing on these pages claims, customises, buys, trades or fields a card. The
 premium gate stays on Home, My Collection, Packs, Market and Play, and
 `CardsGate` now offers the signed-out visitor the Browse door.
 
@@ -1656,9 +1663,13 @@ and records the ownership transition. Listings and trades pin an ownership
 version, so a promise becomes stale even if a copy later returns to the same
 owner. Manual dust locks the copy, calculates the pinned economy quote, credits
 one ledger entry, cancels conflicting commerce, marks the copy `dusted`, and
-appends provenance without deleting the frozen payload.
-No Season's End copy is accepted by standard-card sets, lineups, expeditions,
-auto-dust, or player-card detail routes.
+appends provenance without deleting the frozen payload. Season's End has its
+own league-scoped auto-dust setting and service-only batch RPC. It keeps the
+oldest active copy of each exact design, foil finish, and signature in each
+release, dusts extra copies through the manual RPC after public openings, and
+can clear existing duplicates from My Collection in batches of 200. The weekly
+auto-dust rule never sees this inventory. No Season's End copy is accepted by
+standard-card sets, lineups, expeditions, or player-card detail routes.
 
 ### Player renames
 

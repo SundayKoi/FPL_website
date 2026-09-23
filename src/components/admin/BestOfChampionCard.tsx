@@ -36,6 +36,8 @@ export interface BestOfChampionCardProps {
   showAdminDetails?: boolean;
   /** Hide the supporting text block when the card is rendered in a compact shelf. */
   showDetails?: boolean;
+  /** Hide the award rules description while keeping the pull record visible. */
+  showDescription?: boolean;
 }
 
 function accountName(winner: AwardWinner | null | undefined, playerCard: PlayerCardData | null | undefined): string | null {
@@ -53,17 +55,16 @@ const CORNER_ENGRAVING = "M14 69V27L27 14H83 M20 57V31L31 20H68 M14 40L40 14 M23
 
 function CelestialFrame() {
   return (
-    <>
-      <span className={styles.frame} aria-hidden="true" />
-      <svg className={styles.ornament} data-testid="best-of-card-ornament" viewBox="0 0 350 490" fill="none" stroke="currentColor" strokeWidth=".9" aria-hidden="true" focusable="false">
-        <path d={CORNER_ENGRAVING} />
-        <path d={CORNER_ENGRAVING} transform="translate(350 0) scale(-1 1)" />
-        <path d={CORNER_ENGRAVING} transform="translate(0 490) scale(1 -1)" />
-        <path d={CORNER_ENGRAVING} transform="translate(350 490) scale(-1 -1)" />
-        <path d="M85 12H150L163 17H187L200 12H265 M154 12L175 7L196 12 M14 130L23 151V206L14 222 M336 130L327 151V206L336 222 M120 475L145 463H162L175 477L188 463H205L230 475 M149 469L175 448L201 469" />
-        <circle cx="175" cy="12" r="3" />
-      </svg>
-    </>
+    <svg className={styles.ornament} data-testid="best-of-card-ornament" viewBox="0 0 350 490" preserveAspectRatio="none" fill="none" stroke="currentColor" strokeWidth="1.15" aria-hidden="true" focusable="false">
+      <rect className={styles.frameOuter} x="7.5" y="7.5" width="335" height="475" rx="10" />
+      <rect className={styles.frameInner} x="13.5" y="13.5" width="323" height="463" rx="6" />
+      <path d={CORNER_ENGRAVING} />
+      <path d={CORNER_ENGRAVING} transform="translate(350 0) scale(-1 1)" />
+      <path d={CORNER_ENGRAVING} transform="translate(0 490) scale(1 -1)" />
+      <path d={CORNER_ENGRAVING} transform="translate(350 490) scale(-1 -1)" />
+      <path d="M85 12H150L163 17H187L200 12H265 M154 12L175 7L196 12 M14 130L23 151V206L14 222 M336 130L327 151V206L336 222 M120 475L145 463H162L175 477L188 463H205L230 475 M149 469L175 448L201 469" />
+      <circle cx="175" cy="12" r="3" />
+    </svg>
   );
 }
 
@@ -84,6 +85,7 @@ export default function BestOfChampionCard({
   displayOverride,
   showAdminDetails = true,
   showDetails = true,
+  showDescription = true,
 }: BestOfChampionCardProps) {
   const champion = winner?.champion ?? playerCard?.signature?.champion ?? null;
   const championLabel = champion ? championDisplayName(champion) : null;
@@ -132,7 +134,7 @@ export default function BestOfChampionCard({
 
   return (
     <article aria-labelledby={headingId} className={`${styles.card} ${winner ? styles.winner : styles.emptyState}`} aria-label={articleLabel} data-foil={foil ? "true" : "false"} data-foil-type={foil ? foilType ?? "foil" : "matte"}>
-      <div className={faceClassName}>
+      <div className={faceClassName} data-card-format="standard">
         <div
           className={styles.art}
           data-testid="best-of-card-art"
@@ -205,7 +207,7 @@ export default function BestOfChampionCard({
               <p className={styles.evidence}>{statusNote}</p>
             </>
           )}
-          <p className={styles.description}>{award.description}</p>
+          {showDescription ? <p className={styles.description}>{award.description}</p> : null}
         </div>
       ) : null}
     </article>

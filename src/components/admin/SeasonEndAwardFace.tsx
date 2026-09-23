@@ -29,7 +29,7 @@ export default function SeasonEndAwardFace({
   result: ReactNode;
 }) {
   return (
-    <div className={styles.face} data-testid="award-card-face" data-foil={foil ? "true" : "false"} data-foil-type={foil ? foilType ?? "foil" : "matte"}>
+    <div className={styles.face} data-testid="award-card-face" data-card-format="standard" data-foil={foil ? "true" : "false"} data-foil-type={foil ? foilType ?? "foil" : "matte"}>
       <div className={styles.artRegion}>
         <AwardArtwork {...artwork} />
         <div className={styles.artShade} aria-hidden="true" />
