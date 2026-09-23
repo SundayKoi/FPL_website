@@ -411,9 +411,10 @@ match-code, draft, betting, and broadcaster references.
 
 `initialize_premier_playoffs` is the only bracket initialization path. It
 requires an admin or owner and verifies that its season and draft still match
-the selected Premier configuration. It resolves every entrant against that
-draft and exact season, verifies the eight frozen seeds and all four opening
-matchups, and creates or updates the four quarterfinal, two semifinal, and one
+the selected Premier configuration. It resolves every entrant through that
+draft and `league_teams` without requiring optional Riot roster memberships.
+It verifies the eight frozen seeds and all four opening matchups, and creates
+or updates the four quarterfinal, two semifinal, and one
 final slots atomically. Re-running initialization preserves already advanced
 teams in later-round placeholders. Existing duplicate slots or changes to a
 fixture with scores, reports, codes, drafts, betting markets, or a featured

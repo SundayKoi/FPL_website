@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(21);
+select plan(22);
 
 select tests.fixture() as playoff_draft \gset
 
@@ -22,20 +22,6 @@ insert into public.league_teams (id, name, abbreviation) values
   ('11000000-0000-0000-0000-000000000007', 'Playoff Team G', 'PTG'),
   ('11000000-0000-0000-0000-000000000008', 'Playoff Team H', 'PTH');
 
-insert into public.riot_accounts (game_name, tag_line)
-select 'Playoff Account ' || n, 'TEST' from generate_series(1, 8) n;
-insert into public.roster_memberships (riot_account_id, season, league_team_id)
-select ra.id, 'S5', lt.id
-from public.riot_accounts ra
-join public.league_teams lt on lt.name = case ra.game_name
-  when 'Playoff Account 1' then 'Team A'
-  when 'Playoff Account 2' then 'Team B'
-  when 'Playoff Account 3' then 'Team C'
-  when 'Playoff Account 4' then 'Team D'
-  else 'Playoff Team ' || chr(64 + right(ra.game_name, 1)::integer)
-end
-where ra.tag_line = 'TEST' and ra.game_name like 'Playoff Account %';
-
 update public.league_settings set current_season = 'S5', featured_draft_id = :'playoff_draft' where id = 1;
 insert into public.profiles (id, display_name) values (tests.cap(9), 'Playoff Bystander')
 on conflict (id) do nothing;
@@ -48,6 +34,8 @@ select ok((select relrowsecurity from pg_class where oid = 'public.premier_playo
 select ok(has_table_privilege('anon', 'public.premier_playoff_config', 'select'), 'anonymous users can read public playoff config');
 select ok(has_table_privilege('anon', 'public.premier_playoff_entrants', 'select'), 'anonymous users can read frozen seeds');
 select ok(not has_table_privilege('anon', 'public.premier_playoff_config', 'insert'), 'anonymous users cannot write playoff config');
+select is((select count(*)::integer from public.roster_memberships where season = 'S5'), 0,
+  'Premier initialization does not require optional Riot roster memberships');
 
 select tests.acting_as(tests.owner_id());
 set local role authenticated;
