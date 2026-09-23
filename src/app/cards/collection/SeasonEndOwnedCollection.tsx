@@ -2,7 +2,10 @@ import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import CollectibleRenderer from "@/components/cards/CollectibleRenderer";
 import SeasonEndDustButton from "@/components/cards/SeasonEndDustButton";
+import SeasonEndAutoDustPanel from "@/components/cards/SeasonEndAutoDustPanel";
 import type { CardLeague } from "@/lib/cards/queries";
+import { seasonEndDuplicateIds } from "@/lib/season-end/autoDust";
+import { fetchSeasonEndAutoDustEnabled } from "@/lib/season-end/autoDustServer";
 import { fetchPublishedSeasonEndReleases, fetchSeasonEndOwnedCopies } from "@/lib/season-end/release-queries";
 
 export default async function SeasonEndOwnedCollection({ service, discordId, league, base }: {
@@ -11,7 +14,10 @@ export default async function SeasonEndOwnedCollection({ service, discordId, lea
   league: CardLeague;
   base: string;
 }) {
-  const releases = await fetchPublishedSeasonEndReleases(service, league);
+  const [releases, autoDustEnabled] = await Promise.all([
+    fetchPublishedSeasonEndReleases(service, league),
+    fetchSeasonEndAutoDustEnabled(service, discordId, league),
+  ]);
   const collections = await Promise.all(releases.map(async (release) => ({
     release,
     copies: await fetchSeasonEndOwnedCopies(service, release.id, discordId),
@@ -20,6 +26,7 @@ export default async function SeasonEndOwnedCollection({ service, discordId, lea
 
   return (
     <section id="season-end-collection" className="flex flex-col gap-6">
+      <SeasonEndAutoDustPanel league={league} initialEnabled={autoDustEnabled} duplicateCount={seasonEndDuplicateIds(collections.flatMap(({ copies }) => copies)).length} />
       <div className="flex flex-wrap items-baseline gap-3">
         <h2 className="type-display text-2xl sm:text-3xl">Your Season&apos;s End cards</h2>
         <Link href={`${base}/season-end`} className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline">Browse the full checklist →</Link>

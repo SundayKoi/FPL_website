@@ -8,6 +8,7 @@ import type { RarityClass } from "@/lib/packs/config";
 import type { SeasonEndRelease } from "@/lib/season-end/release-queries";
 import CollectibleRenderer from "./CollectibleRenderer";
 import PackOpening, { type OpenResult, type Pull } from "./PackOpening";
+import type { AutoDusted } from "./PackOpening";
 
 type PurchaseState = "not_started" | "pending" | "fulfilled" | "refunded";
 
@@ -85,6 +86,7 @@ function openingResult(result: SeasonEndOpenPackResult): OpenResult {
     ok: true,
     cards: result.cards.map(openingPull),
     balance: result.balance,
+    autoDusted: result.autoDusted ?? null,
     openingId: result.openingId,
     revealOrder: result.revealOrder,
     preserveOrder: true,
@@ -114,6 +116,7 @@ export default function SeasonEndPackShop({
   const router = useRouter();
   const [pulls, setPulls] = useState<SeasonEndPullResult[] | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [autoDusted, setAutoDusted] = useState<AutoDusted | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [intent, setIntent] = useState<string | null>(null);
   const [purchaseState, setPurchaseState] = useState<PurchaseState>("not_started");
@@ -140,6 +143,7 @@ export default function SeasonEndPackShop({
       setPurchaseState("fulfilled");
       setPulls(result.cards);
       setBalance(result.balance);
+      setAutoDusted(result.autoDusted ?? null);
       setError(null);
       router.refresh();
       return result;
@@ -190,6 +194,7 @@ export default function SeasonEndPackShop({
     setPurchaseState("not_started");
     setPulls(null);
     setBalance(null);
+    setAutoDusted(null);
     setError(null);
   }
 
@@ -238,18 +243,20 @@ export default function SeasonEndPackShop({
         <PackOpening
           pulls={pulls.map(openingPull)}
           balance={balance ?? 0}
+          autoDusted={autoDusted}
           packCost={release.price}
           ownedSlugs={ownedDesignIds}
           muted={muted}
           preserveOrder
           packLabel="Season&apos;s End pack"
           packValue={null}
-          summaryNote="Guaranteed foil · protected from auto-dust"
+          summaryNote="Guaranteed foil · exact duplicates may auto-dust"
           onOpenAnother={openAnotherFromStage}
           onExit={() => {
             clearIntent(pendingKey, legacyPendingKey);
             activeRequest.current = null;
             setPulls(null);
+            setAutoDusted(null);
             setPurchaseState("not_started");
             setIntent(null);
             router.refresh();

@@ -1602,9 +1602,13 @@ and records the ownership transition. Listings and trades pin an ownership
 version, so a promise becomes stale even if a copy later returns to the same
 owner. Manual dust locks the copy, calculates the pinned economy quote, credits
 one ledger entry, cancels conflicting commerce, marks the copy `dusted`, and
-appends provenance without deleting the frozen payload.
-No Season's End copy is accepted by standard-card sets, lineups, expeditions,
-auto-dust, or player-card detail routes.
+appends provenance without deleting the frozen payload. Season's End has its
+own league-scoped auto-dust setting and service-only batch RPC. It keeps the
+oldest active copy of each exact design, foil finish, and signature in each
+release, dusts extra copies through the manual RPC after public openings, and
+can clear existing duplicates from My Collection in batches of 200. The weekly
+auto-dust rule never sees this inventory. No Season's End copy is accepted by
+standard-card sets, lineups, expeditions, or player-card detail routes.
 
 ### Player renames
 
