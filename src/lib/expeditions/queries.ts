@@ -14,6 +14,7 @@ import type { ExpeditionMark, ExpeditionOutcome, ExpeditionTierKey, OutcomeGrade
 import { ROAD_RULES, type CardFate, type RecordedChoice, type RoadRef, type RouteEvent } from "./routes";
 import type { RivalRecord, RoadCompany } from "./company";
 import type { WeatherKey } from "./weather";
+import { campFromRow, type CampState } from "./camp";
 
 /**
  * The outcome as the ROW stores it, which is not quite what rollOutcome
@@ -332,6 +333,42 @@ export async function fetchInsuredThisWeek(supabase: SupabaseClient, discordId: 
     .neq("tier", "lost")
     .gte("started_at", since);
   if (error || !Array.isArray(data)) return 0;
+  return (data as { started_at: string }[]).filter((row) => easternDateOf(new Date(row.started_at)) >= weekStart).length;
+}
+
+// === the base camp ===========================================================
+// Both reads fail soft to null, and null means "the camp is not here": the
+// base camp migration (*_expedition_base_camp.sql) is not applied (no
+// table, no `forged` column) or the read broke. The page hides the Camp
+// tab and the forged-policy option on null, and the claim reads null as no
+// tent — every collector's camp before the camp existed. No row is not
+// null: it is a camp with nothing built yet.
+
+/** The collector's base camp (camp.ts), or null when it cannot be read. */
+export async function fetchCamp(supabase: SupabaseClient, discordId: string): Promise<CampState | null> {
+  const { data, error } = await supabase
+    .from("expedition_camps")
+    .select("slots, tent, forge, wall, forged_policies, spent")
+    .eq("discord_id", discordId)
+    .maybeSingle();
+  if (error) return null;
+  return campFromRow(data as Record<string, unknown> | null);
+}
+
+/** How many forged launches this collector has sent since Monday, Eastern
+ *  — against FORGED_PER_WEEK. Counted off the runs, the way the RPC counts
+ *  them. Null when it cannot be read. */
+export async function fetchForgedThisWeek(supabase: SupabaseClient, discordId: string, weekStart: string): Promise<number | null> {
+  // A day early in UTC, then trimmed on the Eastern calendar, exactly as
+  // fetchInsuredThisWeek does.
+  const since = new Date(new Date(`${weekStart}T00:00:00Z`).getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("expedition_runs")
+    .select("started_at")
+    .eq("discord_id", discordId)
+    .eq("forged", true)
+    .gte("started_at", since);
+  if (error || !Array.isArray(data)) return null;
   return (data as { started_at: string }[]).filter((row) => easternDateOf(new Date(row.started_at)) >= weekStart).length;
 }
 
