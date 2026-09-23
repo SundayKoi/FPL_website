@@ -104,6 +104,11 @@ function createService(respond: Respond) {
         call.filters[`${column}>=`] = value;
         return builder;
       },
+      // The company read (companyReads.ts) bounds its window from above.
+      lte: (column: string, value: unknown) => {
+        call.filters[`${column}<=`] = value;
+        return builder;
+      },
       neq: (column: string, value: unknown) => {
         call.filters[`${column}!=`] = value;
         return builder;
@@ -1080,5 +1085,176 @@ describe("convoys", () => {
     const result = await claimExpeditionFor("42", 9);
 
     expect(result).toMatchObject({ ok: true, route: { pushes: 1, lootMultiplier: 1.25 } });
+  });
+});
+
+// === edges =====================================================================
+
+import { encountersFor } from "./journal";
+import { ARCHETYPE_RULES } from "./archetypes";
+
+/** A copy row wearing a title. */
+const titledRow = (spec: CopySpec, archetype: string) => {
+  const row = copyRow(spec);
+  return { ...row, card: { ...(row.card as object), archetype } as unknown as PlayerCardData };
+};
+
+/** A service that answers the claim's reads for one run, and an empty road
+ *  for the company read (no other collector out, no graves). */
+function edgeBoard(copies: ReturnType<typeof copyRow>[], run: ReturnType<typeof runRow>) {
+  const service = createService((call) => {
+    if (call.table === "card_inventory") {
+      const wanted = (call.filters.id as number[]) ?? [];
+      return { data: copies.filter((row) => wanted.includes(row.id)) };
+    }
+    if (call.table === "expedition_runs" && call.filters.id === run.id) return { data: run };
+    return { data: [] };
+  });
+  createBettingServiceClient.mockReturnValue(service.client);
+  return service;
+}
+
+describe("edges at the claim", () => {
+  // A raid launched in a clear week (the week of the 27th is a Harvest,
+  // which would pay the merchant double without any edge).
+  const clearRaid = (rules: number) => {
+    const at = { tier: "raid" as const, startedAt: "2026-08-20T18:00:00.000Z", resolvesAt: "2026-08-21T18:00:00.000Z", forks: 2, rules };
+    const id = Array.from({ length: 400 }, (_, index) => index + 1).find((candidate) => {
+      const met = encountersFor({ id: candidate, ...at });
+      return met.length === 1 && met[0].key === "merchant";
+    })!;
+    return runRow({ id, shine: 12, ...at });
+  };
+  const hoarders = [titledRow({ id: 1 }, "Gold Hoarder"), copyRow({ id: 2 }), copyRow({ id: 3 })];
+
+  it("pays a Gold Hoarder's merchant at Harvest prices, and stores the edges that counted", async () => {
+    const run = clearRaid(ARCHETYPE_RULES);
+    const board = edgeBoard(hoarders, run);
+    board.rpc.mockResolvedValue({ data: [{ balance: 700, fragments: 0 }], error: null });
+    scriptRand(0.5, 0.9);
+
+    const result = await claimExpeditionFor("42", run.id);
+
+    expect(result).toMatchObject({ ok: true, merchant: 150 });
+    expect(board.rpc).toHaveBeenCalledWith(
+      "resolve_expedition",
+      expect.objectContaining({
+        p_outcome: expect.objectContaining({
+          merchant: 150,
+          abilities: [
+            { copyId: 1, title: "Gold Hoarder", kind: "merchant" },
+            { copyId: 2, title: "Jack of All Trades", kind: "jack" },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("pays the same run stamped before the edges as it always would have, with no edges stored", async () => {
+    const run = clearRaid(ARCHETYPE_RULES - 1);
+    const board = edgeBoard(hoarders, run);
+    board.rpc.mockResolvedValue({ data: [{ balance: 700, fragments: 0 }], error: null });
+    scriptRand(0.5, 0.9);
+
+    expect(await claimExpeditionFor("42", run.id)).toMatchObject({ ok: true, merchant: 75, route: { lootMultiplier: 1 } });
+    const sent = (board.rpc.mock.calls.find((call) => (call as unknown[])[0] === "resolve_expedition") as unknown[])[1] as { p_outcome: Record<string, unknown> };
+    expect(sent.p_outcome).not.toHaveProperty("abilities");
+    expect((sent.p_outcome.events as { ability?: string }[]).some((event) => event.ability)).toBe(false);
+  });
+});
+
+describe("the Speedrunner's clock at launch", () => {
+  const runners = [titledRow({ id: 1 }, "Speedrunner"), copyRow({ id: 2 }), copyRow({ id: 3 })];
+  /** Answers the rulebook question with `rules`, and every launch with a run. */
+  function launchBoard(copies: ReturnType<typeof copyRow>[], rules: number | null, respond?: Respond) {
+    const service = respond ? createService(respond) : createBoard({ copies });
+    if (respond) createBettingServiceClient.mockReturnValue(service.client);
+    service.rpc.mockImplementation(async (...args: unknown[]) =>
+      args[0] === "expedition_rules_version"
+        ? rules === null ? { data: null, error: { message: "function expedition_rules_version() does not exist" } } : { data: rules, error: null }
+        : { data: [{ run_id: 7, resolves_at: "2026-08-29T01:00:00.000Z", convoy_code: "ABC234" }], error: null },
+    );
+    return service;
+  }
+
+  it("takes an hour off a short route when the database is on the edge rulebook", async () => {
+    const board = launchBoard(runners, ARCHETYPE_RULES);
+    expect(await launchExpeditionFor("42", "scout", [1, 2, 3])).toMatchObject({ ok: true });
+    expect(board.rpc).toHaveBeenCalledWith("expedition_rules_version");
+    expect(board.rpc).toHaveBeenCalledWith("launch_expedition", expect.objectContaining({ p_tier: "scout", p_hours: 7 }));
+  });
+
+  it("keeps the full clock ahead of the rulebook, and when the rulebook cannot be read", async () => {
+    for (const rules of [ARCHETYPE_RULES - 1, null]) {
+      const board = launchBoard(runners, rules);
+      await launchExpeditionFor("42", "scout", [1, 2, 3]);
+      expect(board.rpc).toHaveBeenCalledWith("launch_expedition", expect.objectContaining({ p_hours: 8 }));
+    }
+  });
+
+  it("never asks without a Speedrunner, for a convoy guest, or past SPEEDRUN_MAX_HOURS", async () => {
+    const plain = launchBoard(scoutSquad, ARCHETYPE_RULES);
+    await launchExpeditionFor("42", "scout", [1, 2, 3]);
+    expect(plain.rpc).not.toHaveBeenCalledWith("expedition_rules_version");
+    expect(plain.rpc).toHaveBeenCalledWith("launch_expedition", expect.objectContaining({ p_hours: 8 }));
+
+    const guest = launchBoard(runners, ARCHETYPE_RULES, (call) => {
+      if (call.table === "card_inventory") return { data: runners };
+      if (call.table === "expedition_convoys") return { data: { host_id: "77" } };
+      return { data: null };
+    });
+    await launchExpeditionFor("42", "scout", [1, 2, 3], { convoy: "ABC234" });
+    expect(guest.rpc).not.toHaveBeenCalledWith("expedition_rules_version");
+    expect(guest.rpc).toHaveBeenCalledWith("launch_expedition", expect.objectContaining({ p_hours: 8, p_convoy: "ABC234" }));
+
+    // The Gilded Road is 48 hours: storm immunity, never a shorter clock.
+    const signed = [titledRow({ id: 1, signed: true }, "Speedrunner"), copyRow({ id: 2, signed: true }), copyRow({ id: 3, signed: true })];
+    const gilded = launchBoard(signed, ARCHETYPE_RULES, (call) => {
+      if (call.table === "card_inventory") return { data: signed };
+      if (call.table === "betting_profiles") return { data: { patron_until: "2099-01-01T00:00:00.000Z" } };
+      return { data: null };
+    });
+    await launchExpeditionFor("42", "gilded", [1, 2, 3]);
+    expect(gilded.rpc).not.toHaveBeenCalledWith("expedition_rules_version");
+    expect(gilded.rpc).toHaveBeenCalledWith("launch_expedition", expect.objectContaining({ p_hours: 48 }));
+  });
+});
+
+describe("the storm and the squad's clock", () => {
+  // A raid on the edge rulebook with a storm due on its first leg: the
+  // sweep runs five hours in, past the storm and short of the first fork.
+  const at = { tier: "raid" as const, startedAt: "2026-08-28T09:00:00.000Z", resolvesAt: "2026-08-29T09:00:00.000Z", forks: 2, rules: ARCHETYPE_RULES };
+  const stormId = Array.from({ length: 400 }, (_, index) => index + 1).find((id) => encountersFor({ id, ...at }).some((entry) => entry.key === "storm" && entry.leg === 0))!;
+  function sweepBoard(copies: ReturnType<typeof copyRow>[]) {
+    const service = createService((call) => {
+      if (call.table === "expedition_runs" && call.verb === "select") return { data: [runRow({ id: stormId, ...at })] };
+      if (call.table === "card_inventory") {
+        const wanted = (call.filters.id as number[]) ?? [];
+        return { data: copies.filter((row) => wanted.includes(row.id)) };
+      }
+      return { data: [] };
+    });
+    service.rpc.mockResolvedValue({ data: 0, error: null });
+    createBettingServiceClient.mockReturnValue(service.client);
+    return service;
+  }
+
+  it("holds a squad without a clock edge, and never a Speedrunner's or a Tempo Setter's", async () => {
+    const plain = sweepBoard(scoutSquad);
+    expect((await sweepExpeditions(new Date("2026-08-28T14:00:00.000Z"))).storms).toBe(1);
+    expect(plain.rpc).toHaveBeenCalledWith("delay_expedition", expect.objectContaining({ p_run: stormId, p_leg: 0 }));
+    for (const clock of ["Speedrunner", "Tempo Setter"]) {
+      const quick = sweepBoard([titledRow({ id: 1 }, clock), copyRow({ id: 2 }), copyRow({ id: 3 })]);
+      expect(await sweepExpeditions(new Date("2026-08-28T14:00:00.000Z"))).toEqual({ pinged: 0, buried: 0, storms: 0, errors: [] });
+      expect(quick.rpc).not.toHaveBeenCalledWith("delay_expedition", expect.anything());
+    }
+  });
+
+  it("waits for the next pass rather than storm a squad it could not read", async () => {
+    const short = sweepBoard([copyRow({ id: 1 })]);
+    const result = await sweepExpeditions(new Date("2026-08-28T14:00:00.000Z"));
+    expect(result.storms).toBe(0);
+    expect(result.errors).toEqual([`storm ${stormId}: squad unread`]);
+    expect(short.rpc).not.toHaveBeenCalledWith("delay_expedition", expect.anything());
   });
 });
