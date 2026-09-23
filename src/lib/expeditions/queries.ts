@@ -980,3 +980,49 @@ export async function fetchLeagueBoard(
   ]);
   return leagueBoardFor({ season, now, fixtures, progress, goals, viewerId });
 }
+
+// === the road ahead ==========================================================
+
+import type { RevealReads } from "./reveal";
+
+/** A convoy partner's run, as fetchConvoyViews names it. */
+export interface PartnerRun {
+  discordId: string;
+  runId: number;
+}
+
+/**
+ * The paid reveals (expedition_reveals) that touch these runs: which of
+ * this collector's runs have one, and which of their convoy partners' runs
+ * do — two squads on one road share one map. Read with the service client,
+ * since a partner's reveal is theirs; every row is matched back to the
+ * collector who owns the run it names, so a stray id reveals nothing.
+ *
+ * Null when the table cannot be read (the expedition_road_ahead migration
+ * is not applied, or the read broke). That is "none paid" to the fog, which still applies, and
+ * "hide the button" to the board: a spend that could not be read back
+ * could not be shown either.
+ */
+export async function fetchReveals(
+  supabase: SupabaseClient,
+  discordId: string,
+  runIds: number[],
+  partners: PartnerRun[] = [],
+): Promise<RevealReads | null> {
+  const mine = new Set(runIds.filter((id) => Number.isInteger(id)));
+  const partnerOf = new Map(
+    partners.filter((partner) => Number.isInteger(partner.runId) && typeof partner.discordId === "string").map((partner) => [partner.runId, partner.discordId]),
+  );
+  const ids = [...new Set([...mine, ...partnerOf.keys()])];
+  if (ids.length === 0) return { mine: new Set(), partner: new Set() };
+  const { data, error } = await supabase.from("expedition_reveals").select("run_id, discord_id").in("run_id", ids);
+  if (error) return null;
+  const paid = new Set<number>();
+  const partner = new Set<number>();
+  for (const row of ((data as { run_id: number | string; discord_id: string }[] | null) ?? [])) {
+    const id = Number(row.run_id);
+    if (mine.has(id) && row.discord_id === discordId) paid.add(id);
+    if (partnerOf.get(id) === row.discord_id) partner.add(id);
+  }
+  return { mine: paid, partner };
+}

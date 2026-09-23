@@ -28,6 +28,7 @@ import type { ExpeditionTierKey } from "./config";
 import type { ForkChoice } from "./routes";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { CAMPAIGNS, type CampaignKey } from "./campaigns";
+import { revealErrorMessage } from "./reveal";
 import { CAMP_UPGRADES, campFromRow, friendlyCampError, nextLevel, nextPurchase, type CampPurchase, type CampState, type CampUpgrade } from "./camp";
 import { fetchCamp } from "./queries";
 
@@ -193,4 +194,30 @@ export async function forgePolicyAction(held: number): Promise<CampActionResult>
   if (!user.allowed) return { ok: false, error: MEMBERS };
   if (!Number.isInteger(held)) return { ok: false, error: friendlyCampError("bad price") ?? friendlyExpeditionError("bad price") };
   return buyForCamp(user.discordId, "policy", (camp) => camp.forgedPolicies === held);
+}
+
+// === the road ahead ==========================================================
+
+export type RevealRoadResult = { ok: true; fragments: number } | { ok: false; error: string };
+
+/**
+ * Spends a map fragment to see a run's whole road. The Discord id comes
+ * from the session, never the browser; reveal_expedition_road checks under
+ * its locks that the run is this collector's and still walking, that the
+ * road is not already theirs or their convoy's, and takes the fragment in
+ * the same transaction as the reveal. The page derives the revealed road
+ * again on the refresh this triggers — nothing about the road is returned.
+ */
+export async function revealRoadAction(runId: number): Promise<RevealRoadResult> {
+  const user = await getBettingUser();
+  if (!user) return { ok: false, error: SIGN_IN };
+  if (!user.allowed) return { ok: false, error: MEMBERS };
+  if (!Number.isSafeInteger(runId) || runId <= 0) return { ok: false, error: revealErrorMessage("unknown run") };
+  const service = createBettingServiceClient();
+  const { data, error } = await service.rpc("reveal_expedition_road", { p_user: user.discordId, p_run: runId });
+  if (error) return { ok: false, error: revealErrorMessage(error.message ?? String(error)) };
+  const row = (Array.isArray(data) ? data[0] : data) as { fragments?: number | string | null } | null;
+  const left = Number(row?.fragments);
+  revalidateExpeditionSurfaces();
+  return { ok: true, fragments: Number.isFinite(left) && left > 0 ? Math.floor(left) : 0 };
 }
