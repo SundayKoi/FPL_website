@@ -23,9 +23,10 @@ import {
   type ExpeditionOutcome,
   type ExpeditionTierKey,
 } from "./config";
-import { RUN_COLUMNS, fetchFixturesSince, fetchInsuredThisWeek, fetchPolicyUsed, fetchStrangersHolds, hasTrail, mapRun, roadOf, type ExpeditionRun } from "./queries";
+import { RUN_COLUMNS, fetchFixturesSince, fetchInsuredThisWeek, fetchPolicyUsed, fetchRulesVersion, fetchStrangersHolds, hasTrail, mapRun, roadOf, type ExpeditionRun } from "./queries";
 import { convoySheet, normaliseConvoyCode } from "./convoy";
-import { isCampChoice } from "./routes";
+import { EDGE_TITLE, isCampChoice } from "./routes";
+import { ARCHETYPE_RULES, SPEEDRUN_HOURS, SPEEDRUN_MAX_HOURS, activeAbilities, traitsOf } from "./archetypes";
 import { echoPool, surgeTeams, teamsPlayingOn } from "./matchday";
 import { STORM_HOURS, STRANDED_BOUNTY, encountersFor, latestJournalLine } from "./journal";
 import { fetchCompany } from "./companyReads";
@@ -302,13 +303,27 @@ export async function launchExpeditionFor(
     if (convoy !== null) return { ok: false, error: "A campaign stage is walked alone — no convoy." };
   }
 
+  // The Speedrunner's clock (archetypes.ts): an hour off a route no longer
+  // than SPEEDRUN_MAX_HOURS — the guardrail's line, held by config.test.ts.
+  // It is the one edge that acts before the run exists, so the rulebook is
+  // asked rather than read off a row: an environment still on the rules
+  // before ARCHETYPE_RULES (no expedition_rules_version, read as 1) keeps
+  // the full clock. Asked only when a Speedrunner counts on a short route,
+  // so every other launch costs no extra round trip. A convoy guest rides
+  // the host's clock whatever it asks for.
+  let hours = def.durationHours;
+  const joining = convoy !== null && convoy !== "new";
+  if (!joining && def.durationHours <= SPEEDRUN_MAX_HOURS && traitsOf(copies, ARCHETYPE_RULES).speedrun) {
+    if ((await fetchRulesVersion(service)) >= ARCHETYPE_RULES) hours = def.durationHours - SPEEDRUN_HOURS;
+  }
+
   const { data, error } = await service.rpc("launch_expedition", {
     p_user: discordId,
     p_season: season,
     p_tier: tier,
     p_squad: squad,
     p_shine: squadShine(copies),
-    p_hours: def.durationHours,
+    p_hours: hours,
     p_forks: def.forks,
     p_insured: insured,
     p_fee: fee,
@@ -572,7 +587,16 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
     convoy: run.convoy,
     squadTeams: copies.map((copy) => copy.card?.teamName ?? null).filter((team): team is string => Boolean(team)),
   });
-  const encounters = encountersFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, rules: run.rules, convoy: run.convoy }, company, weather?.key ?? null);
+  // The squad's edges (archetypes.ts), under the rulebook the run was
+  // stamped with: the traits bend the road the journal showed (the page
+  // read them off the same squad), and the sheet is the launch squad's.
+  const traits = traitsOf(copies, run.rules);
+  const edges = run.rules >= ARCHETYPE_RULES ? activeAbilities(copies) : [];
+  const encounters = encountersFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, rules: run.rules, convoy: run.convoy }, company, weather?.key ?? null, traits);
+  // The base camp as it stands when the squad comes home covers the run
+  // (camp.ts). Its table arrives with the base camp; until it does every
+  // collector has no tent, which is what the resolver reads for "none".
+  const camp = { tent: 0 };
   // The route: what the forks made of it and what the squad looks like.
   // The road is the run's own (or the convoy's), so the places it walked
   // are the places the page showed.
@@ -588,12 +612,17 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
       target: run.target,
       encounters,
       weather: weather?.key ?? null,
+      camp,
+      shine: run.shine,
       now: new Date(),
     },
     expeditionRand,
   );
-  // The merchant's flat — at Harvest prices under a Harvest.
-  const merchant = encounters.some((entry) => entry.key === "merchant") ? MERCHANT_DOLLARS * (weather?.key === "harvest" ? HARVEST_MERCHANT : 1) : 0;
+  // The merchant's flat — at Harvest prices under a Harvest, or in any
+  // weather with a Gold Hoarder. Never both: Harvest prices are the most a
+  // merchant pays, and the payout ceiling already carries them.
+  const hoarded = edges.some((entry) => entry.ability.title === EDGE_TITLE.goldHoarder);
+  const merchant = encounters.some((entry) => entry.key === "merchant") ? MERCHANT_DOLLARS * (weather?.key === "harvest" || hoarded ? HARVEST_MERCHANT : 1) : 0;
   let stranded: { holdId: number; bounty: number } | null = null;
   if (encounters.some((entry) => entry.key === "stranded")) {
     const [hold] = await fetchStrangersHolds(service, discordId);
@@ -653,6 +682,9 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
       rivals: (company?.rivals ?? []).map((rival) => ({ who: rival.who, name: rival.name, runId: rival.runId, won: rival.won })),
       ...(stranded ? { stranded: stranded.holdId, bounty: stranded.bounty } : {}),
       ...(echo ? { echo: { slug: echo.slug, week: echo.week, moment: echo.moment } } : {}),
+      // The edges that counted, stored with the outcome so the log can say
+      // what the squad walked with. Only under the rulebook that has them.
+      ...(run.rules >= ARCHETYPE_RULES ? { abilities: edges.map((entry) => ({ copyId: entry.copyId, title: entry.ability.title, kind: entry.ability.kind })) } : {}),
     },
   });
   if (claimError) {
@@ -896,12 +928,31 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
     convoy: number | null;
   }[]) ?? []) {
     const tier = row.tier as ExpeditionTierKey;
+    const rules = Number(row.rules ?? 1);
     let resolvesAt = row.resolves_at;
     // A storm whose hour has come holds the squad: the run's end moves out
     // (and every fork after it), once per storm.
     const applied = new Set((row.encounters ?? []).filter((entry) => entry.key === "storm").map((entry) => entry.leg));
-    for (const storm of encountersFor({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules: Number(row.rules ?? 1), convoy: row.convoy })) {
-      if (storm.key !== "storm" || applied.has(storm.leg) || storm.at.getTime() > now.getTime()) continue;
+    const road = { id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules, convoy: row.convoy };
+    const due = (list: ReturnType<typeof encountersFor>) => list.filter((entry) => entry.key === "storm" && !applied.has(entry.leg) && entry.at.getTime() <= now.getTime());
+    let coming = due(encountersFor(road));
+    // The squad's traits only ever take a storm away (a Speedrunner is past
+    // it; First Blood Merchant turned its beat), so the squad is read only
+    // when a storm is due on a run stamped with edges — the read the ping
+    // would make anyway. Unread, the storm waits for the next pass rather
+    // than hold a squad its edges would have kept moving.
+    let squadRead: CardCopy[] | null = null;
+    if (coming.length > 0 && rules >= ARCHETYPE_RULES) {
+      squadRead = await fetchInventoryByIds(service, row.discord_id, row.squad ?? []);
+      if (squadRead.length !== (row.squad ?? []).length) {
+        errors.push(`storm ${row.id}: squad unread`);
+        coming = [];
+        squadRead = null;
+      } else {
+        coming = due(encountersFor(road, null, null, traitsOf(squadRead, rules)));
+      }
+    }
+    for (const storm of coming) {
       const { data: delayed, error: delayError } = await service.rpc("delay_expedition", { p_run: row.id, p_leg: storm.leg, p_hours: STORM_HOURS });
       if (delayError) {
         errors.push(`storm ${row.id}: ${delayError.message}`);
@@ -920,7 +971,7 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
     const by = open.closesAt.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
     // The ping quotes the trail: the latest journal line, so the fork
     // arrives as the next line of a story rather than a bare deadline.
-    const squad = await fetchInventoryByIds(service, row.discord_id, row.squad ?? []);
+    const squad = squadRead ?? (await fetchInventoryByIds(service, row.discord_id, row.squad ?? []));
     // The ping names the same company the page does.
     const company = await fetchCompany(service, row.season, {
       id: row.id,
@@ -930,12 +981,12 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
       startedAt: row.started_at,
       resolvesAt,
       forks: row.forks,
-      rules: Number(row.rules ?? 1),
+      rules,
       convoy: row.convoy,
       squadTeams: squad.map((copy) => copy.card?.teamName ?? null).filter((team): team is string => Boolean(team)),
     });
-    const weather = weatherOfRun({ startedAt: row.started_at, rules: Number(row.rules ?? 1) }, watchWeeks);
-    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules: Number(row.rules ?? 1), convoy: row.convoy, choices: row.choices ?? [], company, weather: weather?.key ?? null }, squad, now);
+    const weather = weatherOfRun({ startedAt: row.started_at, rules }, watchWeeks);
+    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules, convoy: row.convoy, choices: row.choices ?? [], company, weather: weather?.key ?? null }, squad, now);
     try {
       await postCardsWebhook(
         {
