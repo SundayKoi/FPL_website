@@ -1435,3 +1435,40 @@ describe("the rules 5 snapshot", () => {
     expect(differs.length).toBeGreaterThan(0);
   });
 });
+
+// === the half of the road a browser may hold ================================
+
+import { readFileSync as readSource } from "node:fs";
+import { join as joinPath } from "node:path";
+import * as forkModule from "./forks";
+import * as routeModule from "./routes";
+
+describe("forks.ts, the client-safe half", () => {
+  it("counts every place a route's road can hold as ROAD_SIZES", () => {
+    // The atlas and the rules page count against this table without
+    // importing ROADS; a place added there without a line here fails.
+    expect(Object.keys(forkModule.ROAD_SIZES).sort()).toEqual([...TIER_ORDER].sort());
+    for (const tier of TIER_ORDER) {
+      expect(forkModule.ROAD_SIZES[tier]).toBe(ROADS[tier].flat().length);
+      // Distinct across slots too, so the size is the atlas' count of places.
+      expect(new Set(ROADS[tier].flat().map((fork) => fork.key)).size).toBe(forkModule.ROAD_SIZES[tier]);
+    }
+    expect(forkModule.ROAD_SIZES).toEqual({ scout: 4, gilded: 6, raid: 6, legend: 9, rescue: 3, exorcism: 0, legendary: 12, mythic: 10 });
+  });
+
+  it("is re-exported by routes.ts binding for binding, so no server caller changes", () => {
+    const shared = Object.keys(forkModule) as (keyof typeof forkModule)[];
+    expect(shared.length).toBeGreaterThan(15);
+    for (const name of shared) expect((routeModule as Record<string, unknown>)[name]).toBe(forkModule[name]);
+  });
+
+  it("never imports the road, the journal, the views or the queries, and imports no value at all", () => {
+    const source = readSource(joinPath(process.cwd(), "src/lib/expeditions/forks.ts"), "utf8");
+    const imports = [...source.matchAll(/^import\s+(type\s+)?[^;]*?from\s+"([^"]+)";/gm)].map((match) => ({ typeOnly: Boolean(match[1]), from: match[2] }));
+    expect(imports.length).toBeGreaterThan(0);
+    for (const entry of imports) {
+      expect(entry.from).not.toMatch(/(^|\/)(routes|journal|views|queries)$/);
+      expect(entry.typeOnly).toBe(true);
+    }
+  });
+});
