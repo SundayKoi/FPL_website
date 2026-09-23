@@ -11,14 +11,15 @@
 - `RUN_COLUMNS` in `queries.ts` never grows. New tables are read by their own fail-soft queries.
 - Every rules-6 branch is guarded by `rules >= ARCHETYPE_RULES`; scripted-rand tests prove a rules-5 run's events and journal are byte-identical before and after.
 - Comments say why. Copy is declarative and theatrical like the rest of the board.
+- CI runs typecheck, ESLint, Vitest and Python only; it does NOT run `npm run test:db`. The Supabase Docker image cannot be pulled in this environment, so pgTAP runs against the local harness in the session scratchpad (`pgtap/reset.sh` then `pgtap/run-pgtap.sh`: PostgreSQL 16 with pgTAP and Supabase role/auth stand-ins, every migration applied). Every phase with SQL (1, 3, 4, 5, 6) runs it and pastes its new test file's output into the PR description; a phase without that paste is not mergeable.
 - Acceptance for every phase: `npm run typecheck && npm run lint && npm test`, plus `npm run test:db` for phases with SQL (local `npx supabase start`), plus `npm run build` for phases touching pages/server boundaries.
 
 ## Phase graph
 
 ```
-1 ──► 2 ──► 3 ──┐
-       │        ├──► 5 ──► 6 ──► 7 ──► 8
-       └──► 4 ──┘
+1 ──► 1b ──► 2 ──► 3 ──┐
+              │        ├──► 5 ──► 6 ──► 7 ──► 8
+              └──► 4 ──┘
 ```
 Phase 4's SQL, `league.ts`, `leagueSweep.ts`, `LeagueGoalPanel.tsx` and tests may start alongside Phase 2 (disjoint files); its single call-site line in `runs.ts` and its panel line in `ExpeditionBoard.tsx` are added after Phase 2 merges. Everything else is sequential.
 
@@ -44,6 +45,37 @@ Phase 4's SQL, `league.ts`, `leagueSweep.ts`, `LeagueGoalPanel.tsx` and tests ma
 **Acceptance.** `npm test -- --project=node`, `npm run test:db` (0130 green), typecheck, lint, `node scripts/check-migrations.mjs origin/develop HEAD`.
 
 **Ownership.** Phase 1 owns: the migration/test above, `archetypes.ts(.test)`, `build.ts` (one export), `config.ts/.test.ts`, `queries.ts` (one function), `routes.ts` (types only), `camp.ts` stub.
+
+---
+
+## Phase 1b — Page restructure: three zones and a drawer
+
+**Goal.** Rebuild the board on spec §10.2 before any feature UI lands, so Phases 2–7 mount into slots instead of adding sections. No SQL. Data sources stay as today (the components keep importing `forksFor`/`journalFor` until Phase 5 swaps them for server views).
+
+**Sequence.** Right after Phase 1, before Phase 2. Later phases' board work now targets slots: Phase 2 (edges) adds the edge chips in `SquadStep`, the "why" line in `ForkPrompt` and the "Edges that fired" list in `ClaimCeremony`. Phase 3 (camp) registers `tab-camp` and adds the forged-policy toggle in `RouteStep`. Phase 4 (league goal) registers `tab-league` and adds the This-week progress. Phase 5 (road ahead) swaps `ForkPrompt`/`RunCard` onto `views[run.id]`, adds the reveal button to `RunCard` and the `?` roundels to the map, and adds the import-guard test. Phase 6 (atlas) registers `tab-atlas`. Phase 7 (living map) swaps the map inside `RunCard`. "Render the panel" steps in those phases now read: "register one entry in `MoreDrawer`'s `tabs` array and pass its props from `ExpeditionBoard`".
+
+**The split of `ExpeditionBoard.tsx`** (new folder `src/components/cards/expeditions/`):
+- `RightNow.tsx` — Zone A cards, "nothing needs you", mounts `ForkPrompt` inline. Ids: `now-${run}`, `now-none`; keeps `hold-${id}` rows (moved from Missing) and the "Claim the <label>" button names.
+- `ForkPrompt.tsx` — moved out of the monolith; two big choices + "More ways to push". Keeps `fork-${run}-${index}`, `banter`, `rival-story`, `convoy-fork`, `role-calls-missing`, `expedition-fork-error`, and the "<label> — <choice>" button names.
+- `SquadStep.tsx` — chips, status badges with reasons in text, `suggest-squad`, the summary. Keeps `squad-shine`, `plays-${id}`, the "<name> — <n> shine" button names (the visible word becomes "power"; the aria-label keeps "shine").
+- `RouteStep.tsx` — `route-pills`, `route-pill-${key}`, the single route card (keeps `tier-${key}`, `tier-${key}-out/-locked/-patron/-campaign`, `consent-${key}`, the "Launch <label>" button, the "Insure this run" checkbox, `insurance-note`, `convoy-mode`), the `this-week` line (keeps `expedition-brief`, `expedition-weather`, `match-day`, `fragments`), `expedition-error`.
+- `RunCard.tsx` — Zone C card; keeps `run-${id}`, `journal-${id}`, `convoy-${id}`, `weather-${id}`, `route-map` (until Phase 7), the "Claim the <label>" button.
+- `MoreDrawer.tsx` — `more-tabs`, `tab-${key}`, a `tabs: { key; label; when: boolean; render }[]` registry; panels: Log (region `aria-label="Finished expeditions"` kept), Standings (keeps `standings`, `standing-${id}`, `accolades`, `accolade-${kind}`, `rivalries`, `rivalry-${who}`), Campaigns (`CampaignPanel` and its ids unchanged), Graveyard (keeps `grave-${id}`, `grave-miles-${id}`), Rules (`ExpeditionRules` and every `rule-*` id unchanged; `expedition-rules-fold` becomes the Rules panel's wrapper id).
+- `Term.tsx` + `src/lib/expeditions/glossary.ts` (pure definitions).
+- `FirstRunGuide.tsx` (`guide`, localStorage dismissal).
+- `ClaimCeremony.tsx` — moved out unchanged (keeps `expedition-ceremony`, `ceremony-*`, `fate-${id}`).
+- `src/components/cards/expeditionIcons.tsx` — the 14px monoline set.
+- `src/lib/expeditions/suggest.ts` (+ test) — `suggestSquad(...)`, `bestRoute(...)`, `cycleByEdges(...)`, pure over `squadMeets`/`shineOf`/`abilitySheet`.
+- `src/lib/expeditions/boardFixtures.ts` — three persona prop sets (new / mid-game with a fork open / veteran) reused by tests and the preview page.
+- `src/app/admin/expedition-board/page.tsx` (+ `page.test.tsx`) — renders `ExpeditionBoard` from `?persona=new|mid|veteran` with actions stubbed; gated by `fetchStaffTier`, open when `process.env.NODE_ENV === "development"`; a link card on `/admin`.
+- `ExpeditionBoard.tsx` — state machine and composition only (picked, insured, convoy, targets, errors, ceremony, transitions); renders `FirstRunGuide` → `RightNow` → `SquadStep` → `RouteStep` → `RunCard` list → `MoreDrawer` → `ClaimCeremony`. Keeps `expedition-board`, `expedition-notice`.
+- `page.tsx` header shrinks to two sentences; the ledger link moves to the Graveyard tab. `globals.css` gains `@utility step-card`, `route-pill`, `term-popover` (reduced-motion safe).
+
+**Tests that must change (`src/components/cards/ExpeditionBoard.test.tsx`):** any case that reads `tier-<key>`, "Launch <label>", "Insure this run" or `consent-<key>` for a route other than the preselected one first clicks `route-pill-<key>`; cases asserting two route cards at once become two clicks. `getByRole("region", { name: "Finished expeditions" })` still resolves (Log is the default tab). Present-state assertions on `standings`, `rivalries`, `expedition-rules`, `campaigns` click `tab-standings` / `tab-rules` / `tab-campaigns` first; the `queryByTestId(...)` null assertions are unchanged. Hold rows move from "Missing" to Zone A but keep `hold-${id}`. `CampaignPanel.test.tsx`, `ExpeditionRules` tests and the page tests are unchanged. New cases: §10.4 items 1–4 on the three persona fixtures in jsdom (exactly one `btn-coral` above the guide/stepper; every glossary term above the fold wrapped in a `Term`; every disabled control has visible reason text).
+
+**Acceptance.** `npm test -- --project=dom`, `npm test -- --project=node`, `npm run typecheck`, `npm run lint`, `npm run build`; then the Phase 8 persona screenshots run once here and the misses listed in the PR.
+
+**Ownership.** Everything under `src/components/cards/expeditions/`, `ExpeditionBoard.tsx(.test)`, `expeditionIcons.tsx`, `glossary.ts`, `suggest.ts(.test)`, `boardFixtures.ts`, the preview page and its `/admin` link, `page.tsx` header, the three CSS utilities, `e2e/expedition-board.spec.ts`.
 
 ---
 
@@ -190,6 +222,8 @@ Phase 4's SQL, `league.ts`, `leagueSweep.ts`, `LeagueGoalPanel.tsx` and tests ma
 
 **Create**
 - `e2e/expedition-map.spec.ts`: for each fixture state, `page.goto('/admin/expedition-map?state=<key>&tier=<tier>')`, viewport 1280×800 then 390×844, `toHaveScreenshot`-free plain `screenshot({ path })` into `e2e/screenshots/expedition-map/<state>-<tier>-<w>.png`; `.gitignore` the folder; run with `npx playwright test e2e/expedition-map.spec.ts --project=chromium` (Chromium at `/opt/pw-browsers/chromium`, `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`). Attach the twelve PNGs to the PR; iterate on line weights, contrast and label collisions until the owner signs off. Checklist in the PR: contours legible on the canvas, unknown roundels unmistakably unknown, dread mark visible at 390px, pins never overlap the open fork's label, storm and fog distinguishable, reduced-motion still readable.
+
+**Persona screenshots (usability).** No sign-in and no seeding: `playwright.config.ts` starts `npm run dev`, so `NODE_ENV` is `development` and the fixture-driven `/admin/expedition-board?persona=…` route (Phase 1b) is open without a staff profile. `e2e/expedition-board.spec.ts` visits the three personas (`new`, `mid`, `veteran`) at 1280×800 and 390×844, waits for `expedition-board`, and writes `e2e/screenshots/expedition-board/<persona>-<w>.png` (folder gitignored; PNGs attached to the PR). Run: `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers npx playwright test e2e/expedition-board.spec.ts`. The spec also asserts mechanically what it can: at 390 `document.documentElement.scrollWidth <= 390`; every `button:disabled` has non-empty visible text or an adjacent `[data-reason]`; every focusable control's bounding box is ≥ 44×44 at 390. The reviewer walks spec §10.4 on each PNG and the PR lists each item as pass or a follow-up; the phase is not done until the owner signs off on all six. Re-run after Phases 3–7 have landed their tabs and the living map (the same spec), alongside the twelve map screenshots.
 
 **Modify**
 - `src/components/cards/ExpeditionRules.tsx`: new sections — "Edges: what a title does on the road" (the table rendered from `ARCHETYPE_ABILITIES`, grouped by kind, the stacking rule), "Base camp" (levels/prices from `CAMP_PRICES`), "The league's expedition of the week", "The road ahead is earned" (the eight reveal rules), "The atlas" (road sizes and rewards). Every number imported, none restated.

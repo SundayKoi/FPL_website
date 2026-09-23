@@ -594,3 +594,75 @@ exception, < 1100), all < 550 except the intended gilded line.
 9. Stacking: one edge per kind, highest power, ties to miles then lower id.
 10. The map preview page opens without staff in development.
 11. Every magnitude in the ability table (section 1.2).
+
+## 10. Page experience — the whole board must be simple
+
+Owner requirement: "Make sure the ui of the entire expedition page is easy to understand and simple to use and user intuitive and friendly." This section audits the page as it is and specifies the structure every feature in sections 1–6 lands in.
+
+### 10.1 The page today (audited against `src/app/cards/expeditions/page.tsx`, its academy twin `src/app/academy/cards/expeditions/page.tsx` which renders the same `ExpeditionsPageView`, `src/components/cards/ExpeditionBoard.tsx` (1657 lines, one client component), `CampaignPanel.tsx`, `ExpeditionRules.tsx`)
+
+Render order on every visit: header (five sentences) + a "ledger of the fallen" link → **Waiting on you** (open forks) → **Missing** (lost cards) → **Today's brief / weather / match day** strip with the **fragments** chip → `notice` → **In the field** → **Campaigns** (CampaignPanel: two "Begin" cards, or the open campaign's stages) → **Pick your squad** → **Choose a run** (the insurance/convoy/rescue/cleanse options row, then EIGHT route cards) → the **rules fold** (`ExpeditionRules`, ~570 lines) → **Field log** → **Season standings** (a 520px-wide table) → **Rivalries** → **The graveyard** → the **claim ceremony** modal. Eleven `h2` sections; nothing is collapsed except the rules.
+
+Where a new player gets lost, concretely:
+
+1. **No named first action.** A brand-new collector's first 390px screen is the header, the brief strip ("+20% yield", a weather emoji, "0/3 map fragments"), then two Campaign cards with "Begin" buttons — an advanced system — before "Pick your squad". Nothing says "1. pick three cards".
+2. **Eight route cards at once**, each ~10 lines ("Entry: 12 shine, 1 foil", "Pays $120–$600 +50% at most from shine, +20% for the brief, more for every push", a consent sentence). With nothing picked, every card shows three coral reasons ("An expedition takes exactly 3 cards — this squad has 0", foils, signed, shine) — the page opens by refusing the reader eight times. On a phone that is eight tall cards before the log.
+3. **Jargon with no inline meaning**: shine (a dotted link to `/glossary`, another page), forks, push/camp, role calls (hold/scout/roam/kite/ward — "Roles unlock a call of their own, once a run"), favour/light/rally, tolls, warned/dark forks, marks (trail/sigil/legend), mutations (Irradiated/Hardened/Haunted/Cursed/Voidtouched/Voidborn), map fragments, policies (weekly caps, the patron's free one), convoy codes, campaigns/stages/relics, weather (Fog/Drought/Harvest/the Watch), the brief, the match-day surge, miles and Trailworn/Veteran/Wayfarer, Pathfinder/Plunderer/Survivor, echoes, stranded bounties, ransoms.
+4. **Numbers without context**: "+7" mint pills on every chip; "16 shine · insured · stormed · under fog" as a run's label-dash; "×1.35 from 2 pushes"; "Homecomings" and "Rivals beaten" columns; "Back in 14h 22m" with no hint of whether anything will be asked in those hours.
+5. **Gates that explain themselves after the click**: the launch error (`expedition-error`) renders under the whole eight-card grid, far from the button pressed; "Squad cards must come from one league", a bad convoy code, a refused campaign bind and "insurance used up" only speak after a round trip. A chip disabled because three are already picked says nothing; other chip reasons live in a `title` attribute (no hover on phones) and a 10px uppercase line.
+6. **The fork prompt** is up to eight buttons with a tease each ("Push at three-quarter risk, and whatever goes wrong lands on the Jungle. Once a run."), a footnote about missing role calls, and colour (mint/coral/gold borders) as the only safe/risky cue. "Silence camps" is two words in the header line.
+7. **In the field** rows do not say what is coming: shine/insured/storm/weather, three thumbs, a countdown, the map and the last three journal lines — no "next fork opens at 3:10 PM" and no "nothing needed until then".
+8. **Options in the wrong place**: insurance, convoy mode, the rescue target and the cleanse target sit in one row above every route although each applies to a few (insurance only where a card can be hurt, convoys only on routes with forks, targets only on Rescue/Exorcism).
+9. **Ad-hoc icons**: ✍ and ✦ as gold text, "1/1" in purple, a "relic" pill, a "tonight" pill, emoji weather, a mutation as an inset box-shadow; no icon for away / lost / wounded / sealed.
+10. **Too much at once**: standings, rivalries, the graveyard, the log and the rulebook are all open on every visit; the rules fold sits between the routes and the log; the ledger link is the first thing under the title.
+11. **The ceremony** headline is good, but the arithmetic line ("$120 × 1.35 from the forks · +$75 from a merchant") and the event list assume the reader knows what a fork did.
+
+### 10.2 The redesigned information architecture
+
+Three zones and a drawer, in the site's own language (`card-brand` panels on the `bg-hash` canvas, `type-display` headings, `label-dash` eyebrows, `btn-coral` for the one primary action, `btn-pill` for secondary, mint = safe/good, coral = risk/primary, gold = attention, steel = muted — `src/app/globals.css`). Mobile-first at 390px. Every feature in sections 1–6 lands inside one of these; none adds a section.
+
+**Zone A — Right now.** One card per thing that needs the collector, priority-ordered, each with exactly ONE `btn-coral`:
+- "Your Deep Raid is at the flooded works — choose by 8:40 PM ET" → **Choose** (the fork prompt expands inline). The prompt leads with two big choices — **Play it safe** (camp, or a Top's hold when available: "keep what you have; here 15% a card comes home Haunted") and **Go for it** (the best push kind the squad can make, pre-selected: "+30% loot; 25% a card is wounded") — and a **More ways to push** disclosure listing favour / light / rally / the role calls with their tease. An edge that changes this fork is one line under the choice it changes ("Unkillable: the first harm on Kai is ignored"). "If you do nothing the squad plays it safe" is always visible.
+- "The Legend Hunt is home" → **Bring them home**.
+- "Kai is lost — 5 days to bring him back" → **Send a rescue** · **Pay $940 ransom**.
+- Nothing due → one line: "Nothing needs you. Next: the Deep Raid reaches a fork at 3:10 PM ET."
+This replaces Waiting on you, Missing and the claim buttons scattered through In the field.
+
+**Zone B — Send a squad.** A three-step stepper, always visible; a finished step collapses to a one-line summary with "Change".
+1. **Pick three cards.** The chips plus **Suggest a squad** (the three highest-power free cards that open the best route the collector can run; pressed again, cycles to a squad with three different edge kinds). Each chip: name, tier word, role, ONE status badge with an icon, and its reason printed in the chip when disabled ("away until 3 PM", "lost", "wounded until Thu", "sealed", "three picked"). The mint pill reads "power 7"; "power" is a `<Term>` ("Power — shine in the rules — is what a run asks for; foils, signatures and rarer prints have more"). Edges show as a spark chip with the title. Summary: "3 picked · power 21 · edges Guard, Rival, Camp — all three count".
+2. **Pick a run.** ONE horizontally scrollable row of route pills (Scouting Run · Deep Raid · Legend Hunt · Rescue · Exorcism · Gilded Road · Legendary · Mythic); each pill carries a state icon and a two-word reason when locked ("needs 12 power", "needs a foil", "patrons only", "3 fragments", "out now"). The best runnable route is preselected. ONE route card renders under the row: what it is (one sentence), time away, what it pays in plain words ("$120–$600; pushing at a fork can multiply it"), what can happen to a card (the consent line with an icon), **Why can't I?** (every reason, plain, before any click, when locked), and ONLY the options that apply to this route: insurance on risky routes ("1 of 1 policies left this week"; the patron's free one; a forged policy when held), **Ride with a friend** (convoy) as a disclosure on routes with forks, the rescue target on Rescue, the cleanse target on Exorcism, the campaign note when a stage binds. Under the row one compact **This week** line: weather · the brief · match day · the league goal's progress · fragments held, each term a `<Term>`.
+3. **Send them out.** One button, the consent sentence directly above it with the fee; the error renders under the button.
+After a launch the stepper collapses to "Deep Raid is out. One run per route at a time — pick three more to send another route."
+
+**Zone C — Your runs.** One card per run in the field: title, a plain status line ("Walking · next fork opens 3:10 PM ET" / "At a fork · choose by 8:40 PM ET" / "Home — bring them home" / "Back in 6h"), the squad thumbs with their edge chips, the map (the living map from Phase 7; `RouteMap` until then) with the **See the road ahead · 1 fragment** button in its corner (its reason shown when disabled), the latest journal line with **Read the journal (7)** as a disclosure, the convoy and weather chips.
+
+**Drawer — More.** A tab strip with one panel mounted at a time, default **Log**: Log · Standings (ranked rows under 640px; Rivalries folded in as a strip) · Campaigns (`CampaignPanel` unchanged inside) · Camp · League · Atlas · Graveyard (with the ledger link) · Rules (`ExpeditionRules` unchanged inside). Tabs with nothing to show are hidden.
+
+**Plain words first, the game term second.** A `<Term>` component (a button with `aria-expanded`, a ≤ 2-sentence popover, "more in the rules" linking to the Rules tab anchor): power (shine), fork, safe/push, role call, edge (archetype ability), toll, mark, mutation, fragment, insurance, convoy, campaign, weather, brief, match day, miles, standings. No game term above the fold appears outside one.
+
+**Teaching empty states and a first-visit guide.** With no runs ever: a three-line card above the stepper — "1 Pick three cards. 2 Pick a run. 3 Send them and come back in a few hours. The squad stops at forks and asks you; if you're away it plays safe." — with **Suggest a squad and a run**; dismissed into `localStorage` (`expeditions:guide:v1`, presentation only). No cards → `EmptyShelf` (exists). Cards but none free → "Everyone is out or resting — next back at 3:10 PM ET" inside step 1. Empty Log/Standings/Atlas tabs say what will fill them.
+
+**Consistent icons.** One 14px monoline set (`expeditionIcons.tsx`, the map glyphs' family): away, lost, wounded, sealed, signed, foil, relic, edge, fragment, fork, safe, risk, dead, home, convoy, campaign. Weather keeps its glyphs. Colour never carries meaning alone.
+
+**Mobile-first (390px).** Zone A cards full width with one button; the stepper single column; route pills scroll sideways with the selected pill in view; the run card's map full width; drawer tabs scroll sideways; tap targets ≥ 44px; no other horizontal scroll.
+
+### 10.3 Where each feature lives
+
+| Feature | Home in the structure |
+|---|---|
+| Edges (§1) | Step 1 chips + summary; the fork prompt's one-line "why"; the ceremony's "Edges that fired"; the Rules tab table |
+| Base camp (§2) | Camp tab (levels, buy, forge, wall); the forged-policy toggle on the route card |
+| League goal (§3) | The This-week line (progress) + League tab; the map's landmark/boss marker |
+| Road ahead (§4) | `?` roundels and dread marks on the run card's map; the reveal button in its corner |
+| Atlas (§5) | Atlas tab; "first reached by …" on a known checkpoint |
+| Living map (§6) | The run card, replacing `RouteMap` |
+
+### 10.4 Usability checklist (applied to screenshots, Phase 8)
+
+For each persona — a brand-new collector; a mid-game collector with two runs out and a fork open; a veteran with camp, atlas, campaign, graves — at 1280×800 and 390×844:
+1. The one next action is obvious: above the fold exactly one primary button, or the "Nothing needs you" line.
+2. No unexplained jargon above the fold: every game term is inside a `<Term>` or follows its plain word.
+3. Every disabled control says why in visible text, not only in a `title`.
+4. Nothing requires the Rules tab: a reader can pick, choose a run, launch, answer a fork and claim from what is on screen.
+5. Tap targets ≥ 44px on the phone.
+6. No horizontal page scroll at 390px; route pills and tabs are the only sideways scrollers.
