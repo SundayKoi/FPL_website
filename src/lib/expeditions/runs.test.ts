@@ -1258,3 +1258,169 @@ describe("the storm and the squad's clock", () => {
     expect(short.rpc).not.toHaveBeenCalledWith("delay_expedition", expect.anything());
   });
 });
+
+// === the base camp =============================================================
+
+import { FORKS } from "./routes";
+
+describe("the base camp's words", () => {
+  it("translates the forged-policy and camp refusals", () => {
+    expect(friendlyExpeditionError("no forged policy")).toContain("You have no forged policy");
+    expect(friendlyExpeditionError("forge spent this week")).toContain("one a week");
+    expect(friendlyExpeditionError("policy not wanted")).toBe("A Scouting Run or an Exorcism can't hurt a card, so it takes no policy.");
+    expect(friendlyExpeditionError("forged policy stands alone")).toContain("don't buy one on top");
+    expect(friendlyExpeditionError("bad price")).toContain("The price changed");
+    expect(friendlyExpeditionError("forge not built")).toBe("Build the forge first.");
+    expect(friendlyExpeditionError("forge is full")).toContain("the most a forge holds");
+    expect(friendlyExpeditionError("already built")).toBe("That's already built to the top level.");
+    // On a launch the fragments still mean the Legendary route's.
+    expect(friendlyExpeditionError("not enough fragments")).toBe("The Legendary route takes three map fragments.");
+  });
+});
+
+describe("a forged launch", () => {
+  /** Two foil diamonds and a gold: raid-worthy (19 shine). */
+  const raiders = [copyRow({ id: 1, tier: "diamond", foil: true, foilType: "refractor" }), copyRow({ id: 2, tier: "diamond", foil: true }), copyRow({ id: 3 })];
+
+  /** The launch's reads: the squad, the camp (a row, or the table missing),
+   *  and this week's forged runs. */
+  function forgeBoard(camp: Record<string, unknown> | "missing" | null, forgedRuns: { started_at: string }[] = []) {
+    const service = createService((call) => {
+      if (call.table === "card_inventory") return { data: raiders };
+      if (call.table === "expedition_camps") {
+        return camp === "missing" ? { error: { code: "42P01", message: 'relation "public.expedition_camps" does not exist' } } : { data: camp };
+      }
+      if (call.table === "expedition_runs" && call.filters.forged === true) return { data: forgedRuns };
+      if (call.table === "expedition_runs") return { data: [{ started_at: new Date().toISOString() }] };
+      return { data: null };
+    });
+    createBettingServiceClient.mockReturnValue(service.client);
+    service.rpc.mockResolvedValue({ data: [{ run_id: 21, resolves_at: "2026-08-29T18:00:00.000Z", convoy_code: null }], error: null });
+    return service;
+  }
+  const holding = { slots: 0, tent: 0, forge: 1, wall: 0, forged_policies: 1, spent: 800 };
+
+  it("sends the 14-argument launch, uninsured as far as the inner launch knows, with no fee and no weekly read", async () => {
+    const service = forgeBoard(holding);
+
+    // `insured` too: the forged policy takes its place rather than adding a second.
+    const result = await launchExpeditionFor("42", "raid", [1, 2, 3], { forged: true, insured: true });
+
+    expect(result).toEqual({ ok: true, runId: 21, resolvesAt: "2026-08-29T18:00:00.000Z", fee: 0, freePolicy: false, convoyCode: null, forged: true });
+    expect(service.rpc).toHaveBeenCalledWith("launch_expedition", {
+      p_user: "42",
+      p_season: "s4",
+      p_tier: "raid",
+      p_squad: [1, 2, 3],
+      p_shine: 19,
+      p_hours: 24,
+      p_forks: 2,
+      p_insured: false,
+      p_fee: 0,
+      p_fragments: 0,
+      p_target: null,
+      p_policy_week: null,
+      p_convoy: null,
+      p_forged: true,
+    });
+    // The weekly cap was never asked: a forged run does not count against it.
+    expect(service.calls.some((call) => call.table === "expedition_runs" && call.filters.insured === true)).toBe(false);
+  });
+
+  it("refuses on a route that cannot hurt a card, before any read", async () => {
+    const service = forgeBoard(holding);
+    expect(await launchExpeditionFor("42", "scout", [1, 2, 3], { forged: true })).toEqual({
+      ok: false,
+      error: "A Scouting Run or an Exorcism can't hurt a card, so it takes no policy.",
+    });
+    expect(service.calls).toEqual([]);
+    expect(service.rpc).not.toHaveBeenCalled();
+  });
+
+  it("refuses without a policy held, and without a camp at all — never reaching for the 14-argument function", async () => {
+    for (const camp of [{ ...holding, forged_policies: 0 }, null, "missing" as const]) {
+      const service = forgeBoard(camp);
+      const result = await launchExpeditionFor("42", "raid", [1, 2, 3], { forged: true });
+      expect(result).toEqual({ ok: false, error: "You have no forged policy — build a forge at your base camp and forge one first." });
+      expect(service.rpc).not.toHaveBeenCalled();
+    }
+  });
+
+  it("refuses a second forged launch in the Eastern week, before the RPC", async () => {
+    const service = forgeBoard(holding, [{ started_at: new Date().toISOString() }]);
+    const result = await launchExpeditionFor("42", "raid", [1, 2, 3], { forged: true });
+    expect(result).toEqual({ ok: false, error: "This week's forged launch is used — one a week. The next can go out Monday (Eastern)." });
+    expect(service.rpc).not.toHaveBeenCalled();
+  });
+
+  it("translates the RPC's own refusal when the forge was spent between the read and the lock", async () => {
+    const service = forgeBoard(holding);
+    service.rpc.mockResolvedValue({ data: null, error: { message: "forge spent this week" } });
+    expect(await launchExpeditionFor("42", "raid", [1, 2, 3], { forged: true })).toEqual({
+      ok: false,
+      error: "This week's forged launch is used — one a week. The next can go out Monday (Eastern).",
+    });
+  });
+});
+
+describe("the tent at the claim", () => {
+  /** A Gilded Road that camped at the toll bridge, launched in a clear
+   *  week (a Harvest, like the week of the 27th, waives tolls): with every
+   *  draw at 0.1 the toll is paid. */
+  const tolled = (rules: number) => ({
+    ...runRow({
+      id: 31,
+      tier: "gilded",
+      shine: 12,
+      forks: 2,
+      rules,
+      startedAt: "2026-08-20T18:00:00.000Z",
+      resolvesAt: "2026-08-22T18:00:00.000Z",
+      choices: [{ index: 0, choice: "camp", at: "2026-08-20T22:00:00.000Z" }],
+    }),
+    road: FORKS.gilded.map((fork) => fork.key),
+  });
+
+  function tentBoard(run: ReturnType<typeof tolled>, camp: Record<string, unknown> | "missing") {
+    const service = createService((call) => {
+      if (call.table === "card_inventory") {
+        const wanted = (call.filters.id as number[]) ?? [];
+        return { data: scoutSquad.filter((row) => wanted.includes(row.id)) };
+      }
+      if (call.table === "expedition_runs" && call.filters.id === run.id) return { data: run };
+      if (call.table === "expedition_camps") {
+        return camp === "missing" ? { error: { code: "42P01", message: "missing" } } : { data: camp };
+      }
+      return { data: [] };
+    });
+    createBettingServiceClient.mockReturnValue(service.client);
+    service.rpc.mockResolvedValue({ data: [{ balance: 700, fragments: 0 }], error: null });
+    return service;
+  }
+
+  const eventsSent = (service: ReturnType<typeof createService>) => {
+    const call = service.rpc.mock.calls.find((entry) => (entry as unknown[])[0] === "resolve_expedition") as unknown[];
+    return ((call[1] as { p_outcome: { events: { text: string }[] } }).p_outcome.events).map((event) => event.text);
+  };
+
+  it("pitches the tent the camp has when the squad comes home", async () => {
+    randomBytes.mockReturnValue(randBuffer(0.1));
+    const service = tentBoard(tolled(ARCHETYPE_RULES), { slots: 0, tent: 2, forge: 0, wall: 0, forged_policies: 0, spent: 1800 });
+
+    expect(await claimExpeditionFor("42", 31)).toMatchObject({ ok: true });
+    expect(service.calls.some((call) => call.table === "expedition_camps" && call.filters.discord_id === "42")).toBe(true);
+    expect(eventsSent(service).some((text) => text.startsWith("The tent held:"))).toBe(true);
+  });
+
+  it("reads a camp it cannot read as no tent, and never asks for a run stamped before the tent", async () => {
+    randomBytes.mockReturnValue(randBuffer(0.1));
+    const missing = tentBoard(tolled(ARCHETYPE_RULES), "missing");
+    expect(await claimExpeditionFor("42", 31)).toMatchObject({ ok: true });
+    expect(eventsSent(missing).some((text) => text.startsWith("The tent held:"))).toBe(false);
+
+    const older = tentBoard(tolled(ARCHETYPE_RULES - 1), { slots: 0, tent: 2, forge: 0, wall: 0, forged_policies: 0, spent: 1800 });
+    expect(await claimExpeditionFor("42", 31)).toMatchObject({ ok: true });
+    expect(older.calls.some((call) => call.table === "expedition_camps")).toBe(false);
+    expect(eventsSent(older).some((text) => text.startsWith("The tent held:"))).toBe(false);
+  });
+});

@@ -35,6 +35,15 @@ import {
   payoutRange,
 } from "@/lib/expeditions/config";
 import { STRANDED_BOUNTY } from "@/lib/expeditions/journal";
+import {
+  CAMP_LINES,
+  CAMP_PRICES,
+  CAMP_UPGRADES,
+  FORGED_PER_WEEK,
+  FORGE_FRAGMENTS,
+  FORGE_HOLD,
+  priceLine,
+} from "@/lib/expeditions/camp";
 import { WEEKLY_PAYOUTS } from "@/lib/fantasy/config";
 import { LISTING_DAYS, MAX_OPEN_LISTINGS, MAX_OPEN_WANTS } from "@/lib/market/config";
 import {
@@ -76,6 +85,22 @@ function expeditionRange(): string {
   const min = Math.min(...ranges.map((r) => r.min));
   const max = Math.max(...ranges.map((r) => r.max));
   return range(min, max);
+}
+
+/** The base camp's levels as one sentence: "a second scouting squad
+ *  ($1,500 + 1 map fragment), a tent ($600, then $1,200 + 1 map
+ *  fragment), …" — read off the table the RPC is held to. */
+function campLevels(): string {
+  return CAMP_UPGRADES.map((upgrade) => {
+    const prices = CAMP_PRICES[upgrade].map(priceLine).join(", then ");
+    return `${CAMP_LINES[upgrade][0].title.toLowerCase()} (${prices})`;
+  }).join(", ");
+}
+
+/** Every dollar every camp level costs, and the cheapest and dearest one. */
+function campSpread(): { min: number; max: number; total: number } {
+  const all = CAMP_UPGRADES.flatMap((upgrade) => CAMP_PRICES[upgrade].map((price) => price.dollars));
+  return { min: Math.min(...all), max: Math.max(...all), total: all.reduce((sum, n) => sum + n, 0) };
 }
 
 /** Every way dollars come in, the easiest first. */
@@ -238,6 +263,22 @@ export const SPEND: LedgerRow[] = [
     detail: "Removes Haunted or Cursed from one card, for good. No loot, no forks.",
     href: "/cards/expeditions",
     linkLabel: "See the routes",
+  },
+  {
+    key: "camp",
+    title: "Base camp upgrades",
+    figure: `${range(campSpread().min, campSpread().max)} a level`,
+    detail: `Upgrades you buy once and keep, every season and in both leagues: ${campLevels()}. ${dollars(campSpread().total)} builds all of it.`,
+    href: "/cards/expeditions",
+    linkLabel: "Visit your camp",
+  },
+  {
+    key: "forge",
+    title: "Forging a policy",
+    figure: `${FORGE_FRAGMENTS} map fragments, no dollars`,
+    detail: `With a forge built, ${FORGE_FRAGMENTS} map fragments make one free insurance policy: no ${dollars(INSURANCE_FEE)} fee, and it does not use up your policy for the week. Hold up to ${FORGE_HOLD}; ${FORGED_PER_WEEK === 1 ? "one forged launch" : `${FORGED_PER_WEEK} forged launches`} a week.`,
+    href: "/cards/expeditions",
+    linkLabel: "Visit your camp",
   },
 ];
 

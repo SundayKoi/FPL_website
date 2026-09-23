@@ -23,7 +23,8 @@ import {
   type ExpeditionOutcome,
   type ExpeditionTierKey,
 } from "./config";
-import { RUN_COLUMNS, fetchFixturesSince, fetchInsuredThisWeek, fetchPolicyUsed, fetchRulesVersion, fetchStrangersHolds, hasTrail, mapRun, roadOf, type ExpeditionRun } from "./queries";
+import { RUN_COLUMNS, fetchCamp, fetchFixturesSince, fetchForgedThisWeek, fetchInsuredThisWeek, fetchPolicyUsed, fetchRulesVersion, fetchStrangersHolds, hasTrail, mapRun, roadOf, type ExpeditionRun } from "./queries";
+import { FORGED_PER_WEEK, friendlyCampError } from "./camp";
 import { convoySheet, normaliseConvoyCode } from "./convoy";
 import { EDGE_TITLE, isCampChoice } from "./routes";
 import { ARCHETYPE_RULES, SPEEDRUN_HOURS, SPEEDRUN_MAX_HOURS, activeAbilities, traitsOf } from "./archetypes";
@@ -61,7 +62,16 @@ import {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type LaunchResult =
-  | { ok: true; runId: number; resolvesAt: string; fee: number; freePolicy: boolean; convoyCode: string | null }
+  | {
+      ok: true;
+      runId: number;
+      resolvesAt: string;
+      fee: number;
+      freePolicy: boolean;
+      convoyCode: string | null;
+      /** Set (true) only when a forged policy insured the run. */
+      forged?: boolean;
+    }
   | { ok: false; error: string };
 
 export interface LaunchOptions {
@@ -75,6 +85,12 @@ export interface LaunchOptions {
   /** The open campaign to walk this run for (campaigns.ts): the tier must
    *  be the campaign's next stage. */
   campaign?: number | null;
+  /** Insure the run with a forged policy from the base camp's forge
+   *  (camp.ts) instead of buying one: no INSURANCE_FEE, and the weekly
+   *  cap never counts it; FORGED_PER_WEEK a week. It IS the run's
+   *  insurance, so it takes the place of `insured` — a launch never
+   *  spends two policies. Refused on a route that cannot hurt a card. */
+  forged?: boolean;
 }
 
 export type ClaimResult =
@@ -136,6 +152,17 @@ export function friendlyExpeditionError(message: string): string {
   // "you're done for today" sends them to bed.
   if (/tier already out/i.test(message)) {
     return "That expedition is already out — bring it home before you send another.";
+  }
+  // The base camp's forged policies (the 14-argument launch_expedition).
+  if (/no forged policy/i.test(message)) return "You have no forged policy — build a forge at your base camp and forge one first.";
+  if (/forge spent this week/i.test(message)) return "This week's forged launch is used — one a week. The next can go out Monday (Eastern).";
+  if (/policy not wanted/i.test(message)) return "A Scouting Run or an Exorcism can't hurt a card, so it takes no policy.";
+  if (/forged policy stands alone/i.test(message)) return "A forged policy is this run's insurance on its own — don't buy one on top of it.";
+  // The camp's own purchases (upgrade_expedition_camp), for any caller
+  // that reaches here with one. The camp actions ask friendlyCampError
+  // first, which also words the fragments and the balance as a price.
+  if (/bad price|already built|forge not built|forge is full|unknown upgrade/i.test(message)) {
+    return friendlyCampError(message) ?? GENERIC_EXPEDITION_ERROR;
   }
   if (/card not owned/i.test(message)) return "Those cards aren't yours.";
   if (/no such convoy/i.test(message)) return "No convoy has that code — check it with whoever gave it to you.";
@@ -224,6 +251,11 @@ export async function launchExpeditionFor(
   if (def.target === "afflicted" && !squad.includes(target!)) {
     return { ok: false, error: friendlyExpeditionError("target not in squad") };
   }
+  // A forged policy is the run's insurance, not a second one on top: it
+  // takes the place of a bought policy below, and a route that cannot hurt
+  // a card has nothing for it to cover (the RPC's 'policy not wanted').
+  const forged = options.forged === true;
+  if (forged && def.risk === "none") return { ok: false, error: friendlyExpeditionError("policy not wanted") };
 
   const service = createBettingServiceClient();
   // Scoped to this owner inside the query, so a short result is always
@@ -256,7 +288,7 @@ export async function launchExpeditionFor(
 
   // Insurance: a patron's first policy of the Eastern week is free, claimed
   // by the RPC by primary-key insert so two launches can't both be free.
-  const insured = options.insured === true && def.risk !== "none";
+  const insured = !forged && options.insured === true && def.risk !== "none";
   let freePolicy = false;
   let policyWeek: string | null = null;
   // One read of the flame serves both the free policy and the patrons'
@@ -286,6 +318,22 @@ export async function launchExpeditionFor(
       }
     }
   }
+  // The forge (camp.ts): a policy held, and this Eastern week's forged
+  // launch not yet sent. The friendly word before the round trip; the
+  // 14-argument launch_expedition checks both again under the wallet lock
+  // and spends the policy there. A camp that cannot be read has no forged
+  // policy: the only way to hold one is a camp row, which needs the base
+  // camp migration — so an environment without it refuses here and never
+  // reaches for a function it does not have. A weekly count that cannot
+  // be read is left to the RPC.
+  if (forged) {
+    const camp = await fetchCamp(service, discordId);
+    if (!camp || camp.forgedPolicies < 1) return { ok: false, error: friendlyExpeditionError("no forged policy") };
+    const sent = await fetchForgedThisWeek(service, discordId, mondayOf(new Date()));
+    if (sent !== null && sent >= FORGED_PER_WEEK) return { ok: false, error: friendlyExpeditionError("forge spent this week") };
+  }
+  // A forged run pays the tier's fee only: `insured` is false for it, so
+  // no INSURANCE_FEE, and no free policy was claimed.
   const fee = def.fee + (insured && !freePolicy ? INSURANCE_FEE : 0);
 
   // A convoy needs forks to share; a code is tidied the way the box
@@ -317,7 +365,7 @@ export async function launchExpeditionFor(
     if ((await fetchRulesVersion(service)) >= ARCHETYPE_RULES) hours = def.durationHours - SPEEDRUN_HOURS;
   }
 
-  const { data, error } = await service.rpc("launch_expedition", {
+  const args = {
     p_user: discordId,
     p_season: season,
     p_tier: tier,
@@ -331,7 +379,12 @@ export async function launchExpeditionFor(
     p_target: target,
     p_policy_week: policyWeek,
     p_convoy: convoy,
-  });
+  };
+  // PostgREST picks the overload by the argument names it is sent, so
+  // `p_forged` is sent ONLY on a forged launch: every other launch stays
+  // the 13-argument call it always was, and works on a database that has
+  // never heard of the camp.
+  const { data, error } = await service.rpc("launch_expedition", forged ? { ...args, p_forged: true } : args);
   if (error) return { ok: false, error: friendlyExpeditionError(error.message) };
 
   const row = (Array.isArray(data) ? data[0] : data) as { run_id: number; resolves_at: string; convoy_code?: string | null } | null;
@@ -345,7 +398,7 @@ export async function launchExpeditionFor(
     // simply walks on its own.
     if (bindError) console.error("expeditions: campaign bind refused", { discordId, runId: row.run_id, message: bindError.message });
   }
-  return { ok: true, runId: Number(row.run_id), resolvesAt: row.resolves_at, fee, freePolicy, convoyCode: code };
+  return { ok: true, runId: Number(row.run_id), resolvesAt: row.resolves_at, fee, freePolicy, convoyCode: code, ...(forged ? { forged: true } : {}) };
 }
 
 /** Who is on the other side of a convoy from `discordId`, with their run's
@@ -594,9 +647,12 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
   const edges = run.rules >= ARCHETYPE_RULES ? activeAbilities(copies) : [];
   const encounters = encountersFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, rules: run.rules, convoy: run.convoy }, company, weather?.key ?? null, traits);
   // The base camp as it stands when the squad comes home covers the run
-  // (camp.ts). Its table arrives with the base camp; until it does every
-  // collector has no tent, which is what the resolver reads for "none".
-  const camp = { tent: 0 };
+  // (camp.ts): a tent bought while the squad was out still pitches. Read
+  // only under the rulebook that has a tent — the resolver ignores it
+  // below ARCHETYPE_RULES, so an older run costs no round trip. A camp
+  // that cannot be read (the base camp migration not applied, or the read
+  // broke) is no tent, which is what every collector had before the camp.
+  const camp = { tent: run.rules >= ARCHETYPE_RULES ? ((await fetchCamp(service, discordId))?.tent ?? 0) : 0 };
   // The route: what the forks made of it and what the squad looks like.
   // The road is the run's own (or the convoy's), so the places it walked
   // are the places the page showed.
