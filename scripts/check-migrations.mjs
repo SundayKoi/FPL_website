@@ -28,6 +28,15 @@ function released(ref) {
   }
 }
 
+// These files were restored to develop after their versions had already been
+// applied to the linked FPL database. Pin the Git blob IDs so this exception
+// cannot admit a changed file or an unrelated backdated migration. Verified
+// against the remote migration list on 2026-09-23.
+const restoredApplied = new Map([
+  ["supabase/migrations/20260922052204_rebuild_season_end_draft_after_hash_fix.sql", "100644 blob 787088fc1e1a149e165de22cb592c09b26cd7144"],
+  ["supabase/migrations/20261026000001_repair_current_season_end_draft_hashes.sql", "100644 blob db141107626a78ad84a858a8bb70e0230bb1c8ab"],
+]);
+
 try {
   const base = process.argv[2];
   const head = process.argv[3] || "HEAD";
@@ -35,8 +44,11 @@ try {
   const previous = migrations(base);
   const current = migrations(head);
   const onRelease = released(process.env.MIGRATION_RELEASED ?? "origin/main");
-  // Known history: on the comparison branch, or released unchanged.
-  const known = (path) => previous.has(path) || (onRelease.has(path) && onRelease.get(path) === current.get(path));
+  // Known history: on the comparison branch, released unchanged, or a pinned
+  // restoration whose version was verified on the linked database.
+  const known = (path) => previous.has(path)
+    || (onRelease.has(path) && onRelease.get(path) === current.get(path))
+    || restoredApplied.get(path) === current.get(path);
   const errors = [];
   const versions = new Map();
   const pattern = /^supabase\/migrations\/(\d{14})_[a-zA-Z0-9_-]+\.sql$/;

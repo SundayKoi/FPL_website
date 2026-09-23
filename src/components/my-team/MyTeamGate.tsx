@@ -3,6 +3,7 @@ import { teamSlug } from "@/lib/teams/teamPage";
 import type { LeagueKey } from "@/lib/players/identity";
 import type { MyTeamDashboardResult } from "@/lib/my-team/types";
 import { MyTeamDashboard } from "./MyTeamDashboard";
+import type { MyReportRow } from "@/lib/captain/queries";
 
 const ACTION = "inline-flex rounded-full border border-action-text/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-action-text transition hover:bg-action-fill hover:text-white";
 
@@ -37,10 +38,14 @@ export default function MyTeamGate({
   dashboard,
   league,
   redirectPath,
+  teamReports,
+  teamReportsUnavailable,
 }: {
   dashboard: MyTeamDashboardResult;
   league: LeagueKey;
   redirectPath?: string;
+  teamReports?: MyReportRow[];
+  teamReportsUnavailable?: boolean;
 }) {
   if (dashboard.kind === "signed-out") {
     const path = redirectPath ?? gatePath(league);
@@ -123,5 +128,5 @@ export default function MyTeamGate({
     );
   }
 
-  return <MyTeamDashboard dashboard={dashboard} league={league} />;
+  return <MyTeamDashboard dashboard={dashboard} league={league} teamReports={teamReports} teamReportsUnavailable={teamReportsUnavailable} />;
 }

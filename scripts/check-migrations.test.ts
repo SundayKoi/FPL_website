@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, renameSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, renameSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { afterEach, expect, it } from "vitest";
@@ -109,6 +109,20 @@ it("accepts a backdated migration the release branch already carries, byte for b
   // Same name, different bytes: still a newcomer.
   f.add("20260915000001_hotfix.sql", "select 'tampered';\n");
   expect(f.check(base, "release").stderr).toContain("new version must sort after 20260930000001");
+});
+
+it.each([
+  "20260922052204_rebuild_season_end_draft_after_hash_fix.sql",
+  "20261026000001_repair_current_season_end_draft_hashes.sql",
+])("accepts only the exact restored applied migration %s", (name) => {
+  const f = fixture();
+  const sql = readFileSync(resolve("supabase/migrations", name), "utf8");
+  f.add("20261028000001_newer.sql");
+  const base = f.check().status === 0 ? f.git("rev-parse", "HEAD") : "";
+  f.add(name, sql);
+  expect(f.check(base).status).toBe(0);
+  f.add(name, `${sql}\n-- changed after application\n`);
+  expect(f.check(base).stderr).toContain("new version must sort after 20261028000001");
 });
 
 it("treats a released duplicate version as inherited history, not a new collision", () => {

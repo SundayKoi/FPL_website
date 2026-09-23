@@ -9,13 +9,25 @@ import { MyTeamSeasonOverview } from "./MyTeamSeasonOverview";
 import { OpponentTeamStatsCard } from "./OpponentTeamStatsCard";
 import TeamAccentPanel from "./TeamAccentPanel";
 import { TournamentCodeGrid } from "./TournamentCodeGrid";
+import { MyTeamReportsStatus } from "./MyTeamReportsStatus";
+import type { MyReportRow } from "@/lib/captain/queries";
 
 function scoutingPath(league: LeagueKey, teamId: string, isAdmin: boolean): string {
   const path = league === "academy" ? "/academy/my-team/scouting" : "/my-team/scouting";
   return isAdmin ? `${path}?team=${encodeURIComponent(teamId)}` : path;
 }
 
-export function MyTeamDashboard({ dashboard, league }: { dashboard: MyTeamReadyDashboard; league: LeagueKey }) {
+export function MyTeamDashboard({
+  dashboard,
+  league,
+  teamReports = [],
+  teamReportsUnavailable = false,
+}: {
+  dashboard: MyTeamReadyDashboard;
+  league: LeagueKey;
+  teamReports?: MyReportRow[];
+  teamReportsUnavailable?: boolean;
+}) {
   const record = deriveSeriesRecord(dashboard.schedule, dashboard.team.name);
   const lineupSlots = buildLineupSlots({
     mine: dashboard.roster.draftPlayers,
@@ -34,7 +46,7 @@ export function MyTeamDashboard({ dashboard, league }: { dashboard: MyTeamReadyD
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.3fr_0.7fr] lg:items-start">
           <div className="flex min-w-0 flex-col gap-6">
             <TeamAccentPanel color={dashboard.team.bannerColor}>
-              <MyTeamMatchHero fixture={dashboard.nextFixture} myTeamName={dashboard.team.name} canOpenCaptainDraft={dashboard.isCaptain || dashboard.isAdmin} />
+              <MyTeamMatchHero fixture={dashboard.nextFixture} myTeamName={dashboard.team.name} canOpenCaptainDraft={dashboard.isCaptain || dashboard.isAdmin} awaitingPlayoffDraw={dashboard.awaitingPlayoffDraw} />
             </TeamAccentPanel>
             <TeamAccentPanel color={dashboard.team.bannerColor}>
               <TournamentCodeGrid fixture={dashboard.nextFixture} codes={dashboard.codes} />
@@ -61,6 +73,11 @@ export function MyTeamDashboard({ dashboard, league }: { dashboard: MyTeamReadyD
           <TeamAccentPanel color={dashboard.team.bannerColor}>
             <MyTeamSeasonOverview teamName={dashboard.team.name} fixtures={dashboard.schedule} />
           </TeamAccentPanel>
+          {!dashboard.isCaptain && !dashboard.isAdmin && (teamReportsUnavailable || teamReports.length > 0) ? (
+            <TeamAccentPanel color={dashboard.team.bannerColor}>
+              <MyTeamReportsStatus reports={teamReports} teams={dashboard.teams} unavailable={teamReportsUnavailable} />
+            </TeamAccentPanel>
+          ) : null}
           <TeamAccentPanel color={dashboard.team.bannerColor}>
             <MyTeamPerformance teamName={dashboard.team.name} games={dashboard.results.games} players={dashboard.results.players} />
           </TeamAccentPanel>

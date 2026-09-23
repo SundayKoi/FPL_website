@@ -41,4 +41,11 @@ describe("MyTeamMatchHero", () => {
     expect(screen.queryByRole("link")).toBeNull();
     expect(screen.queryByText(/ready for friday|readiness|\d\/\d ready/i)).toBeNull();
   });
+
+  it("explains when a Premier quarterfinal winner is waiting for the semifinal draw", () => {
+    render(<MyTeamMatchHero fixture={null} myTeamName="Meridian" canOpenCaptainDraft={false} awaitingPlayoffDraw />);
+
+    expect(screen.getByText(/awaiting your semifinal matchup/i)).toBeTruthy();
+    expect(screen.getByText(/quarterfinal win is recorded/i)).toBeTruthy();
+  });
 });

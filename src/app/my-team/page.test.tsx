@@ -211,8 +211,47 @@ describe("My Team page", () => {
       .toBe("/my-team/scouting");
     expect(screen.queryByText("Report a Result")).toBeNull();
     expect(screen.queryByText("Admin code editor")).toBeNull();
-    expect(fetchMyReports).not.toHaveBeenCalled();
+    expect(fetchMyReports).toHaveBeenCalledWith(serverClient, "team-1", "S5", ready().teams);
     expect(loadMyTeamDashboard).toHaveBeenCalledWith(serverClient, "premier", "browser-forged-team");
+  });
+
+  it("shows failed and incomplete report states to ordinary team members", async () => {
+    loadMyTeamDashboard.mockResolvedValue(ready());
+    fetchMyReports.mockResolvedValue([{
+      id: "report-failed",
+      season: "S5",
+      season_phase: "Playoffs",
+      team_a_id: "team-1",
+      team_b_id: "team-2",
+      score_a: 3,
+      score_b: 1,
+      draft_url: null,
+      submitted_by: null,
+      submitted_at: "2026-09-28T23:00:00Z",
+      status: "failed",
+      error_text: "Game report could not be resolved.",
+      warning_text: null,
+      ingested_at: null,
+      fixture_id: "fixture-1",
+      forfeit_team_id: null,
+      forfeit_note: null,
+      games: [{
+        id: "game-failed",
+        report_id: "report-failed",
+        game_number: 1,
+        match_id: "NA1_1",
+        blue_team_id: null,
+        resolved_blue_team_id: null,
+        status: "needs_side",
+        error_text: null,
+      }],
+    }]);
+
+    render(await MyTeamPageView({ league: "premier", searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByRole("heading", { name: /match report status/i })).toBeTruthy();
+    expect(screen.getByText("Game report could not be resolved.")).toBeTruthy();
+    expect(screen.getByText(/needs side/i)).toBeTruthy();
   });
 
   it("adds result reporting for the exact resolved captain team", async () => {
