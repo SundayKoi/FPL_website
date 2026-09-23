@@ -9,7 +9,7 @@ on:
       bracket:
         description: "Bracket file to seed, relative to the repo root."
         type: string
-        default: "scripts/data/brackets/academy-2026-playoffs.json"
+        default: "scripts/data/brackets/premier-2026-playoffs.json"
       dry_run:
         description: "Print and review the plan before any write. Leave this ticked first."
         type: boolean

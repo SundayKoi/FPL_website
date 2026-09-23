@@ -9,7 +9,7 @@ import {
 } from "../src/lib/schedule/bracketSeed";
 import { normalizePlayoffTeamName } from "../src/lib/schedule/playoffs";
 
-const DEFAULT_BRACKET = "scripts/data/brackets/academy-2026-playoffs.json";
+const DEFAULT_BRACKET = "scripts/data/brackets/premier-2026-playoffs.json";
 const PROTECTED_TABLES = [
   "match_reports",
   "match_codes",
@@ -70,23 +70,21 @@ async function main(): Promise<void> {
   }
   const season = selectedSeason;
 
-  const [draftResult, membershipResult, fixtureResult] = await Promise.all([
+  const [draftResult, canonicalResult, fixtureResult] = await Promise.all([
     supabase.from("teams").select("name").eq("draft_id", selectedDraftId),
-    supabase.from("roster_memberships").select("league_team_id").eq("season", season),
+    supabase.from("league_teams").select("id, name"),
     supabase.from("fixtures").select("id, season, stage, sort_order, team_a, team_b, score_a, score_b, division, best_of, scheduled_at").eq("season", season),
   ]);
-  for (const [label, result] of [["selected draft teams", draftResult], ["season memberships", membershipResult], ["fixtures", fixtureResult]] as const) {
+  for (const [label, result] of [["selected draft teams", draftResult], ["canonical teams", canonicalResult], ["fixtures", fixtureResult]] as const) {
     if (result.error) throw new Error(`Could not read ${label}: ${result.error.message}`);
   }
-  const memberships = (membershipResult.data ?? []) as { league_team_id: string }[];
-  const seasonTeamIds = [...new Set(memberships.map((row) => row.league_team_id))];
-  if (seasonTeamIds.length === 0) throw new Error(`No roster memberships exist for ${season}.`);
-  const { data: canonicalRows, error: canonicalError } = await supabase
-    .from("league_teams")
-    .select("id, name")
-    .in("id", seasonTeamIds);
-  if (canonicalError) throw new Error(`Could not read season team names: ${canonicalError.message}`);
-  const canonical = (canonicalRows ?? []) as { id: string; name: string }[];
+  const selectedNames = new Set(((draftResult.data ?? []) as { name: string }[])
+    .map((team) => normalizePlayoffTeamName(team.name)));
+  if (selectedNames.size === 0) throw new Error(`The selected ${bracket.league} draft has no teams.`);
+  // Riot account memberships are optional and can be empty for an active season.
+  // The selected draft scopes the bracket; league_teams supplies canonical names.
+  const canonical = ((canonicalResult.data ?? []) as { id: string; name: string }[])
+    .filter((team) => selectedNames.has(normalizePlayoffTeamName(team.name)));
 
   const existing = ((fixtureResult.data ?? []) as ExistingFixture[]).map((row) => ({ ...row, protectedReasons: [] as string[] }));
   const playoffIds = existing.filter((row) => ["quarterfinals", "semifinals", "finals"].includes(row.stage)).map((row) => row.id);
