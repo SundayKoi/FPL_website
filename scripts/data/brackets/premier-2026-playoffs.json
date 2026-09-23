@@ -1,8 +1,8 @@
 {
   "league": "premier",
   "season": "S5",
-  "note": "Premier S5 playoff opening schedule. Confirm the dates and 8 p.m. Eastern kickoff interpretation before publishing.",
-  "publishing_approved": false,
+  "note": "Premier S5 playoff opening schedule. Dates and 8 p.m. Eastern kickoffs confirmed on 2026-09-23.",
+  "publishing_approved": true,
   "entrants": [
     { "name": "Freaks Under Restraint", "division": "Solari", "seed": 1 },
     { "name": "Alcatraz", "division": "Solari", "seed": 2 },
