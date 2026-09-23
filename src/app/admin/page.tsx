@@ -230,6 +230,13 @@ export default async function AdminPage() {
       href: "/admin/expedition-board",
     },
     {
+      label: "Expedition map",
+      stat: "Living map preview",
+      statTone: "text-gold",
+      description: "The living map in every moment of a run — fresh, mid-leg, a fork open, fog, a storm under the Watch, home — and a fresh run on every route. Fixtures only.",
+      href: "/admin/expedition-map",
+    },
+    {
       label: "Expedition seasons",
       stat: "Standings & marks",
       statTone: "text-gold",
