@@ -785,3 +785,161 @@ export async function hasLegendMark(supabase: SupabaseClient, discordId: string)
   if (error) return false;
   return ((data as { id: number }[] | null) ?? []).length > 0;
 }
+
+// === the league's expedition of the week =====================================
+
+import {
+  leagueBoardFor,
+  weeksToWatch,
+  type LeagueBoard,
+  type LeagueFixture,
+  type LeagueGoalKind,
+  type LeagueGoalRecord,
+  type LeagueProgressRow,
+} from "./league";
+
+// Every read below fails soft to null, not to an empty list: null means
+// "the league goal is not here" (20261028000001 not applied, or the read
+// broke) and hides the panel, while [] means "nobody has walked yet" and
+// shows a goal at zero. A season of null reads every season — the sweep's
+// view; the page always passes its own league's season.
+
+interface LeagueProgressDbRow {
+  season: string;
+  week_start: string;
+  discord_id: string;
+  username: string | null;
+  miles: number | null;
+  pushes: number | null;
+}
+
+/** Each collector's miles and pushes for these weeks (the public
+ *  expedition_league_progress view), or null when it cannot be read.
+ *  `onError` hears why — the sweep reports it, the page does not care. */
+export async function fetchLeagueProgress(
+  supabase: SupabaseClient,
+  season: string | null,
+  weeks: string[],
+  onError?: (message: string) => void,
+): Promise<LeagueProgressRow[] | null> {
+  if (weeks.length === 0) return [];
+  let query = supabase
+    .from("expedition_league_progress")
+    .select("season, week_start, discord_id, username, miles, pushes")
+    .in("week_start", weeks);
+  if (season !== null) query = query.eq("season", season);
+  const { data, error } = await query;
+  if (error) {
+    onError?.(error.message ?? String(error));
+    return null;
+  }
+  return ((data as LeagueProgressDbRow[] | null) ?? []).map((row) => ({
+    season: String(row.season),
+    weekStart: String(row.week_start),
+    discordId: String(row.discord_id),
+    username: row.username ?? "Unknown",
+    miles: Number(row.miles ?? 0),
+    pushes: Number(row.pushes ?? 0),
+  }));
+}
+
+interface LeagueGoalDbRow {
+  season: string;
+  week_start: string;
+  kind: string;
+  target: number | null;
+  fell_at: string;
+  top_id: string | null;
+}
+
+interface LeagueRewardDbRow {
+  season: string;
+  week_start: string;
+  discord_id: string;
+  fragments: number | null;
+  top: boolean | null;
+}
+
+/** The goals that fell in these weeks, each with who was paid; null when
+ *  the goals cannot be read. The rewards are softer still: a failed read
+ *  leaves a fallen goal with nobody listed rather than hiding it. */
+export async function fetchLeagueGoals(
+  supabase: SupabaseClient,
+  season: string | null,
+  weeks: string[],
+): Promise<LeagueGoalRecord[] | null> {
+  if (weeks.length === 0) return [];
+  let goalsQuery = supabase
+    .from("expedition_league_goals")
+    .select("season, week_start, kind, target, fell_at, top_id")
+    .in("week_start", weeks);
+  if (season !== null) goalsQuery = goalsQuery.eq("season", season);
+  const { data, error } = await goalsQuery;
+  if (error) return null;
+  const goals = ((data as LeagueGoalDbRow[] | null) ?? []).filter((row) => row.kind === "landmark" || row.kind === "boss");
+  if (goals.length === 0) return [];
+
+  let rewardsQuery = supabase
+    .from("expedition_league_rewards")
+    .select("season, week_start, discord_id, fragments, top")
+    .in("week_start", [...new Set(goals.map((goal) => String(goal.week_start)))]);
+  if (season !== null) rewardsQuery = rewardsQuery.eq("season", season);
+  const { data: rewardData, error: rewardError } = await rewardsQuery;
+  const rewards = rewardError ? [] : ((rewardData as LeagueRewardDbRow[] | null) ?? []);
+
+  return goals.map((goal) => ({
+    season: String(goal.season),
+    weekStart: String(goal.week_start),
+    kind: goal.kind as LeagueGoalKind,
+    target: Number(goal.target ?? 0),
+    fellAt: String(goal.fell_at),
+    topId: goal.top_id ?? null,
+    rewards: rewards
+      // A reward belongs to its own league's goal: the same week in the
+      // other season is somebody else's fall.
+      .filter((reward) => reward.season === goal.season && String(reward.week_start) === String(goal.week_start))
+      .map((reward) => ({ discordId: String(reward.discord_id), fragments: Number(reward.fragments ?? 1), top: reward.top === true })),
+  }));
+}
+
+/** The fixtures that could name these weeks' goals, with their season so
+ *  the other league's matches can be told apart. A day either side in UTC;
+ *  league.ts trims to the Eastern week. Fails soft to none: an unnamed
+ *  goal is the Cairn of the Week, not a missing one. */
+export async function fetchLeagueFixtures(
+  supabase: SupabaseClient,
+  season: string | null,
+  weeks: string[],
+): Promise<LeagueFixture[]> {
+  if (weeks.length === 0) return [];
+  const dayMs = 24 * 60 * 60 * 1000;
+  const sorted = [...weeks].sort();
+  const since = new Date(Date.parse(`${sorted[0]}T00:00:00Z`) - dayMs).toISOString();
+  const until = new Date(Date.parse(`${sorted[sorted.length - 1]}T00:00:00Z`) + 8 * dayMs).toISOString();
+  let query = supabase
+    .from("fixtures")
+    .select("team_a, team_b, scheduled_at, season")
+    .gte("scheduled_at", since)
+    .lt("scheduled_at", until);
+  if (season !== null) query = query.eq("season", season);
+  const { data, error } = await query.order("scheduled_at", { ascending: true }).limit(200);
+  if (error) return [];
+  return ((data as LeagueFixture[] | null) ?? []);
+}
+
+/** The board's league goal for one season — this week's and last's — or
+ *  null when the feature is not here. One call for the page. */
+export async function fetchLeagueBoard(
+  supabase: SupabaseClient,
+  season: string,
+  viewerId: string | null,
+  now = new Date(),
+): Promise<LeagueBoard | null> {
+  const weeks = weeksToWatch(now);
+  const [progress, goals, fixtures] = await Promise.all([
+    fetchLeagueProgress(supabase, season, weeks),
+    fetchLeagueGoals(supabase, season, weeks),
+    fetchLeagueFixtures(supabase, season, weeks),
+  ]);
+  return leagueBoardFor({ season, now, fixtures, progress, goals, viewerId });
+}
