@@ -104,6 +104,7 @@ export interface PostseasonCodePreview {
   existingCodeSnapshot: PostseasonExistingCodeSnapshot[];
   requiredCodeCount: number;
   existingCodeCount: number;
+  reusedAssignmentCount: number;
   unusedCount: number;
 }
 
@@ -190,17 +191,13 @@ function normalizedCodes(codes: string[]): string[] {
   return codes.map((code) => code.trim()).filter(Boolean);
 }
 
-function assertNoDuplicateCodes(codes: string[], existingCodes: PostseasonExistingCodeSnapshot[]): void {
+function assertNoDuplicateCodes(codes: string[]): void {
   const seen = new Set<string>();
   for (const code of codes) {
-    const key = code.toLocaleLowerCase();
+    const key = code.toLowerCase();
     if (seen.has(key)) throw new Error(`Duplicate tournament code: ${code}`);
     seen.add(key);
   }
-
-  const existing = new Set(existingCodes.map((code) => code.code.trim().toLocaleLowerCase()));
-  const reused = codes.find((code) => existing.has(code.toLocaleLowerCase()));
-  if (reused) throw new Error(`Tournament code is already assigned: ${reused}`);
 }
 
 function snapshotForFixture(fixture: FixtureRow): PostseasonFixtureSnapshot {
@@ -217,9 +214,10 @@ function snapshotForFixture(fixture: FixtureRow): PostseasonFixtureSnapshot {
 }
 
 /**
- * Allocates newly supplied tournament codes to postseason game slots without
- * replacing anything already assigned. The returned snapshots are sent back
- * to the RPC so the database can reject a preview that no longer describes
+ * Allocates supplied tournament codes to postseason game slots. An existing
+ * assignment can be reclaimed when its code is in the assigned input prefix;
+ * the database rejects the save if that code has already been ingested.
+ * Returned snapshots let the RPC reject a preview that no longer describes
  * the locked fixtures and codes.
  */
 export function buildPostseasonCodePreview(
@@ -246,7 +244,7 @@ export function buildPostseasonCodePreview(
         a.gameNumber - b.gameNumber ||
         a.id.localeCompare(b.id),
     );
-  assertNoDuplicateCodes(parsedCodes, existingCodes);
+  assertNoDuplicateCodes(parsedCodes);
 
   const byFixture = new Map<string, PostseasonExistingCodeSnapshot[]>();
   for (const code of existingCodeSnapshot) {
@@ -255,10 +253,8 @@ export function buildPostseasonCodePreview(
     byFixture.set(code.fixtureId, list);
   }
 
-  const previewFixtures: PostseasonPreviewFixture[] = [];
   const skippedFixtures: PostseasonSkippedFixture[] = [];
-  const missingSlots: { fixture: FixtureRow; gameNumber: number }[] = [];
-
+  const eligibleFixtures: FixtureRow[] = [];
   for (const fixture of targetFixtures) {
     const fixtureCodes = byFixture.get(fixture.id) ?? [];
     const existingByGame = new Map<number, PostseasonExistingCodeSnapshot>();
@@ -288,6 +284,48 @@ export function buildPostseasonCodePreview(
       }
     }
 
+    eligibleFixtures.push(fixture);
+  }
+
+  const baseMissingCount = eligibleFixtures.reduce((total, fixture) => {
+    const assignedGames = byFixture.get(fixture.id)?.length ?? 0;
+    return total + fixture.best_of - assignedGames;
+  }, 0);
+
+  // Codes in the portion of the input that will be assigned can be reclaimed
+  // from an older unused assignment. If that assignment occupies a slot in
+  // this preview's eligible scope, that slot becomes one more to fill. Iterate
+  // to a fixed point because the longer assignment prefix may reclaim another
+  // existing code.
+  let requiredCodeCount = baseMissingCount;
+  let assignmentCodeKeys = new Set<string>();
+  let reclaimedEligibleCodes = new Set<string>();
+  for (let iteration = 0; iteration <= parsedCodes.length; iteration += 1) {
+    assignmentCodeKeys = new Set(parsedCodes.slice(0, requiredCodeCount).map((code) => code.toLowerCase()));
+    reclaimedEligibleCodes = new Set(
+      eligibleFixtures.flatMap((fixture) =>
+        (byFixture.get(fixture.id) ?? [])
+          .filter((code) => assignmentCodeKeys.has(code.code.trim().toLowerCase()))
+          .map((code) => code.id),
+      ),
+    );
+    const nextRequiredCodeCount = baseMissingCount + reclaimedEligibleCodes.size;
+    if (nextRequiredCodeCount === requiredCodeCount) break;
+    requiredCodeCount = nextRequiredCodeCount;
+  }
+
+  if (parsedCodes.length < requiredCodeCount) {
+    throw new Error(
+      `Need at least ${requiredCodeCount} new tournament code${requiredCodeCount === 1 ? "" : "s"} for the missing postseason slots.`,
+    );
+  }
+
+  const missingSlots: { fixture: FixtureRow; gameNumber: number }[] = [];
+  const previewFixtures: PostseasonPreviewFixture[] = [];
+  for (const fixture of eligibleFixtures) {
+    const fixtureCodes = (byFixture.get(fixture.id) ?? []).filter((code) => !reclaimedEligibleCodes.has(code.id));
+    const existingByGame = new Map(fixtureCodes.map((code) => [code.gameNumber, code]));
+
     const missingGameNumbers = Array.from({ length: fixture.best_of }, (_, index) => index + 1).filter(
       (gameNumber) => !existingByGame.has(gameNumber),
     );
@@ -309,12 +347,6 @@ export function buildPostseasonCodePreview(
     });
   }
 
-  if (parsedCodes.length < missingSlots.length) {
-    throw new Error(
-      `Need at least ${missingSlots.length} new tournament code${missingSlots.length === 1 ? "" : "s"} for the missing postseason slots.`,
-    );
-  }
-
   const assignments = missingSlots.map(({ fixture, gameNumber }, index) => ({
     fixtureId: fixture.id,
     gameNumber,
@@ -330,6 +362,10 @@ export function buildPostseasonCodePreview(
     fixture.assignments = assignmentsByFixture.get(fixture.fixtureId) ?? [];
   }
 
+  const assignedInputCodes = new Set(parsedCodes.slice(0, missingSlots.length).map((code) => code.toLowerCase()));
+  const allAssignedCodeKeys = new Set(existingCodes.map((code) => code.code.trim().toLowerCase()));
+  const reusedAssignmentCount = [...assignedInputCodes].filter((code) => allAssignedCodeKeys.has(code)).length;
+
   return {
     scope,
     fixtures: previewFixtures,
@@ -339,6 +375,7 @@ export function buildPostseasonCodePreview(
     existingCodeSnapshot,
     requiredCodeCount: missingSlots.length,
     existingCodeCount: existingCodeSnapshot.length,
+    reusedAssignmentCount,
     unusedCount: parsedCodes.length - missingSlots.length,
   };
 }
