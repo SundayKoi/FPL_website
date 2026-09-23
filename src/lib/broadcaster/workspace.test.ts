@@ -119,7 +119,7 @@ describe("resolveBroadcasterFixture", () => {
     });
 
     expect(fetchCaptainContext).toHaveBeenCalledWith(supabase, "premier");
-    expect(fetchHomepageSchedule).toHaveBeenCalledWith();
+    expect(fetchHomepageSchedule).toHaveBeenCalledWith(undefined, "S5");
     expect(selectHomepageFeaturedFixture).toHaveBeenCalledWith([fixture()], "featured-1");
   });
 

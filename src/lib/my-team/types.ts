@@ -66,6 +66,8 @@ export type MyTeamReadyDashboard = {
   /** Human-selectable teams. Admin overrides are validated only against this list. */
   activeTeams: LeagueTeam[];
   nextFixture: FixtureRow | null;
+  /** A confirmed Premier quarterfinal winner while both semifinal slots remain TBD. */
+  awaitingPlayoffDraw?: boolean;
   codes: MatchCode[];
   draftGames: DraftGameInfo[];
   schedule: FixtureRow[];

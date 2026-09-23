@@ -10,6 +10,7 @@ the implementation disagree.
 - [Request and data boundaries](#request-and-data-boundaries)
 - [Authentication and authorization](#authentication-and-authorization)
 - [Database organization](#database-organization)
+- [Premier playoff advancement](#premier-playoff-advancement)
 - [Player identity and My Team](#player-identity-and-my-team)
 - [Realtime behavior](#realtime-behavior)
 - [Scheduled and trusted workflows](#scheduled-and-trusted-workflows)
@@ -361,6 +362,7 @@ Postgres database and public schema:
 | Domain | Main tables/views | Backend behavior |
 | --- | --- | --- |
 | League and identity | `profiles`, `league_settings`, `league_teams`, `teams`, `riot_accounts`, `roster_memberships`, `league_team_captains`, `player_identity_links`, `fixtures` | Season, tier, roster, canonical player/profile identity, captain, team, and schedule configuration. |
+| Premier playoffs | `premier_playoff_config`, `premier_playoff_entrants`, `fixtures` | Season-scoped Premier bracket settings and frozen seeds; quarterfinals, semifinals, and finals remain stable rows in `fixtures`. Advancement is revalidated and written by narrow admin/owner RPCs. |
 | Auction draft | `drafts`, `players`, `lots`, `bids` | Nomination, bidding, countdown settlement, admin overrides, roster assignment, chat, and Nemesis picks are protected by RPCs and RLS. |
 | Canonical players and free agency | `player_pool`, `free_agency_avg_bids`, `signups`, `info_resources` | Cross-draft player metadata, free-agency data, signups, and editable information resources. |
 | Match reporting and stats | `match_reports`, `match_report_games`, `match_codes`, `raw_stats`, `stats_*` views | Captains report series; the Riot ingester writes raw rows; views provide player, team, champion, record, and game-log aggregates. A series that ended early carries `match_reports.forfeit_team_id` — see "Forfeits" below. |
@@ -388,6 +390,64 @@ The exact schema is the ordered SQL in `supabase/migrations/`. Migrations are
 append-only: add a new migration for a schema, policy, grant, view, trigger,
 or RPC change instead of editing an already-applied migration. Put the
 corresponding contract/authorization coverage in `supabase/tests/`.
+
+### Premier playoff advancement
+
+Migration `20261028000001_premier_playoffs.sql` adds the Premier playoff
+contract. `premier_playoff_config` pins a season to its selected Premier draft,
+stores the approved 2/2 and 4/0 pairing policies, and carries a
+`config_version`; `premier_playoff_entrants` freezes the eight canonical team
+identities, divisions, and seeds. Both tables are readable to signed-in and
+anonymous clients, but direct writes are revoked. The rows do not replace
+`fixtures`: seven stable fixture IDs per season remain the schedule, reporting,
+match-code, draft, betting, and broadcaster references.
+
+`initialize_premier_playoffs` is the only bracket initialization path. It
+requires an admin or owner and verifies that its season and draft still match
+the selected Premier configuration. It resolves every entrant against that
+draft and exact season, verifies the eight frozen seeds and all four opening
+matchups, and creates or updates the four quarterfinal, two semifinal, and one
+final slots atomically. Re-running initialization preserves already advanced
+teams in later-round placeholders. Existing duplicate slots or changes to a
+fixture with scores, reports, codes, drafts, betting markets, or a featured
+selection are errors; fixture rows are never deleted and recreated.
+
+Result resolution is scoped to the exact source fixture and season. A complete
+best-of-five score must be 3–0, 3–1, or 3–2. When the fixture has no usable
+official score, exact-fixture playoff reports can provide evidence, including
+provisional reports; failed, malformed, wrong-season, incomplete, or
+conflicting evidence blocks advancement. The staff preview shows result
+provenance and warnings. It does not make reporting itself publish the next
+round.
+
+`publish_premier_playoff_round` accepts a preview for the semifinals or final.
+Inside one transaction it checks admin/owner authorization, serializes work
+per season, locks configuration and source/target fixtures, re-resolves the
+results, and compares the submitted source snapshots and configuration
+version. It derives the proposed participants again, then fills the existing
+target fixture rows together. A repeated identical publish is a no-op. Stale
+previews and targets with dependent work are rejected, so an ordinary result
+correction cannot silently rewrite a played bracket. `update_premier_playoff_policy`
+is also admin/owner-only and increments `config_version`, invalidating previews
+made against the old policy.
+
+Pairing follows the rulebook: for a 3/1 division split, the top and bottom
+seeds within the larger division meet, while the middle seed meets the lone
+other-division team. With two survivors from each division, both semifinals
+cross divisions, but the rulebook does not select which cross-pairing; a
+league-approved `pairing_22` must be saved before publishing. If all four
+survivors are from one division, the rulebook gives no fallback; `pairing_40`
+must also be explicitly approved. A missing policy blocks the draw. Frozen
+seed numbers still govern these choices after an upset. The system does not
+assign game-one side selection for equal seeds from opposite divisions.
+
+The Schedule admin panel calls these RPCs through the cookie-bound server
+client, with route checks as a presentation gate and the database as the
+authorization boundary. `scripts/seed-bracket.ts` defaults to a dry run; its
+Premier write path uses the service role only in the trusted script and stays
+disabled while `publishing_approved` is false. A local implementation or dry
+run does not authorize a production write or deployment. pgTAP coverage lives
+in `supabase/tests/0121_premier_playoffs_test.sql`.
 
 Important RPC families include:
 

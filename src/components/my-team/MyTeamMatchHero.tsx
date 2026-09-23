@@ -9,17 +9,23 @@ export function MyTeamMatchHero({
   fixture,
   myTeamName,
   canOpenCaptainDraft,
+  awaitingPlayoffDraw = false,
 }: {
   fixture: FixtureRow | null;
   myTeamName: string;
   canOpenCaptainDraft: boolean;
+  awaitingPlayoffDraw?: boolean;
 }) {
   if (!fixture) {
     return (
       <section className="card-brand p-5" aria-label="Next match">
         <p className="label-dash">Next match</p>
-        <h2 className="mt-2 type-display text-2xl">No upcoming match scheduled.</h2>
-        <p className="mt-2 text-sm text-muted">The next fixture will appear here when it is posted.</p>
+        <h2 className="mt-2 type-display text-2xl">{awaitingPlayoffDraw ? "Awaiting your semifinal matchup." : "No upcoming match scheduled."}</h2>
+        <p className="mt-2 text-sm text-muted">
+          {awaitingPlayoffDraw
+            ? "Your quarterfinal win is recorded. The semifinal draw will appear here when it is published."
+            : "The next fixture will appear here when it is posted."}
+        </p>
       </section>
     );
   }

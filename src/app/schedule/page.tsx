@@ -30,6 +30,9 @@ import UpNextBanner from "@/components/schedule/UpNextBanner";
 import { fetchLeagueSeasons } from "@/lib/league/season";
 import HomeStandings from "@/components/home/HomeStandings";
 import { fetchHomepageStandings, type HomeStandingsData } from "@/lib/home/standings";
+import PlayoffAdminPanel, { type PlayoffAdminPreview, type PlayoffRoundPanelData } from "@/components/schedule/PlayoffAdminPanel";
+import { buildAdvancementPreview, type PlayoffEntrant, type PlayoffReport } from "@/lib/schedule/playoffs";
+import { buildPlayoffPublishPayload, type PlayoffReportWithGames } from "@/lib/schedule/previewPayload";
 
 export const metadata: Metadata = {
   title: "Schedule — FPL",
@@ -43,9 +46,10 @@ export default async function SchedulePage({
   const supabase = await createServerSupabase();
   const { isAdmin, isOwner } = await fetchStaffTier(supabase);
 
+  const canAdminister = isAdmin || isOwner;
   const [fixturesResult, settingsResult, identities, leagueSeasons, draftsResult] = await Promise.all([
     supabase.from("fixtures").select("*").order("stage").order("sort_order"),
-    isAdmin
+    canAdminister
       ? supabase
           .from("league_settings")
           // select(*) rather than naming columns: the live_* pair arrives in a
@@ -103,6 +107,109 @@ export default async function SchedulePage({
   const upNext = nextUp(fixtures, new Date());
   const defaultOpenStages = selectDefaultOpenStages(fixtures, upNext?.stage ?? null);
   const groups = ["Regular Season", "Gauntlet", "Playoffs"] as const;
+
+  let playoffAdmin: {
+    configVersion: number;
+    pairing22: "solari_high_vs_lunari_low" | "solari_high_vs_lunari_high" | null;
+    pairing40: "outer_seeds" | "adjacent_seeds" | null;
+    semifinals: PlayoffRoundPanelData;
+    finals: PlayoffRoundPanelData;
+  } | null = null;
+  let playoffAdminError: string | null = null;
+  if (canAdminister && season === "S5") {
+    try {
+      const [configResult, entrantsResult] = await Promise.all([
+        supabase.from("premier_playoff_config").select("*").eq("season", season).maybeSingle(),
+        supabase.from("premier_playoff_entrants").select("*").eq("season", season).order("division").order("seed"),
+      ]);
+      if (configResult.error) throw configResult.error;
+      if (entrantsResult.error) throw entrantsResult.error;
+      const config = configResult.data as {
+        pairing_22: "solari_high_vs_lunari_low" | "solari_high_vs_lunari_high" | null;
+        pairing_40: "outer_seeds" | "adjacent_seeds" | null;
+        config_version: number;
+      } | null;
+      if (config) {
+        const entrants = ((entrantsResult.data ?? []) as {
+          team_id: string;
+          canonical_name: string;
+          division: "Solari" | "Lunari";
+          seed: number;
+        }[]).map((row): PlayoffEntrant => ({
+          teamId: row.team_id,
+          name: row.canonical_name,
+          division: row.division,
+          seed: row.seed,
+        }));
+        const sourceIds = fixtures
+          .filter((row) => row.stage === "quarterfinals" || row.stage === "semifinals")
+          .map((row) => row.id);
+        const reportsResult = sourceIds.length
+          ? await supabase.from("match_reports").select("*").in("fixture_id", sourceIds).order("id")
+          : { data: [], error: null };
+        if (reportsResult.error) throw reportsResult.error;
+        const reports = (reportsResult.data ?? []) as PlayoffReport[];
+        const reportIds = reports.map((row) => row.id);
+        const gamesResult = reportIds.length
+          ? await supabase.from("match_report_games").select("id, report_id, game_number, status").in("report_id", reportIds).order("game_number")
+          : { data: [], error: null };
+        if (gamesResult.error) throw gamesResult.error;
+        const gameRows = (gamesResult.data ?? []) as { id: string; report_id: string; game_number: number; status: string }[];
+        const reportsWithGames: PlayoffReportWithGames[] = reports.map((report) => ({
+          ...report,
+          games: gameRows.filter((game) => game.report_id === report.id)
+            .map(({ id, game_number, status }) => ({ id, game_number, status })),
+        }));
+        const makeRound = (stage: "semifinals" | "finals") => {
+          const sourceStage = stage === "semifinals" ? "quarterfinals" : "semifinals";
+          const sourceFixtures = fixtures.filter((row) => row.stage === sourceStage);
+          const targetFixtures = fixtures.filter((row) => row.stage === stage);
+          const fullPreview = buildAdvancementPreview(
+            stage,
+            sourceFixtures,
+            targetFixtures,
+            entrants,
+            reportsWithGames,
+            { policy22: config!.pairing_22, policy40: config!.pairing_40 },
+          );
+          const preview: PlayoffAdminPreview = {
+            stage: fullPreview.stage,
+            status: fullPreview.status,
+            blockingReason: fullPreview.blockingReason,
+            matches: fullPreview.matches.map(({ sortOrder, teamA, teamB }) => ({
+              sortOrder,
+              teamA: { name: teamA.name },
+              teamB: { name: teamB.name },
+            })),
+            results: fullPreview.results.map((result) => ({
+              fixtureId: result.fixtureId,
+              status: result.status,
+              winnerName: result.winnerName,
+              scoreA: result.scoreA,
+              scoreB: result.scoreB,
+              provisional: result.provisional,
+              blockingReason: result.blockingReason,
+              warnings: result.warnings,
+            })),
+          };
+          return {
+            preview,
+            payload: buildPlayoffPublishPayload(fullPreview, config!.config_version, sourceFixtures, targetFixtures, reportsWithGames),
+          } satisfies PlayoffRoundPanelData;
+        };
+        playoffAdmin = {
+          configVersion: config.config_version,
+          pairing22: config.pairing_22,
+          pairing40: config.pairing_40,
+          semifinals: makeRound("semifinals"),
+          finals: makeRound("finals"),
+        };
+      }
+    } catch (error) {
+      console.error("Unable to load Premier playoff administration", error);
+      playoffAdminError = "Playoff previews are temporarily unavailable.";
+    }
+  }
 
   return (
     <main className="page-backdrop flex-1">
@@ -176,6 +283,18 @@ export default async function SchedulePage({
             <AdminFixturesEditor fixtures={fixtures} season={season} isOwner={isOwner} />
           </div>
         )}
+
+        {canAdminister && season === "S5" ? (
+          <div className="mt-8">
+            {playoffAdmin ? (
+              <PlayoffAdminPanel season="S5" {...playoffAdmin} />
+            ) : playoffAdminError ? (
+              <p role="alert" className="rounded border border-red-400/40 bg-red-950/20 p-4 text-sm text-red-300">{playoffAdminError}</p>
+            ) : (
+              <p className="rounded border border-border-subtle bg-surface p-4 text-sm text-muted">Premier S5 playoff bracket has not been initialized yet.</p>
+            )}
+          </div>
+        ) : null}
 
         <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,26rem)] xl:gap-10">
           <div className="min-w-0 flex flex-col gap-12">

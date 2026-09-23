@@ -29,6 +29,7 @@ const bracket = (over: Partial<BracketFixture> = {}): BracketFixture => ({
 
 const existing = (over: Partial<ExistingFixture> = {}): ExistingFixture => ({
   id: "fix-1",
+  season: SEASON,
   stage: "quarterfinals",
   sort_order: 0,
   team_a: null,
@@ -39,7 +40,7 @@ const existing = (over: Partial<ExistingFixture> = {}): ExistingFixture => ({
 });
 
 const plan = (rows: ExistingFixture[], fixtures: BracketFixture[]) =>
-  planBracketSeed(rows, fixtures, SEASON, TEAMS);
+  planBracketSeed(rows, fixtures, SEASON, TEAMS, TEAMS);
 
 describe("planBracketSeed", () => {
   it("inserts a fixture the season does not have yet", () => {
@@ -178,6 +179,9 @@ describe("parseBracketFile", () => {
       league: "academy",
       season: null,
       note: null,
+      publishingApproved: false,
+      entrants: [],
+      pairingPolicy: { pairing_22: null, pairing_40: null },
       fixtures: [
         { stage: "finals", sort_order: 0, team_a: null, team_b: null, best_of: 5, scheduled_at: "2026-10-05T20:00:00-04:00" },
       ],
@@ -200,5 +204,88 @@ describe("parseBracketFile", () => {
     );
     expect(() => parseBracketFile({ ...file, league: "juniors" })).toThrow(/"league"/);
     expect(() => parseBracketFile({ ...file, fixtures: [] })).toThrow(/"fixtures"/);
+  });
+});
+
+const premierEntrants = [
+  ...["One", "Two", "Three", "Four"].map((suffix, index) => ({ name: `Solari ${suffix}`, division: "Solari" as const, seed: index + 1 })),
+  ...["One", "Two", "Three", "Four"].map((suffix, index) => ({ name: `Lunari ${suffix}`, division: "Lunari" as const, seed: index + 1 })),
+];
+
+const premierFixture = (overrides: Partial<BracketFixture> = {}): BracketFixture => ({
+  stage: "quarterfinals",
+  sort_order: 0,
+  team_a: "Solari One",
+  team_b: "Lunari Four",
+  best_of: 5,
+  scheduled_at: "2026-09-28T20:00:00-04:00",
+  ...overrides,
+});
+
+describe("Premier bracket validation and protection", () => {
+  it("rejects duplicate stage slots before a seed can run", () => {
+    expect(() => parseBracketFile({
+      league: "premier",
+      entrants: premierEntrants,
+      fixtures: [premierFixture(), premierFixture()],
+    })).toThrow(/lists quarterfinals#0 more than once/i);
+  });
+
+  it("resolves names against the selected draft and season and allows later-round placeholders", () => {
+    const fixtures = [
+      premierFixture(),
+      premierFixture({ sort_order: 1, team_a: "Solari Two", team_b: "Lunari Three" }),
+      premierFixture({ sort_order: 2, team_a: "Lunari One", team_b: "Solari Four" }),
+      premierFixture({ sort_order: 3, team_a: "Lunari Two", team_b: "Solari Three" }),
+      premierFixture({ stage: "semifinals", sort_order: 0, team_a: null, team_b: null }),
+      premierFixture({ stage: "semifinals", sort_order: 1, team_a: null, team_b: null }),
+      premierFixture({ stage: "finals", sort_order: 0, team_a: null, team_b: null }),
+    ];
+    const names = premierEntrants.map(({ name }) => name);
+    const plan = planBracketSeed([], fixtures, "S5", names, names, premierEntrants);
+
+    expect(plan.errors).toEqual([]);
+    expect(plan.inserts).toHaveLength(7);
+    expect(plan.inserts.slice(4).every((row) => row.team_a === null && row.team_b === null && row.division === null)).toBe(true);
+    expect(() => parseBracketFile({ league: "premier", entrants: premierEntrants, fixtures })).not.toThrow();
+  });
+
+  it("keeps advanced teams on stable semifinal slots when the seed file still has TBDs", () => {
+    const planned = premierFixture({ stage: "semifinals", sort_order: 0, team_a: null, team_b: null });
+    const current: ExistingFixture = {
+      id: "semi-1",
+      season: "S5",
+      stage: "semifinals",
+      sort_order: 0,
+      team_a: "Solari One",
+      team_b: "Lunari Two",
+      score_a: null,
+      score_b: null,
+      division: null,
+      best_of: 5,
+      scheduled_at: planned.scheduled_at,
+    };
+    const names = premierEntrants.map(({ name }) => name);
+    const plan = planBracketSeed([current], [planned], "S5", names, names, premierEntrants);
+    expect(plan.errors).toEqual([]);
+    expect(plan.unchanged).toEqual([{ id: "semi-1", stage: "semifinals", sort_order: 0 }]);
+  });
+
+  it("blocks a changed Premier slot with scores or downstream work", () => {
+    const protectedFixture: ExistingFixture = {
+      id: "qf-1",
+      season: "S5",
+      stage: "quarterfinals",
+      sort_order: 0,
+      team_a: "Old name",
+      team_b: "Lunari Four",
+      score_a: null,
+      score_b: null,
+      protectedReasons: ["match_reports"],
+    };
+    const names = premierEntrants.map(({ name }) => name);
+    const plan = planBracketSeed([protectedFixture], [premierFixture()], "S5", names, names, premierEntrants);
+    expect(plan.updates).toHaveLength(0);
+    expect(plan.errors.join(" ")).toContain("protected");
   });
 });

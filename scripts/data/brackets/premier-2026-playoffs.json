@@ -1,0 +1,29 @@
+{
+  "league": "premier",
+  "season": "S5",
+  "note": "Premier S5 playoff opening schedule. Confirm the dates and 8 p.m. Eastern kickoff interpretation before publishing.",
+  "publishing_approved": false,
+  "entrants": [
+    { "name": "Freaks Under Restraint", "division": "Solari", "seed": 1 },
+    { "name": "Alcatraz", "division": "Solari", "seed": 2 },
+    { "name": "The Original Mocha House", "division": "Solari", "seed": 3 },
+    { "name": "Mint Gaming Mall Cops", "division": "Solari", "seed": 4 },
+    { "name": "Honest Elo Peakers", "division": "Lunari", "seed": 1 },
+    { "name": "MetaShift League", "division": "Lunari", "seed": 2 },
+    { "name": "The Cakesters", "division": "Lunari", "seed": 3 },
+    { "name": "Endless", "division": "Lunari", "seed": 4 }
+  ],
+  "pairing_policy": {
+    "pairing_22": null,
+    "pairing_40": null
+  },
+  "fixtures": [
+    { "stage": "quarterfinals", "sort_order": 0, "team_a": "Freaks Under Restraint", "team_b": "Endless", "best_of": 5, "scheduled_at": "2026-09-28T20:00:00-04:00" },
+    { "stage": "quarterfinals", "sort_order": 1, "team_a": "Alcatraz", "team_b": "The Cakesters", "best_of": 5, "scheduled_at": "2026-09-28T20:00:00-04:00" },
+    { "stage": "quarterfinals", "sort_order": 2, "team_a": "Honest Elo Peakers", "team_b": "Mint Gaming Mall Cops", "best_of": 5, "scheduled_at": "2026-09-28T20:00:00-04:00" },
+    { "stage": "quarterfinals", "sort_order": 3, "team_a": "MetaShift League", "team_b": "The Original Mocha House", "best_of": 5, "scheduled_at": "2026-09-28T20:00:00-04:00" },
+    { "stage": "semifinals", "sort_order": 0, "team_a": null, "team_b": null, "best_of": 5, "scheduled_at": "2026-10-04T20:00:00-04:00" },
+    { "stage": "semifinals", "sort_order": 1, "team_a": null, "team_b": null, "best_of": 5, "scheduled_at": "2026-10-04T20:00:00-04:00" },
+    { "stage": "finals", "sort_order": 0, "team_a": null, "team_b": null, "best_of": 5, "scheduled_at": "2026-10-11T20:00:00-04:00" }
+  ]
+}

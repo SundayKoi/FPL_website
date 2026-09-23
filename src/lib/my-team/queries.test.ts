@@ -85,28 +85,36 @@ function fakeClient({
   captainTeamIds = [],
   teamAggRows = [],
   matchReports = [],
+  matchReportGames = [],
+  playoffEntrants = [],
+  leagueTeams = [academyOne, academyTwo, premierOne],
+  draftTeams = [
+    {
+      id: "draft-academy-1",
+      draft_id: "academy-draft",
+      name: academyOne.name,
+      image_url: "https://img.test/academy-one.png",
+      banner_color: "#123456",
+    },
+    { id: "draft-academy-2", draft_id: "academy-draft", name: academyTwo.name },
+    { id: "draft-premier-1", draft_id: "premier-draft", name: premierOne.name },
+  ],
   errors = {},
 }: {
   fixtures?: Row[];
   captainTeamIds?: string[];
   teamAggRows?: Row[];
   matchReports?: Row[];
+  matchReportGames?: Row[];
+  playoffEntrants?: Row[];
+  leagueTeams?: Row[];
+  draftTeams?: Row[];
   errors?: Partial<Record<string, { message: string }>>;
 } = {}) {
   const tables: Record<string, Row[]> = {
     league_settings: [{ id: 1, featured_draft_id: "premier-draft", academy_draft_id: "academy-draft" }],
-    league_teams: [academyOne, academyTwo, premierOne],
-    teams: [
-      {
-        id: "draft-academy-1",
-        draft_id: "academy-draft",
-        name: academyOne.name,
-        image_url: "https://img.test/academy-one.png",
-        banner_color: "#123456",
-      },
-      { id: "draft-academy-2", draft_id: "academy-draft", name: academyTwo.name },
-      { id: "draft-premier-1", draft_id: "premier-draft", name: premierOne.name },
-    ],
+    league_teams: leagueTeams,
+    teams: draftTeams,
     league_team_captains: captainTeamIds.map((league_team_id) => ({
       profile_id: "profile-1",
       season: "A1",
@@ -115,6 +123,8 @@ function fakeClient({
     fixtures,
     stats_team_agg: teamAggRows,
     match_reports: matchReports,
+    match_report_games: matchReportGames,
+    premier_playoff_entrants: playoffEntrants,
   };
 
   const from = vi.fn((table: string) => {
@@ -124,6 +134,10 @@ function fakeClient({
       select: vi.fn(() => builder),
       eq: vi.fn((column: string, value: unknown) => {
         rows = rows.filter((row) => row[column] === value);
+        return builder;
+      }),
+      in: vi.fn((column: string, values: unknown[]) => {
+        rows = rows.filter((row) => values.includes(row[column]));
         return builder;
       }),
       order: vi.fn(() => builder),
@@ -421,6 +435,148 @@ describe("loadMyTeamDashboard", () => {
 
     expect(result).toMatchObject({ kind: "ready", nextFixture: null, opponent: null });
     expect(client.from).not.toHaveBeenCalledWith("stats_team_agg");
+  });
+
+  it("keeps an unfinished playoff series visible when its report is failed", async () => {
+    const names = [
+      "Premier Solari One", "Premier Solari Two", "Premier Solari Three", "Premier Solari Four",
+      "Premier Lunari One", "Premier Lunari Two", "Premier Lunari Three", "Premier Lunari Four",
+    ];
+    const premierLeagueTeams = names.map((name, index) => ({
+      id: `premier-team-${index + 1}`,
+      name,
+      abbreviation: `P${index + 1}`,
+      active: true,
+    }));
+    const premierDraftTeams = premierLeagueTeams.map((team) => ({
+      id: `draft-${team.id}`,
+      draft_id: "premier-draft",
+      name: team.name,
+    }));
+    const playoffEntrants = premierLeagueTeams.map((team, index) => ({
+      season: "S5",
+      team_id: team.id,
+      canonical_name: team.name,
+      division: index < 4 ? "Solari" : "Lunari",
+      seed: (index % 4) + 1,
+    }));
+    const qf = {
+      ...upcoming,
+      id: "premier-qf-0",
+      season: "S5",
+      stage: "quarterfinals",
+      team_a: names[0],
+      team_b: names[7],
+      best_of: 5,
+    };
+    const semifinalSlots = [0, 1].map((sort_order) => ({
+      ...qf,
+      id: `premier-semi-${sort_order}`,
+      stage: "semifinals",
+      sort_order,
+      team_a: null,
+      team_b: null,
+      scheduled_at: "2026-10-04T20:00:00-04:00",
+    }));
+    const failedReport = {
+      id: "report-failed",
+      fixture_id: qf.id,
+      season: "S5",
+      season_phase: "Playoffs",
+      team_a_id: premierLeagueTeams[0].id,
+      team_b_id: premierLeagueTeams[7].id,
+      score_a: 2,
+      score_b: 1,
+      status: "failed",
+      submitted_at: "2026-09-28T23:00:00Z",
+      forfeit_team_id: null,
+    };
+    resolvePlayerIdentity.mockResolvedValue(identity({ season: "S5", leagueTeamId: premierLeagueTeams[0].id }));
+
+    const result = await loadMyTeamDashboard(fakeClient({
+      fixtures: [qf, ...semifinalSlots],
+      matchReports: [failedReport],
+      playoffEntrants,
+      leagueTeams: premierLeagueTeams,
+      draftTeams: premierDraftTeams,
+    }) as never, "premier");
+
+    expect(result).toMatchObject({
+      kind: "ready",
+      nextFixture: { id: qf.id },
+      awaitingPlayoffDraw: false,
+    });
+  });
+
+  it("shows a validated quarterfinal winner as awaiting the semifinal draw", async () => {
+    const names = [
+      "Premier Solari One", "Premier Solari Two", "Premier Solari Three", "Premier Solari Four",
+      "Premier Lunari One", "Premier Lunari Two", "Premier Lunari Three", "Premier Lunari Four",
+    ];
+    const premierLeagueTeams = names.map((name, index) => ({
+      id: `premier-team-${index + 1}`,
+      name,
+      abbreviation: `P${index + 1}`,
+      active: true,
+    }));
+    const premierDraftTeams = premierLeagueTeams.map((team) => ({
+      id: `draft-${team.id}`,
+      draft_id: "premier-draft",
+      name: team.name,
+    }));
+    const playoffEntrants = premierLeagueTeams.map((team, index) => ({
+      season: "S5",
+      team_id: team.id,
+      canonical_name: team.name,
+      division: index < 4 ? "Solari" : "Lunari",
+      seed: (index % 4) + 1,
+    }));
+    const qf = {
+      ...upcoming,
+      id: "premier-qf-0",
+      season: "S5",
+      stage: "quarterfinals",
+      team_a: names[0],
+      team_b: names[7],
+      best_of: 5,
+    };
+    const semifinalSlots = [0, 1].map((sort_order) => ({
+      ...qf,
+      id: `premier-semi-${sort_order}`,
+      stage: "semifinals",
+      sort_order,
+      team_a: null,
+      team_b: null,
+      scheduled_at: "2026-10-04T20:00:00-04:00",
+    }));
+    const report = {
+      id: "report-ready",
+      fixture_id: qf.id,
+      season: "S5",
+      season_phase: "Playoffs",
+      team_a_id: premierLeagueTeams[0].id,
+      team_b_id: premierLeagueTeams[7].id,
+      score_a: 3,
+      score_b: 1,
+      status: "pending",
+      submitted_at: "2026-09-28T23:00:00Z",
+      forfeit_team_id: null,
+    };
+    resolvePlayerIdentity.mockResolvedValue(identity({ season: "S5", leagueTeamId: premierLeagueTeams[0].id }));
+
+    const result = await loadMyTeamDashboard(fakeClient({
+      fixtures: [qf, ...semifinalSlots],
+      matchReports: [report],
+      playoffEntrants,
+      leagueTeams: premierLeagueTeams,
+      draftTeams: premierDraftTeams,
+    }) as never, "premier");
+
+    expect(result).toMatchObject({
+      kind: "ready",
+      nextFixture: null,
+      awaitingPlayoffDraw: true,
+    });
   });
 
   it("propagates an own-roster failure instead of returning a false ready dashboard", async () => {
