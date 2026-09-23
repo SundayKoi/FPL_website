@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FixtureRow } from "@/lib/schedule/types";
 import AdminPage from "./page";
 
-const { redirect, fetchStaffTier, editor, fetchHomepageSchedule, fetchHomepageFeaturedSettings, fetchAcademyDraftData, fetchLeagueSeasons } = vi.hoisted(() => ({
+const { redirect, fetchStaffTier, editor, fetchHomepageSchedule, fetchHomepageFeaturedSettings, fetchAcademyDraftData, fetchLeagueSeasons, routerPush, routerReplace } = vi.hoisted(() => ({
   redirect: vi.fn(),
   fetchStaffTier: vi.fn(),
+  routerPush: vi.fn(),
+  routerReplace: vi.fn(),
   editor: vi.fn(({ homepage, fixtures, settings }) => (
     <div data-testid={`${homepage}-featured-editor`}>
       {settings.title ?? "Default copy"} · {fixtures.map((fixture: { id: string }) => fixture.id).join(",")}
@@ -17,7 +19,12 @@ const { redirect, fetchStaffTier, editor, fetchHomepageSchedule, fetchHomepageFe
   fetchLeagueSeasons: vi.fn(),
 }));
 
-vi.mock("next/navigation", () => ({ redirect }));
+vi.mock("next/navigation", () => ({
+  redirect,
+  usePathname: () => "/admin",
+  useRouter: () => ({ push: routerPush, replace: routerReplace }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 vi.mock("@/lib/auth/staffTier", () => ({
   fetchStaffTier,
   isMissingBroadcasterColumn: (error: { code?: string; message?: string } | null) =>
@@ -193,7 +200,7 @@ describe("AdminPage", () => {
     render(await AdminPage());
 
     expect(redirect).not.toHaveBeenCalled();
-    expect(screen.getByRole("heading", { name: "Admin" })).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "League operations" })).not.toBeNull();
     expect(screen.getByTestId("premier-featured-editor")).not.toBeNull();
     expect(screen.getByTestId("academy-featured-editor")).not.toBeNull();
     expect(screen.queryByRole("region", { name: "League controls" })).toBeNull();
