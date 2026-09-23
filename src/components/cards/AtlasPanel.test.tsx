@@ -93,6 +93,15 @@ describe("AtlasPanel", () => {
     expect(screen.getByTestId("atlas-named").textContent).toContain(LEGEND[0].title);
   });
 
+  it("wears a crest beside the name it belongs to, and ends the sentence on its date", () => {
+    const mine = run("legend", [LEGEND[0].key]);
+    const atlas = atlasFor([mine], [landmark(LEGEND[5].key, "77", "Bo", 555)], { viewer: "42", crests: new Set(["77"]) });
+    render(<AtlasPanel atlas={atlas} />);
+    const line = screen.getByTestId("atlas-unseen-landmarks-legend").textContent ?? "";
+    expect(line).toMatch(/first reached by Bo★ crest on \S+ \d+\.$/);
+    expect(line).not.toMatch(/crest\s*\.$/);
+  });
+
   it("marks a road walked and paid, and one walked but not yet paid", () => {
     const whole = [run("legendary", LEGENDARY.slice(0, 6).map((place) => place.key)), run("legendary", LEGENDARY.slice(6).map((place) => place.key))];
     const paid = atlasFor(whole, [], { awards: [{ tier: "legendary", fragments: 2, comp: true, awardedAt: "2026-09-20T15:00:00.000Z" }] });

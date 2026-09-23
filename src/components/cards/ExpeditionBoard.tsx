@@ -284,6 +284,12 @@ export default function ExpeditionBoard({
   const now = new Date();
 
   const active = runs.filter((run) => run.tier !== "lost" && run.claimedAt === null && !claimed.has(run.id));
+  // This week's league goal, as each run's map draws it off the road's end.
+  const thisWeek = league?.thisWeek ?? null;
+  const mapGoal = useMemo(
+    () => (thisWeek ? { kind: thisWeek.goal.kind, title: thisWeek.goal.title, done: thisWeek.progress.total, target: thisWeek.goal.target, unit: thisWeek.goal.unit } : null),
+    [thisWeek],
+  );
   const finished = runs.filter((run) => run.tier !== "lost" && (run.claimedAt !== null || claimed.has(run.id)));
   const lostIds = new Set(holds.map((hold) => hold.cardId));
   const free = freeCopies(copies, { deployedIds, lostIds, now });
@@ -595,6 +601,7 @@ export default function ExpeditionBoard({
                 convoy={convoys[run.id] ?? null}
                 view={views[run.id] ?? null}
                 fragments={fragments}
+                goal={mapGoal}
                 onReveal={async (runId) => {
                   const result = await actions.revealRoadAction(runId);
                   if (result.ok) router.refresh();

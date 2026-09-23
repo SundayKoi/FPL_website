@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { fetchStaffTier, redirect } = vi.hoisted(() => ({ fetchStaffTier: vi.fn(), redirect: vi.fn() }));
@@ -77,7 +77,7 @@ describe("the expedition board preview", () => {
     // The Deep Raid's second checkpoint is a `?`; the fork it stands at
     // still says what the squad's edges do; a fragment can show the rest.
     const raid = screen.getByTestId("run-301");
-    expect(raid.querySelector('[data-stop="1"]')?.getAttribute("data-known")).toBe("false");
+    expect(within(raid).getByTestId("map-place-1").getAttribute("data-known")).toBe("false");
     expect(screen.getByTestId("fork-301-0").querySelector("[data-testid^='fork-edges-']")).not.toBeNull();
     expect((screen.getByTestId("reveal-301").querySelector("button") as HTMLButtonElement).disabled).toBe(false);
     mid.unmount();
@@ -85,7 +85,7 @@ describe("the expedition board preview", () => {
     render(await open("veteran"));
     const legendary = screen.getByTestId("run-502");
     expect(legendary.querySelectorAll('[data-known="false"]').length).toBeGreaterThan(0);
-    expect(legendary.querySelector('[data-known="false"] ~ [data-dread], [data-known="false"] [data-dread]')).not.toBeNull();
+    expect(legendary.querySelector('[data-known="false"][data-warned="true"] [data-dread]')).not.toBeNull();
     expect(screen.getByTestId("dread-502").textContent).toMatch(/bad feeling about/);
     expect((screen.getByTestId("reveal-502").querySelector("button") as HTMLButtonElement).disabled).toBe(false);
   });

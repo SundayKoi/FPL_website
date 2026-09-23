@@ -255,33 +255,45 @@ export default function RouteStep({
               <span className="font-semibold text-white">{brief.label} — +{Math.round(BRIEF_BONUS * 100)}% yield</span>
             </Term>{" "}
             <span>(send a {brief.role})</span>
+            {/* Each separator travels with the words after it (the space
+                before it is the only place the line may break), so a
+                phone's wrap never leaves a "·" at the end of a line. */}
             {weather ? (
               <>
-                <span aria-hidden> · </span>
-                <Term term="weather" testId="expedition-weather" extra={`${WEATHERS[weather].sky} ${WEATHERS[weather].does.join(" ")}`}>
-                  <span aria-hidden className="mr-1 inline-block">
-                    {WEATHERS[weather].glyph}
-                  </span>
-                  <span className="font-semibold text-white">{WEATHERS[weather].label}</span>
-                </Term>
+                {" "}
+                <span className="whitespace-nowrap">
+                  <span aria-hidden>·&nbsp;</span>
+                  <Term term="weather" testId="expedition-weather" extra={`${WEATHERS[weather].sky} ${WEATHERS[weather].does.join(" ")}`}>
+                    <span aria-hidden className="mr-1 inline-block">
+                      {WEATHERS[weather].glyph}
+                    </span>
+                    <span className="font-semibold text-white">{WEATHERS[weather].label}</span>
+                  </Term>
+                </span>
               </>
             ) : null}
             {playingToday.length > 0 ? (
               <>
-                <span aria-hidden> · </span>
+                {" "}
                 <span data-testid="match-day">
-                  <Term term="matchDay">
-                    <span className="font-semibold text-mint">Match day</span>
-                  </Term>
-                  : {playingToday.join(", ")} {playingToday.length === 1 ? "plays" : "play"} tonight, +{Math.round(SURGE_BONUS * 100)}%
+                  <span className="whitespace-nowrap">
+                    <span aria-hidden>·&nbsp;</span>
+                    <Term term="matchDay">
+                      <span className="font-semibold text-mint">Match day</span>
+                    </Term>
+                    :
+                  </span>{" "}
+                  {playingToday.join(", ")} {playingToday.length === 1 ? "plays" : "play"} tonight, +{Math.round(SURGE_BONUS * 100)}%
                 </span>
               </>
-            ) : null}
-            <span aria-hidden> · </span>
-            <Term term="fragment" buttonTestId="fragments">
-              <ExpeditionIcon name="fragment" className="mr-1 text-purple-200" />
-              {fragments}/{EXPEDITION_TIERS.legendary.fragments} map fragment{fragments === 1 ? "" : "s"}
-            </Term>
+            ) : null}{" "}
+            <span className="whitespace-nowrap">
+              <span aria-hidden>·&nbsp;</span>
+              <Term term="fragment" buttonTestId="fragments">
+                <ExpeditionIcon name="fragment" className="mr-1 text-purple-200" />
+                {fragments}/{EXPEDITION_TIERS.legendary.fragments} map fragment{fragments === 1 ? "" : "s"}
+              </Term>
+            </span>
           </p>
           <LeagueGoalLine league={league} onOpen={onOpenLeague} />
         </div>

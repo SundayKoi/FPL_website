@@ -565,7 +565,7 @@ describe("ExpeditionBoard — runs in the field", () => {
     // and a half", not "the machine was slow".
     expect(within(run).getByText(/Back in 1h (28|29|30)m/)).toBeTruthy();
     expect(within(run).queryByRole("button", { name: /^Claim/ })).toBeNull();
-    expect(within(run).getByText("Deep Raid")).toBeTruthy();
+    expect(within(run).getByRole("heading", { name: "Deep Raid" })).toBeTruthy();
   });
 
   it("offers the claim once the squad is due back", () => {
@@ -604,7 +604,9 @@ describe("ExpeditionBoard — runs in the field", () => {
     });
 
     const run = screen.getByTestId("run-23");
-    expect(within(run).getByTestId("route-map")).toBeTruthy();
+    expect(within(run).getByTestId("living-map")).toBeTruthy();
+    // The latest line is the map's caption; the rest fold under the card.
+    expect(within(run).getByTestId("map-caption").textContent).toContain("The squad reached the reactor.");
     const journal = within(run).getByTestId("journal-23");
     expect(within(journal).getAllByRole("listitem").length).toBeGreaterThanOrEqual(3);
     expect(journal.textContent).toContain("The squad reached the reactor.");
@@ -1052,12 +1054,12 @@ describe("ExpeditionBoard — the road", () => {
 
     const run = screen.getByTestId("run-41");
     const [here, next] = forksFor("raid", { runId: 41, rules: 3, forks: 2 });
-    const map = within(run).getByTestId("route-map");
+    const map = within(run).getByTestId("living-map");
     expect(map.textContent).toContain(here.title);
     // Nobody in Eve, Alba and Bex has walked this far before: the second
     // checkpoint is a `?`, and its name is nowhere on the page at all.
-    expect(map.querySelector('[data-stop="1"]')?.getAttribute("data-known")).toBe("false");
-    expect(map.querySelector('[data-stop="1"] [data-unknown]')).not.toBeNull();
+    expect(within(map).getByTestId("map-place-1").getAttribute("data-known")).toBe("false");
+    expect(within(map).getByTestId("map-place-1").getAttribute("data-glyph-name")).toBe("unknown");
     expect(container.innerHTML).not.toContain(next.title);
     expect(container.innerHTML.toLowerCase()).not.toContain(next.title.toLowerCase());
     expect(within(run).getByTestId("unseen-41").textContent).toBe("?One checkpoint ahead the squad hasn't seen yet.");
@@ -1104,17 +1106,17 @@ describe("ExpeditionBoard — the road ahead", () => {
   it("draws a dread mark over a place the squad has not seen but has a bad feeling about", () => {
     const { container } = renderBoard({ runs: [legendary()], deployedIds: new Set([5, 1, 2]) });
 
-    const map = within(screen.getByTestId("run-52")).getByTestId("route-map");
-    const stops = [...map.querySelectorAll("[data-stop]")];
+    const map = within(screen.getByTestId("run-52")).getByTestId("living-map");
+    const stops = within(map).getAllByTestId(/^map-place-/);
     expect(stops).toHaveLength(4);
     expect(stops.every((stop) => stop.getAttribute("data-known") === "false")).toBe(true);
     // The second checkpoint is dreaded whichever place it is; the dread is
     // all that is said about it.
-    expect(map.querySelector('[data-stop="1"] [data-dread]')).not.toBeNull();
-    expect(map.querySelector('[data-stop="1"] title')?.textContent).toBe("An unknown checkpoint — ahead — the squad has a bad feeling about it");
+    expect(within(map).getByTestId("map-dread-1")).toBeTruthy();
+    expect(within(map).getByTestId("map-label-1").textContent).toBe("UnchartedA bad feeling");
     expect(screen.getByTestId("dread-52").textContent).toContain("The squad has a bad feeling about the second stop");
     // No Warden in the squad: nothing about the dark or the tolls.
-    expect(map.querySelector("[data-dark], [data-toll]")).toBeNull();
+    expect(screen.queryByTestId("warden-52")).toBeNull();
     for (const fork of forksFor("legendary", { runId: 52, rules: 3, forks: 4 })) expect(container.innerHTML).not.toContain(fork.title);
   });
 
@@ -1123,9 +1125,10 @@ describe("ExpeditionBoard — the road ahead", () => {
 
     const reveal = within(screen.getByTestId("reveal-41")).getByRole("button", { name: "See the road ahead · 1 map fragment" }) as HTMLButtonElement;
     expect(reveal.disabled).toBe(false);
-    // "map fragment" is explained where it is spent.
-    expect(within(screen.getByTestId("reveal-41")).getByRole("button", { name: "map fragments" })).toBeTruthy();
-    expect(screen.getByTestId("reveal-41").textContent).toContain("You hold 2");
+    // "map fragment" is explained where it is spent, in the note under
+    // the map.
+    expect(within(screen.getByTestId("reveal-note-41")).getByRole("button", { name: "map fragment" })).toBeTruthy();
+    expect(screen.getByTestId("reveal-note-41").textContent).toContain("You hold 2");
 
     await click(reveal);
 
@@ -1159,7 +1162,7 @@ describe("ExpeditionBoard — the road ahead", () => {
     expect(reveal.disabled).toBe(true);
     expect(document.getElementById(reveal.getAttribute("aria-describedby")!)!.textContent).toMatch(/^You revealed this road/);
     const next = forksFor("raid", { runId: 41, rules: 3, forks: 2 })[1];
-    expect(within(screen.getByTestId("run-41")).getByTestId("route-map").textContent).toContain(next.title);
+    expect(within(screen.getByTestId("run-41")).getByTestId("living-map").textContent).toContain(next.title);
     expect(screen.queryByTestId("unseen-41")).toBeNull();
   });
 
@@ -2115,7 +2118,11 @@ describe("ExpeditionBoard — the atlas", () => {
       expect(line.textContent).toContain(place.title);
       expect(line.textContent).toContain(place.key === "village" ? "first reached by you" : "first reached by Ana");
     }
-    expect(card.querySelectorAll("[data-landmark]")).toHaveLength(2);
+    // And on the map, under each place's name.
+    const marked = within(card)
+      .getAllByTestId(/^map-label-/)
+      .filter((label) => label.textContent?.includes("First here"));
+    expect(marked).toHaveLength(2);
   });
 
   it("mid: the raid's map says Ana reached the place it stands at first", () => {
@@ -2123,8 +2130,7 @@ describe("ExpeditionBoard — the atlas", () => {
     const card = screen.getByTestId("run-301");
     const line = within(card).getByTestId("landmark-301-0");
     expect(line.textContent).toContain("The flooded works: first reached by Ana");
-    expect(card.querySelector('[data-stop="0"] [data-landmark]')).not.toBeNull();
-    expect(card.querySelector('[data-stop="0"] title')?.textContent).toContain("first reached by Ana");
+    expect(within(card).getByTestId("map-label-0").textContent).toContain("First here: Ana");
   });
 
   it("tells the ceremony a place was reached first and a road walked, in plain words", async () => {

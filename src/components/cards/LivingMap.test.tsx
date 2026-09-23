@@ -3,6 +3,7 @@ import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FIXTURE_ROADS, MAP_FIXTURE_KEYS, mapFixture } from "@/lib/expeditions/mapFixtures";
 import LivingMap from "./LivingMap";
+import type { KnownPlaceView, PlaceView } from "@/lib/expeditions/views";
 import { FRAMES, SIZES, layoutMap, overlap, pinBox, squadFraction, type MapLayout } from "./mapLayout";
 import { geometryFor } from "./mapTerrain";
 
@@ -46,6 +47,21 @@ describe("LivingMap: what the squad knows", () => {
     // still drawn.
     const phone = draw("fog", "legend", "phone");
     expect(within(phone.map).getByTestId("map-dread-2")).toBeTruthy();
+  });
+
+  it("stops warning about a place once the squad is past it", () => {
+    // The old route map's rule, kept: a warning about a place the squad
+    // has walked is a warning nobody needs; its pip says how it went.
+    const fixture = mapFixture("mid", "mythic");
+    const road: PlaceView[] = fixture.view.road.map((place) => ({ ...place, warned: true }));
+    const { container } = render(<LivingMap view={{ ...fixture.view, road }} progress={fixture.progress} layout="wide" />);
+    const ahead = road.filter((place) => place.status === "pending" || place.status === "open").map((place) => `map-dread-${place.index}`);
+    expect(ahead.length).toBeGreaterThan(0);
+    expect(ahead.length).toBeLessThan(road.length);
+    expect(within(container).queryAllByTestId(/^map-dread-/).map((mark) => mark.getAttribute("data-testid"))).toEqual(ahead);
+    for (const place of road.filter((entry) => entry.status === "decided" || entry.status === "missed")) {
+      expect(within(container).getByTestId(`map-place-${place.index}`).getAttribute("data-warned")).toBe("false");
+    }
   });
 
   it("prints no title for a place the squad does not know, on either frame or from the server", () => {
@@ -138,6 +154,24 @@ describe("LivingMap: the journal on the road", () => {
     expect(caption.textContent).toContain(fixture.view.journal.at(-1)!.text);
   });
 
+  it("offers no steps for a single line, and says why a step at either end is greyed", () => {
+    const fixture = mapFixture("mid", "legend");
+    const one = render(<LivingMap view={{ ...fixture.view, journal: fixture.view.journal.slice(0, 1) }} progress={fixture.progress} layout="wide" />);
+    expect(within(one.container).queryAllByRole("button")).toHaveLength(0);
+    one.unmount();
+
+    const { container } = render(<LivingMap view={fixture.view} progress={fixture.progress} layout="wide" />);
+    const later = within(container).getByRole("button", { name: "Later journal line" }) as HTMLButtonElement;
+    expect(later.disabled).toBe(true);
+    const reason = document.getElementById(later.getAttribute("aria-describedby")!)!;
+    expect(reason.hasAttribute("data-reason")).toBe(true);
+    expect(reason.textContent).toBe("Latest");
+    for (let i = 1; i < fixture.view.journal.length; i += 1) fireEvent.click(within(container).getByRole("button", { name: /Earlier journal line/ }));
+    const earlier = within(container).getByRole("button", { name: "Earlier journal line" }) as HTMLButtonElement;
+    expect(earlier.disabled).toBe(true);
+    expect(document.getElementById(earlier.getAttribute("aria-describedby")!)!.textContent).toBe(`First of ${fixture.view.journal.length}`);
+  });
+
   it("says the squad has just set out when nothing is written yet", () => {
     const fixture = mapFixture("fresh", "raid");
     render(<LivingMap view={{ ...fixture.view, journal: [] }} progress={0.01} layout="wide" />);
@@ -181,6 +215,87 @@ describe("LivingMap: names on the chart", () => {
         }
       }
     }
+  });
+});
+
+describe("LivingMap: a chart drawn small", () => {
+  it("leaves off a name the reader can do without rather than heap it on another, never the open fork's or the next place's", () => {
+    // The Mythic road loops back on itself: at a narrow laptop's scale the
+    // stairwell's name has nowhere clear to go.
+    for (const state of ["fork", "storm", "finished"] as const) {
+      const fixture = mapFixture(state, "mythic");
+      const route = geometryFor("mythic", "wide").route;
+      const small = layoutMap(fixture.view, route, "wide", fixture.progress, { goal: fixture.goal !== null, scale: 1.1 });
+      const roomy = layoutMap(fixture.view, route, "wide", fixture.progress, { goal: fixture.goal !== null, scale: 1.65 });
+      expect(roomy.places.every((spot) => spot.labelled), `${state} at 1.65`).toBe(true);
+      const dropped = small.places.filter((spot) => !spot.labelled);
+      expect(dropped.map((spot) => spot.place.index), state).toEqual([0]);
+      for (const spot of small.places.filter((entry) => entry.open || entry.keep)) expect(spot.labelled).toBe(true);
+      // What is printed does not sit on another name.
+      const boxes = small.places.filter((spot) => spot.labelled).map((spot) => spot.label.box!);
+      for (let i = 0; i < boxes.length; i += 1) for (let j = i + 1; j < boxes.length; j += 1) expect(overlap(boxes[i], boxes[j]), `${state} ${i}/${j}`).toBe(0);
+    }
+  });
+
+  it("prints a landmark whose place went unnamed under the chart instead", () => {
+    const fixture = mapFixture("finished", "mythic");
+    const stairwell = fixture.view.road[0] as KnownPlaceView;
+    expect(stairwell.landmark).toEqual({ by: expect.any(String), mine: true, crest: true });
+    // Drawn at 1:1.3 (a laptop's run card, before it is measured) the
+    // stairwell's name is left off, so who got there first is said under
+    // the chart.
+    const { container, unmount } = render(<LivingMap view={fixture.view} progress={fixture.progress} goal={fixture.goal} layout="wide" />);
+    expect(within(container).queryByTestId("map-label-0")).toBeNull();
+    expect(within(container).getByTestId("map-caption-landmark").textContent).toBe("✦ First to the stairwell of hours: you");
+    unmount();
+    // Unless the page prints those lines itself.
+    const quiet = render(<LivingMap view={fixture.view} progress={fixture.progress} goal={fixture.goal} layout="phone" captionLandmarks={false} />);
+    expect(within(quiet.container).queryAllByTestId("map-caption-landmark")).toHaveLength(0);
+    quiet.unmount();
+    // A name on the chart carries its landmark itself: it is not repeated.
+    const fork = mapFixture("fork", "mythic");
+    const road = fork.view.road.map((place) => (place.known && place.status === "open" ? { ...place, landmark: { by: "Ana", mine: false, crest: false } } : place));
+    const open = road.find((place) => place.status === "open")!;
+    const phone = render(<LivingMap view={{ ...fork.view, road }} progress={fork.progress} layout="phone" />);
+    expect(within(phone.container).getByTestId(`map-label-${open.index}`).textContent).toContain("First here: Ana");
+    expect(within(phone.container).queryAllByTestId("map-caption-landmark")).toHaveLength(0);
+  });
+
+  it("keeps a reserved corner clear of names, and steps the compass rose aside for it", () => {
+    for (const { state, tier } of MAP_FIXTURE_KEYS) {
+      const fixture = mapFixture(state, tier);
+      const model = layoutMap(fixture.view, geometryFor(tier, "wide").route, "wide", fixture.progress, { goal: fixture.goal !== null, scale: 1.3, reserve: { width: 320, height: 44 } });
+      expect(model.corner).not.toBeNull();
+      for (const spot of model.places.filter((entry) => entry.labelled)) expect(overlap(spot.label.box!, model.corner!), `${state} ${tier} ${spot.place.index}`).toBe(0);
+    }
+    const fixture = mapFixture("mid", "legend");
+    const { container } = render(<LivingMap view={fixture.view} progress={fixture.progress} layout="wide" reserve={{ width: 320, height: 44 }} />);
+    expect(container.querySelector(".map-furniture g")).toBeNull();
+    // A compact chart has the button under it: nothing to keep clear.
+    const route = geometryFor("legend", "wide").route;
+    expect(layoutMap(fixture.view, route, "wide", fixture.progress, { scale: 0.9, compact: true, reserve: { width: 320, height: 44 } }).corner).toBeNull();
+  });
+
+  it("marks, for the server's chart, the names a compact one keeps — globals.css shows only those where the map turns out small", () => {
+    const fixture = mapFixture("fork", "mythic");
+    const container = document.createElement("div");
+    const goal = { kind: "landmark", title: "The Cairn of the Week", done: 12, target: 40, unit: "miles" } as const;
+    container.innerHTML = renderToString(<LivingMap view={fixture.view} progress={null} goal={goal} />);
+    const map = within(container).getByTestId("living-map");
+    expect(map.getAttribute("data-settled")).toBe("false");
+    const kept = within(map)
+      .getAllByTestId(/^map-label-/)
+      .filter((label) => label.getAttribute("data-keep") === "true")
+      .map((label) => label.getAttribute("data-testid"));
+    // The open fork's; the squad knows nothing past it.
+    const open = fixture.view.road.find((place) => place.status === "open")!;
+    expect(kept).toEqual([`map-label-${open.index}`]);
+    expect(within(map).getAllByTestId(/^map-label-/).length).toBeGreaterThan(1);
+    // The cartouche is a roomy chart's; the goal line under the chart a
+    // compact one's. Both are drawn, each marked for where it belongs.
+    expect(map.querySelector(".map-cartouche")!.classList.contains("map-wide-only")).toBe(true);
+    const goalLine = [...map.querySelectorAll(".map-caption-goal")].find((line) => line.textContent?.startsWith("League"));
+    expect(goalLine?.classList.contains("map-compact-only")).toBe(true);
   });
 });
 

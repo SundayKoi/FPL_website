@@ -5202,6 +5202,58 @@ body {
     visibility: hidden;
   }
 }
+/* Wider than a phone but drawn below about 1:1 (under 756px —
+   COMPACT_BELOW_PX in LivingMap.tsx), the server's wide chart would print
+   every name at a laptop's spacing and heap them up. Until the browser has
+   measured the map it says as little as the measured chart will: the open
+   fork's name and the next known place's, small unnumbered pins, the goal
+   under the chart instead of in the cartouche. */
+@container (max-width: 755.98px) {
+  .map-chart[data-settled="false"] {
+    & .map-label:not([data-keep]),
+    & .map-wide-only,
+    & .map-pin-number {
+      display: none;
+    }
+    & .map-pin {
+      --pin: 13px;
+    }
+  }
+}
+@container (min-width: 756px) {
+  .map-chart[data-settled="false"] .map-compact-only {
+    display: none;
+  }
+}
+
+/* A map with a button laid in its corner (the run card's "See the road
+   ahead"). The frame is the query container and the chart fills its width
+   at 720:220, so the chart's bottom edge is 100cqw × 220/720 down. Where
+   the chart has room for names the button sits over its bottom-right
+   corner — LivingMap keeps that corner clear (`reserve`) — and below
+   756px, where the chart is compact, it drops under the chart and its
+   caption. The inset is CORNER_INSET_PX in mapLayout.ts. */
+.map-frame {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.625rem;
+  container-type: inline-size;
+}
+.map-corner {
+  display: flex;
+  justify-content: flex-end;
+}
+@container (min-width: 756px) {
+  .map-corner {
+    position: absolute;
+    z-index: 5;
+    right: 10px;
+    top: calc(100cqw * 220 / 720 - 10px);
+    transform: translateY(-100%);
+  }
+}
 
 /* Names under the checkpoints. A canvas halo keeps them legible where they
    cross a contour. */

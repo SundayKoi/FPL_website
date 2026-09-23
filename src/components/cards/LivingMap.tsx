@@ -55,6 +55,14 @@ export interface LivingMapProps {
   reducedMotion?: boolean;
   /** The chart's accessible name; a sentence is composed when omitted. */
   label?: string;
+  /** Room, in CSS px, that the page lays over the chart's bottom-right
+   *  corner (the run card's reveal button, `.map-corner`): names keep
+   *  clear of it and the compass rose steps aside. Only on a chart with
+   *  room for names — a compact one has the button under it instead. */
+  reserve?: { width: number; height: number } | null;
+  /** Print who reached a place first under the chart when its name is not
+   *  on it. Off where the page prints those lines itself (the run card). */
+  captionLandmarks?: boolean;
   className?: string;
 }
 
@@ -64,6 +72,11 @@ const PHONE_QUERY = "(max-width: 639.98px)";
 /** Narrower than this, the map draws the phone's frame (globals.css holds
  *  the same number for the moment before it is measured). */
 const PHONE_BELOW_PX = 560;
+/** A wide chart drawn below about 1:1 is compact: it names only the open
+ *  fork and the next known place. As a width, COMPACT_BELOW_PX — which
+ *  globals.css holds too, for the server's chart before it is measured. */
+const COMPACT_BELOW_PX = 756;
+const COMPACT_SCALE = COMPACT_BELOW_PX / FRAMES.wide.width;
 const STILL_QUERY = "(prefers-reduced-motion: reduce)";
 
 function subscribeMedia(query: string) {
@@ -104,7 +117,7 @@ const WEATHER_WORD: Record<string, string> = { fog: "under fog", drought: "in dr
 
 function summary(view: RunView, model: MapModel): string {
   const unknown = view.road.filter((place) => !place.known).length;
-  const warned = view.road.filter((place) => place.warned).length;
+  const warned = view.road.filter((place) => place.warned && (place.status === "pending" || place.status === "open")).length;
   const parts = [`${TIER_WORD[view.tier]} chart`, `${view.road.length} checkpoint${view.road.length === 1 ? "" : "s"}`];
   if (unknown > 0) parts.push(`${unknown} not yet known`);
   if (warned > 0) parts.push(`the squad dreads ${warned}`);
@@ -114,7 +127,18 @@ function summary(view: RunView, model: MapModel): string {
 
 // === the component ===========================================================
 
-export default function LivingMap({ view, progress, convoy = null, goal = null, layout: forcedLayout, reducedMotion, label, className = "" }: LivingMapProps) {
+export default function LivingMap({
+  view,
+  progress,
+  convoy = null,
+  goal = null,
+  layout: forcedLayout,
+  reducedMotion,
+  label,
+  reserve = null,
+  captionLandmarks = true,
+  className = "",
+}: LivingMapProps) {
   const phone = useSyncExternalStore(subscribePhone, readPhone, serverFalse);
   const still = useSyncExternalStore(subscribeStill, readStill, serverFalse);
   const hydrated = useSyncExternalStore(noSubscribe, clientTrue, serverFalse);
@@ -144,9 +168,16 @@ export default function LivingMap({ view, progress, convoy = null, goal = null, 
   const hasGoal = goal !== null;
   const scale = measured !== null ? measured / FRAMES[layout].width : null;
   // A wide chart drawn smaller than 1:1 has no room for every name: it
-  // speaks as little as a phone does.
-  const compact = layout === "phone" || (scale !== null && scale < 1.05);
-  const model = useMemo(() => layoutMap(view, g.route, layout, progress, { goal: hasGoal, scale, compact }), [view, g, layout, progress, hasGoal, scale, compact]);
+  // speaks as little as a phone does. (Before it is measured, globals.css
+  // holds the server's chart to the same few words wherever the map is
+  // narrower than COMPACT_BELOW_PX.)
+  const compact = layout === "phone" || (scale !== null && scale < COMPACT_SCALE);
+  const reserveW = reserve?.width ?? 0;
+  const reserveH = reserve?.height ?? 0;
+  const model = useMemo(
+    () => layoutMap(view, g.route, layout, progress, { goal: hasGoal, scale, compact, reserve: reserveW > 0 && reserveH > 0 ? { width: reserveW, height: reserveH } : null }),
+    [view, g, layout, progress, hasGoal, scale, compact, reserveW, reserveH],
+  );
   const [picked, setPicked] = useState<number | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
 
@@ -220,11 +251,11 @@ export default function LivingMap({ view, progress, convoy = null, goal = null, 
             <Medallion key={spot.place.index} spot={spot} layout={layout} mythic={view.tier === "mythic"} />
           ))}
           <Squad model={model} convoy={convoy} />
-          <Furniture g={g} />
+          <Furniture g={g} rose={model.corner === null} />
         </svg>
 
         {!model.compact ? (
-          <p className="map-cartouche" aria-hidden>
+          <p className="map-cartouche map-wide-only" aria-hidden>
             <span className="map-cartouche-title">
               {TIER_WORD[view.tier]}
               {weather !== "clear" ? ` · ${WEATHER_WORD[weather]}` : ""}
@@ -245,6 +276,7 @@ export default function LivingMap({ view, progress, convoy = null, goal = null, 
       </div>
 
       <Caption
+        uid={uid}
         journal={journal}
         shown={shown}
         pins={model.pins}
@@ -252,21 +284,36 @@ export default function LivingMap({ view, progress, convoy = null, goal = null, 
           setHovered(null);
           setPicked(to);
         }}
-        goal={model.compact ? goal : null}
-        landmarks={model.compact ? landmarkLines(view) : []}
+        // The cartouche carries the goal on a chart with room for words;
+        // a compact one prints it under the chart. The server's chart
+        // prints both, and globals.css shows the one that fits.
+        goal={model.compact || !settled ? goal : null}
+        goalCompactOnly={!settled && !model.compact}
+        landmarks={captionLandmarks ? landmarkLines(model, !settled) : []}
       />
     </figure>
   );
 }
 
-/** The phone names only two places on the chart; a landmark the league
- *  named is news, so it is printed under the chart instead. */
-function landmarkLines(view: RunView): string[] {
-  return view.road.flatMap((place) => {
+/** A landmark the league named is news: where the chart has no room for
+ *  its place's name (a phone names two places; a small chart leaves off
+ *  what would crowd), it is printed under the chart instead. Before the
+ *  map is measured, the names only a roomy chart prints are listed too,
+ *  for the narrow map globals.css shows them on. */
+function landmarkLines(model: MapModel, unsettled: boolean): CaptionLine[] {
+  return model.places.flatMap((spot) => {
+    const place = spot.place;
     if (!place.known || !place.landmark) return [];
+    if (spot.labelled && (spot.keep || !unsettled)) return [];
     const who = place.landmark.mine ? "you" : place.landmark.by;
-    return [`${place.landmark.crest ? "✦ " : ""}First to ${place.title.toLowerCase()}: ${who}`];
+    return [{ text: `${place.landmark.crest ? "✦ " : ""}First to ${place.title.toLowerCase()}: ${who}`, compactOnly: spot.labelled }];
   });
+}
+
+interface CaptionLine {
+  text: string;
+  /** Shown only where the chart turns out compact (the server's chart). */
+  compactOnly: boolean;
 }
 
 function goalLine(goal: MapGoal): string {
@@ -615,6 +662,9 @@ function Medallion({ spot, layout, mythic }: { spot: PlaceSpot; layout: MapLayou
   const { place, x, y, r, open } = spot;
   const size = SIZES[layout];
   const walked = place.status === "decided" || place.status === "missed";
+  // The dread is a warning about the road ahead; a place the squad has
+  // walked needs none (its pip says how it went).
+  const ahead = !walked;
   const known = place.known;
   const ring = open ? "var(--color-gold)" : walked ? "var(--color-gold)" : !known && place.warned ? "var(--color-coral)" : mythic ? "var(--color-content)" : "var(--color-steel)";
   const ringOpacity = open || walked ? 1 : known ? 0.85 : 0.8;
@@ -630,7 +680,7 @@ function Medallion({ spot, layout, mythic }: { spot: PlaceSpot; layout: MapLayou
       data-testid={`map-place-${place.index}`}
       data-known={known ? "true" : "false"}
       data-status={place.status}
-      data-warned={place.warned ? "true" : "false"}
+      data-warned={place.warned && ahead ? "true" : "false"}
       data-glyph-name={glyph}
       aria-hidden
     >
@@ -649,7 +699,7 @@ function Medallion({ spot, layout, mythic }: { spot: PlaceSpot; layout: MapLayou
         <MapGlyph name={glyph} x={x} y={y} size={glyphSize} stroke={known ? 1.35 : 1.8} />
       </g>
       {pip ? <circle cx={x} cy={y + r} r={layout === "wide" ? 2.4 : 2.8} fill={pip} className="map-pip" strokeWidth={1.2} /> : null}
-      {place.warned ? (
+      {place.warned && ahead ? (
         <g data-testid={`map-dread-${place.index}`} data-dread="true">
           <path d={`M${fmt(bx)} ${fmt(by - badge)}L${fmt(bx + badge)} ${fmt(by)}L${fmt(bx)} ${fmt(by + badge)}L${fmt(bx - badge)} ${fmt(by)}Z`} fill="var(--color-coral)" className="map-dread" strokeWidth={1.2} strokeLinejoin="round" />
           <path d={`M${fmt(bx)} ${fmt(by - badge * 0.45)}V${fmt(by + badge * 0.1)}M${fmt(bx)} ${fmt(by + badge * 0.42)}h.01`} stroke="var(--color-canvas)" strokeWidth={layout === "wide" ? 1.1 : 1.3} strokeLinecap="round" />
@@ -671,7 +721,7 @@ function Squad({ model, convoy }: { model: MapModel; convoy: { partner: string |
   );
 }
 
-function Furniture({ g }: { g: Geometry }) {
+function Furniture({ g, rose: drawRose }: { g: Geometry; rose: boolean }) {
   const { width, height } = g.frame;
   const wide = g.layout === "wide";
   const rose = wide ? { x: width - 30, y: height - 28 } : { x: width - 22, y: 22 };
@@ -681,7 +731,8 @@ function Furniture({ g }: { g: Geometry }) {
       {/* The engraved border: a double rule. */}
       <rect x={3.5} y={3.5} width={width - 7} height={height - 7} rx={3} fill="none" stroke="var(--color-border-strong)" strokeOpacity={0.55} strokeWidth={0.6} vectorEffect="non-scaling-stroke" />
       <rect x={6.5} y={6.5} width={width - 13} height={height - 13} rx={1.5} fill="none" stroke="var(--color-border-subtle)" strokeOpacity={0.7} strokeWidth={0.5} vectorEffect="non-scaling-stroke" />
-      {/* The compass rose. */}
+      {/* The compass rose — unless something is laid over its corner. */}
+      {drawRose ? (
       <g transform={`translate(${rose.x} ${rose.y})`}>
         <circle r={rr} fill="none" stroke="var(--color-steel)" strokeOpacity={0.3} strokeWidth={0.6} vectorEffect="non-scaling-stroke" />
         <path
@@ -696,6 +747,7 @@ function Furniture({ g }: { g: Geometry }) {
         />
         <path d={`M0 ${-rr - 4}L${rr * 0.22} ${-rr * 0.22}L0 0Z`} fill="var(--color-gold)" fillOpacity={0.7} />
       </g>
+      ) : null}
     </g>
   );
 }
@@ -717,6 +769,7 @@ function PlaceLabel({ spot, frame, compact }: { spot: PlaceSpot; frame: { width:
       data-align={label.align}
       data-side={label.side}
       data-open={open ? "true" : undefined}
+      data-keep={spot.keep ? "true" : undefined}
       className={`map-label ${open ? "map-label-open" : ""} ${place.known ? "" : "map-label-unknown"} ${compact ? "map-label-phone" : ""}`}
       style={{ left: pct(label.x, frame.width), top: pct(label.y, frame.height), maxWidth: `${label.max}px` }}
     >
@@ -751,30 +804,39 @@ function Pin({ pin, frame, compact, active }: { pin: PinSpot; frame: { width: nu
 }
 
 function Caption({
+  uid,
   journal,
   shown,
   pins,
   onStep,
   goal,
+  goalCompactOnly,
   landmarks,
 }: {
+  uid: string;
   journal: JournalLineView[];
   shown: number | null;
   pins: PinSpot[];
   onStep: (line: number) => void;
   goal: MapGoal | null;
-  landmarks: string[];
+  goalCompactOnly: boolean;
+  landmarks: CaptionLine[];
 }) {
+  const notes = (
+    <>
+      {goal ? <p className={`map-caption-goal ${goalCompactOnly ? "map-compact-only" : ""}`}>{goalLine(goal)}</p> : null}
+      {landmarks.map((line) => (
+        <p key={line.text} className={`map-caption-goal ${line.compactOnly ? "map-compact-only" : ""}`} data-testid="map-caption-landmark">
+          {line.text}
+        </p>
+      ))}
+    </>
+  );
   if (journal.length === 0) {
     return (
       <figcaption data-testid="map-caption" className="map-caption">
         <p className="map-caption-text text-steel">The squad has just set out. The first word comes back in a few hours.</p>
-        {goal ? <p className="map-caption-goal">{goalLine(goal)}</p> : null}
-        {landmarks.map((line) => (
-          <p key={line} className="map-caption-goal">
-            {line}
-          </p>
-        ))}
+        {notes}
       </figcaption>
     );
   }
@@ -783,6 +845,10 @@ function Caption({
   const pin = pins.find((candidate) => candidate.line === index);
   const tone = pin?.tone ?? "steel";
   const latestLine = index === journal.length - 1;
+  const firstLine = index === 0;
+  // A step that goes nowhere is greyed, and the words beside it say why:
+  // this is the latest line, or the first.
+  const where = latestLine ? "Latest" : firstLine ? `First of ${journal.length}` : `of ${journal.length}`;
   return (
     <figcaption data-testid="map-caption" className="map-caption">
       <div className="map-caption-row">
@@ -794,26 +860,40 @@ function Caption({
           <span aria-hidden className="map-caption-dot">
             ·
           </span>
-          <span className={latestLine ? "text-content" : undefined}>{latestLine ? "Latest" : `of ${journal.length}`}</span>
+          <span id={`${uid}-where`} data-reason className={latestLine ? "text-content" : undefined}>
+            {where}
+          </span>
         </p>
-        <div className="map-steps">
-          <button type="button" className="map-step" aria-label={`Earlier journal line (${index} of ${journal.length})`} disabled={index <= 0} onClick={() => onStep(index - 1)}>
-            ‹
-          </button>
-          <button type="button" className="map-step" aria-label={`Later journal line (${index + 2} of ${journal.length})`} disabled={latestLine} onClick={() => onStep(index + 1)}>
-            ›
-          </button>
-        </div>
+        {/* One line has nowhere to step to. */}
+        {journal.length > 1 ? (
+          <div className="map-steps">
+            <button
+              type="button"
+              className="map-step"
+              aria-label={firstLine ? "Earlier journal line" : `Earlier journal line (${index} of ${journal.length})`}
+              aria-describedby={firstLine ? `${uid}-where` : undefined}
+              disabled={firstLine}
+              onClick={() => onStep(index - 1)}
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              className="map-step"
+              aria-label={latestLine ? "Later journal line" : `Later journal line (${index + 2} of ${journal.length})`}
+              aria-describedby={latestLine ? `${uid}-where` : undefined}
+              disabled={latestLine}
+              onClick={() => onStep(index + 1)}
+            >
+              ›
+            </button>
+          </div>
+        ) : null}
       </div>
       <p className="map-caption-text" aria-live="polite" data-line={index} data-kind={entry.kind}>
         {entry.text}
       </p>
-      {goal ? <p className="map-caption-goal">{goalLine(goal)}</p> : null}
-      {landmarks.map((line) => (
-        <p key={line} className="map-caption-goal" data-testid="map-caption-landmark">
-          {line}
-        </p>
-      ))}
+      {notes}
     </figcaption>
   );
 }

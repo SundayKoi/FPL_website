@@ -297,9 +297,13 @@ export interface PlaceSpot {
   r: number;
   /** The squad is here now, waiting on an answer. */
   open: boolean;
-  /** Its name is printed (every known place on a wide chart; the open
-   *  fork and the next known place on a phone). */
+  /** Its name is printed (every place on a wide chart that has room for
+   *  it; the open fork and the next known place on a phone). */
   labelled: boolean;
+  /** One of the names a compact chart prints too: the open fork, the next
+   *  place the squad knows. The server's chart, drawn before the map is
+   *  measured, shows only these where the map turns out small. */
+  keep: boolean;
   /** Where the label hangs from, which side of the medallion it is on,
    *  and which way its lines align. */
   label: { x: number; y: number; align: "start" | "center" | "end"; side: "below" | "above" | "right" | "left"; max: number; box?: Box };
@@ -326,6 +330,10 @@ export interface MapModel {
   compact: boolean;
   /** A pin's head, in CSS px. */
   pinPx: number;
+  /** The corner kept clear for something laid over the chart, in frame
+   *  units; null when nothing is (or the chart is compact, and whatever it
+   *  was sits under the chart instead). */
+  corner: Box | null;
 }
 
 const TONE: Record<JournalLineView["kind"], PinTone> = { encounter: "gold", trail: "steel", arrive: "white", home: "white" };
@@ -368,7 +376,15 @@ export function layoutMap(
   route: Route,
   layout: MapLayout,
   progress: number | null,
-  options: { goal?: boolean; scale?: number | null; compact?: boolean } = {},
+  options: {
+    goal?: boolean;
+    scale?: number | null;
+    compact?: boolean;
+    /** A box in the chart's bottom-right corner, in CSS px, that something
+     *  laid over the chart occupies (the run card's reveal button). Kept
+     *  clear of names on a chart with room for them. */
+    reserve?: { width: number; height: number } | null;
+  } = {},
 ): MapModel {
   const frame = FRAMES[layout];
   const size = SIZES[layout];
@@ -394,8 +410,9 @@ export function layoutMap(
     const p = pointAt(route, place.at);
     const open = place.index === openIndex;
     const r = open ? size.open : size.place;
-    const labelled = compact ? phoneLabels.has(place.index) && place.known : true;
-    return { place, x: p.x, y: p.y, s: p.s, r, open, labelled, label: { x: p.x, y: p.y + r + 4, align: "center", side: "below", max: LABEL_MAX_PX[layout] } };
+    const keep = phoneLabels.has(place.index) && place.known;
+    const labelled = compact ? keep : true;
+    return { place, x: p.x, y: p.y, s: p.s, r, open, labelled, keep, label: { x: p.x, y: p.y + r + 4, align: "center", side: "below", max: LABEL_MAX_PX[layout] } };
   });
 
   // Pins. Arrivals stand on their medallion and the homecoming on the
@@ -487,8 +504,25 @@ export function layoutMap(
     { x0: end.x - 10, y0: end.y - 10, x1: end.x + 10, y1: end.y + 10 },
     ...(options.goal ? [{ x0: goal.x - 14, y0: goal.y - 14, x1: goal.x + 14, y1: goal.y + 14 }] : []),
   ];
-  placeLabels(places, pins, route, layout, squad, marks, scale, pinPx, compact);
-  return { layout, frame, route, legs, places, pins, squad, start, end, goal, scale, compact, pinPx };
+  const corner = !compact && options.reserve ? reservedBox(layout, options.reserve, scale) : null;
+  placeLabels(places, pins, route, layout, squad, marks, scale, pinPx, compact, corner);
+  return { layout, frame, route, legs, places, pins, squad, start, end, goal, scale, compact, pinPx, corner };
+}
+
+/** Where the run card lays its reveal button over the chart, in px from
+ *  the chart's bottom-right corner (globals.css, `.map-corner`). */
+export const CORNER_INSET_PX = 10;
+
+/** The reserved corner in frame units, with a little air round it. */
+function reservedBox(layout: MapLayout, reserve: { width: number; height: number }, k: number): Box {
+  const frame = FRAMES[layout];
+  const air = 4;
+  return {
+    x0: frame.width - (CORNER_INSET_PX + reserve.width + air) / k,
+    y0: frame.height - (CORNER_INSET_PX + reserve.height + air) / k,
+    x1: frame.width - CORNER_INSET_PX / k + air / k,
+    y1: frame.height - CORNER_INSET_PX / k + air / k,
+  };
 }
 
 // === names ===================================================================
@@ -586,11 +620,29 @@ export function overlap(a: Box, b: Box): number {
   return w > 0 && h > 0 ? w * h : 0;
 }
 
+/** How much of a name may be covered — by another name, a medallion, a
+ *  pin, the chart's furniture or its edge — before a name the reader can
+ *  do without is left off rather than printed in a heap. A share of the
+ *  name's own box. The open fork and the next place the squad knows are
+ *  always printed. */
+export const LABEL_CLASH_DROP = 0.035;
+
+/** The order names are placed in, and so who gets the best spot: the open
+ *  fork, the next place the squad knows, the other known places, then the
+ *  unknown ones — a name worth less than the one it would crowd yields. */
+function labelRank(spot: PlaceSpot): number {
+  if (spot.open) return 0;
+  if (spot.keep) return 1;
+  return spot.place.known ? 2 : 3;
+}
+
 /**
  * Where each printed name goes: below its medallion if it can, else above
  * or beside it — whichever covers least of the road, the pins, the other
  * names, the marks and the chart's edge. The open fork is placed first,
- * so its name always gets the best spot and nothing is laid over it.
+ * so its name always gets the best spot and nothing is laid over it. A name
+ * the reader can do without that finds no clear spot is left off: a chart
+ * drawn small says less rather than printing names over names.
  */
 function placeLabels(
   places: PlaceSpot[],
@@ -602,25 +654,27 @@ function placeLabels(
   k: number,
   pinPx: number,
   compact: boolean,
+  corner: Box | null,
 ): void {
   const frame = FRAMES[layout];
   const pinH = (pinPx * 1.55) / k;
   const pinBoxes: Box[] = pins.map((pin) => pinBox(pin, layout, k, pinPx));
   const roadPts: Pt[] = [];
   for (let s = 0; s <= route.length; s += 3) roadPts.push(pointAtLength(route, s));
-  // The chart's own furniture: its title in the corner, the compass rose.
+  // The chart's own furniture: its title in the corner, the compass rose —
+  // or, where the run card lays its button over that corner, the button.
   const furniture: Box[] = [
     ...marks,
     ...(layout === "wide"
       ? [
           // The cartouche is only printed on a chart with room for words.
           ...(compact ? [] : [{ x0: 8, y0: 8, x1: marks.length > 2 ? 206 : 150, y1: marks.length > 2 ? 46 : 30 }]),
-          { x0: frame.width - 50, y0: frame.height - 50, x1: frame.width - 8, y1: frame.height - 8 },
+          corner ?? { x0: frame.width - 50, y0: frame.height - 50, x1: frame.width - 8, y1: frame.height - 8 },
         ]
       : [{ x0: frame.width - 40, y0: 6, x1: frame.width - 4, y1: 40 }]),
   ];
   const placed: Box[] = [];
-  const order = [...places].filter((spot) => spot.labelled).sort((a, b) => Number(b.open) - Number(a.open) || a.place.index - b.place.index);
+  const order = [...places].filter((spot) => spot.labelled).sort((a, b) => labelRank(a) - labelRank(b) || a.place.index - b.place.index);
   const gap = 3.5;
 
   for (const spot of order) {
@@ -649,14 +703,17 @@ function placeLabels(
       candidates.push({ label: { x: x - r - gap, y, align: "end", side: "left", max }, box: { x0: x - r - gap - side.w, x1: x - r - gap, y0: y - side.h / 2, y1: y + side.h / 2 }, bias });
     }
 
-    let best: { label: PlaceSpot["label"]; box: Box; score: number } | null = null;
+    let best: { label: PlaceSpot["label"]; box: Box; score: number; clash: number } | null = null;
     for (const candidate of candidates) {
       const { box } = candidate;
       let score = candidate.bias;
+      // What the name would cover, as area: everything but the road.
+      let covered = 0;
       // Off the chart is worst of all.
       const inside = overlap(box, { x0: 4, y0: 4, x1: frame.width - 4, y1: frame.height - 4 });
       const area = Math.max(1, (box.x1 - box.x0) * (box.y1 - box.y0));
       score += ((area - inside) / area) * 5000;
+      covered += area - inside;
       // The road under a name makes it hard to read.
       for (const p of roadPts) {
         if (Math.hypot(p.x - x, p.y - y) < r + 3) continue;
@@ -664,20 +721,37 @@ function placeLabels(
       }
       // The open fork's name is the one the reader must find: no pin may
       // stand on it while any spot is free of them.
-      for (const pin of pinBoxes) score += overlap(box, pin) > 0 && spot.open ? 10000 : overlap(box, pin) * 2;
-      for (const other of placed) score += overlap(box, other) * 3;
+      for (const pin of pinBoxes) {
+        const o = overlap(box, pin);
+        score += o > 0 && spot.open ? 10000 : o * 2;
+        covered += o;
+      }
+      for (const other of placed) {
+        const o = overlap(box, other);
+        score += o * 3;
+        covered += o;
+      }
       for (const other of places) {
         if (other === spot) continue;
-        score += overlap(box, { x0: other.x - other.r - 2, x1: other.x + other.r + 2, y0: other.y - other.r - 2, y1: other.y + other.r + 2 }) * 1.5;
+        const o = overlap(box, { x0: other.x - other.r - 2, x1: other.x + other.r + 2, y0: other.y - other.r - 2, y1: other.y + other.r + 2 });
+        score += o * 1.5;
+        covered += o;
       }
-      for (const thing of furniture) score += overlap(box, thing) * 1.2;
+      for (const thing of furniture) {
+        const o = overlap(box, thing);
+        score += o * 1.2;
+        covered += o;
+      }
       if (squad) score += overlap(box, { x0: squad.x - 8, x1: squad.x + 8, y0: squad.y - 8, y1: squad.y + 8 }) * 0.8;
-      if (!best || score < best.score) best = { label: candidate.label, box, score };
+      if (!best || score < best.score) best = { label: candidate.label, box, score, clash: covered / area };
     }
-    if (best) {
-      spot.label = { ...best.label, box: best.box };
-      placed.push(best.box);
+    if (!best) continue;
+    if (labelRank(spot) >= 2 && best.clash > LABEL_CLASH_DROP) {
+      spot.labelled = false;
+      continue;
     }
+    spot.label = { ...best.label, box: best.box };
+    placed.push(best.box);
   }
 }
 

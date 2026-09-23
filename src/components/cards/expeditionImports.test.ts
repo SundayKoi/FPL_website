@@ -27,17 +27,21 @@ const rel = (file: string) => relative(ROOT, file);
 const FORBIDDEN = ["routes", "journal", "views"].map((name) => join(SRC, "lib/expeditions", `${name}.ts`));
 
 /** The board's own client modules, named so they are checked even if
- *  nothing imports them any more. `optional` ones arrive in later phases. */
+ *  nothing imports them any more — the living map's among them: it draws
+ *  a RunView and may only name its types. */
 const BOARD = [
   "components/cards/ExpeditionBoard.tsx",
-  "components/cards/RouteMap.tsx",
+  "components/cards/LivingMap.tsx",
+  "components/cards/mapLayout.ts",
+  "components/cards/mapTerrain.tsx",
+  "components/cards/mapGlyphs.tsx",
+  "components/cards/AtlasPanel.tsx",
   "components/cards/ExpeditionRules.tsx",
   "components/cards/CampaignPanel.tsx",
   "components/cards/CampPanel.tsx",
   "components/cards/LeagueGoalPanel.tsx",
   "components/cards/expeditionIcons.tsx",
 ];
-const OPTIONAL = ["components/cards/AtlasPanel.tsx", "components/cards/LivingMap.tsx"];
 
 interface Edge {
   spec: string;
@@ -119,7 +123,7 @@ const allSources = sources(SRC);
 const clientRoots = allSources.filter((file) => directive(readFileSync(file, "utf8")) === "use client");
 // The board's folder whole, whatever each module's directive: a server
 // component there today is one import away from the client tomorrow.
-const boardRoots = [...[...BOARD, ...OPTIONAL].map((path) => join(SRC, path)).filter(existsSync), ...sources(join(SRC, "components/cards/expeditions"))];
+const boardRoots = [...BOARD.map((path) => join(SRC, path)).filter(existsSync), ...sources(join(SRC, "components/cards/expeditions"))];
 const graph = clientGraph([...new Set([...boardRoots, ...clientRoots])]);
 
 describe("the expedition board's client bundle", () => {
@@ -132,7 +136,9 @@ describe("the expedition board's client bundle", () => {
       "components/cards/expeditions/RunCard.tsx",
       "components/cards/expeditions/RightNow.tsx",
       "components/cards/expeditions/RouteStep.tsx",
-      "components/cards/RouteMap.tsx",
+      "components/cards/LivingMap.tsx",
+      "components/cards/mapLayout.ts",
+      "components/cards/mapTerrain.tsx",
       "components/cards/ExpeditionRules.tsx",
       "components/cards/CampaignPanel.tsx",
       "components/cards/expeditions/ExpeditionsHeader.tsx",

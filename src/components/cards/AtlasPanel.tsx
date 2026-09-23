@@ -164,8 +164,10 @@ function RoadCard({ road }: { road: AtlasRoad }) {
             {road.unseenLandmarks.map((landmark, index) => (
               <span key={`${landmark.by}-${landmark.at}-${index}`}>
                 {index > 0 ? ", " : ""}
-                <span className="text-white">{byLine(landmark)}</span> on {dateOf(landmark.at)}
-                {landmark.crest ? <Crest /> : null}
+                {/* The crest pill beside the name it belongs to, so the
+                    sentence still ends on its date and its full stop. */}
+                <span className="text-white">{byLine(landmark)}</span>
+                {landmark.crest ? <Crest /> : null} on {dateOf(landmark.at)}
               </span>
             ))}
             .

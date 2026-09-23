@@ -152,7 +152,7 @@ const ABILITY_ROWS: ArchetypeAbility[] = [
   { title: "Speedrunner", kind: "clock", power: 2, does: `Routes of ≤ ${SPEEDRUN_MAX_HOURS}h resolve ${SPEEDRUN_HOURS} hour${SPEEDRUN_HOURS === 1 ? "" : "s"} sooner (a convoy guest keeps the host's clock). Storms never hold the squad on any route.` },
   { title: "The Anchor", kind: "shield", power: 1, does: "The first wound rolled on this card is ignored." },
   { title: "The Veteran", kind: "call", power: 1, does: "This card's own role call takes a Veteran's shape, whatever its miles." },
-  { title: "The Underdog", kind: "finale", power: 1, does: `If the squad's shine is within ${UNDERDOG_MARGIN} of the route's gate, +${EDGE_BIG} at the finale.` },
+  { title: "The Underdog", kind: "finale", power: 1, does: `If the squad's power is within ${UNDERDOG_MARGIN} of the route's gate, +${EDGE_BIG} at the finale.` },
   { title: "Ice In The Veins", kind: "warned", power: 2, does: "A warned fork's curse never sticks to this card (harm still counts)." },
   { title: "Farm Demon", kind: "camp", power: 1, does: `Every camp (not a hold) adds +${EDGE_SMALL}.` },
   { title: "Lane Bully", kind: "loot", power: 2, does: `The first fork's push bonus ×${LANE_BULLY_BONUS}.` },

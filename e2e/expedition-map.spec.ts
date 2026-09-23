@@ -5,7 +5,8 @@ import { MAP_FIXTURE_KEYS } from "../src/lib/expeditions/mapFixtures";
 
 // The living map (spec §6) in every moment of a run on the Legend Hunt and
 // the Mythic route, and a fresh run on every other route, at a laptop and a
-// phone width.
+// phone width — and the busiest chart, the finished Mythic route, at a
+// tablet's, where the chart is drawn below 1:1.
 //
 // No sign-in and no seeding: playwright.config.ts starts `npm run dev`, so
 // NODE_ENV is development and /admin/expedition-map draws the charts from
@@ -63,6 +64,22 @@ async function textSizes(page: Page) {
   });
 }
 
+/** Every pair of names on the chart that sit on each other. */
+async function labelClashes(map: ReturnType<Page["getByTestId"]>) {
+  return map.evaluate((node) => {
+    const labels = [...node.querySelectorAll<HTMLElement>("[data-testid^='map-label-']")].filter((label) => label.checkVisibility());
+    const clashes: string[] = [];
+    for (let i = 0; i < labels.length; i += 1) {
+      for (let j = i + 1; j < labels.length; j += 1) {
+        const a = labels[i].getBoundingClientRect();
+        const b = labels[j].getBoundingClientRect();
+        if (a.right > b.left + 1 && a.left < b.right - 1 && a.bottom > b.top + 1 && a.top < b.bottom - 1) clashes.push(`${labels[i].dataset.testid} × ${labels[j].dataset.testid}`);
+      }
+    }
+    return clashes;
+  });
+}
+
 /** Whether any journal pin's head covers the open fork's name. */
 async function pinsOnOpenLabel(page: Page) {
   return page.getByTestId("living-map").first().evaluate((map) => {
@@ -91,6 +108,7 @@ for (const { state, tier } of MAP_FIXTURE_KEYS) {
       expect(errors, "errors on the page").toEqual([]);
       expect(await map.locator("svg").count(), "one inline SVG").toBe(1);
       expect(await pinsOnOpenLabel(page), "pins over the open fork's name").toEqual([]);
+      expect(await labelClashes(map), "names on top of names").toEqual([]);
 
       if (layout === "phone") {
         const small = (await textSizes(page)).filter((entry) => entry.px < 11);
@@ -118,6 +136,20 @@ for (const { state, tier } of MAP_FIXTURE_KEYS) {
   }
 }
 
+test("expedition map — the finished Mythic route at a tablet's width", async ({ page }) => {
+  // 768px: the chart is drawn below 1:1, so it names only what it has room
+  // for and prints the league's landmark under the chart.
+  await page.setViewportSize({ width: 768, height: 1024 });
+  const { map, errors } = await openChart(page, "/admin/expedition-map?state=finished&tier=mythic", "wide");
+  await page.waitForTimeout(700);
+  await page.getByTestId("map-preview").screenshot({ path: `${OUT}/finished-mythic-768.png` });
+  expect(errors, "errors on the page").toEqual([]);
+  expect(await labelClashes(map), "names on top of names").toEqual([]);
+  await expect(map.getByTestId("map-caption-landmark")).toBeVisible();
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(scrollWidth, "horizontal page scroll at 768px").toBeLessThanOrEqual(768);
+});
+
 test("expedition map — held still for reduced motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -135,7 +167,11 @@ test("expedition map — the index of every chart", async ({ page }) => {
   await page.goto("/admin/expedition-map");
   await expect(page.getByTestId("map-index")).toBeVisible();
   await expect(page.getByTestId("living-map")).toHaveCount(MAP_FIXTURE_KEYS.length);
+  // Every chart measured and drawn in its own frame: the screenshot is of
+  // the charts a reader sees, not the server's before the browser has them.
+  await expect(page.locator("[data-testid='living-map'][data-settled='false']")).toHaveCount(0);
   await page.evaluate(() => document.fonts.ready);
   await page.addStyleTag({ content: "nextjs-portal { display: none !important; } a[aria-label='Support the devs'] { visibility: hidden !important; }" });
   await page.screenshot({ path: `${OUT}/index-1280.png`, fullPage: true });
+  for (const map of await page.getByTestId("living-map").all()) expect(await labelClashes(map), "names on top of names in the index").toEqual([]);
 });

@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
 // The expedition page as three collectors first see it — brand new,
-// mid-game with a fork open, a veteran — at a laptop and a phone width.
+// mid-game with a fork open, a veteran — at a laptop, a tablet and a phone
+// width.
 //
 // No sign-in and no seeding: playwright.config.ts starts `npm run dev`, so
 // NODE_ENV is development and /admin/expedition-board renders the board
@@ -18,6 +19,9 @@ const OUT = "e2e/screenshots/expedition-board";
 const PERSONAS = ["new", "mid", "veteran"] as const;
 const VIEWPORTS = [
   { width: 1280, height: 800 },
+  // A tablet: the run card's map is drawn below 1:1 here, so it is the
+  // compact chart with the reveal under it rather than in its corner.
+  { width: 768, height: 1024 },
   { width: 390, height: 844 },
 ];
 
@@ -32,10 +36,11 @@ test.beforeAll(() => {
 });
 
 /** An element's own picture, without the site's floating "Support the
- *  devs" button: it is fixed to the viewport's corner, so an element
- *  screenshot scrolled under it would show it over the panel's text. */
+ *  devs" button or its sticky header: both are fixed to the viewport, so
+ *  an element screenshot scrolled under them would show them over the
+ *  panel's top and its text. */
 async function panelShot(page: Page, testId: string, path: string) {
-  const style = await page.addStyleTag({ content: "a[aria-label='Support the devs'] { visibility: hidden !important; }" });
+  const style = await page.addStyleTag({ content: "a[aria-label='Support the devs'] { visibility: hidden !important; } header.sticky { position: static !important; }" });
   await page.getByTestId(testId).screenshot({ path });
   await style.evaluate((node) => (node as HTMLElement).remove());
 }
@@ -55,6 +60,24 @@ async function smallTargets(page: Page): Promise<string[]> {
       }
     }
     return small;
+  });
+}
+
+/** Every pair of names on a run card's map that sit on each other. */
+async function mapLabelClashes(page: Page): Promise<string[]> {
+  return page.getByTestId("expedition-board").evaluate((board) => {
+    const clashes: string[] = [];
+    for (const map of board.querySelectorAll<HTMLElement>("[data-testid='living-map']")) {
+      const labels = [...map.querySelectorAll<HTMLElement>("[data-testid^='map-label-']")].filter((label) => label.checkVisibility());
+      for (let i = 0; i < labels.length; i += 1) {
+        for (let j = i + 1; j < labels.length; j += 1) {
+          const a = labels[i].getBoundingClientRect();
+          const b = labels[j].getBoundingClientRect();
+          if (a.right > b.left + 1 && a.left < b.right - 1 && a.bottom > b.top + 1 && a.top < b.bottom - 1) clashes.push(`${labels[i].dataset.testid} × ${labels[j].dataset.testid}`);
+        }
+      }
+    }
+    return clashes;
   });
 }
 
@@ -91,7 +114,11 @@ for (const persona of PERSONAS) {
       await page.goto(`/admin/expedition-board?persona=${persona}`);
       await expect(page.getByTestId("expedition-board")).toBeVisible();
       await page.waitForLoadState("networkidle");
+      // Every run card's map measured and drawn in the frame that fits it.
+      await expect(page.locator("[data-testid='living-map'][data-settled='false']")).toHaveCount(0);
       await page.evaluate(() => document.fonts.ready);
+      // Let each squad finish its glide to the clock (a 600ms transition).
+      await page.waitForTimeout(700);
       // The dev server's own badge sits over the board's bottom-left corner.
       await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
       // What the collector sees before scrolling, then the whole page.
@@ -100,6 +127,7 @@ for (const persona of PERSONAS) {
 
       expect(errors, "errors on the page").toEqual([]);
       expect(await silentDisabled(page), "disabled controls with no visible reason").toEqual([]);
+      expect(await mapLabelClashes(page), "names on top of names on a run card's map").toEqual([]);
 
       // A run card with fog on its road: the `?`s, the dread, and the
       // fragment that shows the rest in the map's corner.
@@ -111,6 +139,11 @@ for (const persona of PERSONAS) {
         await expect(card.locator('[data-known="false"]').first()).toBeAttached();
         await expect(page.getByTestId(`reveal-${id}`).getByRole("button", { name: /See the road ahead/ })).toBeEnabled();
         await panelShot(page, `run-${id}`, `${OUT}/${persona}-${viewport.width}-runcard.png`);
+      }
+
+      if (viewport.width === 768) {
+        const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+        expect(scrollWidth, "horizontal page scroll at 768px").toBeLessThanOrEqual(768);
       }
 
       if (viewport.width === 390) {
@@ -156,8 +189,8 @@ for (const persona of PERSONAS) {
           const edges = page.getByTestId("rule-edges");
           await expect(edges).toBeVisible();
           await edges.locator("summary").first().click();
+          const style = await page.addStyleTag({ content: "a[aria-label='Support the devs'] { visibility: hidden !important; } header.sticky { position: static !important; }" });
           await edges.evaluate((node) => node.scrollIntoView({ block: "start", behavior: "instant" }));
-          const style = await page.addStyleTag({ content: "a[aria-label='Support the devs'] { visibility: hidden !important; }" });
           await page.screenshot({ path: `${OUT}/${persona}-${viewport.width}-rules.png` });
           await style.evaluate((node) => (node as HTMLElement).remove());
         }
