@@ -36,11 +36,11 @@ export default async function BettingLayout({ children }: { children: ReactNode 
   }
   return (
     <div className="flex flex-1 flex-col">
-      <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6">
+      <div className="page-container pt-5">
         <PremiumBackLink />
       </div>
       <nav className="border-b border-border-subtle bg-surface/60">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-4 px-4 py-3 sm:px-6">
+        <div className="page-container flex w-full flex-wrap items-center gap-4 py-3">
           <Link href="/betting" className="type-display text-lg not-italic text-white">
             Betting
           </Link>
@@ -68,7 +68,7 @@ export default async function BettingLayout({ children }: { children: ReactNode 
           </div>
         </div>
       </nav>
-      <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">{children}</div>
+      <div className="page-container flex-1 page-spacing">{children}</div>
     </div>
   );
 }

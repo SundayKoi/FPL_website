@@ -34,7 +34,7 @@ export default async function SupportersPage() {
   const patrons = (data as PatronRow[] | null) ?? [];
 
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-12 text-white sm:px-6">
+    <main className="page-container page-spacing page-backdrop flex w-full flex-1 flex-col gap-8 text-white">
       <header>
         <span className="label-dash">The Flame Holders</span>
         <h1 className="type-display mt-2 text-4xl sm:text-5xl">Patrons</h1>

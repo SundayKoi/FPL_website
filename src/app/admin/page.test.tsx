@@ -3,27 +3,35 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FixtureRow } from "@/lib/schedule/types";
 import AdminPage from "./page";
 
-const { redirect, fetchStaffTier, editor, fetchHomepageSchedule, fetchHomepageFeaturedSettings, fetchAcademyDraftData, fetchLeagueSeasons } = vi.hoisted(() => ({
+const { redirect, fetchStaffTier, editor, fetchHomepageSchedule, selectHomepageFeaturedFixture, fetchHomepageFeaturedSettings, fetchAcademyDraftData, fetchLeagueSeasons, routerPush, routerReplace } = vi.hoisted(() => ({
   redirect: vi.fn(),
   fetchStaffTier: vi.fn(),
+  routerPush: vi.fn(),
+  routerReplace: vi.fn(),
   editor: vi.fn(({ homepage, fixtures, settings }) => (
     <div data-testid={`${homepage}-featured-editor`}>
       {settings.title ?? "Default copy"} · {fixtures.map((fixture: { id: string }) => fixture.id).join(",")}
     </div>
   )),
   fetchHomepageSchedule: vi.fn(),
+  selectHomepageFeaturedFixture: vi.fn(),
   fetchHomepageFeaturedSettings: vi.fn(),
   fetchAcademyDraftData: vi.fn(),
   fetchLeagueSeasons: vi.fn(),
 }));
 
-vi.mock("next/navigation", () => ({ redirect }));
+vi.mock("next/navigation", () => ({
+  redirect,
+  usePathname: () => "/admin",
+  useRouter: () => ({ push: routerPush, replace: routerReplace }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 vi.mock("@/lib/auth/staffTier", () => ({
   fetchStaffTier,
   isMissingBroadcasterColumn: (error: { code?: string; message?: string } | null) =>
     (error?.code === "PGRST204" || error?.code === "42703") && error.message?.includes("is_broadcaster"),
 }));
-vi.mock("@/lib/home/schedule", () => ({ fetchHomepageSchedule }));
+vi.mock("@/lib/home/schedule", () => ({ fetchHomepageSchedule, selectHomepageFeaturedFixture }));
 vi.mock("@/lib/home/homepageSettings", () => ({ fetchHomepageFeaturedSettings }));
 vi.mock("@/lib/academy/draft", () => ({ fetchAcademyDraftData }));
 vi.mock("@/lib/league/season", () => ({ fetchLeagueSeasons }));
@@ -87,6 +95,7 @@ beforeEach(() => {
   fetchHomepageSchedule.mockResolvedValue({
     upcoming: [fixture("premier-fixture", "Premier A", "Premier B")],
   });
+  selectHomepageFeaturedFixture.mockImplementation((fixtures: FixtureRow[]) => fixtures[0] ?? null);
   fetchHomepageFeaturedSettings.mockImplementation(async (homepage: string) =>
     homepage === "premier"
       ? { fixtureId: "premier-fixture", title: "Premier spotlight", description: "Premier copy", twitchUrl: null }
@@ -193,7 +202,7 @@ describe("AdminPage", () => {
     render(await AdminPage());
 
     expect(redirect).not.toHaveBeenCalled();
-    expect(screen.getByRole("heading", { name: "Admin" })).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "League operations" })).not.toBeNull();
     expect(screen.getByTestId("premier-featured-editor")).not.toBeNull();
     expect(screen.getByTestId("academy-featured-editor")).not.toBeNull();
     expect(screen.queryByRole("region", { name: "League controls" })).toBeNull();

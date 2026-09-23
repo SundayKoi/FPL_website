@@ -1,9 +1,10 @@
-import Link from "next/link";
+import type { ReactElement } from "react";
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchStaffTier, isMissingBroadcasterColumn } from "@/lib/auth/staffTier";
 import type { Draft } from "@/lib/draft/types";
 import DraftListClient from "@/components/admin/DraftListClient";
+import AdminConsole from "@/components/admin/AdminConsole";
 import AdminHomepageMode from "@/components/admin/AdminHomepageMode";
 import AdminStaff, { type StaffProfile } from "@/components/admin/AdminStaff";
 import AdminFeaturedMatchupEditor, { type FeaturedFixtureChoice } from "@/components/admin/AdminFeaturedMatchupEditor";
@@ -12,12 +13,13 @@ import AdminGodPackPreview from "@/components/admin/AdminGodPackPreview";
 import type { HomepageMode } from "@/lib/home/seasonState";
 import { fetchHomepageFeaturedSettings } from "@/lib/home/homepageSettings";
 import { fetchBangerBoardSettings } from "@/lib/bangers/settings";
-import { fetchHomepageSchedule } from "@/lib/home/schedule";
+import { fetchHomepageSchedule, selectHomepageFeaturedFixture } from "@/lib/home/schedule";
 import { fetchAcademyDraftData } from "@/lib/academy/draft";
 import { filterAcademyFixtures } from "@/lib/academy/filtering";
 import { academyTeamNames } from "@/lib/league/context";
-import { stageMeta } from "@/lib/schedule/format";
-import type { FixtureRow } from "@/lib/schedule/types";
+import { fetchLeagueSeasons, seasonBelongsToLeague } from "@/lib/league/season";
+import { formatKickoff, stageMeta } from "@/lib/schedule/format";
+import { FIXTURE_STAGES, type FixtureRow, type FixtureStage } from "@/lib/schedule/types";
 
 /** The whole bracket ahead, stage-labelled: staff pick playoff games here too,
  *  not just the active week's. */
@@ -47,17 +49,25 @@ async function fetchStaffProfiles(supabase: Awaited<ReturnType<typeof createServ
   }));
 }
 
-/**
- * Admin hub: the league's controls are spread across their feature pages
- * (fixtures + season/phase on Schedule, signups on Sign Up, avg bids on
- * Players, rosters on Teams) — this page gives staff one place with live
- * counts and jump links, plus the draft manager that always lived here.
- */
-export default async function AdminPage() {
+/** Staff overview with scoped schedule context and the existing admin workspaces. */
+type AdminPageProps = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+function AdminPage(): Promise<ReactElement>;
+function AdminPage(props: AdminPageProps): Promise<ReactElement>;
+async function AdminPage(props?: AdminPageProps) {
   const supabase = await createServerSupabase();
   const { isAdmin, isOwner, isBroadcaster } = await fetchStaffTier(supabase);
   const canUseFullAdmin = isAdmin || isOwner;
   if (!canUseFullAdmin && !isBroadcaster) redirect("/");
+
+  const params = await (
+    props?.searchParams ?? Promise.resolve<Record<string, string | string[] | undefined>>({})
+  );
+  const requestedLeague = Array.isArray(params.league) ? params.league[0] : params.league;
+  const league = requestedLeague === "academy" ? "academy" : "premier";
+  const requestedSeason = Array.isArray(params.season) ? params.season[0] : params.season;
 
   // Owners see the staff panel. This gate is presentation only — set_profile_admin
   // re-checks ownership server-side, so an admin who forges their way here can
@@ -66,15 +76,15 @@ export default async function AdminPage() {
     ? await fetchStaffProfiles(supabase)
     : [];
 
-  const [draftsResult, settingsResult, signupCountResult, fixtureCountResult] = await Promise.all([
+  const [draftsResult, settingsResult, fixtureSeasonsResult, leagueSeasons] = await Promise.all([
     supabase.from("drafts").select("*").order("created_at", { ascending: false }),
     supabase
       .from("league_settings")
       .select("current_season, academy_season, current_phase, signups_open, homepage_mode")
       .eq("id", 1)
       .single(),
-    supabase.from("signups").select("*", { count: "exact", head: true }),
-    supabase.from("fixtures").select("*", { count: "exact", head: true }),
+    supabase.from("fixtures").select("season"),
+    fetchLeagueSeasons(supabase),
   ]);
 
   const drafts = (draftsResult.data as Draft[]) ?? [];
@@ -85,9 +95,6 @@ export default async function AdminPage() {
     signups_open: boolean;
     homepage_mode: HomepageMode;
   } | null;
-  const signupCount = signupCountResult.count ?? 0;
-  const fixtureCount = fixtureCountResult.count ?? 0;
-
   const [academyDraftData, premierSettings, academySettings, bangerTitles] = await Promise.all([
     fetchAcademyDraftData(supabase),
     fetchHomepageFeaturedSettings("premier"),
@@ -99,187 +106,75 @@ export default async function AdminPage() {
     fetchHomepageSchedule(undefined, settings?.current_season),
     fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, academyTeamNameSet), settings?.academy_season),
   ]);
-
-  const cards = [
-    {
-      label: "Season’s End",
-      stat: "Admin preview",
-      statTone: "text-gold",
-      description: "Twelve regular-season award families on real stats: unique champion picks, cumulative season cards, bot-lane stats, and undefeated teams.",
-      href: "/admin/seasons-end",
-    },
-    {
-      label: "Signups",
-      stat: `${signupCount} total · ${settings?.signups_open ? "OPEN" : "CLOSED"}`,
-      statTone: settings?.signups_open ? "text-mint" : "text-red-400",
-      description: "Review the pool, open/close the window.",
-      href: "/signup",
-    },
-    {
-      label: "Schedule",
-      stat: `${fixtureCount} fixtures · ${settings?.current_season ?? "—"} ${settings?.current_phase ?? ""}`,
-      statTone: "text-gold",
-      description: "Edit fixtures, scores, and the current season/phase.",
-      href: "/schedule",
-    },
-    {
-      label: "Players",
-      stat: "Pool & avg bids",
-      statTone: "text-gold",
-      description: "Edit the player pool and free-agency average bids.",
-      href: "/players",
-    },
-    {
-      label: "Teams",
-      stat: "Rosters & identity",
-      statTone: "text-gold",
-      description: "Edit team names, logos, captains, and roster swaps.",
-      href: "/teams",
-    },
-    {
-      label: "Player claims",
-      stat: "Card identity queue",
-      statTone: "text-gold",
-      description: "Review player claims and approve card ownership.",
-      href: "/admin/claims",
-    },
-    {
-      label: "Parallels",
-      stat: "Foil ladder preview",
-      statTone: "text-gold",
-      description: "Every parallel on real cards, including the proposed one-of-one. Mints nothing.",
-      href: "/admin/parallels",
-    },
-    {
-      label: "Skin-line parallels",
-      stat: "Proposal preview",
-      statTone: "text-gold",
-      description: "A proposal on real cards: one League skin line a season, four tiers inside it. Patrons can see it too.",
-      href: "/skin-lines",
-    },
-    {
-      label: "Expedition mutations",
-      stat: "Proposal preview",
-      statTone: "text-gold",
-      description: "Expeditions with forks and risk, and the five mutations a card can come home with, on real cards. Mints nothing.",
-      href: "/admin/mutations",
-    },
-    {
-      label: "Season's End",
-      stat: "Regular-season honors",
-      statTone: "text-gold",
-      description: "Real season leaders, team achievements, meme inserts, record breakers, and cumulative season cards for Premier and Academy.",
-      href: "/admin/seasons-end",
-    },
-    {
-      label: "Card overlays",
-      stat: "Proposal preview",
-      statTone: "text-gold",
-      description: "Treatments beyond the foil ladder — hologram stamps, printing plates, ghost rares, wear and slabbing — on real cards. Mints nothing.",
-      href: "/admin/overlays",
-    },
-    {
-      label: "The Send-off",
-      stat: "Playoff editions",
-      statTone: "text-gold",
-      description:
-        "Playoff cards printed by elimination — the five stamps on real cards, and a dry run of what Tuesday's drop prints. Mints nothing.",
-      href: "/admin/sendoff",
-    },
-    {
-      label: "The Dribb card",
-      stat: "Proposal preview",
-      statTone: "text-gold",
-      description: "Four looks for a five-copy chase print — Dribb, a 99 in every column, on Bard — with the odds on the table. Mints nothing.",
-      href: "/admin/dribb",
-    },
-    {
-      label: "On Air",
-      stat: "Live-only insert",
-      statTone: "text-gold",
-      description:
-        "The casters' card: prints only inside a Live Drops window. Who is in the pool, their art, the odds.",
-      href: "/admin/on-air",
-    },
-    {
-      label: "Guess the Card",
-      stat: "In testing",
-      statTone: "text-gold",
-      description: "The third daily game, open to staff only until it is ready. Members no longer see it in the menu or on Premium HQ.",
-      href: "/guess-the-card",
-    },
-    {
-      label: "Announcements",
-      stat: "Prepared posts",
-      statTone: "text-gold",
-      description: "Every announcement the site has ready for the cards channel — read it, then send it.",
-      href: "/admin/announce",
-    },
-    {
-      label: "Analytics",
-      stat: "Every mode, every week",
-      statTone: "text-gold",
-      description: "Who is playing what, packs opened, observed pull rates against the config, the chases, and where the money goes.",
-      href: "/admin/analytics",
-    },
-    {
-      label: "Expedition seasons",
-      stat: "Standings & marks",
-      statTone: "text-gold",
-      description: "The season's roads scored, and the close that awards Pathfinder, Plunderer and Survivor.",
-      href: "/admin/expeditions",
-    },
-    {
-      label: "Betting",
-      stat: "Markets, pick'ems & catalog",
-      statTone: "text-gold",
-      description: "Create/resolve markets and pick'ems, manage the catalog, seasons, and balances.",
-      href: "/admin/betting",
-    },
-    // Owner-only: the page itself redirects admins away — who pays real
-    // money is owner business, so the door isn't shown to anyone else.
-    ...(isOwner
-      ? [
-          {
-            label: "Patrons",
-            stat: "Receipts & grants",
-            statTone: "text-gold",
-            description: "Record a payment, grant patron days, and read the receipt book.",
-            href: "/admin/patrons",
-          },
-        ]
-      : []),
-  ] as const;
+  const latestSchedule = league === "academy" ? academySchedule : premierSchedule;
+  const defaultSeason = leagueSeasons[league] || (league === "academy" ? "A1" : settings?.current_season ?? "S5");
+  const fixtureSeasons = ((fixtureSeasonsResult.data as { season: string }[] | null) ?? [])
+    .map((row) => row.season)
+    .filter((season) => seasonBelongsToLeague(season, league));
+  const seasonOptions = [...new Set([defaultSeason, latestSchedule.season ?? "", ...fixtureSeasons].filter(Boolean))]
+    .sort((a, b) => {
+      if (a === defaultSeason) return -1;
+      if (b === defaultSeason) return 1;
+      return Number.parseInt(b.slice(1), 10) - Number.parseInt(a.slice(1), 10);
+    });
+  const season = requestedSeason && seasonOptions.includes(requestedSeason) ? requestedSeason : defaultSeason;
+  const displaySchedule = season === latestSchedule.season
+    ? latestSchedule
+    : await fetchHomepageSchedule(
+        league === "academy" ? (fixtures) => filterAcademyFixtures(fixtures, academyTeamNameSet) : undefined,
+        season,
+      );
+  const homepageSettings = league === "academy" ? academySettings : premierSettings;
+  const featuredFixture = selectHomepageFeaturedFixture(latestSchedule.upcoming, homepageSettings.fixtureId);
+  const phase = displaySchedule.activeStage
+    ? stageMeta(displaySchedule.activeStage).label
+    : settings?.current_phase && FIXTURE_STAGES.includes(settings.current_phase as FixtureStage)
+      ? stageMeta(settings.current_phase as FixtureStage).label
+      : "Season setup";
+  const now = new Date().getTime();
+  const upcomingFixtures = displaySchedule.upcoming.filter((fixture) =>
+    fixture.score_a === null &&
+    fixture.score_b === null &&
+    (!fixture.scheduled_at || new Date(fixture.scheduled_at).getTime() >= now),
+  );
+  const upcoming = upcomingFixtures.slice(0, 4).map((fixture) => ({
+    id: fixture.id,
+    matchup: `${fixture.team_a ?? "TBD"} vs ${fixture.team_b ?? "TBD"}`,
+    starts: formatKickoff(fixture.scheduled_at),
+    status: fixture.score_a !== null && fixture.score_b !== null ? "Completed" : "Scheduled",
+  }));
+  const today = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    timeZone: "America/Chicago",
+  }).format(new Date()).toUpperCase();
 
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-16">
-      <header>
-        <span className="label-dash">STAFF ONLY</span>
-        <h1 className="type-display mt-3 text-4xl sm:text-5xl">Admin</h1>
-      </header>
+    <AdminConsole
+      view="overview"
+      isOwner={isOwner}
+      isFullAdmin={canUseFullAdmin}
+      league={league}
+      season={season}
+      defaultSeasons={{ premier: leagueSeasons.premier || "S5", academy: leagueSeasons.academy || "A1" }}
+      seasonOptions={seasonOptions}
+      phase={phase}
+      upcomingCount={upcomingFixtures.length}
+      signupsOpen={settings?.signups_open ?? false}
+      homepageMode={settings?.homepage_mode ?? "auto"}
+      featuredMatch={featuredFixture?.team_a && featuredFixture.team_b ? {
+        teamA: featuredFixture.team_a,
+        teamB: featuredFixture.team_b,
+        starts: formatKickoff(featuredFixture.scheduled_at),
+      } : null}
+      upcoming={upcoming}
+      today={today}
+    >
+      {canUseFullAdmin ? <section id="god-pack-preview" aria-label="God Pack preview"><AdminGodPackPreview /></section> : null}
 
-      {canUseFullAdmin && <section aria-label="League controls" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {cards.map((card) => (
-          <Link
-            key={card.label}
-            href={card.href}
-            className="card-brand group flex flex-col gap-1.5 p-5 transition hover:border-action-text"
-          >
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="type-display text-2xl group-hover:text-action-text">{card.label}</span>
-              <span className={`text-xs font-bold uppercase tracking-wide ${card.statTone}`}>
-                {card.stat}
-              </span>
-            </div>
-            <p className="text-sm text-muted">{card.description}</p>
-          </Link>
-        ))}
-      </section>}
-
-      {canUseFullAdmin ? <AdminGodPackPreview /> : null}
-
-      <section aria-labelledby="homepage-control-title" className="flex flex-col gap-3">
-        <h2 id="homepage-control-title" className="type-display text-2xl">Homepage</h2>
+      <section id="homepage-controls" aria-labelledby="homepage-control-title" className="flex flex-col gap-3">
+        <h2 id="homepage-control-title" className="type-display text-2xl">Homepage &amp; broadcast</h2>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <AdminFeaturedMatchupEditor
             homepage="premier"
@@ -299,21 +194,23 @@ export default async function AdminPage() {
         )}
       </section>
 
-      {canUseFullAdmin && <section aria-labelledby="banger-control-title" className="flex flex-col gap-3">
+      {canUseFullAdmin ? <section id="daily-stu-controls" aria-labelledby="banger-control-title" className="flex flex-col gap-3">
         <h2 id="banger-control-title" className="type-display text-2xl">The Daily Stu</h2>
         <AdminBangerTitles initial={bangerTitles} />
-      </section>}
+      </section> : null}
 
-      {canUseFullAdmin && <section aria-label="Drafts" className="flex flex-col gap-4">
+      {canUseFullAdmin ? <section id="drafts" aria-label="Drafts" className="flex flex-col gap-4">
         <h2 className="type-display text-2xl">Drafts</h2>
         {isOwner ? (
           <DraftListClient initialDrafts={drafts} />
         ) : (
-          <p className="text-sm text-muted">Some league configuration is owner-only.</p>
+          <p className="text-sm text-muted">Draft management is owner-only.</p>
         )}
-      </section>}
+      </section> : null}
 
-      {isOwner && <AdminStaff profiles={staffProfiles} />}
-    </main>
+      {isOwner ? <section id="staff-controls" aria-label="Staff controls"><AdminStaff profiles={staffProfiles} /></section> : null}
+    </AdminConsole>
   );
 }
+
+export default AdminPage;

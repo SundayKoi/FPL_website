@@ -89,7 +89,7 @@ export default async function SeasonsEndPage({
   }
 
   return (
-    <main className={`${styles.preview} page-backdrop flex w-full flex-1 flex-col gap-10 px-3 py-8 sm:px-5 lg:px-7 2xl:px-10`}>
+    <main className={`${styles.preview} page-container page-spacing-compact page-backdrop flex w-full flex-1 flex-col gap-10`}>
       <header className="flex flex-col gap-4">
         <Link href={staff ? "/admin" : "/cards"} className="label-dash w-fit hover:text-coral">{staff ? "← Admin" : "← Cards"}</Link>
         <p className="text-xs uppercase tracking-[.3em] text-gold">The season, in good company</p>

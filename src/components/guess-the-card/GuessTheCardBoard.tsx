@@ -100,7 +100,7 @@ export default function GuessTheCardBoard({
   }
 
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-8 text-white sm:px-6 lg:px-8">
+    <main className="page-container page-spacing-compact page-backdrop flex w-full flex-1 flex-col gap-8 text-white">
       <header className="flex flex-wrap items-end justify-between gap-5">
         <div>
           <span className="label-dash">Daily game · Admin testing</span>

@@ -67,7 +67,7 @@ export async function PacksPageView({ league = "premier", releaseId }: { league?
 
   if (recovery) {
     return (
-      <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+      <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
         <CardsPageHeader eyebrow={cardsEyebrow("Packs", league, recovery.release.season)} title="Recover your Season&apos;s End opening">
           {user.allowed ? "An existing charged opening is ready to recover. This page will finish that opening before allowing another purchase." : "Your membership is not currently active, but an existing charged opening can still be recovered. This page does not start new purchases."}
         </CardsPageHeader>
@@ -154,7 +154,7 @@ export async function PacksPageView({ league = "premier", releaseId }: { league?
   [liveWindow, chase, championsWindow, championComps, standardComps] = shopReads;
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
       <CardsPageHeader eyebrow={cardsEyebrow("Packs", league, season)} title="Packs">
         Packs cost betting dollars and contain {PACK_SIZE} player cards, each frozen at this week&apos;s
         ratings — every card is stamped with the week it was pulled, so a player you open twice in

@@ -82,7 +82,7 @@ export async function CollectionPageView({
     : [null, { left: 0, patron: false, flame: null }];
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
       <CardsPageHeader eyebrow={view === "season-end" ? `My Collection · ${league === "academy" ? "Academy" : "Premier"} · Season's End` : cardsEyebrow("My Collection", league, season)} title="My Collection" glossary>
         Your weekly prints and Season&apos;s End pulls, collected in one place. Choose a collection below to see the copies you own.
       </CardsPageHeader>

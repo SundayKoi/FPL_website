@@ -240,7 +240,7 @@ export default function PremiumHub({ snapshot, staff = false }: { snapshot: Prem
     : { referenceCard: null, challengerCard: null };
 
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-10 px-4 py-10 text-white sm:px-6 lg:px-8">
+    <main className="page-container page-spacing page-backdrop flex w-full flex-1 flex-col gap-10 text-white">
       <nav aria-label="Premium destinations" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {PREMIUM_LINKS.map((link) => (
           <Link key={link.href} href={link.href} className="rounded-lg border border-border-strong bg-surface/60 p-4 transition hover:border-action-text/60">

@@ -293,7 +293,7 @@ export default function HigherLowerBoard({
         : "run over";
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1500px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6 lg:px-8">
+    <main className="page-container page-spacing-compact bg-hash flex w-full flex-1 flex-col gap-8 text-white">
       <header className="flex flex-wrap items-end justify-between gap-5">
         <div>
           <span className="label-dash">FPL Premium · {label} Daily</span>

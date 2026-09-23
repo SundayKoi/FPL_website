@@ -14,7 +14,7 @@ export const metadata: Metadata = {
  */
 export default function GlossaryPage() {
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-12 text-white sm:px-6">
+    <main className="page-container page-spacing page-backdrop flex w-full flex-1 flex-col gap-8 text-white">
       <header className="max-w-3xl">
         <span className="label-dash">Cards · The words</span>
         <h1 className="type-display mt-3 text-5xl sm:text-6xl">Glossary</h1>

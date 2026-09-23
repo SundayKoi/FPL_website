@@ -100,7 +100,7 @@ export default async function ExpeditionSeasonsPage() {
   );
 
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-6 py-16">
+    <main className="page-container page-spacing page-backdrop flex w-full flex-1 flex-col gap-8">
       <header className="flex flex-col gap-2">
         <Link href="/admin" className="label-dash w-fit hover:text-action-text">
           ← Admin

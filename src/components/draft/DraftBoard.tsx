@@ -46,7 +46,7 @@ export default function DraftBoard({
 
   if (!s.draft)
     return (
-      <main className="flex min-h-screen items-center justify-center bg-canvas page-backdrop p-8">
+      <main className="page-container page-spacing-compact flex min-h-screen items-center justify-center bg-canvas page-backdrop">
         <div className="card-brand px-10 py-8 text-center">
           {s.loaded ? (
             <>
@@ -76,7 +76,7 @@ export default function DraftBoard({
     !openLot;
 
   return (
-    <main className="mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-4 page-backdrop px-4 py-6 text-white">
+    <main className="page-container page-spacing-compact flex w-full flex-1 flex-col gap-4 page-backdrop text-white">
       <div className={chatTopReserve}>
         <DraftHeader draft={draft} />
       </div>

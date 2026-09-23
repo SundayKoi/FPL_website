@@ -76,7 +76,7 @@ export default function HomeDashboard({
 
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-8 sm:px-6 sm:py-10">
+      <div className="page-container page-spacing w-full">
         <section aria-label={ariaLabel} className="space-y-6">
           <HomeOrientation
             league={league}

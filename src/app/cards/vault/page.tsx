@@ -125,7 +125,7 @@ export async function VaultPageView({ league = "premier" }: { league?: CardLeagu
   const weeks = groupUnclaimedByWeek(vault.unclaimed);
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
       <CardsPageHeader eyebrow={cardsEyebrow("Browse", league, season)} title="The Vault" tabHref={`${cardsBase(league)}/browse`}>
         An Eclipse can only fall on a Card of the Week, and only one of each will ever exist. This is the
         register: every one that has been found, who holds it now and everywhere it has been — and, below,

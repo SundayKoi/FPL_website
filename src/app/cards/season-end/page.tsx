@@ -28,7 +28,7 @@ export async function SeasonEndCollectionView({ league, releaseId }: { league: C
     ? await fetchSeasonEndOwnedCopies(service, scopedRelease.id, user.discordId)
     : [];
   if (!scopedRelease || !catalog) {
-    return <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 py-10 text-white"><p className="label-dash text-gold">Season&apos;s End</p><h1 className="type-display text-4xl">{catalogError ? "Release integrity check failed" : "The collection is not published yet"}</h1><p className="text-steel">{catalogError ? "This frozen release could not be verified. Staff must inspect the stored catalog before it can be shown." : "Staff testing must finish before this release appears in the public collection."}</p></main>;
+    return <main className="page-container page-spacing flex w-full flex-1 flex-col gap-4 text-white"><p className="label-dash text-gold">Season&apos;s End</p><h1 className="type-display text-4xl">{catalogError ? "Release integrity check failed" : "The collection is not published yet"}</h1><p className="text-steel">{catalogError ? "This frozen release could not be verified. Staff must inspect the stored catalog before it can be shown." : "Staff testing must finish before this release appears in the public collection."}</p></main>;
   }
 
   const copiesByDesign = new Map<string, SeasonEndOwnedCopy[]>();
@@ -39,7 +39,7 @@ export async function SeasonEndCollectionView({ league, releaseId }: { league: C
   const groups = groupSeasonEndDesigns(catalog.designs);
   const base = league === "academy" ? "/academy/cards" : "/cards";
   return (
-    <main className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing flex w-full flex-1 flex-col gap-8 text-white">
       <CardsPageHeader eyebrow={cardsEyebrow("Season's End", league, scopedRelease.season)} title="Season&apos;s End collection">
         The published season in cards: award winners, Best of Champions, and cumulative Season Cards. Owned variants sit beneath each base design, so duplicates do not inflate the checklist.
       </CardsPageHeader>

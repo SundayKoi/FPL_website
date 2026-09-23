@@ -1,5 +1,5 @@
 -- populate_postseason_match_codes() allocates only missing postseason slots,
--- protects the selected league/season, and rejects stale or reused batches.
+-- protects the selected league/season, and rejects stale or undersized batches.
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
@@ -170,7 +170,7 @@ select throws_like($$
     array['KEEP-G2-1', 'NEW-2', 'NEW-3']::text[],
     3
   )
-$$, '%CODES_REUSED%', 'a code already issued to another slot cannot be reused');
+$$, '%CODES_INSUFFICIENT%', 'reclaiming an assigned unused code also opens its old slot and requires a replacement code');
 
 select is(
   (public.populate_postseason_match_codes(

@@ -1802,7 +1802,7 @@ export default function MatchDraftBoard({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-[2400px] flex-1 flex-col gap-4 page-backdrop px-4 py-6 text-white md:px-6 lg:px-8">
+    <main className="page-container page-spacing-compact flex w-full flex-1 flex-col gap-4 page-backdrop text-white">
       <header className="card-brand flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div>
           <span className="label-dash">

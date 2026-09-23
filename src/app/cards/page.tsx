@@ -168,7 +168,7 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
   const tabs = cardsSections(base).filter((section) => section.key !== "home");
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
       <CardsPageHeader eyebrow={cardsEyebrow("Cards", league, season)} title="Cards">
         Every player in the league as a living trading card, rated from this season&apos;s stats. Collect
         them from packs, put them to work, and show them off.

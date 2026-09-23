@@ -225,7 +225,7 @@ describe("FpldleBoard", () => {
     const main = screen.getByRole("main");
     const header = screen.getByText("Team").parentElement;
     const firstRow = screen.getByLabelText("FPL'dle guesses").firstElementChild;
-    expect(main.className).toContain("max-w-[1800px]");
+    expect(main.className).toContain("page-container");
     expect(main.querySelector(".overflow-x-auto")).toBeNull();
     expect(header?.className).toContain("grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))]");
     expect(firstRow?.className).toContain("grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))]");

@@ -163,7 +163,7 @@ export default function AdminPostseasonCodeImporter({
         <h3 id="postseason-code-title" className="label-dash">Populate postseason codes</h3>
         <p className="text-xs text-muted">
           {leagueLabel(league)} · {season || "No season configured"}. Assigns only missing game slots for the selected
-          postseason rounds and preserves every code already issued.
+          postseason rounds. Previously assigned codes can be reused if no game using them has been ingested.
         </p>
       </div>
 
@@ -231,6 +231,9 @@ export default function AdminPostseasonCodeImporter({
             <span>{SCOPE_LABELS[preview.scope]}</span>
             <span>{preview.requiredCodeCount} missing slots</span>
             <span>{preview.existingCodeCount} existing assignments</span>
+            {preview.reusedAssignmentCount > 0 && (
+              <span>{preview.reusedAssignmentCount} previously assigned code{preview.reusedAssignmentCount === 1 ? "" : "s"} will be reclaimed if unused</span>
+            )}
             <span>{preview.unusedCount} unused input codes</span>
           </div>
 

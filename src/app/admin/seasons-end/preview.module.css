@@ -1,4 +1,4 @@
-.preview { scroll-behavior: smooth; overflow-x: clip; }
+.preview { scroll-behavior: smooth; }
 .select { min-height:44px; border:1px solid var(--color-line); background:var(--color-panel,#14202a); color:inherit; padding:8px 12px; border-radius:8px; }
 .button { min-height:44px; background:#e7c780; color:#101620; padding:8px 20px; border-radius:8px; font-weight:700; }
 .jump { border:1px solid var(--color-line); padding:9px 12px; border-radius:999px; font-size:12px; }
@@ -11,6 +11,5 @@
 .bestOfCardRow { align-items:start; }
 .ordinaryCardRow { justify-content:start; }
 @media(max-width:370px) {
-  .preview { padding-left:12px; padding-right:12px; }
   .ordinaryCardRow,.bestOfCardRow { zoom:.9; }
 }

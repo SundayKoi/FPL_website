@@ -160,9 +160,10 @@ describe("SiteNavigation", () => {
     const { container } = render(<SiteNavigation authSlot={<span>Account</span>} />);
 
     const headerRow = container.querySelector("header > div");
-    expect(headerRow?.className).toContain("sm:px-8");
+    expect(headerRow?.className).toContain("page-container");
     expect(headerRow?.className).toContain("sm:py-4");
-    expect(headerRow?.className).toContain("lg:px-10");
+    expect(headerRow?.className).not.toContain("sm:px-8");
+    expect(headerRow?.className).not.toContain("lg:px-10");
 
     const brandButton = screen.getByRole("button", { name: /fpl, premier division, choose league/i });
     expect(brandButton.className).toContain("gap-2");

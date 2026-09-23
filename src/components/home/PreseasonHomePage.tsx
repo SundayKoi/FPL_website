@@ -9,7 +9,7 @@ export default async function PreseasonHomePage() {
 
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
+      <div className="page-container page-spacing w-full">
         <section aria-labelledby="preseason-home-title" className="card-brand overflow-hidden p-5 sm:p-8 xl:p-10">
           <div className="grid gap-8 lg:grid-cols-[1.3fr_0.7fr] lg:items-end">
             <div>
@@ -52,7 +52,7 @@ export default async function PreseasonHomePage() {
           {data.teams.length === 0 ? (
             <p className="card-brand mt-5 p-5 text-sm text-muted">Team budgets will appear here once the featured draft is published.</p>
           ) : (
-            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="preseason-team-grid mt-5">
               {data.teams.map((team) => (
                 <article key={team.id} className="card-brand overflow-hidden">
                   <div className="h-2" style={{ backgroundColor: team.bannerColor }} />

@@ -112,7 +112,7 @@ export default async function MatchDraftPage({
   const fixture = fixtureData as FixtureRow | null;
   if (!fixture) {
     return (
-      <main className="flex flex-1 items-center justify-center page-backdrop p-8">
+      <main className="page-container page-spacing flex flex-1 items-center justify-center page-backdrop">
         <section className="card-brand max-w-md p-6 text-center">
           <h1 className="type-display text-2xl text-white">Match not found</h1>
           <p className="mt-2 text-sm text-muted">This draft link does not match a scheduled fixture.</p>

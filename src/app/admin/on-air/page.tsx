@@ -45,7 +45,7 @@ export default async function OnAirAdminPage() {
   const noSignal = onAirCard({ ...ON_AIR_SPECIMEN, name: "Static", champion: null, roleLabel: "Colour" }, 12, season, "Week 3 broadcast");
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-12 px-6 py-16">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-12">
       <header className="flex flex-col gap-3">
         <Link href="/admin" className="label-dash w-fit hover:text-coral">
           ← Admin

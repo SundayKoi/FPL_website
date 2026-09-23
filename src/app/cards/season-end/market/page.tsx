@@ -23,7 +23,7 @@ export async function SeasonEndMarketView({ league = "premier", releaseId }: { l
   const service = createBettingServiceClient();
   const releases = await fetchPublishedSeasonEndReleases(service, league);
   const release = releaseId ? await fetchSeasonEndReleaseById(service, releaseId, { publicOnly: true }) : releases[0] ?? null;
-  if (!release || release.league !== league) return <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 py-10 text-white"><p className="label-dash text-gold">Season&apos;s End market</p><h1 className="type-display text-4xl">No public release</h1><p className="text-steel">Community commerce opens after an exact release revision is published.</p></main>;
+  if (!release || release.league !== league) return <main className="page-container page-spacing flex w-full flex-1 flex-col gap-4 text-white"><p className="label-dash text-gold">Season&apos;s End market</p><h1 className="type-display text-4xl">No public release</h1><p className="text-steel">Community commerce opens after an exact release revision is published.</p></main>;
   const [catalog, copies, market] = await Promise.all([
     fetchSeasonEndCatalog(service, release),
     fetchSeasonEndOwnedCopies(service, release.id, user.discordId),
@@ -31,7 +31,7 @@ export async function SeasonEndMarketView({ league = "premier", releaseId }: { l
   ]);
   if (!catalog) return null;
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
       <CardsPageHeader eyebrow={cardsEyebrow("Season's End market", league, release.season)} title="The collectible trading post">
         Public copies have their own market boundary. Listings, wanted offers, direct trades and dust all operate on frozen Season&apos;s End copies; they never enter the weekly player-card economy.
       </CardsPageHeader>

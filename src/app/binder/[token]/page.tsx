@@ -56,7 +56,7 @@ export default async function BinderPage({ params }: { params: Promise<{ token: 
   const flame = await patronFlame(binder.discordId);
 
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing page-backdrop flex w-full flex-1 flex-col gap-8 text-white">
       <div>
         <BackLink href="/cards/browse" label="Browse the cards" />
       </div>

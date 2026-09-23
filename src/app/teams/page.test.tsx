@@ -132,9 +132,9 @@ describe("TeamsPage", () => {
     expect(screen.getAllByRole("article")).toHaveLength(12);
     expect(screen.getByLabelText("Premier draft")).toBeTruthy();
     expect(screen.getByLabelText("Academy draft")).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Team rosters" }).querySelector(".grid")?.classList).toContain(
-      "sm:grid-cols-3",
-    );
+    expect(
+      screen.getByRole("region", { name: "Team rosters" }).querySelector(".team-directory-grid"),
+    ).not.toBeNull();
   });
 
   it("shows the selected captain profile in the admin team editor", async () => {

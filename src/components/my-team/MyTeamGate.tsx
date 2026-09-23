@@ -22,8 +22,8 @@ function teamPath(league: LeagueKey, teamName: string): string {
 function GateCard({ children }: { children: React.ReactNode }) {
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
-        <section className="card-brand p-6 sm:p-8">{children}</section>
+      <div className="page-container page-spacing w-full">
+        <section className="card-brand mx-auto w-full max-w-3xl p-6 sm:p-8">{children}</section>
       </div>
     </main>
   );

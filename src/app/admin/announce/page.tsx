@@ -29,7 +29,7 @@ export default async function AdminAnnouncePage() {
   ];
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1100px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
       <header className="flex flex-col gap-2">
         <Link href="/admin" className="text-xs font-bold uppercase tracking-wide text-muted hover:text-white">
           ← Admin

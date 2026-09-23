@@ -84,7 +84,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const played = hasResult(fixture);
 
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-10 text-white">
+    <main className="page-container page-spacing page-backdrop flex w-full flex-1 flex-col gap-6 text-white">
       <header className="card-brand flex flex-col gap-2 p-5">
         <span className="label-dash">
           {stageMeta(fixture.stage).label}
