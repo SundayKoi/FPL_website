@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fetchConvoyViews, fetchDeployedCopyIds, fetchFixturesSince, fetchLedger, fetchRuns, fetchStrangersHolds } from "./queries";
+import { fetchConvoyViews, fetchDeployedCopyIds, fetchFixturesSince, fetchLedger, fetchRulesVersion, fetchRuns, fetchStrangersHolds } from "./queries";
 
 type QueryCall = { table: string; filters: Record<string, unknown> };
 type QueryResult = { data: unknown; error: unknown };
@@ -334,5 +334,30 @@ describe("fetchStrangersHolds", () => {
   it("skips a hold with no card on it", async () => {
     const found = await fetchStrangersHolds(client([{ id: 1, squad: [], discord_id: "someone" }], []), "42");
     expect(found).toEqual([]);
+  });
+});
+
+describe("fetchRulesVersion", () => {
+  const rpcClient = (result: { data: unknown; error: unknown }) => {
+    const rpc = vi.fn(async () => result);
+    return { client: { rpc } as unknown as SupabaseClient, rpc };
+  };
+
+  it("asks the database which rulebook the next launch gets", async () => {
+    const { client, rpc } = rpcClient({ data: 6, error: null });
+    expect(await fetchRulesVersion(client)).toBe(6);
+    expect(rpc).toHaveBeenCalledWith("expedition_rules_version");
+  });
+
+  it("reads a database without the function as the oldest rulebook", async () => {
+    // The Speedrunner's clock is cut only when this says 6; a database
+    // that cannot answer must never let the app cut it early.
+    const { client } = rpcClient({ data: null, error: { code: "PGRST202", message: "Could not find the function" } });
+    expect(await fetchRulesVersion(client)).toBe(1);
+  });
+
+  it("reads an answer that is not a rulebook as the oldest one", async () => {
+    expect(await fetchRulesVersion(rpcClient({ data: null, error: null }).client)).toBe(1);
+    expect(await fetchRulesVersion(rpcClient({ data: "six", error: null }).client)).toBe(1);
   });
 });

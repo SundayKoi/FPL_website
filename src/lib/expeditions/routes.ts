@@ -1301,6 +1301,10 @@ export interface RouteEvent {
   fork: number | null;
   tone: "good" | "bad" | "neutral";
   text: string;
+  /** The title whose edge (archetypes.ts) made this happen, so the
+   *  ceremony can list the edges that fired. Absent on every other event,
+   *  and on every run stamped below ARCHETYPE_RULES. */
+  ability?: string;
 }
 
 /** An encounter as the resolver reads it: journal.ts decides where they
@@ -1377,6 +1381,10 @@ export interface RouteInput {
   encounters?: RouteEncounter[];
   /** The weather the run launched under (weather.ts), or none. */
   weather?: WeatherKey | null;
+  /** The collector's base camp as it stands at the claim — only the tent
+   *  touches resolution, and only under ARCHETYPE_RULES. Absent or null
+   *  reads as no camp. */
+  camp?: { tent: number } | null;
   /** The clock, for the wounded bench's end. */
   now: Date;
 }

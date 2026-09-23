@@ -23,6 +23,8 @@ import {
   squadShine,
   TIER_ORDER,
 } from "./config";
+import { SPEEDRUN_HOURS, SPEEDRUN_MAX_HOURS } from "./archetypes";
+import { CAMP_SLOTS_MAX } from "./camp";
 
 /** What one run of a tier is expected to pay — expectedDailyDollars with
  *  the per-day scaling taken back out, so a test can talk about a run. */
@@ -167,6 +169,33 @@ describe("EXPEDITION_TIERS", () => {
   it("ranks marks worst to best", () => {
     expect(MARK_RANK.trail).toBeLessThan(MARK_RANK.sigil);
     expect(MARK_RANK.sigil).toBeLessThan(MARK_RANK.legend);
+  });
+});
+
+describe("the guardrail under the edges and the camp", () => {
+  // Only two things in the next level touch how many runs fit in a day:
+  // the Speedrunner's shorter clock and the camp's second scouting slot.
+  // Everything else lands inside the loot cap or the payout ceiling below.
+
+  it("prices a day off whatever clock it is handed", () => {
+    expect(expectedDailyDollars("raid", EXPEDITION_TIERS.raid.durationHours)).toBe(expectedDailyDollars("raid"));
+    expect(expectedDailyDollars("scout", EXPEDITION_TIERS.scout.durationHours / 2)).toBeCloseTo(2 * expectedDailyDollars("scout"), 6);
+  });
+
+  it("keeps every route the Speedrunner cuts under the streak", () => {
+    // Scout 265.7, raid 282.8, rescue 133.1 a day an hour short. A Legend
+    // Hunt an hour short would be 555.3 — over — which is why the cut
+    // stops at SPEEDRUN_MAX_HOURS and long routes get storm immunity.
+    const cut = TIER_ORDER.filter((tier) => EXPEDITION_TIERS[tier].durationHours <= SPEEDRUN_MAX_HOURS);
+    expect(cut).toContain("scout");
+    for (const tier of cut) {
+      expect(expectedDailyDollars(tier, EXPEDITION_TIERS[tier].durationHours - SPEEDRUN_HOURS)).toBeLessThan(MAXED_DAILY_STREAK);
+    }
+  });
+
+  it("keeps a second scouting slot under the streak, even with a Speedrunner in both", () => {
+    const fastScouting = expectedDailyDollars("scout", EXPEDITION_TIERS.scout.durationHours - SPEEDRUN_HOURS);
+    expect(fastScouting * (1 + CAMP_SLOTS_MAX)).toBeLessThan(MAXED_DAILY_STREAK);
   });
 });
 

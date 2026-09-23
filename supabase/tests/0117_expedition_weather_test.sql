@@ -35,18 +35,20 @@ language sql stable as $$
 $$;
 
 -- === 1-2. the rulebook ======================================================
-select is(
-  (select column_default from information_schema.columns
+-- The default has moved on since (6, 20261026000001); the law here is
+-- that it is never below the weather rulebook.
+select cmp_ok(
+  (select column_default::int from information_schema.columns
     where table_schema = 'public' and table_name = 'expedition_runs' and column_name = 'rules'),
-  '5',
+  '>=', 5,
   'a launch from here on is under the weather');
 
 create temporary table wx_launch on commit drop as
   select * from public.launch_expedition('weather-0117', 'S_TEST_WX', 'raid',
     array[tests.wx_card('wx-1'), tests.wx_card('wx-2'), tests.wx_card('wx-3')], 14, 24, 2, false, 0, 0, null, null, null);
 
-select is((select rules from public.expedition_runs where id = tests.wx_run()), 5::smallint,
-  'a fresh run is stamped with the weather rulebook');
+select cmp_ok((select rules from public.expedition_runs where id = tests.wx_run()), '>=', 5::smallint,
+  'a fresh run is stamped with at least the weather rulebook');
 
 -- === 3-5. the ceiling =======================================================
 update public.expedition_runs set resolves_at = now() - interval '1 minute' where id = tests.wx_run();

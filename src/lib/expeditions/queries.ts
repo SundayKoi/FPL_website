@@ -108,6 +108,21 @@ export function hasRoad(run: Pick<ExpeditionRun, "rules">): boolean {
   return run.rules >= ROAD_RULES;
 }
 
+/**
+ * The rulebook the database will stamp on the next launch — for the one
+ * decision the app makes before the row exists (the Speedrunner's clock,
+ * archetypes.ts). Service role only. An environment that has not applied
+ * 20261026000001 has no such function, and an error of any kind reads as
+ * the oldest rulebook: a launch that assumed rules it will not be stamped
+ * with would cut a clock nothing pays for.
+ */
+export async function fetchRulesVersion(supabase: SupabaseClient): Promise<number> {
+  const { data, error } = await supabase.rpc("expedition_rules_version");
+  if (error) return 1;
+  const rules = Number(data);
+  return Number.isInteger(rules) && rules > 0 ? rules : 1;
+}
+
 /** The handle the road-drawing functions take, off a run row. */
 export function roadOf(run: Pick<ExpeditionRun, "id" | "rules" | "convoy" | "forks"> & { road?: string[] | null }): RoadRef {
   return { runId: run.id, rules: run.rules, convoy: run.convoy, forks: run.forks, places: run.road ?? null };

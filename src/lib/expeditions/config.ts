@@ -738,14 +738,19 @@ export function rollOutcome(
  * Base rates only: no shine bonus, no brief bonus, and it assumes the
  * player relaunches the moment a run lands (the honest worst case for the
  * economy).
+ *
+ * `durationHours` prices a clock other than the tier's own: a Speedrunner
+ * brings a short route home early (archetypes.ts), and more runs a day is
+ * the one way an edge could push a tier past the streak, so the guardrail
+ * has to be able to ask.
  */
-export function expectedDailyDollars(tier: ExpeditionTierKey): number {
+export function expectedDailyDollars(tier: ExpeditionTierKey, durationHours: number = EXPEDITION_TIERS[tier].durationHours): number {
   const { weights, dollars, comp } = REWARDS[tier];
   const total = GRADES.reduce((sum, grade) => sum + weights[grade], 0);
   const perRun = GRADES.reduce(
     (sum, grade) => sum + (weights[grade] / total) * (dollars[grade] + comp[grade] * PACK_COST),
     0,
   );
-  const runsPerDay = 24 / EXPEDITION_TIERS[tier].durationHours;
+  const runsPerDay = 24 / durationHours;
   return perRun * runsPerDay;
 }
