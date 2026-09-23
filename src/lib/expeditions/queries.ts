@@ -14,6 +14,8 @@ import type { ExpeditionMark, ExpeditionOutcome, ExpeditionTierKey, OutcomeGrade
 import { ROAD_RULES, type CardFate, type RecordedChoice, type RoadRef, type RouteEvent } from "./routes";
 import type { RivalRecord, RoadCompany } from "./company";
 import type { WeatherKey } from "./weather";
+import type { AbilityKind } from "./archetypes";
+import type { EncounterKey } from "./journal";
 
 /**
  * The outcome as the ROW stores it, which is not quite what rollOutcome
@@ -51,6 +53,12 @@ export type ExpeditionRunOutcome = Omit<ExpeditionOutcome, "briefHit"> & {
    *  Empty on runs from before COMPANY_RULES; optional so older fixtures
    *  and rows read as "none". */
   rivals?: RivalRecord[];
+  /** The edges that counted on the run (archetypes.ts), as the claim
+   *  stored them. Absent on runs stamped below ARCHETYPE_RULES. */
+  abilities?: { copyId: number; title: string; kind: AbilityKind }[];
+  /** What the run walked (atlas.ts), as the claim stamped it. Absent on
+   *  runs claimed before the atlas, unless the backfill stamped them. */
+  atlas?: AtlasStamp;
 };
 
 /** A run's tier, or 'lost': the HOLD on a lost card, which the board draws
@@ -155,6 +163,8 @@ interface RunDbRow {
     surge?: string[] | null;
     echo?: { slug?: string; week?: string; moment?: number } | null;
     rivals?: RivalRecord[] | null;
+    abilities?: unknown;
+    atlas?: unknown;
   } | null;
   claimed_at: string | null;
   forks: number | null;
@@ -204,6 +214,9 @@ export function mapRun(row: RunDbRow): ExpeditionRun {
           rivals: Array.isArray(row.outcome.rivals)
             ? row.outcome.rivals.filter((rival) => rival && typeof rival.who === "string").map((rival) => ({ who: rival.who, name: String(rival.name ?? "Another collector"), runId: Number(rival.runId ?? 0), won: rival.won === true }))
             : [],
+          // Present only when the row carries them, so a run from before
+          // either reads exactly as it always did.
+          ...outcomeExtras(row.outcome),
         }
       : null,
     claimedAt: row.claimed_at,
@@ -988,4 +1001,209 @@ export async function fetchReveals(
     if (partnerOf.get(id) === row.discord_id) partner.add(id);
   }
   return { mine: paid, partner };
+}
+
+// === the atlas ===============================================================
+
+import { fetchAllPages } from "@/lib/supabase/pagination";
+import type { AtlasAward, AtlasLandmark, AtlasRun } from "./atlas";
+
+/** Every encounter a road can hold, in the order the atlas lists them. */
+export const ENCOUNTER_KEYS: readonly EncounterKey[] = ["merchant", "stranded", "storm", "cache", "rival", "shrine", "hunter", "ghost"];
+
+export function isEncounterKey(value: unknown): value is EncounterKey {
+  return typeof value === "string" && (ENCOUNTER_KEYS as readonly string[]).includes(value);
+}
+
+/** A ghost met on the road: the dead card, its grave and whose it was. */
+export interface AtlasGhost {
+  grave: number;
+  name: string;
+  owner: string;
+}
+
+/**
+ * What a claimed run walked, stored in its outcome (`outcome.atlas`) by
+ * the claim (atlasStamp in atlas.ts). `places` are place keys in road
+ * order — the list name_expedition_landmarks checks a naming against and
+ * award_expedition_road counts. `backfilled` marks a stamp
+ * scripts/backfill-expedition-atlas.ts wrote after the fact, whose
+ * encounters were re-derived rather than recorded.
+ *
+ * Here rather than in atlas.ts because mapRun reads it off every claimed
+ * outcome, and atlas.ts reads the journal, which reads this module.
+ */
+export interface AtlasStamp {
+  places: string[];
+  encounters: EncounterKey[];
+  ghosts: AtlasGhost[];
+  backfilled?: boolean;
+}
+
+/** `outcome.atlas` as a row hands it over, checked: null for a run
+ *  claimed before the atlas, or for anything that is not a stamp. */
+export function readAtlasStamp(value: unknown): AtlasStamp | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as { places?: unknown; encounters?: unknown; ghosts?: unknown; backfilled?: unknown };
+  if (!Array.isArray(raw.places)) return null;
+  const places = raw.places.filter((place): place is string => typeof place === "string" && place.length > 0);
+  const encounters = Array.isArray(raw.encounters) ? raw.encounters.filter(isEncounterKey) : [];
+  const ghosts = Array.isArray(raw.ghosts)
+    ? raw.ghosts
+        .filter((ghost): ghost is { grave?: unknown; name?: unknown; owner?: unknown } => Boolean(ghost) && typeof ghost === "object")
+        .filter((ghost) => typeof ghost.name === "string")
+        .map((ghost) => ({ grave: Number(ghost.grave ?? 0), name: String(ghost.name), owner: typeof ghost.owner === "string" ? ghost.owner : "Unknown" }))
+    : [];
+  return { places, encounters, ghosts, ...(raw.backfilled === true ? { backfilled: true } : {}) };
+}
+
+/** The claim's stored edges, checked. */
+function readAbilities(value: unknown): { copyId: number; title: string; kind: AbilityKind }[] | null {
+  if (!Array.isArray(value)) return null;
+  return value
+    .filter((entry): entry is { copyId?: unknown; title?: unknown; kind?: unknown } => Boolean(entry) && typeof entry === "object")
+    .filter((entry) => typeof entry.title === "string" && typeof entry.kind === "string")
+    .map((entry) => ({ copyId: Number(entry.copyId ?? 0), title: String(entry.title), kind: entry.kind as AbilityKind }));
+}
+
+/** The optional halves of a claimed outcome, each only when stored. */
+function outcomeExtras(outcome: { abilities?: unknown; atlas?: unknown }): Pick<ExpeditionRunOutcome, "abilities" | "atlas"> {
+  const abilities = readAbilities(outcome.abilities);
+  const atlas = readAtlasStamp(outcome.atlas);
+  return { ...(abilities ? { abilities } : {}), ...(atlas ? { atlas } : {}) };
+}
+
+interface AtlasRunDbRow {
+  id: number;
+  tier: string;
+  started_at: string;
+  resolves_at: string;
+  claimed_at: string | null;
+  forks: number | null;
+  rules: number | null;
+  convoy: number | null;
+  road: unknown;
+  atlas: unknown;
+}
+
+// Every read below fails soft to null, not to an empty list: null means
+// "the atlas is not here" (the read broke, or the expedition_atlas
+// migration is not applied) and hides what it would have shown, while []
+// means "nothing yet". The claim reads the same way and skips on null.
+
+/**
+ * The collector's claimed runs in one season — the atlas's history — with
+ * only the columns it reads and the stamp, not the whole outcome (a
+ * claimed outcome carries every event of the run). `tier` narrows it to
+ * one route, for the claim's "is this road now walked?". Every page is
+ * read: a road completed by a run past the first thousand must still
+ * count. Holds are not runs. Needs no migration: the stamp is a key in
+ * the outcome, and a run without one reads as unstamped.
+ */
+export async function fetchAtlasRuns(
+  supabase: SupabaseClient,
+  discordId: string,
+  season: string,
+  tier?: ExpeditionTierKey,
+): Promise<AtlasRun[] | null> {
+  if (!season) return null;
+  try {
+    const rows = await fetchAllPages<AtlasRunDbRow>((from, to) => {
+      let query = supabase
+        .from("expedition_runs")
+        .select("id, tier, started_at, resolves_at, claimed_at, forks, rules, convoy, road, atlas:outcome->atlas")
+        .eq("discord_id", discordId)
+        .eq("season", season)
+        .not("claimed_at", "is", null)
+        .neq("tier", "lost");
+      if (tier) query = query.eq("tier", tier);
+      return query.order("claimed_at", { ascending: true }).order("id", { ascending: true }).range(from, to);
+    });
+    return rows
+      .filter((row) => row && typeof row === "object" && row.claimed_at)
+      .map((row) => ({
+        id: Number(row.id),
+        tier: row.tier,
+        startedAt: row.started_at,
+        resolvesAt: row.resolves_at,
+        claimedAt: row.claimed_at,
+        forks: Number(row.forks ?? 0),
+        rules: Number(row.rules ?? 1),
+        convoy: row.convoy === null || row.convoy === undefined ? null : Number(row.convoy),
+        road: Array.isArray(row.road) && row.road.every((place) => typeof place === "string") ? (row.road as string[]) : null,
+        stamp: readAtlasStamp(row.atlas),
+      }));
+  } catch {
+    return null;
+  }
+}
+
+interface LandmarkDbRow {
+  season: string;
+  place: string;
+  discord_id: string;
+  run_id: number | string;
+  reached_at: string;
+}
+
+/**
+ * The league's landmarks for one season: every place named, who named it
+ * and when, first named first. Public league news (a public read policy).
+ * The namers' usernames come from a second read; a failed name read leaves
+ * "Another collector" rather than hiding the landmark. A season's roads
+ * hold a few dozen places, so one page is all of them.
+ */
+export async function fetchLandmarks(supabase: SupabaseClient, season: string): Promise<AtlasLandmark[] | null> {
+  if (!season) return null;
+  const { data, error } = await supabase
+    .from("expedition_landmarks")
+    .select("season, place, discord_id, run_id, reached_at")
+    .eq("season", season)
+    .order("reached_at", { ascending: true })
+    .limit(500);
+  if (error) return null;
+  // A landmark belongs to its own league's season; anything else in the
+  // answer is somebody else's news.
+  const rows = ((data as LandmarkDbRow[] | null) ?? []).filter((row) => row.season === season && typeof row.place === "string");
+  const ids = [...new Set(rows.map((row) => row.discord_id))];
+  const names = new Map<string, string>();
+  if (ids.length > 0) {
+    const { data: profiles } = await supabase.from("betting_profiles").select("discord_id, username").in("discord_id", ids);
+    for (const profile of ((profiles as { discord_id: string; username: string | null }[] | null) ?? [])) {
+      if (profile.username) names.set(profile.discord_id, profile.username);
+    }
+  }
+  return rows.map((row) => ({
+    season: row.season,
+    place: row.place,
+    discordId: row.discord_id,
+    username: names.get(row.discord_id) ?? "Another collector",
+    runId: Number(row.run_id),
+    reachedAt: row.reached_at,
+  }));
+}
+
+interface AtlasAwardDbRow {
+  discord_id: string;
+  season: string;
+  tier: string;
+  fragments: number | null;
+  comp: boolean | null;
+  awarded_at: string;
+}
+
+/** The roads this collector has been paid for in one season. Owner read
+ *  under RLS; the page reads it with the service client, so the rows are
+ *  matched back to the collector and the season here too. */
+export async function fetchAtlasAwards(supabase: SupabaseClient, discordId: string, season: string): Promise<AtlasAward[] | null> {
+  if (!season) return null;
+  const { data, error } = await supabase
+    .from("expedition_atlas_awards")
+    .select("discord_id, season, tier, fragments, comp, awarded_at")
+    .eq("discord_id", discordId)
+    .eq("season", season);
+  if (error) return null;
+  return ((data as AtlasAwardDbRow[] | null) ?? [])
+    .filter((row) => row.discord_id === discordId && row.season === season)
+    .map((row) => ({ tier: row.tier, fragments: Number(row.fragments ?? 0), comp: row.comp === true, awardedAt: row.awarded_at }));
 }

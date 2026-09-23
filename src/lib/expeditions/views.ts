@@ -23,6 +23,7 @@
 
 import "server-only";
 import { ARCHETYPE_RULES, abilitySheet, traitsOf, type AbilityKind } from "./archetypes";
+import type { AtlasLandmark } from "./atlas";
 import type { CardCopy, ExpeditionTierKey } from "./config";
 import type { RoadCompany } from "./company";
 import { choiceSheet, forkViews, isCampChoice, type ForkChoice, type ForkOption, type ForkStatus, type ForkView } from "./forks";
@@ -49,6 +50,23 @@ export interface LandmarkView {
 export interface LandmarkRef extends LandmarkView {
   /** The place key it was named at. */
   place: string;
+}
+
+/**
+ * The season's landmarks (fetchLandmarks) as the views take them: who
+ * named each place, whether that was the reader, and whether the namer's
+ * trophy wall carries a crest (`crests`, the discord ids whose base camp
+ * wall is at its top level; empty until the camp is read). Null — the
+ * landmarks could not be read — is no landmarks: every known place shows
+ * without one.
+ */
+export function landmarkRefs(landmarks: AtlasLandmark[] | null, viewerId: string | null, crests: ReadonlySet<string> = new Set()): LandmarkRef[] {
+  return (landmarks ?? []).map((landmark) => ({
+    place: landmark.place,
+    by: landmark.username,
+    mine: viewerId !== null && landmark.discordId === viewerId,
+    crest: crests.has(landmark.discordId),
+  }));
 }
 
 /** What every checkpoint shows, known or not. */

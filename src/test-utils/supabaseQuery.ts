@@ -22,6 +22,7 @@ export function supabaseQuery(
     select: filter("select"),
     in: filter("in"),
     eq: filter("eq"),
+    neq: filter("neq"),
     is: filter("is"),
     gt: filter("gt"),
     gte: filter("gte"),
