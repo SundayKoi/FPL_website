@@ -35,6 +35,8 @@ import { fetchCampaign, hasLegendMark } from "./queries";
 import { CAMPAIGNS, canBind, nextRoad, relicBearer, type CampaignState, type StageLog } from "./campaigns";
 import { watchWeeksOf, weatherOfRun } from "./weather";
 import { sweepLeagueGoals } from "./leagueSweep";
+import { ROAD_REWARDS, atlasFor, atlasStamp, firstNamedLine, placeTitle, rewardWords, roadComplete, routeName, type AtlasStamp } from "./atlas";
+import { fetchAtlasRuns } from "./queries";
 import {
   forksFor,
   choiceAllowed,
@@ -122,8 +124,17 @@ export type ClaimResult =
        *  whether the campaign finished, and the relic's bearer if one was
        *  printed. Null off a campaign. */
       campaign: { key: CampaignState["key"]; stage: number; finished: boolean; relicName: string | null } | null;
+      /** The atlas's news, when there is any: the places this squad was
+       *  first to this season (titles), and the road this claim completed.
+       *  Absent otherwise, and whenever the atlas is not deployed. */
+      atlas?: ClaimAtlas;
     }
   | { ok: false; error: string };
+
+export interface ClaimAtlas {
+  firsts: string[];
+  road: { tier: ExpeditionTierKey; fragments: number; comp: boolean } | null;
+}
 
 export type DecideResult = { ok: true; closesAt: string } | { ok: false; error: string };
 
@@ -706,6 +717,9 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
   // A dead card cannot wear the mark.
   const dead = new Set(route.fates.filter((fate) => fate.fate === "dead").map((fate) => fate.id));
   const bearer = bearerId !== null && dead.has(bearerId) ? null : bearerId;
+  // What the squad walked, for the atlas: the road the resolver just
+  // walked, and the encounters and ghosts this claim read.
+  const atlas = atlasStamp(run, forksFor(tier, roadOf(run)), encounters, company);
 
   const { data: claimData, error: claimError } = await service.rpc("resolve_expedition", {
     p_user: discordId,
@@ -742,6 +756,9 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
       // The edges that counted, stored with the outcome so the log can say
       // what the squad walked with. Only under the rulebook that has them.
       ...(run.rules >= ARCHETYPE_RULES ? { abilities: edges.map((entry) => ({ copyId: entry.copyId, title: entry.ability.title, kind: entry.ability.kind })) } : {}),
+      // Every claim, whatever its rulebook: the atlas's record of where the
+      // squad went, and the only places a landmark or a road can count.
+      atlas,
     },
   });
   if (claimError) {
@@ -845,6 +862,9 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
     }
   }
 
+  // The atlas, last and best effort: the claim above has paid.
+  const walked = await recordAtlas(service, { discordId, season, runId, tier, stamp: atlas });
+
   return {
     ok: true,
     outcome,
@@ -853,13 +873,87 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
     surge,
     echo: echo && row?.echo_id ? { inventoryId: Number(row.echo_id), slug: echo.slug, playerName: echo.playerName, moment: echo.moment } : null,
     balance: Number(row?.balance ?? 0),
-    fragments: Number(row?.fragments ?? 0),
+    fragments: Number(row?.fragments ?? 0) + (walked?.road?.fragments ?? 0),
     baseDollars: base.dollars,
     merchant,
     stranded,
     rescueMissed,
     campaign,
+    ...(walked ? { atlas: walked } : {}),
   };
+}
+
+/**
+ * The atlas's half of a claim, after resolve_expedition has committed:
+ * name the places this squad was first to this season, then — when the
+ * season's stamps now cover the route's whole road — pay the road. Both
+ * RPCs decide for themselves (first claim wins; a road is paid once), so
+ * this only asks. Every failure is logged and swallowed: a claim that paid
+ * never fails here, and an environment without the atlas migration simply
+ * names nothing and pays nothing.
+ */
+async function recordAtlas(
+  service: ReturnType<typeof createBettingServiceClient>,
+  input: { discordId: string; season: string; runId: number; tier: ExpeditionTierKey; stamp: AtlasStamp },
+): Promise<ClaimAtlas | null> {
+  const { discordId, season, runId, tier, stamp } = input;
+  if (!season || stamp.places.length === 0) return null;
+
+  let firsts: string[] = [];
+  try {
+    const { data, error } = await service.rpc("name_expedition_landmarks", { p_user: discordId, p_run: runId, p_places: stamp.places });
+    if (error) {
+      console.error("expeditions: landmarks not named", { discordId, runId, message: error.message });
+    } else {
+      // Only rows for this run's own places count as news, whatever else
+      // comes back.
+      const named = (Array.isArray(data) ? data : []) as { place?: unknown }[];
+      firsts = stamp.places.filter((place) => named.some((entry) => entry?.place === place));
+    }
+  } catch (atlasError) {
+    console.error("expeditions: landmarks not named", atlasError);
+  }
+  const titles = firsts.map((place) => placeTitle(place)).filter((title): title is string => title !== null);
+  if (titles.length > 0) {
+    try {
+      await postCardsWebhook({
+        title: titles.length === 1 ? "A landmark named" : "Landmarks named",
+        description: `${firstNamedLine(`<@${discordId}>`, titles, tier)} ${titles.length === 1 ? "It carries" : "They carry"} their name this season.`,
+        color: GOLD,
+      });
+    } catch (announceError) {
+      console.error("expeditions: landmark announcement failed", announceError);
+    }
+  }
+
+  let road: ClaimAtlas["road"] = null;
+  const history = await fetchAtlasRuns(service, discordId, season, tier);
+  if (history && roadComplete(atlasFor(history), tier)) {
+    try {
+      const { data, error } = await service.rpc("award_expedition_road", { p_user: discordId, p_season: season, p_tier: tier });
+      if (error) {
+        console.error("expeditions: road not awarded", { discordId, runId, tier, message: error.message });
+      } else {
+        const paid = (Array.isArray(data) ? data[0] : data) as { awarded?: boolean; fragments?: number } | null;
+        if (paid?.awarded === true) road = { tier, fragments: Number(paid.fragments ?? 0), comp: ROAD_REWARDS[tier].comp };
+      }
+    } catch (atlasError) {
+      console.error("expeditions: road not awarded", atlasError);
+    }
+  }
+  if (road) {
+    try {
+      await postCardsWebhook({
+        title: `${EXPEDITION_TIERS[tier].label} — every place walked`,
+        description: `<@${discordId}> has walked every place on ${routeName(tier)} this season: ${rewardWords(road)}.`,
+        color: GOLD,
+      });
+    } catch (announceError) {
+      console.error("expeditions: road announcement failed", announceError);
+    }
+  }
+
+  return titles.length > 0 || road ? { firsts: titles, road } : null;
 }
 
 async function announceClaim(

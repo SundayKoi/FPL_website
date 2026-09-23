@@ -122,6 +122,8 @@ function createService(respond: Respond) {
       not: () => builder,
       order: () => builder,
       limit: () => builder,
+      // The atlas's history read pages through fetchAllPages.
+      range: () => builder,
       maybeSingle: async () => settle(),
       single: async () => settle(),
       then: (resolve: (value: QueryResult) => unknown, reject?: (reason: unknown) => unknown) =>
@@ -1460,5 +1462,119 @@ describe("the tent at the claim", () => {
     expect(await claimExpeditionFor("42", 31)).toMatchObject({ ok: true });
     expect(older.calls.some((call) => call.table === "expedition_camps")).toBe(false);
     expect(eventsSent(older).some((text) => text.startsWith("The tent held:"))).toBe(false);
+  });
+});
+
+
+import { forksFor } from "./routes";
+import { mapRun, roadOf } from "./queries";
+
+describe("the atlas at the claim", () => {
+  // A Deep Raid home from two forks, stamped before roads were drawn per
+  // run: it walked the fixed road, the reactor then the brutal fork.
+  const raid = () => runRow({ tier: "raid", shine: 12, forks: 2 });
+  const walked = () => forksFor("raid", roadOf(mapRun(raid() as Parameters<typeof mapRun>[0]))).map((place) => place.key);
+  /** The season's claimed Deep Raids, as the atlas's history read hands
+   *  them over: this run, and `others` stamped before it. */
+  const history = (others: string[][]) => [
+    ...others.map((places, index) => ({ id: 100 + index, tier: "raid", started_at: "2026-08-20T00:00:00.000Z", resolves_at: "2026-08-21T00:00:00.000Z", claimed_at: "2026-08-21T01:00:00.000Z", forks: 2, rules: 2, convoy: null, road: null, atlas: { places } })),
+    { id: 9, tier: "raid", started_at: "2026-08-27T18:00:00.000Z", resolves_at: "2026-08-28T02:00:00.000Z", claimed_at: "2026-08-28T18:00:00.000Z", forks: 2, rules: 2, convoy: null, road: null, atlas: { places: walked() } },
+  ];
+
+  function atlasBoard(opts: { past?: string[][]; historyError?: unknown; named?: { data?: unknown; error?: unknown }; award?: { data?: unknown; error?: unknown } } = {}) {
+    const service = createService((call) => {
+      if (call.table === "card_inventory") {
+        const wanted = (call.filters.id as number[]) ?? [];
+        return { data: scoutSquad.filter((row) => wanted.includes(row.id)) };
+      }
+      if (call.table === "expedition_runs" && call.columns?.includes("atlas:outcome->atlas")) {
+        return opts.historyError ? { data: null, error: opts.historyError } : { data: history(opts.past ?? []) };
+      }
+      if (call.table === "expedition_runs") return { data: raid() };
+      return { data: [] };
+    });
+    service.rpc.mockImplementation(async (...args: unknown[]) => {
+      const name = args[0] as string;
+      if (name === "resolve_expedition") return { data: [{ balance: 700, fragments: 1 }], error: null };
+      if (name === "name_expedition_landmarks") return { data: opts.named?.data ?? null, error: opts.named?.error ?? null };
+      if (name === "award_expedition_road") return { data: opts.award?.data ?? null, error: opts.award?.error ?? null };
+      return { data: null, error: null };
+    });
+    createBettingServiceClient.mockReturnValue(service.client);
+    return service;
+  }
+  const rpcNames = (board: ReturnType<typeof createService>) => board.rpc.mock.calls.map((call) => (call as unknown[])[0]);
+
+  it("stamps where the squad went into the outcome, and names those places after the claim", async () => {
+    const board = atlasBoard({ named: { data: [] } });
+
+    expect(await claimExpeditionFor("42", 9)).toMatchObject({ ok: true });
+    const sent = (board.rpc.mock.calls.find((call) => (call as unknown[])[0] === "resolve_expedition") as unknown[])[1] as { p_outcome: { atlas: { places: string[]; encounters: string[]; ghosts: unknown[] } } };
+    expect(walked()).toEqual(["reactor", "ridge"]);
+    expect(sent.p_outcome.atlas).toMatchObject({ places: walked(), ghosts: [] });
+    expect(Array.isArray(sent.p_outcome.atlas.encounters)).toBe(true);
+    expect(rpcNames(board)).toEqual(["resolve_expedition", "name_expedition_landmarks"]);
+    expect(board.rpc).toHaveBeenCalledWith("name_expedition_landmarks", { p_user: "42", p_run: 9, p_places: walked() });
+    // Nobody was first to anything new, and the road is two places of six.
+    expect(postCardsWebhook).not.toHaveBeenCalled();
+  });
+
+  it("announces the places this squad was first to, and says so in the result", async () => {
+    atlasBoard({ named: { data: [{ season: "s4", place: "reactor", discord_id: "42", run_id: 9 }, { place: "somewhere-else" }] } });
+
+    const result = await claimExpeditionFor("42", 9);
+
+    expect(result).toMatchObject({ ok: true, fragments: 1, atlas: { firsts: ["The reactor"], road: null } });
+    expect(postCardsWebhook).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "A landmark named", description: "<@42> was first to the reactor on the Deep Raid. It carries their name this season." }),
+    );
+  });
+
+  it("pays the road when the season's stamps now cover it, once, through the RPC", async () => {
+    const board = atlasBoard({ named: { data: [] }, past: [["waterworks", "mast"], ["barricade", "pits"]], award: { data: [{ awarded: true, fragments: 1 }] } });
+
+    const result = await claimExpeditionFor("42", 9);
+
+    expect(board.rpc).toHaveBeenCalledWith("award_expedition_road", { p_user: "42", p_season: "s4", p_tier: "raid" });
+    // The claim's own fragment count, plus the road's.
+    expect(result).toMatchObject({ ok: true, fragments: 2, atlas: { firsts: [], road: { tier: "raid", fragments: 1, comp: false } } });
+    expect(postCardsWebhook).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Deep Raid — every place walked", description: "<@42> has walked every place on the Deep Raid this season: 1 map fragment." }),
+    );
+  });
+
+  it("asks nothing of a road already paid, beyond the RPC's own no", async () => {
+    atlasBoard({ named: { data: [] }, past: [["waterworks", "mast", "barricade", "pits"]], award: { data: [{ awarded: false, fragments: 0 }] } });
+
+    const result = await claimExpeditionFor("42", 9);
+
+    expect(result).toMatchObject({ ok: true, fragments: 1 });
+    expect(result).not.toHaveProperty("atlas");
+    expect(postCardsWebhook).not.toHaveBeenCalled();
+  });
+
+  it("never fails a paid claim when the atlas is not there", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const board = atlasBoard({
+      named: { error: { message: "function public.name_expedition_landmarks(text, bigint, text[]) does not exist" } },
+      historyError: { message: "boom" },
+    });
+
+    const result = await claimExpeditionFor("42", 9);
+
+    expect(result).toMatchObject({ ok: true, balance: 700, fragments: 1 });
+    expect(result).not.toHaveProperty("atlas");
+    expect(rpcNames(board)).not.toContain("award_expedition_road");
+    expect(logged).toHaveBeenCalledWith("expeditions: landmarks not named", expect.objectContaining({ runId: 9 }));
+    logged.mockRestore();
+  });
+
+  it("stamps a run with no checkpoints and asks the atlas nothing more", async () => {
+    const board = createBoard({ copies: scoutSquad, run: runRow() });
+    board.rpc.mockResolvedValue({ data: [{ balance: 1519, fragments: 0 }], error: null });
+
+    expect(await claimExpeditionFor("42", 9)).toMatchObject({ ok: true });
+    expect(board.rpc).toHaveBeenCalledWith("resolve_expedition", expect.objectContaining({ p_outcome: expect.objectContaining({ atlas: expect.objectContaining({ places: [] }) }) }));
+    expect(rpcNames(board)).toEqual(["resolve_expedition"]);
   });
 });

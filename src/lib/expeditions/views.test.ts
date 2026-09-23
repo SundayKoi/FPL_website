@@ -13,7 +13,7 @@ import { banterFor, encountersFor, journalFor } from "./journal";
 import { roadOf, type ExpeditionRun } from "./queries";
 import { forkOptions, forksFor, underWeather } from "./routes";
 import { TRAILWORN_MILES } from "./trail";
-import { RIVAL_FORK, buildRunViews, campaignRoadTitles, rivalStory, runViewFor, type KnownPlaceView, type RunView, type RunViewInput, type UnknownPlaceView } from "./views";
+import { RIVAL_FORK, buildRunViews, campaignRoadTitles, landmarkRefs, rivalStory, runViewFor, type KnownPlaceView, type RunView, type RunViewInput, type UnknownPlaceView } from "./views";
 
 const HOUR = 3_600_000;
 const now = new Date("2026-09-23T18:00:00.000Z");
@@ -162,6 +162,25 @@ describe("the road as the squad knows it", () => {
     const named = runViewFor(input({ landmarks: places.map((place) => ({ place: place.key, by: "Ana", mine: false, crest: true })) }));
     expect(knownAt(named, 0).landmark).toEqual({ by: "Ana", mine: false, crest: true });
     expect("landmark" in named.road[1]).toBe(false);
+  });
+
+  it("fills a known place's landmark from the season's landmarks as fetched", () => {
+    const fetched = [
+      { season: "S5", place: places[0].key, discordId: "42", username: "Me", runId: 11, reachedAt: at(-40) },
+      { season: "S5", place: places[1].key, discordId: "77", username: "Ana", runId: 12, reachedAt: at(-30) },
+    ];
+    const refs = landmarkRefs(fetched, "42", new Set(["77"]));
+    expect(refs).toEqual([
+      { place: places[0].key, by: "Me", mine: true, crest: false },
+      { place: places[1].key, by: "Ana", mine: false, crest: true },
+    ]);
+    const named = runViewFor(input({ landmarks: refs }));
+    expect(knownAt(named, 0).landmark).toEqual({ by: "Me", mine: true, crest: false });
+    // The second place is still ahead: its landmark stays on the server.
+    expect(JSON.stringify(named)).not.toContain("Ana");
+    // Landmarks that could not be read are none.
+    expect(landmarkRefs(null, "42")).toEqual([]);
+    expect(knownAt(runViewFor(input({ landmarks: landmarkRefs(null, "42") })), 0).landmark).toBeNull();
   });
 
   it("is plain data: what the page sends is what the board reads", () => {

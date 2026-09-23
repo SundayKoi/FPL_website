@@ -754,3 +754,29 @@ export function expectedDailyDollars(tier: ExpeditionTierKey, durationHours: num
   const runsPerDay = 24 / durationHours;
   return perRun * runsPerDay;
 }
+
+/** What walking a route's whole road in one season pays (the atlas, spec
+ *  §5): map fragments, and for the Legendary route a free pack. Once per
+ *  collector, route and season, so at most a handful of fragments a
+ *  season — and fragments are not dollars: their only dollar path is the
+ *  Legendary and Mythic routes, whose daily rates the guardrail already
+ *  holds. Here with the other numbers the page quotes rather than in
+ *  atlas.ts, which reads the road to title the places a collector has
+ *  seen: the browser may hold these, not that. award_expedition_road pays
+ *  exactly this, and atlas.test.ts holds the two equal. A rite has no
+ *  road, and pays nothing. */
+export interface RoadReward {
+  fragments: number;
+  comp: boolean;
+}
+
+export const ROAD_REWARDS: Readonly<Record<ExpeditionTierKey, RoadReward>> = Object.freeze({
+  scout: { fragments: 1, comp: false },
+  gilded: { fragments: 1, comp: false },
+  raid: { fragments: 1, comp: false },
+  legend: { fragments: 2, comp: false },
+  rescue: { fragments: 1, comp: false },
+  exorcism: { fragments: 0, comp: false },
+  legendary: { fragments: 2, comp: true },
+  mythic: { fragments: 3, comp: false },
+});
