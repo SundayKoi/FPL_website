@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import CollectibleRenderer from "@/components/cards/CollectibleRenderer";
+import SeasonEndDustButton from "@/components/cards/SeasonEndDustButton";
 import type { CardLeague } from "@/lib/cards/queries";
 import { fetchPublishedSeasonEndReleases, fetchSeasonEndOwnedCopies } from "@/lib/season-end/release-queries";
 
@@ -35,7 +36,10 @@ export default async function SeasonEndOwnedCollection({ service, discordId, lea
             {copies.map((copy) => (
               <article key={copy.inventoryId} className="flex flex-col gap-2">
                 <CollectibleRenderer pull={{ design: copy.payload, foil: copy.foil, foilType: copy.foilType as never, signed: copy.signed, autograph: copy.autograph, guaranteedFoil: copy.slotPosition === 5, inventoryId: copy.inventoryId }} compact />
-                <Link href={`${base}/season-end/copy/${copy.inventoryId}`} className="text-xs text-coral underline-offset-4 hover:underline">View copy #{copy.inventoryId}</Link>
+                <div className="flex items-center gap-3">
+                  <Link href={`${base}/season-end/copy/${copy.inventoryId}`} className="text-xs text-coral underline-offset-4 hover:underline">View copy #{copy.inventoryId}</Link>
+                  <SeasonEndDustButton inventoryId={copy.inventoryId} />
+                </div>
               </article>
             ))}
           </div>
