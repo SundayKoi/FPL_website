@@ -230,24 +230,7 @@ export type AdminScheduleRow = {
   status: string;
 };
 
-export default function AdminConsole({
-  view,
-  isOwner,
-  isFullAdmin,
-  league,
-  season,
-  defaultSeasons,
-  seasonOptions,
-  phase,
-  upcomingCount,
-  signupsOpen,
-  homepageMode,
-  featuredMatch,
-  upcoming,
-  today,
-  initialQuery = "",
-  children,
-}: {
+type AdminConsoleProps = {
   view: "overview" | "tools";
   isOwner: boolean;
   isFullAdmin: boolean;
@@ -264,8 +247,27 @@ export default function AdminConsole({
   today: string;
   initialQuery?: string;
   children?: ReactNode;
-}) {
-  const pathname = usePathname() ?? "/admin";
+};
+
+function AdminConsoleContent({
+  pathname,
+  view,
+  isOwner,
+  isFullAdmin,
+  league,
+  season,
+  defaultSeasons,
+  seasonOptions,
+  phase,
+  upcomingCount,
+  signupsOpen,
+  homepageMode,
+  featuredMatch,
+  upcoming,
+  today,
+  initialQuery = "",
+  children,
+}: AdminConsoleProps & { pathname: string }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -273,9 +275,6 @@ export default function AdminConsole({
   const [queueFilter, setQueueFilter] = useState<"all" | QueueType>("all");
   const currentCategory = searchParams?.get("category") ?? "all";
   const [toolFilter, setToolFilter] = useState(currentCategory);
-
-  useEffect(() => setQuery(initialQuery), [initialQuery, pathname]);
-  useEffect(() => setToolFilter(currentCategory), [currentCategory, pathname]);
 
   useEffect(() => {
     const onShortcut = (event: KeyboardEvent) => {
@@ -420,7 +419,7 @@ export default function AdminConsole({
                           <div className={styles.queueRow} key={item.id}>
                           <span className={styles.rowIcon}><Icon name={item.icon} size={24} /></span>
                           <span className={styles.rowCopy}><strong>{item.title}</strong><small>{item.detail}</small></span>
-                          <Link href={item.href} className={styles.rowAction}>{item.action}<span aria-hidden="true">→</span></Link>
+                          <Link href={item.href} aria-label={item.type === "claims" ? "Review player claims" : undefined} className={styles.rowAction}>{item.action}<span aria-hidden="true">→</span></Link>
                         </div>
                       ))}
                     </div>
@@ -543,4 +542,11 @@ export default function AdminConsole({
       </div>
     </div>
   );
+}
+
+export default function AdminConsole(props: AdminConsoleProps) {
+  const pathname = usePathname() ?? "/admin";
+  const category = useSearchParams()?.get("category") ?? "all";
+  const key = `${pathname}:${category}:${props.initialQuery ?? ""}`;
+  return <AdminConsoleContent key={key} pathname={pathname} {...props} />;
 }

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FixtureRow } from "@/lib/schedule/types";
 import AdminPage from "./page";
 
-const { redirect, fetchStaffTier, editor, fetchHomepageSchedule, fetchHomepageFeaturedSettings, fetchAcademyDraftData, fetchLeagueSeasons, routerPush, routerReplace } = vi.hoisted(() => ({
+const { redirect, fetchStaffTier, editor, fetchHomepageSchedule, selectHomepageFeaturedFixture, fetchHomepageFeaturedSettings, fetchAcademyDraftData, fetchLeagueSeasons, routerPush, routerReplace } = vi.hoisted(() => ({
   redirect: vi.fn(),
   fetchStaffTier: vi.fn(),
   routerPush: vi.fn(),
@@ -14,6 +14,7 @@ const { redirect, fetchStaffTier, editor, fetchHomepageSchedule, fetchHomepageFe
     </div>
   )),
   fetchHomepageSchedule: vi.fn(),
+  selectHomepageFeaturedFixture: vi.fn(),
   fetchHomepageFeaturedSettings: vi.fn(),
   fetchAcademyDraftData: vi.fn(),
   fetchLeagueSeasons: vi.fn(),
@@ -30,7 +31,7 @@ vi.mock("@/lib/auth/staffTier", () => ({
   isMissingBroadcasterColumn: (error: { code?: string; message?: string } | null) =>
     (error?.code === "PGRST204" || error?.code === "42703") && error.message?.includes("is_broadcaster"),
 }));
-vi.mock("@/lib/home/schedule", () => ({ fetchHomepageSchedule }));
+vi.mock("@/lib/home/schedule", () => ({ fetchHomepageSchedule, selectHomepageFeaturedFixture }));
 vi.mock("@/lib/home/homepageSettings", () => ({ fetchHomepageFeaturedSettings }));
 vi.mock("@/lib/academy/draft", () => ({ fetchAcademyDraftData }));
 vi.mock("@/lib/league/season", () => ({ fetchLeagueSeasons }));
@@ -94,6 +95,7 @@ beforeEach(() => {
   fetchHomepageSchedule.mockResolvedValue({
     upcoming: [fixture("premier-fixture", "Premier A", "Premier B")],
   });
+  selectHomepageFeaturedFixture.mockImplementation((fixtures: FixtureRow[]) => fixtures[0] ?? null);
   fetchHomepageFeaturedSettings.mockImplementation(async (homepage: string) =>
     homepage === "premier"
       ? { fixtureId: "premier-fixture", title: "Premier spotlight", description: "Premier copy", twitchUrl: null }

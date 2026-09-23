@@ -131,10 +131,11 @@ async function AdminPage(props?: AdminPageProps) {
     : settings?.current_phase && FIXTURE_STAGES.includes(settings.current_phase as FixtureStage)
       ? stageMeta(settings.current_phase as FixtureStage).label
       : "Season setup";
+  const now = new Date().getTime();
   const upcomingFixtures = displaySchedule.upcoming.filter((fixture) =>
     fixture.score_a === null &&
     fixture.score_b === null &&
-    (!fixture.scheduled_at || new Date(fixture.scheduled_at).getTime() >= Date.now()),
+    (!fixture.scheduled_at || new Date(fixture.scheduled_at).getTime() >= now),
   );
   const upcoming = upcomingFixtures.slice(0, 4).map((fixture) => ({
     id: fixture.id,
