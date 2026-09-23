@@ -194,12 +194,12 @@ export const CAMP_LINES: Readonly<Record<CampUpgrade, readonly CampLevelCopy[]>>
     {
       title: "A trophy wall",
       term: "Trophy wall",
-      does: "Hang your campaign relics, season marks, the landmarks you named and the roads you finished, here in your camp.",
+      does: "Hang your campaign relics, season marks, the places named after you and the routes you walked end to end, here in your camp.",
     },
     {
       title: "A plaque",
       term: "Trophy wall, level 2",
-      does: "Landmarks you named carry your crest on everyone's map and in the atlas.",
+      does: "Places named after you carry your crest on everyone's map and in the atlas.",
     },
   ],
 };

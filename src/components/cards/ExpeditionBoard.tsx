@@ -8,7 +8,7 @@
 //   Send a squad     — 1 pick three cards, 2 pick a run, 3 send them.
 //   Your runs        — one card per squad in the field.
 //   More             — log, standings, campaigns, camp, league goal,
-//                      graveyard, rules.
+//                      atlas, graveyard, rules.
 //
 // This component is the state machine and the composition, nothing else:
 // the picked squad, the chosen route, the launch options, the errors, the
@@ -52,6 +52,7 @@ import {
   startCampaignAction,
   upgradeCampAction,
 } from "@/lib/expeditions/actions";
+import type { Atlas } from "@/lib/expeditions/atlas";
 import { forgedPolicyState, tierSlots, wallRelics, type CampState } from "@/lib/expeditions/camp";
 import { canBind, type CampaignState } from "@/lib/expeditions/campaigns";
 import type { Rivalry } from "@/lib/expeditions/company";
@@ -150,6 +151,7 @@ export default function ExpeditionBoard({
   forgedThisWeek = null,
   balance = 0,
   league = null,
+  atlas = null,
   preview = false,
 }: {
   /** Whether the shelf holds a Legend mark — the Mythic route's gate.
@@ -225,6 +227,11 @@ export default function ExpeditionBoard({
   /** The league goal this week and last (fetchLeagueBoard); null hides
    *  the League tab and the This-week line's progress. */
   league?: LeagueBoard | null;
+  /** The atlas for this season (atlasFor, built on the server): every
+   *  place the collector's squads have seen, the league's landmarks and
+   *  the roads walked. Null hides the Atlas tab and leaves the trophy
+   *  wall's landmark and road rows out. */
+  atlas?: Atlas | null;
   /** The staff preview: every action is a stub that sends nothing. */
   preview?: boolean;
 }) {
@@ -444,6 +451,7 @@ export default function ExpeditionBoard({
         fragments: result.fragments,
         rescueMissed: result.rescueMissed,
         campaign: result.campaign,
+        atlas: result.atlas ?? null,
       });
       setClaimed((current) => new Set(current).add(run.id));
       router.refresh();
@@ -618,10 +626,13 @@ export default function ExpeditionBoard({
                 // The wall hangs the viewer's own marks, not the season's.
                 accolades: viewerId ? accolades.filter((accolade) => accolade.discordId === viewerId) : [],
                 forgedThisWeek,
-                // Landmarks and roads come with the atlas (Phase 6); until
-                // then the wall leaves those rows out.
-                landmarks: undefined,
-                roads: undefined,
+                // The places named after the viewer and the roads they
+                // walked end to end, from the atlas; with no atlas the
+                // wall leaves those rows out rather than promising them.
+                landmarks: atlas ? atlas.named.map((entry) => ({ key: entry.key, title: entry.title })) : undefined,
+                roads: atlas
+                  ? atlas.roads.filter((road) => road.awarded !== null || (road.size > 0 && road.counted >= road.size)).map((road) => ({ tier: road.tier }))
+                  : undefined,
                 onUpgrade: async (upgrade, level) => {
                   const result = await actions.upgradeCampAction(upgrade, level);
                   if (result.ok) router.refresh();
@@ -636,6 +647,7 @@ export default function ExpeditionBoard({
             : null
         }
         league={league}
+        atlas={atlas}
         ledgerHref={`${base}/expeditions/ledger`}
         onStartCampaign={async (key) => {
           const result = await actions.startCampaignAction(key, season);

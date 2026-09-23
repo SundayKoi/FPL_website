@@ -147,6 +147,9 @@ for (const persona of PERSONAS) {
           await panelShot(page, "more-drawer", `${OUT}/${persona}-${viewport.width}-standings.png`);
           await page.getByTestId("tab-camp").click();
           await panelShot(page, "more-drawer", `${OUT}/${persona}-${viewport.width}-camp.png`);
+          await page.getByTestId("tab-atlas").click();
+          await expect(page.getByTestId("atlas")).toBeVisible();
+          await panelShot(page, "more-drawer", `${OUT}/${persona}-${viewport.width}-atlas.png`);
         }
       }
 
@@ -160,6 +163,11 @@ for (const persona of PERSONAS) {
           await panelShot(page, "more-drawer", `${OUT}/${persona}-${viewport.width}-league.png`);
           await page.getByTestId("tab-camp").click();
           await panelShot(page, "more-drawer", `${OUT}/${persona}-${viewport.width}-camp.png`);
+          // The atlas: a road walked end to end and paid, one half seen,
+          // the places named after the viewer and after others.
+          await page.getByTestId("tab-atlas").click();
+          await expect(page.getByTestId("atlas-named")).toBeVisible();
+          await panelShot(page, "more-drawer", `${OUT}/${persona}-${viewport.width}-atlas.png`);
         }
       }
     });

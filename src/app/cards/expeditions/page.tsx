@@ -7,13 +7,17 @@ import { bettingAccess } from "@/lib/betting/access";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import {
+  fetchAtlasAwards,
+  fetchAtlasRuns,
   fetchCamp,
   fetchConvoyViews,
+  fetchCrests,
   fetchDeployedCopyIds,
   fetchFixturesSince,
   fetchForgedThisWeek,
   fetchFragments,
   fetchGraveyard,
+  fetchLandmarks,
   fetchLeagueBoard,
   fetchLostHolds,
   fetchInsuredThisWeek,
@@ -29,7 +33,8 @@ import { nextOpponent, rosterTeam, teamsPlayingOn } from "@/lib/expeditions/matc
 import { fetchCompanies, fetchRivalries } from "@/lib/expeditions/companyReads";
 import { fetchAccolades, fetchOpenCampaign, fetchStandings, hasLegendMark } from "@/lib/expeditions/queries";
 import type { Rivalry, RoadCompany } from "@/lib/expeditions/company";
-import { buildRunViews, campaignRoadTitles } from "@/lib/expeditions/views";
+import { atlasFor } from "@/lib/expeditions/atlas";
+import { buildRunViews, campaignRoadTitles, landmarkRefs } from "@/lib/expeditions/views";
 import { watchWeeksOf, weatherNow, weatherOfRun } from "@/lib/expeditions/weather";
 import { fetchInventory, fetchInventoryByIds, type InventoryRow } from "@/lib/packs/queries";
 import { easternDateOf, mondayOf } from "@/lib/packs/week";
@@ -194,7 +199,7 @@ export async function ExpeditionsPageView({
   // the rivals it races, decided by shine, and the graveyard's ghosts.
   // Read here with the service role — the runs and graves it needs are
   // other people's — and handed to the views below, never to the board.
-  const [fixtures, convoys, companies, rivalries, standings, accolades, campaign, legendMark, camp, forgedThisWeek, leagueGoal] = await Promise.all([
+  const [fixtures, convoys, companies, rivalries, standings, accolades, campaign, legendMark, camp, forgedThisWeek, leagueGoal, atlasRuns, landmarks, atlasAwards] = await Promise.all([
     fetchFixturesSince(service, new Date(oldest - DAY_MS).toISOString()),
     fetchConvoyViews(service, discordId, active),
     season
@@ -227,6 +232,13 @@ export async function ExpeditionsPageView({
     season ? fetchForgedThisWeek(service, discordId, week) : Promise.resolve(null),
     // This league's goal of the week, this week and last; null hides it.
     season ? fetchLeagueBoard(service, season, discordId, now) : Promise.resolve(null),
+    // The atlas (atlas.ts): this season's claimed runs, the league's
+    // landmarks and the roads already paid. Each is null when it cannot
+    // be read, and any null hides the Atlas tab; the landmarks alone
+    // still tag the known places on the maps.
+    season ? fetchAtlasRuns(service, discordId, season) : Promise.resolve(null),
+    season ? fetchLandmarks(service, season) : Promise.resolve(null),
+    season ? fetchAtlasAwards(service, discordId, season) : Promise.resolve(null),
   ]);
   const playingToday = [...teamsPlayingOn(fixtures, today).values()];
   // The weather (weather.ts): this week's for the banner, and each run's
@@ -260,12 +272,32 @@ export async function ExpeditionsPageView({
   const partners: PartnerRun[] = Object.values(convoys).flatMap((convoy) =>
     convoy.partner ? [{ discordId: convoy.partner.discordId, runId: convoy.partner.runId }] : [],
   );
-  const reveals = await fetchReveals(
-    service,
-    discordId,
-    active.map((run) => run.id),
-    partners,
-  );
+  // Beside it, whose landmarks wear a crest: the namers whose trophy wall
+  // has its plaque (base camp, wall level 2). Fails soft to none.
+  const [reveals, crests] = await Promise.all([
+    fetchReveals(
+      service,
+      discordId,
+      active.map((run) => run.id),
+      partners,
+    ),
+    fetchCrests(service, (landmarks ?? []).map((landmark) => landmark.discordId)),
+  ]);
+  // The codex, derived here: it reads the road to title the places the
+  // collector has seen, and the Atlas tab is handed only what it built.
+  const atlas =
+    atlasRuns && landmarks && atlasAwards
+      ? atlasFor(atlasRuns, landmarks, {
+          awards: atlasAwards,
+          viewer: discordId,
+          // An unstamped run's encounters are re-drawn under the weather
+          // it launched in. The Watch is known for the weeks the fixture
+          // read above covers; an older playoff week reads as its
+          // ordinary weather.
+          weatherOf: (run) => weatherOfRun(run, watchWeeks)?.key ?? null,
+          crests,
+        })
+      : null;
   const views = buildRunViews({
     runs: runsWithCompany,
     copies,
@@ -275,6 +307,7 @@ export async function ExpeditionsPageView({
     rivals,
     camp: camp ? { tent: camp.tent } : null,
     fragments,
+    landmarks: landmarkRefs(landmarks ?? [], discordId, crests),
   });
 
   return (
@@ -307,6 +340,7 @@ export async function ExpeditionsPageView({
         forgedThisWeek={forgedThisWeek}
         balance={Number(wallet?.balance ?? 0) || 0}
         league={leagueGoal}
+        atlas={atlas}
         playingToday={playingToday}
         convoys={convoys}
         // Resolved server-side on the Eastern calendar the whole card

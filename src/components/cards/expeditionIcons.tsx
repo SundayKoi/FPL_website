@@ -31,7 +31,8 @@ export type ExpeditionIconName =
   | "power"
   | "spark"
   | "info"
-  | "chevron";
+  | "chevron"
+  | "landmark";
 
 /** Each glyph in a 16×16 box, drawn with a 1.5 stroke. */
 const GLYPHS: Record<ExpeditionIconName, ReactNode> = {
@@ -175,6 +176,14 @@ const GLYPHS: Record<ExpeditionIconName, ReactNode> = {
     </>
   ),
   chevron: <path d="M6 3.5 10.5 8 6 12.5" />,
+  // A signpost: a place named after whoever reached it first.
+  landmark: (
+    <>
+      <path d="M7 14.5V1.8" />
+      <path d="M7 3h5.5L14 4.8 12.5 6.6H7" />
+      <path d="M4.5 14.5h5" />
+    </>
+  ),
 };
 
 export default function ExpeditionIcon({

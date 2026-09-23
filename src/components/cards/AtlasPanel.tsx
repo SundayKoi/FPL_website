@@ -195,6 +195,7 @@ export default function AtlasPanel({ atlas }: { atlas: Atlas | null }) {
   return (
     <section aria-label="Atlas" data-testid="atlas" className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
+        <span className="label-dash">Every place your squads have been</span>
         <h2 className="type-display text-2xl sm:text-3xl">Atlas</h2>
         <p className="text-sm text-steel">
           Every place your squads reach this season is marked here, route by route. See every place on a route in one season and

@@ -12,8 +12,10 @@
 // does give away is drawn as a mark over its roundel: the dread mark when
 // the squad has a bad feeling about it, and, on a `?` The Warden has read,
 // whether it is dark and whether it charges a toll (a known place says
-// both at its fork). The living map (Phase 7) replaces this; until then it
-// stays small and says only that.
+// both at its fork). A known place the league has named (the atlas) wears
+// a small signpost under its roundel, and its label says who reached it
+// first. The living map (Phase 7) replaces this; until then it stays small
+// and says only that.
 
 import { EXPEDITION_TIERS, type ExpeditionTierKey } from "@/lib/expeditions/config";
 import type { ForkStatus } from "@/lib/expeditions/forks";
@@ -66,10 +68,16 @@ const fallback = (at: number) => `translate(${6 + at * 188} 30)`;
  *  warning about a place the squad has walked is a warning nobody needs. */
 const ahead = (place: PlaceView) => place.status === "pending" || place.status === "open";
 
+/** "first reached by Ana", "first reached by you": a named place's line. */
+export function landmarkWords(landmark: { by: string; mine: boolean }): string {
+  return `first reached by ${landmark.mine ? "you" : landmark.by}`;
+}
+
 /** A checkpoint's name for its tooltip and the map's label — the title
  *  when the squad knows the place, never anything else when it does not. */
 export function placeLabel(place: PlaceView): string {
   const parts = [place.known ? place.title : `An unknown checkpoint`, STATUS_WORD[place.status]];
+  if (place.known && place.landmark) parts.push(landmarkWords(place.landmark));
   if (ahead(place)) {
     if (place.warned) parts.push("the squad has a bad feeling about it");
     if (!place.known && place.dark === true) parts.push("dark");
@@ -176,6 +184,14 @@ export default function RouteMap({
             <g data-dark>
               <circle cx={-3.6} cy={10} r={2.3} fill="var(--color-steel)" />
               <circle cx={-2.6} cy={9.1} r={2} fill="var(--color-canvas)" />
+            </g>
+          ) : null}
+          {place.known && place.landmark ? (
+            // Named for whoever reached it first: a small gold signpost
+            // under the stop (filled when the namer's plaque is up).
+            <g data-landmark transform="translate(0 7)" stroke="var(--color-gold)" strokeWidth="0.9" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M0 0V6.5" fill="none" />
+              <path d="M0 0.6h3.2l1 1.1-1 1.1H0z" fill={place.landmark.crest ? "var(--color-gold)" : "var(--color-canvas)"} />
             </g>
           ) : null}
           {!place.known && ahead(place) && place.toll === true ? (

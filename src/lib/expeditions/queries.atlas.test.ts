@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { makeSupabaseFrom, supabaseQuery, type SupabaseFilterCall, type SupabaseQueryResult } from "@/test-utils/supabaseQuery";
-import { fetchAtlasAwards, fetchAtlasRuns, fetchLandmarks, fetchRuns } from "./queries";
+import { fetchAtlasAwards, fetchAtlasRuns, fetchCrests, fetchLandmarks, fetchRuns } from "./queries";
 
 function client(responses: Record<string, SupabaseQueryResult[]>) {
   const log: SupabaseFilterCall[] = [];
@@ -130,6 +130,25 @@ describe("fetchAtlasAwards", () => {
   it("fails soft to null", async () => {
     const { supabase } = client({ expedition_atlas_awards: [MISSING] });
     expect(await fetchAtlasAwards(supabase, "42", "S5")).toBeNull();
+  });
+});
+
+describe("fetchCrests", () => {
+  it("asks which namers have the plaque up, and hands back only their ids", async () => {
+    const { supabase, log } = client({
+      expedition_camps: [{ data: [{ discord_id: "77", wall: 2 }, { discord_id: "88", wall: 1 }, { discord_id: "stranger", wall: 2 }], error: null }],
+    });
+    expect([...(await fetchCrests(supabase, ["77", "88", "77", ""]))]).toEqual(["77"]);
+    expect(log).toContainEqual({ table: "expedition_camps", method: "in", args: ["discord_id", ["77", "88"]] });
+    expect(log).toContainEqual({ table: "expedition_camps", method: "gte", args: ["wall", 2] });
+  });
+
+  it("asks nothing for nobody, and fails soft to no crests", async () => {
+    const idle = client({});
+    expect((await fetchCrests(idle.supabase, [])).size).toBe(0);
+    expect(idle.from).not.toHaveBeenCalled();
+    const { supabase } = client({ expedition_camps: [{ data: null, error: { message: 'relation "public.expedition_camps" does not exist' } }] });
+    expect((await fetchCrests(supabase, ["77"])).size).toBe(0);
   });
 });
 

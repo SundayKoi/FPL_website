@@ -123,14 +123,14 @@ describe("CampPanel", () => {
     const wall = screen.getByTestId("camp-wall-contents");
     expect(within(wall).getByTestId("camp-wall-relics").textContent).toContain("Kai · The Broken Map");
     expect(within(wall).getByTestId("camp-wall-marks").textContent).toContain("Pathfinder");
-    expect(within(wall).queryByText("Landmarks you named")).toBeNull();
+    expect(within(wall).queryByText("Places named after you")).toBeNull();
     expect(screen.queryByTestId("camp-wall-plaque")).toBeNull();
   });
 
   it("says what fills an empty wall row, and puts the plaque up at level 2", () => {
     renderPanel({ camp: camp({ wall: 2 }), landmarks: [], roads: [{ tier: "legend" }] });
     expect(screen.getByTestId("camp-wall-relics-empty").textContent).toContain("Finish a campaign");
-    expect(screen.getByTestId("camp-wall-landmarks-empty").textContent).toContain("The first squad to reach a landmark names it.");
+    expect(screen.getByTestId("camp-wall-landmarks-empty").textContent).toContain("The first collector in the league to reach a place each season has it named after them.");
     expect(screen.getByTestId("camp-wall-roads").textContent).toContain("Legend Hunt");
     expect(screen.getByTestId("camp-wall-plaque")).toBeTruthy();
   });

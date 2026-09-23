@@ -111,6 +111,22 @@ describe("RouteMap", () => {
     expect(placeLabel(road[2])).toBe("An unknown checkpoint — ahead — dark — a toll to camp");
   });
 
+  it("puts a signpost under a known place the league has named, and says who got there first", () => {
+    const road: PlaceView[] = [
+      known(0, "The flooded works", { landmark: { by: "Ana", mine: false, crest: true } }),
+      known(1, "The dog pits", { landmark: { by: "Marlow", mine: true, crest: false } }),
+      known(2, "The barricade"),
+      unknown(3),
+    ];
+    const { getByTestId } = render(<RouteMap tier="raid" road={road} progress={0.6} />);
+    const map = getByTestId("route-map");
+    expect(map.querySelectorAll("[data-landmark]")).toHaveLength(2);
+    expect(map.querySelector('[data-stop="2"] [data-landmark], [data-stop="3"] [data-landmark]')).toBeNull();
+    expect(placeLabel(road[0])).toBe("The flooded works — answered — first reached by Ana");
+    expect(placeLabel(road[1])).toBe("The dog pits — answered — first reached by you");
+    expect(placeLabel(road[2])).toBe("The barricade — answered");
+  });
+
   it("stops warning about a place once the squad is past it", () => {
     const road: PlaceView[] = [known(0, "The mirror hall", { warned: true, status: "decided" }), known(1, "The last table", { warned: true, status: "pending", choice: null })];
     const { getByTestId } = render(<RouteMap tier="legendary" road={road} progress={0.4} />);

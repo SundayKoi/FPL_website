@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { fetchStaffTier, redirect } = vi.hoisted(() => ({ fetchStaffTier: vi.fn(), redirect: vi.fn() }));
@@ -88,5 +88,18 @@ describe("the expedition board preview", () => {
     expect(legendary.querySelector('[data-known="false"] ~ [data-dread], [data-known="false"] [data-dread]')).not.toBeNull();
     expect(screen.getByTestId("dread-502").textContent).toMatch(/bad feeling about/);
     expect((screen.getByTestId("reveal-502").querySelector("button") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("shows the veteran's atlas, and the place another collector named on the mid-game map", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const mid = render(await open("mid"));
+    expect(screen.getByTestId("landmark-301-0").textContent).toContain("first reached by Ana");
+    mid.unmount();
+
+    render(await open("veteran"));
+    fireEvent.click(screen.getByTestId("tab-atlas"));
+    expect(screen.getByTestId("atlas")).toBeTruthy();
+    expect(screen.getByTestId("atlas-named").textContent).toContain("The empty village");
+    expect(screen.getByTestId("atlas-road-scout").textContent).toContain("Walked");
   });
 });

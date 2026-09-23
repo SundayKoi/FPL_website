@@ -4,13 +4,15 @@
 // dollars, every event on the route, and every card with the state it came
 // home in, drawn through PlayerCard3D with the mutation it now wears. A
 // state and not a page: what a run brought back exists for exactly one
-// render. Moved out of ExpeditionBoard, with one addition: the edges that
-// fired, grouped by title, above the event list.
+// render. Moved out of ExpeditionBoard, with two additions: the edges that
+// fired, grouped by title, above the event list; and the atlas's news — a
+// place this squad was first in the league to reach, a road it finished.
 
 import { useEffect, useRef } from "react";
 import CountUp from "@/components/home/CountUp";
 import { fmtPoints } from "@/lib/betting/format";
 import { mutationByKey } from "@/lib/cards/mutations";
+import { firstReachedLine, roadWalkedLine } from "@/lib/expeditions/atlasWords";
 import { CAMPAIGNS, type CampaignState } from "@/lib/expeditions/campaigns";
 import {
   BRIEF_BONUS,
@@ -25,6 +27,7 @@ import {
 } from "@/lib/expeditions/config";
 import type { ExpeditionRun } from "@/lib/expeditions/queries";
 import type { CardFate, RouteResult } from "@/lib/expeditions/routes";
+import type { ClaimAtlas } from "@/lib/expeditions/runs";
 import { MILES_BY_TIER, milesOf, trailTitleOf } from "@/lib/expeditions/trail";
 import { easternDateOf } from "@/lib/packs/week";
 import ExpeditionIcon from "../expeditionIcons";
@@ -73,6 +76,10 @@ export interface Ceremony {
   rescueMissed: boolean;
   /** The campaign this run walked for, advanced by the claim. */
   campaign: { key: CampaignState["key"]; stage: number; finished: boolean; relicName: string | null } | null;
+  /** The atlas's news from this claim: the places this squad was first in
+   *  the league to reach (titles), and the road it finished. Null or
+   *  absent when there is none. */
+  atlas?: ClaimAtlas | null;
 }
 
 /**
@@ -201,6 +208,17 @@ export default function ClaimCeremony({
             {ceremony.campaign.finished
               ? `${CAMPAIGNS[ceremony.campaign.key].label} is finished. ${ceremony.campaign.relicName ? `A relic of ${ceremony.campaign.relicName} was printed in the campaign's frame — it's on your shelf.` : "Nobody came home from the finale to carry the relic."}`
               : `Stage ${ceremony.campaign.stage} of 3 of ${CAMPAIGNS[ceremony.campaign.key].label} is done. The road ahead is set.`}
+          </p>
+        ) : null}
+        {ceremony.atlas && ceremony.atlas.firsts.length > 0 ? (
+          <p data-testid="ceremony-firsts" className="max-w-prose text-sm text-gold">
+            {firstReachedLine(ceremony.atlas.firsts)}
+          </p>
+        ) : null}
+        {ceremony.atlas?.road ? (
+          <p data-testid="ceremony-road" className="max-w-prose text-sm text-mint">
+            {roadWalkedLine(ceremony.atlas.road.tier, ceremony.atlas.road)}
+            {ceremony.atlas.road.comp ? " The free pack is waiting in the shop." : ""}
           </p>
         ) : null}
         {echo ? (

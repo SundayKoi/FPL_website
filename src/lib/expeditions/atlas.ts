@@ -32,8 +32,12 @@ import { encountersFor, type EncounterKey } from "./journal";
 import { ENCOUNTER_KEYS, isEncounterKey, readAtlasStamp, roadOf, type AtlasGhost, type AtlasStamp, type RunTier } from "./queries";
 import { ROADS, forksFor } from "./routes";
 import type { WeatherKey } from "./weather";
+import { firstNamedLine, firstReachedLine, rewardWords, roadWalkedLine, routeName } from "./atlasWords";
 
 export { ROAD_REWARDS, ROAD_SIZES, readAtlasStamp, type AtlasGhost, type AtlasStamp, type RoadReward };
+// The sentences live apart (atlasWords.ts) so the claim ceremony, in the
+// browser, can print them without this module.
+export { firstNamedLine, firstReachedLine, rewardWords, roadWalkedLine, routeName };
 
 // === what a claim stamps =====================================================
 //
@@ -105,12 +109,6 @@ export function placeTier(key: string): ExpeditionTierKey | null {
 
 // === the words ================================================================
 
-/** "the Legend Hunt", "the Gilded Road": a route's name mid-sentence. */
-export function routeName(tier: ExpeditionTierKey): string {
-  const label = EXPEDITION_TIERS[tier]?.label ?? tier;
-  return label.startsWith("The ") ? `the ${label.slice(4)}` : `the ${label}`;
-}
-
 /** What each encounter is, in the plain words the panel prints. */
 export const ENCOUNTER_WORDS: Readonly<Record<EncounterKey, string>> = Object.freeze({
   merchant: "A merchant",
@@ -122,30 +120,6 @@ export const ENCOUNTER_WORDS: Readonly<Record<EncounterKey, string>> = Object.fr
   hunter: "A relic hunter",
   ghost: "A ghost",
 });
-
-/** "a place's title, mid-sentence": "The drowned chapel" → "the drowned chapel". */
-function midSentence(title: string): string {
-  return title.startsWith("The ") ? `the ${title.slice(4)}` : title;
-}
-
-/**
- * The news when a claim names a landmark: "Ann was first to the drowned
- * chapel on the Legend Hunt." Several at once read as one sentence.
- */
-export function firstNamedLine(name: string, titles: string[], tier?: ExpeditionTierKey): string {
-  const places = titles.map(midSentence);
-  const list = places.length <= 1 ? (places[0] ?? "a new place") : `${places.slice(0, -1).join(", ")} and ${places[places.length - 1]}`;
-  return `${name} was first to ${list}${tier ? ` on ${routeName(tier)}` : ""}.`;
-}
-
-/** What a road pays when it is walked, in words: "2 map fragments and a
- *  free pack". Nothing for a rite. */
-export function rewardWords(reward: RoadReward): string {
-  const parts: string[] = [];
-  if (reward.fragments > 0) parts.push(`${reward.fragments} map fragment${reward.fragments === 1 ? "" : "s"}`);
-  if (reward.comp) parts.push("a free pack");
-  return parts.length === 0 ? "nothing" : parts.join(" and ");
-}
 
 // === the codex ================================================================
 

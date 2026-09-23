@@ -8,11 +8,13 @@ import {
   atlasFor,
   atlasStamp,
   firstNamedLine,
+  firstReachedLine,
   placeTier,
   placeTitle,
   readAtlasStamp,
   rewardWords,
   roadComplete,
+  roadWalkedLine,
   routeName,
   walkedBy,
   type AtlasLandmark,
@@ -286,5 +288,17 @@ describe("the words", () => {
     expect(rewardWords(ROAD_REWARDS.legendary)).toBe("2 map fragments and a free pack");
     expect(rewardWords(ROAD_REWARDS.scout)).toBe("1 map fragment");
     expect(rewardWords(ROAD_REWARDS.exorcism)).toBe("nothing");
+  });
+
+  it("tells the collector at the claim, in the second person", () => {
+    expect(firstReachedLine(["The flooded works"])).toBe("You're the first in the league to reach the flooded works — it's named after you this season.");
+    expect(firstReachedLine(["The glowing shaft", "The vault door"])).toBe(
+      "You're the first in the league to reach the glowing shaft and the vault door — they're named after you this season.",
+    );
+    expect(roadWalkedLine("raid", ROAD_REWARDS.raid)).toBe("You've walked every place on the Deep Raid this season: +1 map fragment.");
+    expect(roadWalkedLine("legendary", ROAD_REWARDS.legendary)).toBe(
+      "You've walked every place on the Legendary route this season: +2 map fragments and a free pack.",
+    );
+    expect(roadWalkedLine("exorcism", ROAD_REWARDS.exorcism)).toBe("You've walked every place on the Exorcism this season.");
   });
 });

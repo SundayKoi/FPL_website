@@ -1,8 +1,8 @@
 // Three collectors for looking at the expedition board without a database:
 // someone who has never sent a squad, someone mid-game with two runs out
 // and a fork waiting, and a veteran with a lost card, graves, a campaign,
-// a base camp and a run already home. The two who have walked this week
-// see the league goal part-way there.
+// a base camp, an atlas and a run already home. The two who have walked
+// this week see the league goal part-way there.
 //
 // Pure data, relative to the `now` it is handed, so the jsdom tests, the
 // staff preview at /admin/expedition-board and the Playwright screenshots
@@ -12,20 +12,26 @@
 // page derives it — buildRunViews over the fixture's runs — so the preview
 // shows real fog: the mid-game Deep Raid has a checkpoint ahead nobody has
 // seen, the veteran's Legendary route two, one of them dreaded, and both
-// can spend a fragment to see the rest. That makes this module server-only
-// (views.ts holds the road); the preview page is a server component, and
-// the tests that read it stand `server-only` in.
+// can spend a fragment to see the rest. The atlas is built the same way,
+// atlasFor over each persona's claimed runs and the league's landmarks:
+// the mid-game raid stands at a place Ana reached first, and the veteran
+// has walked the Scouting Run's whole road, is half-way down the Legend
+// Hunt's and named the empty village. That makes this module server-only
+// (views.ts and atlas.ts hold the road); the preview page is a server
+// component, and the tests that read it stand `server-only` in.
 
 import type { PlayerCardData } from "@/lib/cards/build";
 import { easternDateOf } from "@/lib/packs/week";
+import { atlasFor, walkedBy, type Atlas, type AtlasAward, type AtlasLandmark, type AtlasRun } from "./atlas";
 import type { CampState } from "./camp";
 import type { CampaignState } from "./campaigns";
 import type { Rivalry } from "./company";
-import type { CardCopy } from "./config";
+import { EXPEDITION_TIERS, type CardCopy, type ExpeditionTierKey } from "./config";
 import { goalKindFor, leagueBoardFor, targetFor, weeksToWatch, type LeagueBoard, type LeagueProgressRow } from "./league";
-import type { ConvoyView, ExpeditionRun, Grave, LostHold } from "./queries";
+import { roadOf, type ConvoyView, type ExpeditionRun, type Grave, type LostHold } from "./queries";
+import { forksFor } from "./routes";
 import type { Accolade, StandingRow } from "./standings";
-import { buildRunViews, campaignRoadTitles, type RunView } from "./views";
+import { buildRunViews, campaignRoadTitles, landmarkRefs, type RunView } from "./views";
 import type { WeatherKey } from "./weather";
 
 export type Persona = "new" | "mid" | "veteran";
@@ -73,6 +79,8 @@ export interface BoardFixture {
   forgedThisWeek: number | null;
   balance: number;
   league: LeagueBoard | null;
+  /** The season's atlas (atlasFor), as the page builds it. */
+  atlas: Atlas | null;
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -183,6 +191,8 @@ function claimed(
     id,
     tier,
     squad,
+    // Every fork the route has: the road it walked, for the atlas.
+    forks: tier === "lost" ? 0 : (EXPEDITION_TIERS[tier as ExpeditionTierKey]?.forks ?? 0),
     startedAt: startedAt.toISOString(),
     resolvesAt: resolves.toISOString(),
     claimedAt: new Date(resolves.getTime() + HOUR).toISOString(),
@@ -210,11 +220,56 @@ function standing(discordId: string, username: string, miles: number, loot: numb
 }
 
 const ago = (now: Date, hours: number) => new Date(now.getTime() - hours * HOUR);
+
+/** The first place a run's road draws: where a squad in the field stands
+ *  at its first fork, whatever the seed makes it. */
+function firstPlace(entry: ExpeditionRun): string {
+  return forksFor(entry.tier as ExpeditionTierKey, roadOf(entry))[0]?.key ?? "";
+}
 const ahead = (now: Date, hours: number) => new Date(now.getTime() + hours * HOUR);
+
+/** What the page reads for the atlas beyond the runs: the league's
+ *  landmarks this season, the roads already paid, and whose trophy wall
+ *  has its plaque (fetchLandmarks, fetchAtlasAwards, fetchCrests). */
+interface AtlasReads {
+  landmarks: AtlasLandmark[];
+  awards: AtlasAward[];
+  crests: string[];
+}
 
 /** A persona before its views: everything the page reads from the
  *  database, and nothing derived from the road. */
-type PersonaFixture = Omit<BoardFixture, "views" | "campaignRoad">;
+type PersonaFixture = Omit<BoardFixture, "views" | "campaignRoad" | "atlas"> & { atlasReads: AtlasReads };
+
+function landmark(place: string, discordId: string, username: string, runId: number, reachedAt: Date): AtlasLandmark {
+  return { season: SEASON, place, discordId, username, runId, reachedAt: reachedAt.toISOString() };
+}
+
+/**
+ * The claimed runs as fetchAtlasRuns reads them, each stamped with the
+ * places its seed drew — what the claim stores in outcome.atlas since the
+ * atlas opened — so every one counts toward its road.
+ */
+function atlasRunsOf(runs: ExpeditionRun[]): AtlasRun[] {
+  return runs
+    .filter((entry) => entry.claimedAt !== null && entry.tier !== "lost")
+    .map((entry) => {
+      const unstamped: AtlasRun = {
+        id: entry.id,
+        tier: entry.tier,
+        startedAt: entry.startedAt,
+        resolvesAt: entry.resolvesAt,
+        claimedAt: entry.claimedAt,
+        forks: entry.forks,
+        rules: entry.rules,
+        convoy: entry.convoy,
+        road: entry.road,
+        stamp: null,
+      };
+      const { places, encounters, ghosts } = walkedBy(unstamped);
+      return { ...unstamped, stamp: { places, encounters, ghosts } };
+    });
+}
 
 function base(now: Date): Omit<PersonaFixture, "copies" | "runs" | "deployedIds"> {
   return {
@@ -240,6 +295,7 @@ function base(now: Date): Omit<PersonaFixture, "copies" | "runs" | "deployedIds"
     forgedThisWeek: null,
     balance: 0,
     league: null,
+    atlasReads: { landmarks: [], awards: [], crests: [] },
   };
 }
 
@@ -299,7 +355,20 @@ function newcomer(now: Date): PersonaFixture {
     copyOf({ id: 106, name: "Lune", role: "Mid", tier: "silver", archetype: "Playmaker", champion: "Ahri" }),
     copyOf({ id: 107, name: "Bram", role: "Top", tier: "bronze", archetype: "Jack of All Trades" }),
   ];
-  return { ...base(now), copies, runs: [], deployedIds: new Set(), weather: "clear" };
+  // Nothing walked yet, but the league has been out: the atlas opens on
+  // what bringing a squad home will fill in.
+  return {
+    ...base(now),
+    copies,
+    runs: [],
+    deployedIds: new Set(),
+    weather: "clear",
+    atlasReads: {
+      landmarks: [landmark("waterworks", "ana", "Ana", 9001, ago(now, 120)), landmark("shaft", "ana", "Ana", 9002, ago(now, 320))],
+      awards: [],
+      crests: ["ana"],
+    },
+  };
 }
 
 /** Two runs out — a Deep Raid standing at its first fork, a Scouting Run
@@ -388,6 +457,13 @@ function midGame(now: Date): PersonaFixture {
       [VIEWER, VIEWER_NAME, 3, 2],
       ["cy", "Cy", 2, 1],
     ]),
+    // Ana reached the raid's first place before anyone, and her plaque is
+    // up: the fork the raid stands at says so on its map.
+    atlasReads: {
+      landmarks: [landmark(firstPlace(raid), "ana", "Ana", 9001, ago(now, 120)), landmark("shaft", "ana", "Ana", 9002, ago(now, 320))],
+      awards: [],
+      crests: ["ana"],
+    },
   };
 }
 
@@ -463,6 +539,14 @@ function veteran(now: Date): PersonaFixture {
       ],
     }),
     claimed(460, "scout", [405, 407, 417], ago(now, 260), 8, { dollars: 96, grade: "poor" }),
+    // Earlier in the season: the Scouting Runs that walked the rest of
+    // its road (the fair, the orchard wall, the ferry — 460 walked the
+    // riverbed and finished it), and the Legend Hunt that reached the
+    // empty village before anyone.
+    claimed(443, "scout", [412, 413, 415], ago(now, 290), 8, { dollars: 104 }),
+    claimed(441, "legend", [401, 408, 406], ago(now, 340), 48, { dollars: 470, pushes: 2, lootMultiplier: 1.4 }),
+    claimed(444, "scout", [405, 416, 417], ago(now, 310), 8, { dollars: 88, grade: "poor" }),
+    claimed(446, "scout", [407, 410, 413], ago(now, 330), 8, { dollars: 112 }),
   ];
   const holds: LostHold[] = [{ holdId: 471, cardId: 418, expiresAt: ahead(now, 4 * 24 + 6).toISOString(), lostOn: 470, season: SEASON }];
   const graves: Grave[] = [
@@ -514,6 +598,20 @@ function veteran(now: Date): PersonaFixture {
       { who: "bo", name: "Bo", beaten: 4, beatenBy: 1, last: ago(now, 50).toISOString() },
       { who: "cy", name: "Cy", beaten: 0, beatenBy: 2, last: ago(now, 80).toISOString() },
     ],
+    // The atlas: the Scouting Run's road walked end to end and paid when
+    // 460 came home; half the Legend Hunt's seen, the empty village named
+    // after the viewer, the glowing shaft and the drowned chapel after
+    // Ana (her plaque is up), the flooded works after Bo.
+    atlasReads: {
+      landmarks: [
+        landmark("shaft", "ana", "Ana", 9002, ago(now, 320)),
+        landmark("village", VIEWER, VIEWER_NAME, 441, ago(now, 291)),
+        landmark("waterworks", "bo", "Bo", 9003, ago(now, 250)),
+        landmark("chapel", "ana", "Ana", 9004, ago(now, 180)),
+      ],
+      awards: [{ tier: "scout", fragments: 1, comp: false, awardedAt: ago(now, 251).toISOString() }],
+      crests: ["ana"],
+    },
     // The base camp: the second scouting slot, a tent, a forge holding one
     // policy, a trophy wall. $3,200 in so far; the bigger tent is next.
     camp: { slots: 1, tent: 1, forge: 1, wall: 1, forgedPolicies: 1, spent: 3200 },
@@ -548,7 +646,8 @@ function veteran(now: Date): PersonaFixture {
  *  live page derives them. No reveal is paid in any fixture, so a road
  *  with a `?` ahead offers the button. */
 export function boardFixture(persona: Persona, now: Date = new Date()): BoardFixture {
-  const fixture = persona === "mid" ? midGame(now) : persona === "veteran" ? veteran(now) : newcomer(now);
+  const { atlasReads, ...fixture } = persona === "mid" ? midGame(now) : persona === "veteran" ? veteran(now) : newcomer(now);
+  const crests = new Set(atlasReads.crests);
   return {
     ...fixture,
     views: buildRunViews({
@@ -559,7 +658,9 @@ export function boardFixture(persona: Persona, now: Date = new Date()): BoardFix
       convoys: fixture.convoys,
       camp: fixture.camp ? { tent: fixture.camp.tent } : null,
       fragments: fixture.fragments,
+      landmarks: landmarkRefs(atlasReads.landmarks, fixture.viewerId, crests),
     }),
     campaignRoad: campaignRoadTitles(fixture.campaign),
+    atlas: atlasFor(atlasRunsOf(fixture.runs), atlasReads.landmarks, { awards: atlasReads.awards, viewer: fixture.viewerId, crests }),
   };
 }

@@ -17,7 +17,7 @@ import { ROAD_RULES, type RecordedChoice, type RoadRef } from "./forks";
 import type { CardFate, RouteEvent } from "./routes";
 import type { RivalRecord, RoadCompany } from "./company";
 import type { WeatherKey } from "./weather";
-import { campFromRow, type CampState } from "./camp";
+import { campFromRow, maxLevel, type CampState } from "./camp";
 import type { AbilityKind } from "./archetypes";
 import type { EncounterKey } from "./journal";
 
@@ -1246,4 +1246,28 @@ export async function fetchAtlasAwards(supabase: SupabaseClient, discordId: stri
   return ((data as AtlasAwardDbRow[] | null) ?? [])
     .filter((row) => row.discord_id === discordId && row.season === season)
     .map((row) => ({ tier: row.tier, fragments: Number(row.fragments ?? 0), comp: row.comp === true, awardedAt: row.awarded_at }));
+}
+
+/**
+ * Which of these collectors wear a crest: whose base camp trophy wall is
+ * at its top level (the plaque, camp.ts). The landmarks they named carry
+ * it on everyone's map and in everyone's atlas, so the page asks about the
+ * namers, not only the reader. Service-client only (a camp is its owner's
+ * under RLS), and only the ids come back, never the camp. Fails soft to
+ * no crests: a landmark without one still says who got there first.
+ */
+export async function fetchCrests(supabase: SupabaseClient, discordIds: string[]): Promise<Set<string>> {
+  const ids = [...new Set(discordIds.filter((id) => typeof id === "string" && id.length > 0))];
+  if (ids.length === 0) return new Set();
+  try {
+    const { data, error } = await supabase.from("expedition_camps").select("discord_id, wall").in("discord_id", ids).gte("wall", maxLevel("wall"));
+    if (error || !Array.isArray(data)) return new Set();
+    return new Set(
+      (data as { discord_id: string; wall: number | null }[])
+        .filter((row) => ids.includes(row.discord_id) && Number(row.wall ?? 0) >= maxLevel("wall"))
+        .map((row) => row.discord_id),
+    );
+  } catch {
+    return new Set();
+  }
 }

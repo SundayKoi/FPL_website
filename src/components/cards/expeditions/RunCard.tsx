@@ -11,16 +11,18 @@
 // journal written so far, the edges. The board never holds the road
 // itself, so nothing here can name a checkpoint the squad has not reached.
 // The one thing a collector can do from this card is spend a map fragment
-// to see the rest of the road — the button in the map's corner.
+// to see the rest of the road — the button in the map's corner. A known
+// place the league has named (the atlas) says who reached it first, in a
+// short line under the map beside the other notes.
 
 import { useId, useState, useTransition } from "react";
 import { EXPEDITION_TIERS, type CardCopy, type ExpeditionTierKey } from "@/lib/expeditions/config";
 import { forkViews } from "@/lib/expeditions/forks";
 import type { ConvoyView, ExpeditionRun } from "@/lib/expeditions/queries";
-import type { PlaceView, RevealOffer, RunView } from "@/lib/expeditions/views";
+import type { KnownPlaceView, PlaceView, RevealOffer, RunView } from "@/lib/expeditions/views";
 import { WEATHERS } from "@/lib/expeditions/weather";
 import ExpeditionIcon from "../expeditionIcons";
-import RouteMap from "../RouteMap";
+import RouteMap, { landmarkWords } from "../RouteMap";
 import { easternClock, untilLabel, useClock } from "./clock";
 import { SquadThumb } from "./RightNow";
 import Term from "./Term";
@@ -163,6 +165,8 @@ export default function RunCard({
   const latest = journal[journal.length - 1] ?? null;
   const road = view?.road ?? [];
   const notes = roadNotes(road);
+  // The places on this road the league has named, in road order.
+  const named = road.filter((place): place is KnownPlaceView & { landmark: NonNullable<KnownPlaceView["landmark"]> } => place.known && place.landmark !== null);
   const edgeOf = new Map((view?.edges ?? []).map((edge) => [edge.copyId, edge]));
   const stormed = run.encounters.some((entry) => entry.key === "storm");
 
@@ -220,7 +224,7 @@ export default function RunCard({
         <div data-testid={`road-${run.id}`} className="flex min-w-0 flex-1 basis-64 flex-wrap items-end justify-between gap-x-4 gap-y-2 rounded-lg border border-line/60 bg-canvas/40 px-3 py-2">
           <div className="flex min-w-0 flex-1 basis-56 flex-col gap-1">
             <RouteMap tier={tier} road={road} progress={progress} />
-            {notes.unseen || notes.dread || notes.warden ? (
+            {notes.unseen || notes.dread || notes.warden || named.length > 0 ? (
               <div className="flex flex-col gap-0.5 text-xs">
                 {notes.unseen ? (
                   <p data-testid={`unseen-${run.id}`} className="flex items-start gap-1.5 text-steel">
@@ -242,6 +246,20 @@ export default function RunCard({
                     {notes.warden}
                   </p>
                 ) : null}
+                {named.map((place) => (
+                  <p key={place.index} data-testid={`landmark-${run.id}-${place.index}`} className="flex items-start gap-1.5 text-steel">
+                    <ExpeditionIcon name="landmark" size={14} className="mt-px shrink-0 text-gold" />
+                    <span>
+                      <span className="text-white">{place.title}</span>: {landmarkWords(place.landmark)}
+                      {place.landmark.crest ? (
+                        <span className="ml-1 text-gold">
+                          <span aria-hidden>★</span>
+                          <span className="sr-only">, wearing their crest</span>
+                        </span>
+                      ) : null}
+                    </span>
+                  </p>
+                ))}
               </div>
             ) : null}
           </div>

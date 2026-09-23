@@ -56,11 +56,12 @@ export interface CampPanelProps {
   /** The viewer's OWN season marks — the board filters accolades to
    *  viewerId before passing them. */
   accolades?: Accolade[];
-  /** Landmarks the viewer named first. Leave undefined until the atlas
-   *  (Phase 6) reads them: the wall then leaves the row out rather than
-   *  promising an empty one. */
+  /** Landmarks the viewer named first (the atlas's `named`). Undefined
+   *  when the atlas could not be read: the wall then leaves the row out
+   *  rather than promising an empty one. */
   landmarks?: WallLandmark[];
-  /** Roads the viewer walked end to end; undefined until the atlas. */
+  /** Roads the viewer walked end to end this season; undefined when the
+   *  atlas could not be read. */
   roads?: WallRoad[];
   /** Forged launches sent this Eastern week (fetchForgedThisWeek); null
    *  when it could not be read. */
@@ -251,8 +252,8 @@ export default function CampPanel({
       const waiting = [
         relics.length > 0 ? plural(relics.length, "campaign relic") : null,
         accolades.length > 0 ? plural(accolades.length, "season mark") : null,
-        landmarks && landmarks.length > 0 ? plural(landmarks.length, "landmark") : null,
-        roads && roads.length > 0 ? plural(roads.length, "finished road") : null,
+        landmarks && landmarks.length > 0 ? plural(landmarks.length, "place named after you", "places named after you") : null,
+        roads && roads.length > 0 ? plural(roads.length, "route walked end to end", "routes walked end to end") : null,
       ].filter((part): part is string => part !== null);
       return waiting.length > 0 ? (
         <p data-testid="camp-wall-waiting" className="text-xs text-steel">
@@ -286,9 +287,9 @@ export default function CampPanel({
         />
         {landmarks ? (
           <WallRow
-            label="Landmarks you named"
+            label="Places named after you"
             testId="camp-wall-landmarks"
-            empty="None yet. The first squad to reach a landmark names it."
+            empty="None yet. The first collector in the league to reach a place each season has it named after them."
             items={landmarks.map((landmark) => (
               <li key={landmark.key} className="text-white">
                 {landmark.title}
@@ -298,9 +299,9 @@ export default function CampPanel({
         ) : null}
         {roads ? (
           <WallRow
-            label="Roads you finished"
+            label="Routes walked end to end"
             testId="camp-wall-roads"
-            empty="None yet. Walk every place on a route's road to finish it."
+            empty="None yet. See every place on a route in one season and it goes up here."
             items={roads.map((road) => (
               <li key={road.tier} className="text-white">
                 {EXPEDITION_TIERS[road.tier].label}
@@ -310,7 +311,7 @@ export default function CampPanel({
         ) : null}
         {current.wall >= 2 ? (
           <p data-testid="camp-wall-plaque" className="text-xs text-mint">
-            Your plaque is up: landmarks you named carry your crest.
+            Your plaque is up: places named after you carry your crest.
           </p>
         ) : null}
       </div>

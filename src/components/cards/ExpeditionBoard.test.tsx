@@ -23,6 +23,7 @@ import { PERSONAS, boardFixture, type Persona } from "@/lib/expeditions/boardFix
 import { GLOSSARY, glossaryHits } from "@/lib/expeditions/glossary";
 import type { RevealReads } from "@/lib/expeditions/reveal";
 import { buildRunViews, campaignRoadTitles, type RunView } from "@/lib/expeditions/views";
+import { atlasFor, type Atlas } from "@/lib/expeditions/atlas";
 
 /** A route that changed nothing: every card home, no forks pushed. */
 const QUIET_ROUTE = (ids: number[]) => ({
@@ -218,6 +219,7 @@ function renderBoard(
     reveals?: RevealReads | null;
     /** Views as handed in, in place of the ones derived here. */
     views?: Record<number, RunView>;
+    atlas?: Atlas | null;
   } = {},
 ) {
   // The views the page would derive for these runs, at this instant.
@@ -261,6 +263,7 @@ function renderBoard(
       forgedThisWeek={over.forgedThisWeek}
       balance={over.balance}
       league={over.league}
+      atlas={over.atlas}
     />,
   );
 }
@@ -2048,7 +2051,7 @@ describe("ExpeditionBoard — the personas' camp and league", () => {
   it("gives the veteran a Camp and a League tab, the mid-game collector a League tab, the newcomer neither", () => {
     const tabs = () => [...screen.getByTestId("more-tabs").querySelectorAll("[role=tab]")].map((tab) => tab.textContent);
     const { unmount } = renderPersona("veteran");
-    expect(tabs()).toEqual(["Log", "Standings", "Campaigns", "Camp", "League", "Graveyard", "Rules"]);
+    expect(tabs()).toEqual(["Log", "Standings", "Campaigns", "Camp", "League", "Atlas", "Graveyard", "Rules"]);
     openTab("camp");
     expect(screen.getByTestId("camp-slot-level").textContent).toContain("level 1 of 1");
     expect(screen.getByTestId("camp-policy-held").textContent).toContain("You hold 1 of 2 forged policies.");
@@ -2058,10 +2061,102 @@ describe("ExpeditionBoard — the personas' camp and league", () => {
     unmount();
 
     const mid = renderPersona("mid");
-    expect(tabs()).toEqual(["Log", "Standings", "Campaigns", "League", "Graveyard", "Rules"]);
+    expect(tabs()).toEqual(["Log", "Standings", "Campaigns", "League", "Atlas", "Graveyard", "Rules"]);
     mid.unmount();
 
     renderPersona("new");
-    expect(tabs()).toEqual(["Log", "Standings", "Campaigns", "Graveyard", "Rules"]);
+    expect(tabs()).toEqual(["Log", "Standings", "Campaigns", "Atlas", "Graveyard", "Rules"]);
+  });
+});
+
+// ── The atlas (Phase 6) on the board ──────────────────────────────────────
+
+describe("ExpeditionBoard — the atlas", () => {
+  it("has an Atlas tab only when there is an atlas, after League and before Graveyard", () => {
+    const tabs = () => [...screen.getByTestId("more-tabs").querySelectorAll("[role=tab]")].map((tab) => tab.textContent);
+    const { unmount } = renderBoard();
+    expect(screen.queryByTestId("tab-atlas")).toBeNull();
+    unmount();
+
+    renderBoard({ atlas: atlasFor([]) });
+    expect(tabs()).toEqual(["Log", "Standings", "Campaigns", "Atlas", "Graveyard", "Rules"]);
+    openTab("atlas");
+    // Empty, it says what will fill it.
+    expect(screen.getByTestId("atlas-empty").textContent).toContain("Bring a squad home");
+  });
+
+  it("veteran: the Atlas tab shows the road walked and paid, the one half-way, and the place named after them", () => {
+    renderPersona("veteran");
+    openTab("atlas");
+    expect(screen.getByTestId("atlas-reward-scout").textContent).toContain("you were paid 1 map fragment");
+    expect(screen.getByTestId("atlas-seen-legend").textContent).toBe("You have seen 5 of the 9 places on the Legend Hunt.");
+    expect(screen.getByTestId("atlas-named").textContent).toContain("The empty village");
+    // Ana's plaque is up: her places wear her crest.
+    expect(screen.getByTestId("atlas-place-shaft").textContent).toContain("first reached by Ana");
+    expect(screen.getByTestId("atlas-place-shaft").textContent).toContain("crest");
+    expect(screen.getByTestId("atlas-unseen-landmarks-legend").textContent).toContain("first reached by Ana");
+  });
+
+  it("veteran: hangs the place named after them and the road they walked on the trophy wall", () => {
+    renderPersona("veteran");
+    openTab("camp");
+    expect(within(screen.getByTestId("camp-wall-landmarks")).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["The empty village"]);
+    expect(within(screen.getByTestId("camp-wall-roads")).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["Scouting Run"]);
+  });
+
+  it("veteran: a run card's known places say who reached them first, the viewer included", () => {
+    const { views } = boardFixture("veteran", new Date());
+    renderPersona("veteran");
+    const card = screen.getByTestId("run-501");
+    const named = views[501].road.flatMap((place) => (place.known && place.landmark ? [place] : []));
+    expect(named.map((place) => place.key).sort()).toEqual(["shaft", "village"]);
+    for (const place of named) {
+      const line = within(card).getByTestId(`landmark-501-${place.index}`);
+      expect(line.textContent).toContain(place.title);
+      expect(line.textContent).toContain(place.key === "village" ? "first reached by you" : "first reached by Ana");
+    }
+    expect(card.querySelectorAll("[data-landmark]")).toHaveLength(2);
+  });
+
+  it("mid: the raid's map says Ana reached the place it stands at first", () => {
+    renderPersona("mid");
+    const card = screen.getByTestId("run-301");
+    const line = within(card).getByTestId("landmark-301-0");
+    expect(line.textContent).toContain("The flooded works: first reached by Ana");
+    expect(card.querySelector('[data-stop="0"] [data-landmark]')).not.toBeNull();
+    expect(card.querySelector('[data-stop="0"] title')?.textContent).toContain("first reached by Ana");
+  });
+
+  it("tells the ceremony a place was reached first and a road walked, in plain words", async () => {
+    claimExpeditionAction.mockResolvedValue({
+      ok: true,
+      outcome: { grade: "solid", dollars: 210, comp: false, mark: null, briefHit: false },
+      route: QUIET_ROUTE([5, 1, 2]),
+      baseDollars: 210,
+      merchant: 0,
+      stranded: null,
+      surge: [],
+      echo: null,
+      bearerId: null,
+      balance: 5000,
+      fragments: 2,
+      rescueMissed: false,
+      campaign: null,
+      atlas: { firsts: ["The flooded works"], road: { tier: "raid", fragments: 1, comp: false } },
+    });
+    renderBoard({ runs: [makeRun({ id: 21, resolvesAt: new Date(Date.now() - HOUR).toISOString() })], deployedIds: new Set([5, 1, 2]) });
+    await click(screen.getByRole("button", { name: "Claim the Deep Raid" }));
+    expect(screen.getByTestId("ceremony-firsts").textContent).toBe(
+      "You're the first in the league to reach the flooded works — it's named after you this season.",
+    );
+    expect(screen.getByTestId("ceremony-road").textContent).toBe("You've walked every place on the Deep Raid this season: +1 map fragment.");
+  });
+
+  it("says nothing of the atlas in a ceremony that has no news from it", async () => {
+    renderBoard({ runs: [makeRun({ id: 21, resolvesAt: new Date(Date.now() - HOUR).toISOString() })], deployedIds: new Set([5, 1, 2]) });
+    await click(screen.getByRole("button", { name: "Claim the Deep Raid" }));
+    expect(screen.getByTestId("expedition-ceremony")).toBeTruthy();
+    expect(screen.queryByTestId("ceremony-firsts")).toBeNull();
+    expect(screen.queryByTestId("ceremony-road")).toBeNull();
   });
 });

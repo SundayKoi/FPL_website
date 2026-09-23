@@ -1,14 +1,14 @@
 "use client";
 
 // The drawer — everything that is not "what do I do now": the log, the
-// season's table, campaigns, the base camp, the league goal, the graveyard
-// and the rulebook. One panel mounted at a time, the log by default, so a
+// season's table, campaigns, the base camp, the league goal, the atlas,
+// the graveyard and the rulebook. One panel mounted at a time, the log by default, so a
 // visit is not eleven sections deep.
 //
 // Later phases register here rather than adding sections to the board:
 // one entry in `tabs` (key, label, when to show, what to render), with its
-// props passed down from ExpeditionBoard — the camp (Phase 3) and the
-// league goal (Phase 4) are here; the atlas (Phase 6) is next.
+// props passed down from ExpeditionBoard — the camp (Phase 3), the league
+// goal (Phase 4) and the atlas (Phase 6) are here.
 
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import Link from "next/link";
@@ -17,6 +17,7 @@ import { fmtPoints } from "@/lib/betting/format";
 import { mutationByKey } from "@/lib/cards/mutations";
 import { tierLabel } from "@/lib/cards/tier";
 import type { CampaignKey, CampaignState } from "@/lib/expeditions/campaigns";
+import type { Atlas } from "@/lib/expeditions/atlas";
 import type { Rivalry } from "@/lib/expeditions/company";
 import { EXPEDITION_TIERS, SURGE_BONUS, type CardCopy, type ExpeditionTierKey } from "@/lib/expeditions/config";
 import type { ExpeditionRun, Grave } from "@/lib/expeditions/queries";
@@ -24,6 +25,7 @@ import type { CardFate } from "@/lib/expeditions/routes";
 import { ACCOLADES, accoladesOf, rankStandings, type Accolade, type StandingRow } from "@/lib/expeditions/standings";
 import { milesOf, trailTitleOf } from "@/lib/expeditions/trail";
 import type { LeagueBoard } from "@/lib/expeditions/league";
+import AtlasPanel from "../AtlasPanel";
 import CampaignPanel from "../CampaignPanel";
 import CampPanel, { type CampPanelProps } from "../CampPanel";
 import ExpeditionRules from "../ExpeditionRules";
@@ -33,7 +35,7 @@ import { OPEN_RULES_EVENT } from "./Term";
 const FATE_LABEL: Record<CardFate["fate"], string> = { home: "Home", wounded: "Wounded", lost: "Lost", dead: "Dead" };
 const FATE_CLASS: Record<CardFate["fate"], string> = { home: "text-mint", wounded: "text-gold", lost: "text-coral", dead: "text-red-300" };
 
-export type DrawerTab = "log" | "standings" | "campaigns" | "camp" | "league" | "graveyard" | "rules";
+export type DrawerTab = "log" | "standings" | "campaigns" | "camp" | "league" | "atlas" | "graveyard" | "rules";
 type TabKey = DrawerTab;
 
 /** The event the drawer listens for to open one of its tabs from elsewhere
@@ -265,6 +267,7 @@ export default function MoreDrawer({
   campaignRoad = [],
   camp = null,
   league = null,
+  atlas = null,
   ledgerHref,
   onStartCampaign,
   onAbandonCampaign,
@@ -285,6 +288,9 @@ export default function MoreDrawer({
   camp?: CampPanelProps | null;
   /** The league goal (fetchLeagueBoard); null hides the League tab. */
   league?: LeagueBoard | null;
+  /** The atlas (atlasFor, built on the server); null hides the Atlas tab
+   *  — the history could not be read, or is not here yet. */
+  atlas?: Atlas | null;
   ledgerHref: string;
   onStartCampaign: (key: CampaignKey) => Promise<string | null>;
   onAbandonCampaign: (id: number) => Promise<string | null>;
@@ -309,7 +315,7 @@ export default function MoreDrawer({
     },
     { key: "camp", label: "Camp", when: camp !== null && camp.camp !== null, render: () => (camp ? <CampPanel {...camp} /> : null) },
     { key: "league", label: "League", when: league !== null, render: () => <LeagueGoalPanel league={league} /> },
-    // Phase 6 registers "atlas" here.
+    { key: "atlas", label: "Atlas", when: atlas !== null, render: () => <AtlasPanel atlas={atlas} /> },
     { key: "graveyard", label: "Graveyard", when: true, render: () => <GraveyardPanel graves={graves} ledgerHref={ledgerHref} /> },
     {
       key: "rules",
