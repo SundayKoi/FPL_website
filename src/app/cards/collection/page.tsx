@@ -32,9 +32,13 @@ export async function CollectionPageView({
   league = "premier",
   setWeek,
   view = "weekly",
+  kind,
+  sort,
 }: {
   league?: CardLeague;
   view?: "weekly" | "season-end";
+  kind?: string;
+  sort?: string;
   /** ?setWeek= — which edition the roster sets open on. Sets are
    *  open-ended, so a collector can go back for a week they finished
    *  later; the newest week they hold copies from is the default. */
@@ -89,7 +93,7 @@ export async function CollectionPageView({
       </nav>
 
       {view === "season-end" ? (
-        <SeasonEndOwnedCollection service={service} discordId={user.discordId} league={league} base={base} />
+        <SeasonEndOwnedCollection service={service} discordId={user.discordId} league={league} base={base} kind={kind} sort={sort} />
       ) : (
         <Suspense fallback={<CollectionSectionsFallback />}>
           <CollectionSections
@@ -110,8 +114,8 @@ export async function CollectionPageView({
 export default async function CollectionPage({
   searchParams,
 }: {
-  searchParams: Promise<{ setWeek?: string; view?: string }>;
+  searchParams: Promise<{ setWeek?: string; view?: string; kind?: string | string[]; sort?: string | string[] }>;
 }) {
-  const { setWeek, view } = await searchParams;
-  return CollectionPageView({ league: "premier", setWeek, view: view === "season-end" ? "season-end" : "weekly" });
+  const { setWeek, view, kind, sort } = await searchParams;
+  return CollectionPageView({ league: "premier", setWeek, kind: typeof kind === "string" ? kind : undefined, sort: typeof sort === "string" ? sort : undefined, view: view === "season-end" ? "season-end" : "weekly" });
 }
