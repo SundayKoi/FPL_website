@@ -1,4 +1,4 @@
--- The league's expedition of the week (20261028000001): the progress view
+-- The league's expedition of the week (20261103000001): the progress view
 -- keeps the Eastern calendar and the league's own season, a goal falls
 -- once and pays each contributor one fragment, the Vanguard is the top
 -- contributor (ties to the lower discord id), a week two back is closed,

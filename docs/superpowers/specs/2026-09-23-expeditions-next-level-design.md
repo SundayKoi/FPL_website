@@ -18,7 +18,7 @@ migration `20261025000001`, newest pgTAP test `0129`, run rules default 5).
 - **Rules version 6.** `ARCHETYPE_RULES = 6` (in `src/lib/expeditions/archetypes.ts`)
   is the rulebook from which a run has abilities, the tent, the ability
   reveals and the Speedrunner's storm immunity. Migration
-  `20261026000001_expedition_rules_six.sql` moves the `rules` default to 6.
+  `20261101000001_expedition_rules_six.sql` moves the `rules` default to 6.
   A run stamped 5 or below resolves EXACTLY as today: its rand consumption,
   its journal text and its events are unchanged, because every new draw and
   every new line is behind `rules >= ARCHETYPE_RULES`.

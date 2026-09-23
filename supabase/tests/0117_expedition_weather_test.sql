@@ -35,7 +35,7 @@ language sql stable as $$
 $$;
 
 -- === 1-2. the rulebook ======================================================
--- The default has moved on since (6, 20261026000001); the law here is
+-- The default has moved on since (6, 20261101000001); the law here is
 -- that it is never below the weather rulebook.
 select cmp_ok(
   (select column_default::int from information_schema.columns

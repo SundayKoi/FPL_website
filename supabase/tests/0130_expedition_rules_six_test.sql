@@ -1,4 +1,4 @@
--- Expeditions, rules 6 (20261026000001): a launch from here on walks with
+-- Expeditions, rules 6 (20261101000001): a launch from here on walks with
 -- edges, a run already stamped keeps the rulebook it left under, and the
 -- app can ask which rulebook a launch will get. Only the service role can
 -- ask: the answer steers a launch, and every launch goes through it.

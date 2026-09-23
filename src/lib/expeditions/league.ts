@@ -8,7 +8,7 @@
 // between a LANDMARK the league walks to on trail miles and a BOSS it
 // wears down with pushes at forks — the size is one constant per kind,
 // and the name comes off the week's first fixture. The database keeps only
-// what is state (20261028000001): the goal that fell, and who was paid.
+// what is state (20261103000001): the goal that fell, and who was paid.
 //
 // A goal belongs to ONE league's season. Premier and Academy keep separate
 // season labels, every run and every fixture carries one, and every
@@ -269,7 +269,7 @@ export interface LeagueBoard {
 /**
  * Everything the panel and the This-week line show, from the three reads
  * (queries.ts). Null — the feature hidden — when either league read failed,
- * which is how an environment without 20261028000001 renders.
+ * which is how an environment without 20261103000001 renders.
  */
 export function leagueBoardFor({
   season,

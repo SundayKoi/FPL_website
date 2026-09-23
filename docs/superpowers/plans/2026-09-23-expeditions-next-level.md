@@ -6,7 +6,7 @@
 
 ## Global constraints (every phase)
 
-- Never edit an existing migration. New versions `20261026000001`…`20261030000001`; pgTAP tests `0130`…`0134`. Run `node scripts/check-migrations.mjs <base> HEAD`.
+- Never edit an existing migration. New versions `20261101000001`…`20261105000001`; pgTAP tests `0130`…`0134`. Run `node scripts/check-migrations.mjs <base> HEAD`.
 - Redeclaring `launch_expedition` (Phase 3 only) copies the 12-argument body from `supabase/migrations/20261020000001_on_air_card.sql` lines 141–319 verbatim, then applies the two named edits. `resolve_expedition` (`20261015000001`) and `decide_expedition_fork` (`20261009000001`) are not redeclared.
 - `RUN_COLUMNS` in `queries.ts` never grows. New tables are read by their own fail-soft queries.
 - Every rules-6 branch is guarded by `rules >= ARCHETYPE_RULES`; scripted-rand tests prove a rules-5 run's events and journal are byte-identical before and after.
@@ -30,7 +30,7 @@ Phase 4's SQL, `league.ts`, `leagueSweep.ts`, `LeagueGoalPanel.tsx` and tests ma
 **Goal.** Move the rulebook to 6, define every archetype's edge as data, add the types the resolver and views will fill, and pin the guardrail arithmetic. No behaviour change yet.
 
 **Create**
-- `supabase/migrations/20261026000001_expedition_rules_six.sql`: header comment (why: abilities, tent, edge reveals resolve under 6); `alter table public.expedition_runs alter column rules set default 6;`; `create or replace function public.expedition_rules_version() returns int language sql stable security definer set search_path = public as $$ select coalesce((regexp_match(column_default, '\d+'))[1]::int, 1) from information_schema.columns where table_schema = 'public' and table_name = 'expedition_runs' and column_name = 'rules' $$;` revoke from public/anon/authenticated, grant execute to service_role.
+- `supabase/migrations/20261101000001_expedition_rules_six.sql`: header comment (why: abilities, tent, edge reveals resolve under 6); `alter table public.expedition_runs alter column rules set default 6;`; `create or replace function public.expedition_rules_version() returns int language sql stable security definer set search_path = public as $$ select coalesce((regexp_match(column_default, '\d+'))[1]::int, 1) from information_schema.columns where table_schema = 'public' and table_name = 'expedition_runs' and column_name = 'rules' $$;` revoke from public/anon/authenticated, grant execute to service_role.
 - `supabase/tests/0130_expedition_rules_six_test.sql` (plan 4): a fresh `launch_expedition` (13-arg, `p_convoy` null) stamps `rules = 6`; a row inserted with explicit `rules = 5` keeps 5; `expedition_rules_version()` returns 6; authenticated cannot execute it.
 - `src/lib/expeditions/archetypes.ts`: `ARCHETYPE_RULES = 6`; `AbilityKind` union (loot, finale, guard, shield, front, camp, hold, toll, gamble, find, merchant, rival, ghost, warned, momentum, call, clock, reveal, mutation, rescue, jack); `ArchetypeAbility { title; kind; power; does: string }`; `ARCHETYPE_ABILITIES: Record<string, ArchetypeAbility>` (all 57 rows of spec §1.2 with the named constants); `abilityOf(copy)`; `ActiveAbility { copyId; ability; counts: boolean; ignoredFor?: number }`; `abilitySheet(copies): ActiveAbility[]` (one per kind, power, miles via `milesOf`, lower id); `activeAbilities(copies)` (only `counts`); `traitsOf(copies, rules): AbilityTraits { stormproof; hunterFinds; merchantDraw; reveal; speedrun }`; `edgeLine(copies)` for the journal.
 - `src/lib/expeditions/archetypes.test.ts`: table keys == `ARCHETYPE_TITLES` + `FALLBACK_ARCHETYPE`; every kind has ≤ 1 winner per squad; ties resolved by miles then id; frozen-title fallback; `traitsOf` off below rules 6.
@@ -102,7 +102,7 @@ Phase 4's SQL, `league.ts`, `leagueSweep.ts`, `LeagueGoalPanel.tsx` and tests ma
 **Goal.** A persistent camp with the slot, tent, forge and wall; purchases atomic and ledgered; a second Scouting Run; forged policies.
 
 **Create**
-- `supabase/migrations/20261027000001_expedition_base_camp.sql`: `expedition_camps` (spec §2.2, RLS owner read via `profiles`, grants); `expedition_runs.forged`; `expedition_camp_price`; `upgrade_expedition_camp`; `launch_expedition` 12-arg redeclared from `20261020000001` with the two edits; 14-arg wrapper; revokes/grants for all three.
+- `supabase/migrations/20261102000001_expedition_base_camp.sql`: `expedition_camps` (spec §2.2, RLS owner read via `profiles`, grants); `expedition_runs.forged`; `expedition_camp_price`; `upgrade_expedition_camp`; `launch_expedition` 12-arg redeclared from `20261020000001` with the two edits; 14-arg wrapper; revokes/grants for all three.
 - `supabase/tests/0131_expedition_base_camp_test.sql` (plan ≈ 16): bad price refused; slot bought → ledger row `expedition_camp` with −1500, fragments −1; second scout allowed, third refused 'tier already out'; tent 0→1→2, 'already built' at 2; 'policy' without forge refused; forge then policy (fragments −2), forge full at 2; forged launch on legend when the weekly cap is already spent → allowed, run has `insured` true and `forged` true; second forged launch that week → 'forge spent this week'; forged run not counted by the inner cap; scout forged → 'policy not wanted'; authenticated cannot execute.
 - `src/lib/expeditions/camp.ts` (fill the stub): `CAMP_PRICES`, `FORGE_FRAGMENTS 2`, `FORGE_HOLD 2`, `FORGED_PER_WEEK 1`, `CampState`, `nextLevel`, `campLine`s for the panel; `camp.test.ts` holds `CAMP_PRICES` equal to `expedition_camp_price` by reading the newest migration declaring it.
 - `src/components/cards/CampPanel.tsx` (+ test): levels, prices, buy/forge buttons, wall contents (props: `camp`, `fragments`, `balance`, `relics`, `accolades`, `landmarks`, `roads`).
@@ -126,7 +126,7 @@ Phase 4's SQL, `league.ts`, `leagueSweep.ts`, `LeagueGoalPanel.tsx` and tests ma
 **Goal.** One shared weekly goal per season, progress from claimed runs, idempotent award through the sweep, shown on the board.
 
 **Create**
-- `supabase/migrations/20261028000001_expedition_league_goal.sql`: the view, two tables (public read policies, grants), `fell_expedition_league_goal` (spec §3.2), revokes/grants.
+- `supabase/migrations/20261103000001_expedition_league_goal.sql`: the view, two tables (public read policies, grants), `fell_expedition_league_goal` (spec §3.2), revokes/grants.
 - `supabase/tests/0132_expedition_league_goal_test.sql` (plan ≈ 10): the view groups by Eastern Monday of `started_at`; below target → `(false, 0)` and no rows; at target → goal row, one reward per contributor, `fragments + 1` each, top flagged; second call → `(true, 0)` and no double credit; anon can select the view and the tables.
 - `src/lib/expeditions/league.ts` (+ test): `LANDMARK_MILES 40`, `BOSS_HEALTH 24`, `leagueGoalFor`, `goalProgress`, `myShare`, `weeksToWatch(now)`.
 - `src/lib/expeditions/leagueSweep.ts` (+ test with a mocked client): `sweepLeagueGoals(service, now)`.
@@ -148,7 +148,7 @@ Phase 4's SQL, `league.ts`, `leagueSweep.ts`, `LeagueGoalPanel.tsx` and tests ma
 **Goal.** The board renders what the server says the squad knows; unknown checkpoints show as unknowns with a dread mark; a fragment reveals a road; hidden places never reach the browser.
 
 **Create**
-- `supabase/migrations/20261029000001_expedition_road_ahead.sql`: `expedition_reveals`, `reveal_expedition_road`, RLS/grants.
+- `supabase/migrations/20261104000001_expedition_road_ahead.sql`: `expedition_reveals`, `reveal_expedition_road`, RLS/grants.
 - `supabase/tests/0133_expedition_road_ahead_test.sql` (plan ≈ 7): not the caller's run → 'unknown run'; claimed → 'already claimed'; no fragments → 'not enough fragments'; success decrements and inserts; second call → 'already revealed'; authenticated cannot execute.
 - `src/lib/expeditions/forks.ts`: the client-safe half of `routes.ts` (types, `FORK_CHOICES`, `forkWindows`, `forkViews`, `openFork`, `choiceSheet`, `isCampChoice`, `ROLE_CALLS`, `ROLE_CALL_BY_CHOICE`, `VETERAN_TEASE`, `FRAGMENT_CHANCE`, `DEAD_NEEDS_PUSHES`, `TOLL_LOOT`, `SCOUTED_CAMP_RISK`, `ROAD_SIZES` = `{ scout: 4, gilded: 6, raid: 6, legend: 9, rescue: 3, exorcism: 0, legendary: 12, mythic: 10 }`). `routes.ts` imports and re-exports them (no other caller changes). `routes.test.ts` asserts `ROAD_SIZES` equals `ROADS` lengths.
 - `src/lib/expeditions/reveal.ts` (+ test): `knownCheckpoints(run, copies, views, reveals, partnerReveal, rules): Map<index, revealedBy>`; `dangerOf(fork, wardenActive)`.
@@ -175,7 +175,7 @@ Phase 4's SQL, `league.ts`, `leagueSweep.ts`, `LeagueGoalPanel.tsx` and tests ma
 **Goal.** A codex per collector derived from claimed runs, landmarks named after the first to reach them, a reward for completing a road.
 
 **Create**
-- `supabase/migrations/20261030000001_expedition_atlas.sql`: `expedition_landmarks`, `expedition_atlas_awards`, `expedition_road_size`, `expedition_road_reward`, `name_expedition_landmarks`, `award_expedition_road`, RLS/grants.
+- `supabase/migrations/20261105000001_expedition_atlas.sql`: `expedition_landmarks`, `expedition_atlas_awards`, `expedition_road_size`, `expedition_road_reward`, `name_expedition_landmarks`, `award_expedition_road`, RLS/grants.
 - `supabase/tests/0134_expedition_atlas_test.sql` (plan ≈ 12): road sizes per tier; landmark naming refuses places not in the run's stamped atlas; first claim wins, second returns no rows; award refused below size; award once with fragments (+ a comp for legendary); second award no-op; anon can read landmarks, not awards.
 - `src/lib/expeditions/atlas.ts` (+ test): `ROAD_SIZES` (import from `forks.ts`), `ROAD_REWARDS`, `atlasStamp(run, forks, encounters, company)`, `atlasFor(runs, landmarks)`, `roadComplete`, `firstNamedLine`. Test holds `ROAD_SIZES`/`ROAD_REWARDS` equal to the SQL by reading the newest migration declaring each function.
 - `src/components/cards/AtlasPanel.tsx` (+ test).
@@ -241,11 +241,11 @@ Phase 4's SQL, `league.ts`, `leagueSweep.ts`, `LeagueGoalPanel.tsx` and tests ma
 
 | Migration | pgTAP | Phase |
 |---|---|---|
-| `20261026000001_expedition_rules_six.sql` | `0130_expedition_rules_six_test.sql` | 1 |
-| `20261027000001_expedition_base_camp.sql` | `0131_expedition_base_camp_test.sql` | 3 |
-| `20261028000001_expedition_league_goal.sql` | `0132_expedition_league_goal_test.sql` | 4 |
-| `20261029000001_expedition_road_ahead.sql` | `0133_expedition_road_ahead_test.sql` | 5 |
-| `20261030000001_expedition_atlas.sql` | `0134_expedition_atlas_test.sql` | 6 |
+| `20261101000001_expedition_rules_six.sql` | `0130_expedition_rules_six_test.sql` | 1 |
+| `20261102000001_expedition_base_camp.sql` | `0131_expedition_base_camp_test.sql` | 3 |
+| `20261103000001_expedition_league_goal.sql` | `0132_expedition_league_goal_test.sql` | 4 |
+| `20261104000001_expedition_road_ahead.sql` | `0133_expedition_road_ahead_test.sql` | 5 |
+| `20261105000001_expedition_atlas.sql` | `0134_expedition_atlas_test.sql` | 6 |
 
 ## Decisions for the owner
 

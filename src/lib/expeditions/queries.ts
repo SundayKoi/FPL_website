@@ -112,7 +112,7 @@ export function hasRoad(run: Pick<ExpeditionRun, "rules">): boolean {
  * The rulebook the database will stamp on the next launch — for the one
  * decision the app makes before the row exists (the Speedrunner's clock,
  * archetypes.ts). Service role only. An environment that has not applied
- * 20261026000001 has no such function, and an error of any kind reads as
+ * 20261101000001 has no such function, and an error of any kind reads as
  * the oldest rulebook: a launch that assumed rules it will not be stamped
  * with would cut a clock nothing pays for.
  */
@@ -799,7 +799,7 @@ import {
 } from "./league";
 
 // Every read below fails soft to null, not to an empty list: null means
-// "the league goal is not here" (20261028000001 not applied, or the read
+// "the league goal is not here" (20261103000001 not applied, or the read
 // broke) and hides the panel, while [] means "nobody has walked yet" and
 // shows a goal at zero. A season of null reads every season — the sweep's
 // view; the page always passes its own league's season.

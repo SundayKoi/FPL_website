@@ -246,7 +246,7 @@ function midGame(now: Date): BoardFixture {
     copyOf({ id: 212, name: "Nell", role: "Mid", tier: "gold", archetype: "Highlight Reel", champion: "Lux" }),
   ];
   // Stamped with the edge rulebook (ARCHETYPE_RULES), as every launch is
-  // once 20261026000001 is applied: Pax's Unkillable speaks at the fork.
+  // once 20261101000001 is applied: Pax's Unkillable speaks at the fork.
   const raid = run({
     id: 301,
     tier: "raid",

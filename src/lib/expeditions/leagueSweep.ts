@@ -1,7 +1,7 @@
 // The league goal's step in the expedition sweep: for this week and last,
 // in every season with runs home, ask whether the week's goal has been
 // reached, and when the view says it has, let fell_expedition_league_goal
-// decide (20261028000001). That RPC is the only place a goal falls: it
+// decide (20261103000001). That RPC is the only place a goal falls: it
 // recounts the week itself, writes the goal once, and pays each
 // contributor one fragment in the same transaction. This file only knows
 // WHEN to ask, and says so in Discord the one time a goal actually falls.

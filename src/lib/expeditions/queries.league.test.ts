@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchLeagueBoard, fetchLeagueFixtures, fetchLeagueGoals, fetchLeagueProgress } from "./queries";
 
-// The league goal's reads (20261028000001), kept apart from queries.test.ts
+// The league goal's reads (20261103000001), kept apart from queries.test.ts
 // so the phases that share queries.ts do not share a test file too.
 
 type QueryCall = { table: string; columns?: string; filters: Record<string, unknown>; order?: string; limit?: number };
