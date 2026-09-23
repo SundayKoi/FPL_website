@@ -34,6 +34,7 @@ import { fetchCompany } from "./companyReads";
 import { fetchCampaign, hasLegendMark } from "./queries";
 import { CAMPAIGNS, canBind, nextRoad, relicBearer, type CampaignState, type StageLog } from "./campaigns";
 import { watchWeeksOf, weatherOfRun } from "./weather";
+import { sweepLeagueGoals } from "./leagueSweep";
 import {
   forksFor,
   choiceAllowed,
@@ -950,6 +951,15 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
   const { data: buriedCount, error: buryError } = await service.rpc("expire_lost_cards");
   if (buryError) errors.push(`expire: ${buryError.message}`);
   else buried = Number(buriedCount ?? 0);
+
+  // The league goal of the week (leagueSweep.ts): before the forks read,
+  // which returns early on an error, and fenced so a throw there is one
+  // line in `errors` rather than a sweep that stops.
+  try {
+    errors.push(...(await sweepLeagueGoals(service, now)).errors);
+  } catch (leagueError) {
+    errors.push(`league: ${leagueError instanceof Error ? leagueError.message : String(leagueError)}`);
+  }
 
   const { data, error } = await service
     .from("expedition_runs")

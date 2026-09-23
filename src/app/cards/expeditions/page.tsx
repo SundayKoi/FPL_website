@@ -7,11 +7,14 @@ import { bettingAccess } from "@/lib/betting/access";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import {
+  fetchCamp,
   fetchConvoyViews,
   fetchDeployedCopyIds,
   fetchFixturesSince,
+  fetchForgedThisWeek,
   fetchFragments,
   fetchGraveyard,
+  fetchLeagueBoard,
   fetchLostHolds,
   fetchInsuredThisWeek,
   fetchPolicyUsed,
@@ -134,7 +137,7 @@ export async function ExpeditionsPageView({
     number,
     boolean,
     number,
-    { patron_until?: string | null } | null,
+    { patron_until?: string | null; balance?: number | string | null } | null,
   ] = season
     ? await Promise.all([
         fetchInventory(service, discordId, season),
@@ -148,12 +151,15 @@ export async function ExpeditionsPageView({
         fetchFragments(service, discordId),
         fetchPolicyUsed(service, discordId, week),
         fetchInsuredThisWeek(service, discordId, week),
+        // The wallet: the patron flame (the Gilded Road, the free policy)
+        // and the balance the base camp's prices are set against. Fails
+        // soft to no wallet — no flame, and a camp that shows $0.
         service
           .from("betting_profiles")
-          .select("patron_until")
+          .select("patron_until, balance")
           .eq("discord_id", discordId)
           .maybeSingle()
-          .then((result) => (result.data as { patron_until?: string | null } | null) ?? null, () => null),
+          .then((result) => (result.data as { patron_until?: string | null; balance?: number | string | null } | null) ?? null, () => null),
       ])
     : [[], [], new Set<number>(), [], [], 0, false, 0, null];
 
@@ -185,7 +191,7 @@ export async function ExpeditionsPageView({
   // the rivals it races, decided by shine, and the graveyard's ghosts.
   // Read here with the service role — the runs and graves it needs are
   // other people's — and handed to the journal through the run.
-  const [fixtures, convoys, companies, rivalries, standings, accolades, campaign, legendMark] = await Promise.all([
+  const [fixtures, convoys, companies, rivalries, standings, accolades, campaign, legendMark, camp, forgedThisWeek, leagueGoal] = await Promise.all([
     fetchFixturesSince(service, new Date(oldest - DAY_MS).toISOString()),
     fetchConvoyViews(service, discordId, active),
     season
@@ -211,6 +217,13 @@ export async function ExpeditionsPageView({
     season ? fetchAccolades(service, season) : Promise.resolve([]),
     season ? fetchOpenCampaign(service, discordId, season) : Promise.resolve(null),
     hasLegendMark(service, discordId),
+    // The base camp belongs to the wallet, not the season, but a board
+    // with no season has nothing to spend it on. Null hides it (the
+    // migration is not applied, or the read broke).
+    season ? fetchCamp(service, discordId) : Promise.resolve(null),
+    season ? fetchForgedThisWeek(service, discordId, week) : Promise.resolve(null),
+    // This league's goal of the week, this week and last; null hides it.
+    season ? fetchLeagueBoard(service, season, discordId, now) : Promise.resolve(null),
   ]);
   const playingToday = [...teamsPlayingOn(fixtures, today).values()];
   // The weather (weather.ts): this week's for the banner, and each run's
@@ -255,6 +268,10 @@ export async function ExpeditionsPageView({
         patron={patronActive(wallet?.patron_until)}
         policyUsed={policyUsed}
         insuredThisWeek={insuredThisWeek}
+        camp={camp}
+        forgedThisWeek={forgedThisWeek}
+        balance={Number(wallet?.balance ?? 0) || 0}
+        league={leagueGoal}
         playingToday={playingToday}
         rivals={rivals}
         convoys={convoys}

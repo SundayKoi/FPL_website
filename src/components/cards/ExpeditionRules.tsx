@@ -64,17 +64,34 @@ export const RISK_CLASS: Record<RouteRisk, string> = {
   dead: "border-red-500/80 bg-red-500/10 text-red-300",
 };
 
-/** "12 shine · 1 foil" — the gates a tier actually applies. */
+/** One gate a tier applies. `power` is set on the squad-total gate alone,
+ *  so a reader that says "power" (the board) can print its own word there
+ *  while the rulebook keeps "shine". */
+export interface RequirementPart {
+  text: string;
+  power?: number;
+}
+
+/** The gates a tier actually applies, in the order the line prints them. */
+export function requirementParts(def: ExpeditionTierDef): RequirementPart[] {
+  const parts: RequirementPart[] = [];
+  if (def.patron) parts.push({ text: "patrons only" });
+  if (def.minShine > 0) parts.push({ text: `${def.minShine} shine`, power: def.minShine });
+  if (def.minFoils > 0) parts.push({ text: `${def.minFoils} foil${def.minFoils === 1 ? "" : "s"}` });
+  if (def.minSigned > 0) parts.push({ text: `${def.minSigned} signed` });
+  if (def.fragments > 0) parts.push({ text: `${def.fragments} map fragments` });
+  if (def.key === "mythic") parts.push(...MYTHIC_NEEDS.map((text) => ({ text })));
+  if (def.fee > 0) parts.push({ text: `${fmtPoints(def.fee)} fee` });
+  return parts;
+}
+
+/** What a tier asks for when it asks for nothing. */
+export const NO_REQUIREMENTS = "Anyone can run it";
+
+/** "12 shine · 1 foil" — the gates a tier actually applies, in the rules' words. */
 export function requirementLine(def: ExpeditionTierDef): string {
-  const parts: string[] = [];
-  if (def.patron) parts.push("patrons only");
-  if (def.minShine > 0) parts.push(`${def.minShine} shine`);
-  if (def.minFoils > 0) parts.push(`${def.minFoils} foil${def.minFoils === 1 ? "" : "s"}`);
-  if (def.minSigned > 0) parts.push(`${def.minSigned} signed`);
-  if (def.fragments > 0) parts.push(`${def.fragments} map fragments`);
-  if (def.key === "mythic") parts.push(...MYTHIC_NEEDS);
-  if (def.fee > 0) parts.push(`${fmtPoints(def.fee)} fee`);
-  return parts.length === 0 ? "Anyone can run it" : parts.join(" · ");
+  const parts = requirementParts(def);
+  return parts.length === 0 ? NO_REQUIREMENTS : parts.map((part) => part.text).join(" · ");
 }
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;

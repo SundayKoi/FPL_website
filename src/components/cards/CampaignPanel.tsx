@@ -67,7 +67,7 @@ export default function CampaignPanel({
                   type="button"
                   onClick={() => start(key)}
                   disabled={pending}
-                  className="btn-pill w-fit px-3 py-1.5 text-xs disabled:opacity-50"
+                  className="btn-pill min-h-11 w-fit px-4 text-xs disabled:opacity-50"
                 >
                   {pending ? "Opening…" : `Begin ${def.label}`}
                 </button>
@@ -132,14 +132,14 @@ export default function CampaignPanel({
           onClick={() => abandon(campaign.id)}
           disabled={pending}
           data-testid="campaign-abandon"
-          className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wide transition disabled:opacity-50 ${
+          className={`min-h-11 rounded-full border px-4 text-xs font-bold uppercase tracking-wide transition disabled:opacity-50 ${
             armed ? "border-coral bg-coral/15 text-coral" : "border-line text-steel hover:text-white"
           }`}
         >
           {pending ? "…" : armed ? "Tap again to abandon the campaign" : "Abandon"}
         </button>
         {armed && !pending ? (
-          <button type="button" onClick={() => setArmed(false)} className="text-xs text-steel underline-offset-4 hover:underline">
+          <button type="button" onClick={() => setArmed(false)} className="inline-flex min-h-11 min-w-11 items-center text-xs text-steel underline-offset-4 hover:underline">
             keep going
           </button>
         ) : null}

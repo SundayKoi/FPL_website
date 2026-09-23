@@ -1,14 +1,14 @@
 "use client";
 
 // The drawer — everything that is not "what do I do now": the log, the
-// season's table, campaigns, the graveyard and the rulebook. One panel
-// mounted at a time, the log by default, so a visit is not eleven
-// sections deep.
+// season's table, campaigns, the base camp, the league goal, the graveyard
+// and the rulebook. One panel mounted at a time, the log by default, so a
+// visit is not eleven sections deep.
 //
 // Later phases register here rather than adding sections to the board:
 // one entry in `tabs` (key, label, when to show, what to render), with its
-// props passed down from ExpeditionBoard — the camp (Phase 3), the league
-// goal (Phase 4) and the atlas (Phase 6).
+// props passed down from ExpeditionBoard — the camp (Phase 3) and the
+// league goal (Phase 4) are here; the atlas (Phase 6) is next.
 
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import Link from "next/link";
@@ -23,14 +23,29 @@ import type { ExpeditionRun, Grave } from "@/lib/expeditions/queries";
 import type { CardFate } from "@/lib/expeditions/routes";
 import { ACCOLADES, accoladesOf, rankStandings, type Accolade, type StandingRow } from "@/lib/expeditions/standings";
 import { milesOf, trailTitleOf } from "@/lib/expeditions/trail";
+import type { LeagueBoard } from "@/lib/expeditions/league";
 import CampaignPanel from "../CampaignPanel";
+import CampPanel, { type CampPanelProps } from "../CampPanel";
 import ExpeditionRules from "../ExpeditionRules";
+import LeagueGoalPanel from "../LeagueGoalPanel";
 import { OPEN_RULES_EVENT } from "./Term";
 
 const FATE_LABEL: Record<CardFate["fate"], string> = { home: "Home", wounded: "Wounded", lost: "Lost", dead: "Dead" };
 const FATE_CLASS: Record<CardFate["fate"], string> = { home: "text-mint", wounded: "text-gold", lost: "text-coral", dead: "text-red-300" };
 
-type TabKey = "log" | "standings" | "campaigns" | "graveyard" | "rules";
+export type DrawerTab = "log" | "standings" | "campaigns" | "camp" | "league" | "graveyard" | "rules";
+type TabKey = DrawerTab;
+
+/** The event the drawer listens for to open one of its tabs from elsewhere
+ *  on the board (the This-week line's league goal, say). The detail is the
+ *  tab's key. */
+export const OPEN_TAB_EVENT = "expeditions:open-tab";
+
+/** Open a drawer tab and bring the drawer into view. */
+export function openDrawerTab(tab: DrawerTab): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent<DrawerTab>(OPEN_TAB_EVENT, { detail: tab }));
+}
 
 interface Tab {
   key: TabKey;
@@ -247,6 +262,8 @@ export default function MoreDrawer({
   rivalries,
   graves,
   campaign,
+  camp = null,
+  league = null,
   ledgerHref,
   onStartCampaign,
   onAbandonCampaign,
@@ -259,6 +276,11 @@ export default function MoreDrawer({
   rivalries: Rivalry[];
   graves: Grave[];
   campaign: CampaignState | null;
+  /** The Camp tab's panel, whole; null (or a null camp inside it) hides
+   *  the tab — the camp could not be read, or is not here yet. */
+  camp?: CampPanelProps | null;
+  /** The league goal (fetchLeagueBoard); null hides the League tab. */
+  league?: LeagueBoard | null;
   ledgerHref: string;
   onStartCampaign: (key: CampaignKey) => Promise<string | null>;
   onAbandonCampaign: (id: number) => Promise<string | null>;
@@ -281,7 +303,9 @@ export default function MoreDrawer({
       when: true,
       render: () => <CampaignPanel campaign={campaign} onStart={onStartCampaign} onAbandon={onAbandonCampaign} />,
     },
-    // Phase 3 registers "camp", Phase 4 "league", Phase 6 "atlas" here.
+    { key: "camp", label: "Camp", when: camp !== null && camp.camp !== null, render: () => (camp ? <CampPanel {...camp} /> : null) },
+    { key: "league", label: "League", when: league !== null, render: () => <LeagueGoalPanel league={league} /> },
+    // Phase 6 registers "atlas" here.
     { key: "graveyard", label: "Graveyard", when: true, render: () => <GraveyardPanel graves={graves} ledgerHref={ledgerHref} /> },
     {
       key: "rules",
@@ -309,10 +333,21 @@ export default function MoreDrawer({
     const onHash = () => {
       if (window.location.hash === "#expedition-rules") open();
     };
+    // Any other tab, asked for by name: switch, then show the drawer.
+    const openTab = (event: Event) => {
+      const tab = (event as CustomEvent<DrawerTab>).detail;
+      if (!tab) return;
+      if (tab === "rules") return open();
+      flushSync(() => setActive(tab));
+      const target = section.current;
+      if (typeof target?.scrollIntoView === "function") target.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
     window.addEventListener(OPEN_RULES_EVENT, open);
+    window.addEventListener(OPEN_TAB_EVENT, openTab);
     window.addEventListener("hashchange", onHash);
     return () => {
       window.removeEventListener(OPEN_RULES_EVENT, open);
+      window.removeEventListener(OPEN_TAB_EVENT, openTab);
       window.removeEventListener("hashchange", onHash);
     };
   }, []);
@@ -326,7 +361,7 @@ export default function MoreDrawer({
   }
 
   return (
-    <section ref={section} aria-labelledby="more-title" data-testid="more-drawer" className="flex flex-col gap-3">
+    <section ref={section} aria-labelledby="more-title" data-testid="more-drawer" className="flex scroll-mt-20 flex-col gap-3">
       <h2 id="more-title" className="label-dash">
         More
       </h2>

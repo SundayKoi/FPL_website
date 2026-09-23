@@ -14,6 +14,8 @@ vi.mock("@/lib/expeditions/actions", () => ({
   ransomLostCardAction: vi.fn(),
   startCampaignAction: vi.fn(),
   abandonCampaignAction: vi.fn(),
+  upgradeCampAction: vi.fn(),
+  forgePolicyAction: vi.fn(),
 }));
 
 const Preview = (await import("./page")).default;

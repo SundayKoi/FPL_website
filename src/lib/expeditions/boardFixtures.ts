@@ -1,7 +1,8 @@
 // Three collectors for looking at the expedition board without a database:
 // someone who has never sent a squad, someone mid-game with two runs out
-// and a fork waiting, and a veteran with a lost card, graves, a campaign
-// and a run already home.
+// and a fork waiting, and a veteran with a lost card, graves, a campaign,
+// a base camp and a run already home. The two who have walked this week
+// see the league goal part-way there.
 //
 // Pure data, relative to the `now` it is handed, so the jsdom tests, the
 // staff preview at /admin/expedition-board and the Playwright screenshots
@@ -9,9 +10,11 @@
 
 import type { PlayerCardData } from "@/lib/cards/build";
 import { easternDateOf } from "@/lib/packs/week";
+import type { CampState } from "./camp";
 import type { CampaignState } from "./campaigns";
 import type { Rivalry } from "./company";
 import type { CardCopy } from "./config";
+import { goalKindFor, leagueBoardFor, targetFor, weeksToWatch, type LeagueBoard, type LeagueProgressRow } from "./league";
 import type { ConvoyView, ExpeditionRun, Grave, LostHold } from "./queries";
 import type { Accolade, StandingRow } from "./standings";
 import type { WeatherKey } from "./weather";
@@ -54,11 +57,18 @@ export interface BoardFixture {
   season: string;
   legendMark: boolean;
   base: string;
+  camp: CampState | null;
+  forgedThisWeek: number | null;
+  balance: number;
+  league: LeagueBoard | null;
 }
 
 const HOUR = 60 * 60 * 1000;
 const SEASON = "S5";
 const VIEWER = "viewer";
+/** The viewer's name where other collectors see it (the standings, the
+ *  league goal's leaders). */
+const VIEWER_NAME = "Marlow";
 
 const TIER_LABEL: Record<string, string> = {
   bronze: "Bronze", silver: "Silver", gold: "Gold", platinum: "Platinum", emerald: "Emerald",
@@ -211,7 +221,56 @@ function base(now: Date): Omit<BoardFixture, "copies" | "runs" | "deployedIds"> 
     season: SEASON,
     legendMark: false,
     base: "/cards",
+    camp: null,
+    forgedThisWeek: null,
+    balance: 0,
+    league: null,
   };
+}
+
+/** One collector's week toward the league goal: miles AND pushes, so the
+ *  board reads right whichever kind of goal the week turns out to be. */
+type Walked = [discordId: string, username: string, miles: number, pushes: number];
+
+/**
+ * The league goal as fetchLeagueBoard would build it, from progress rows
+ * for this week (and, when given, last week) and the goal that fell. The
+ * week's first fixture names it, so it reads like the live one.
+ */
+function leagueFor(
+  now: Date,
+  thisWeek: Walked[],
+  lastWeek: { walked: Walked[]; fell: { top: string; weekday: number; hourUtc: number } | null } | null = null,
+): LeagueBoard | null {
+  const [thisMonday, lastMonday] = weeksToWatch(now);
+  const rows = (weekStart: string, walked: Walked[]): LeagueProgressRow[] =>
+    walked.map(([discordId, username, miles, pushes]) => ({ season: SEASON, weekStart, discordId, username, miles, pushes }));
+  const fixtures = [
+    { team_a: "Solari Sun", team_b: "Lunar Tide", scheduled_at: `${thisMonday}T23:00:00.000Z`, season: SEASON },
+    { team_a: "Lunar Tide", team_b: "Solari Sun", scheduled_at: `${lastMonday}T23:00:00.000Z`, season: SEASON },
+  ];
+  const kind = goalKindFor(SEASON, lastMonday);
+  const fell = lastWeek?.fell ?? null;
+  return leagueBoardFor({
+    season: SEASON,
+    now,
+    fixtures,
+    progress: [...rows(thisMonday, thisWeek), ...rows(lastMonday, lastWeek?.walked ?? [])],
+    goals: fell
+      ? [
+          {
+            season: SEASON,
+            weekStart: lastMonday,
+            kind,
+            target: targetFor(kind),
+            fellAt: new Date(Date.parse(`${lastMonday}T00:00:00.000Z`) + (fell.weekday * 24 + fell.hourUtc) * HOUR).toISOString(),
+            topId: fell.top,
+            rewards: (lastWeek?.walked ?? []).map(([discordId]) => ({ discordId, fragments: 1, top: discordId === fell.top })),
+          },
+        ]
+      : [],
+    viewerId: VIEWER,
+  });
 }
 
 /** A first visit: a handful of cards from the first packs, nothing sent. */
@@ -296,7 +355,7 @@ function midGame(now: Date): BoardFixture {
     standings: [
       standing("ana", "Ana", 22, 3100, 1, 3),
       standing("bo", "Bo", 18, 2650, 0, 2),
-      standing(VIEWER, "You", 9, 520, 0, 1),
+      standing(VIEWER, VIEWER_NAME, 9, 520, 0, 1),
       standing("cy", "Cy", 7, 610, 0, 0),
       standing("dee", "Dee", 4, 240, 0, 1),
     ],
@@ -304,6 +363,14 @@ function midGame(now: Date): BoardFixture {
       { who: "ana", name: "Ana", beaten: 1, beatenBy: 2, last: ago(now, 30).toISOString() },
       { who: "cy", name: "Cy", beaten: 2, beatenBy: 0, last: ago(now, 60).toISOString() },
     ],
+    // Early in the week: under half-way, and the viewer has put in a
+    // little with the Scouting Run they brought home.
+    league: leagueFor(now, [
+      ["ana", "Ana", 7, 5],
+      ["bo", "Bo", 5, 3],
+      [VIEWER, VIEWER_NAME, 3, 2],
+      ["cy", "Cy", 2, 1],
+    ]),
   };
 }
 
@@ -330,6 +397,8 @@ function veteran(now: Date): BoardFixture {
     copyOf({ id: 416, name: "Big Game", role: "Mid", tier: "gold", archetype: "Clutch Gene", card: { moment: { id: 9, title: "ONE MAN ARMY", headline: "40% of the damage", summonerName: "Big Game", champion: "Yasuo", teamName: null, weekStart: "2026-09-07", playerSlug: "big-game" } } }),
     copyOf({ id: 417, name: "Fen", role: "Support", tier: "gold", archetype: "The Lifeline", champion: "Soraka" }),
     copyOf({ id: 418, name: "Cole", role: "Bot", tier: "silver", archetype: "First Blood Merchant", champion: "Ezreal" }),
+    // The relic an earlier campaign's finale printed: it hangs on the wall.
+    copyOf({ id: 419, name: "Vesper", role: "Mid", tier: "diamond", archetype: "Ice In The Veins", champion: "Orianna", card: { campaign: { key: "lost_print", date: "2026-09-06", campaign: 9, runs: [420, 425, 432], from: 395 } } }),
   ];
   const legend = run({
     id: 501,
@@ -410,7 +479,7 @@ function veteran(now: Date): BoardFixture {
     campaign,
     standings: [
       standing("ana", "Ana", 41, 6100, 2, 5),
-      standing(VIEWER, "You", 38, 5420, 1, 6),
+      standing(VIEWER, VIEWER_NAME, 38, 5420, 1, 6),
       standing("bo", "Bo", 30, 4800, 1, 2),
       standing("cy", "Cy", 26, 3900, 0, 4),
       standing("dee", "Dee", 19, 2100, 0, 1),
@@ -425,6 +494,33 @@ function veteran(now: Date): BoardFixture {
       { who: "bo", name: "Bo", beaten: 4, beatenBy: 1, last: ago(now, 50).toISOString() },
       { who: "cy", name: "Cy", beaten: 0, beatenBy: 2, last: ago(now, 80).toISOString() },
     ],
+    // The base camp: the second scouting slot, a tent, a forge holding one
+    // policy, a trophy wall. $3,200 in so far; the bigger tent is next.
+    camp: { slots: 1, tent: 1, forge: 1, wall: 1, forgedPolicies: 1, spent: 3200 },
+    forgedThisWeek: 0,
+    balance: 2480,
+    // Mid-week, three-quarters there with the viewer second; last week's
+    // fell on Thursday with the viewer out in front — this week's Vanguard.
+    league: leagueFor(
+      now,
+      [
+        ["ana", "Ana", 9, 6],
+        [VIEWER, VIEWER_NAME, 8, 5],
+        ["bo", "Bo", 6, 4],
+        ["cy", "Cy", 4, 2],
+        ["dee", "Dee", 3, 1],
+        ["eli", "Eli", 1, 0],
+      ],
+      {
+        walked: [
+          [VIEWER, VIEWER_NAME, 14, 9],
+          ["ana", "Ana", 12, 8],
+          ["bo", "Bo", 9, 5],
+          ["cy", "Cy", 7, 4],
+        ],
+        fell: { top: VIEWER, weekday: 3, hourUtc: 23 },
+      },
+    ),
   };
 }
 

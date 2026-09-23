@@ -31,6 +31,15 @@ test.beforeAll(() => {
   mkdirSync(OUT, { recursive: true });
 });
 
+/** An element's own picture, without the site's floating "Support the
+ *  devs" button: it is fixed to the viewport's corner, so an element
+ *  screenshot scrolled under it would show it over the panel's text. */
+async function panelShot(page: Page, testId: string, path: string) {
+  const style = await page.addStyleTag({ content: "a[aria-label='Support the devs'] { visibility: hidden !important; }" });
+  await page.getByTestId(testId).screenshot({ path });
+  await style.evaluate((node) => (node as HTMLElement).remove());
+}
+
 /** Every visible control on the board smaller than a 44×44 tap target. */
 async function smallTargets(page: Page): Promise<string[]> {
   return page.getByTestId("expedition-board").evaluate((board) => {
@@ -110,15 +119,35 @@ for (const persona of PERSONAS) {
         await expect(note).toBeHidden();
 
         // Every drawer panel fits the phone too: the standings become rows,
-        // the rulebook wraps.
+        // the rulebook wraps, the camp's cards stack — and every panel
+        // keeps the page's rules: 44px targets, a reason by every
+        // disabled button.
         for (const tab of await page.getByTestId("more-tabs").getByRole("tab").all()) {
           await tab.click();
+          const name = await tab.textContent();
           const width = await page.evaluate(() => document.documentElement.scrollWidth);
-          expect(width, `horizontal scroll with the ${await tab.textContent()} tab open`).toBeLessThanOrEqual(390);
+          expect(width, `horizontal scroll with the ${name} tab open`).toBeLessThanOrEqual(390);
+          expect(await smallTargets(page), `tap targets under 44×44 with the ${name} tab open`).toEqual([]);
+          expect(await silentDisabled(page), `disabled controls with no visible reason on the ${name} tab`).toEqual([]);
         }
         if (persona === "veteran") {
           await page.getByTestId("tab-standings").click();
-          await page.getByTestId("more-drawer").screenshot({ path: `${OUT}/${persona}-${viewport.width}-standings.png` });
+          await panelShot(page, "more-drawer", `${OUT}/${persona}-${viewport.width}-standings.png`);
+          await page.getByTestId("tab-camp").click();
+          await panelShot(page, "more-drawer", `${OUT}/${persona}-${viewport.width}-camp.png`);
+        }
+      }
+
+      if (persona !== "new") {
+        // The This-week line's league goal opens its tab.
+        await page.getByTestId("league-line").click();
+        await expect(page.getByTestId("tab-league")).toHaveAttribute("aria-selected", "true");
+        await expect(page.getByTestId("league-goal")).toBeVisible();
+        expect(await silentDisabled(page), "disabled controls with no visible reason on the League tab").toEqual([]);
+        if (persona === "veteran" && viewport.width === 1280) {
+          await panelShot(page, "more-drawer", `${OUT}/${persona}-${viewport.width}-league.png`);
+          await page.getByTestId("tab-camp").click();
+          await panelShot(page, "more-drawer", `${OUT}/${persona}-${viewport.width}-camp.png`);
         }
       }
     });

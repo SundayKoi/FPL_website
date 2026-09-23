@@ -7,7 +7,8 @@
 //                      line saying nothing needs you and what is next.
 //   Send a squad     — 1 pick three cards, 2 pick a run, 3 send them.
 //   Your runs        — one card per squad in the field.
-//   More             — log, standings, campaigns, graveyard, rules.
+//   More             — log, standings, campaigns, camp, league goal,
+//                      graveyard, rules.
 //
 // This component is the state machine and the composition, nothing else:
 // the picked squad, the chosen route, the launch options, the errors, the
@@ -37,10 +38,13 @@ import {
   abandonCampaignAction,
   claimExpeditionAction,
   decideForkAction,
+  forgePolicyAction,
   launchExpeditionAction,
   ransomLostCardAction,
   startCampaignAction,
+  upgradeCampAction,
 } from "@/lib/expeditions/actions";
+import { forgedPolicyState, tierSlots, wallRelics, type CampState } from "@/lib/expeditions/camp";
 import { canBind, type CampaignState } from "@/lib/expeditions/campaigns";
 import type { Rivalry } from "@/lib/expeditions/company";
 import {
@@ -55,6 +59,7 @@ import {
 } from "@/lib/expeditions/config";
 import { normaliseConvoyCode } from "@/lib/expeditions/convoy";
 import type { ConvoyView, ExpeditionRun, Grave, LostHold } from "@/lib/expeditions/queries";
+import type { LeagueBoard } from "@/lib/expeditions/league";
 import type { ForkChoice } from "@/lib/expeditions/routes";
 import type { Accolade, StandingRow } from "@/lib/expeditions/standings";
 import { bestRoute, firstOpenRoute, freeCopies, routeGate, suggestSquad, type RouteContext, type RouteGate } from "@/lib/expeditions/suggest";
@@ -62,7 +67,7 @@ import type { WeatherKey } from "@/lib/expeditions/weather";
 import ClaimCeremony, { type Ceremony } from "./expeditions/ClaimCeremony";
 import { easternClock } from "./expeditions/clock";
 import FirstRunGuide from "./expeditions/FirstRunGuide";
-import MoreDrawer from "./expeditions/MoreDrawer";
+import MoreDrawer, { openDrawerTab } from "./expeditions/MoreDrawer";
 import { PREVIEW_ACTIONS } from "./expeditions/previewActions";
 import RightNow from "./expeditions/RightNow";
 import RouteStep, { ROUTE_PILL_ORDER } from "./expeditions/RouteStep";
@@ -76,6 +81,8 @@ const LIVE_ACTIONS = {
   ransomLostCardAction,
   startCampaignAction,
   abandonCampaignAction,
+  upgradeCampAction,
+  forgePolicyAction,
 };
 
 /** Scroll a zone into view, where a browser can. */
@@ -108,6 +115,10 @@ export default function ExpeditionBoard({
   campaign = null,
   season = "",
   legendMark = false,
+  camp = null,
+  forgedThisWeek = null,
+  balance = 0,
+  league = null,
   preview = false,
 }: {
   /** Whether the shelf holds a Legend mark — the Mythic route's gate.
@@ -167,6 +178,17 @@ export default function ExpeditionBoard({
   policyUsed?: boolean;
   /** Runs insured since Monday, Eastern — against insurancePerWeek(patron). */
   insuredThisWeek?: number;
+  /** The base camp (fetchCamp). Null hides the Camp tab and the forged
+   *  policy — the camp could not be read, or is not here yet. */
+  camp?: CampState | null;
+  /** Forged launches since Monday, Eastern (fetchForgedThisWeek); null
+   *  when unread — the option stays offered and the RPC decides. */
+  forgedThisWeek?: number | null;
+  /** The wallet, in dollars — what the camp's prices are set against. */
+  balance?: number;
+  /** The league goal this week and last (fetchLeagueBoard); null hides
+   *  the League tab and the This-week line's progress. */
+  league?: LeagueBoard | null;
   /** The staff preview: every action is a stub that sends nothing. */
   preview?: boolean;
 }) {
@@ -187,6 +209,9 @@ export default function ExpeditionBoard({
   const [squadOpen, setSquadOpen] = useState(false);
   const [suggestPress, setSuggestPress] = useState(0);
   const [insured, setInsured] = useState(false);
+  /** "Use a forged policy": stands in for the week's insurance, so the
+   *  two are never ticked together. */
+  const [forged, setForged] = useState(false);
   const [convoyMode, setConvoyMode] = useState<"solo" | "new" | "join">("solo");
   const [joinCode, setJoinCode] = useState("");
   const [rescueTarget, setRescueTarget] = useState<number | null>(holds[0]?.holdId ?? null);
@@ -219,12 +244,16 @@ export default function ExpeditionBoard({
   const finished = runs.filter((run) => run.tier !== "lost" && (run.claimedAt !== null || claimed.has(run.id)));
   const lostIds = new Set(holds.map((hold) => hold.cardId));
   const free = freeCopies(copies, { deployedIds, lostIds, now });
+  // A route is "out" when every slot it has is in the field: one run per
+  // route, two Scouting Runs with the camp's squad slot.
+  const runsOut = new Map<string, number>();
+  for (const run of active) runsOut.set(run.tier, (runsOut.get(run.tier) ?? 0) + 1);
   const context: RouteContext = {
     now,
     fragments,
     patron,
     legendMark,
-    tiersOut: new Set(active.map((run) => run.tier)),
+    tiersOut: new Set(TIER_ORDER.filter((tier) => (runsOut.get(tier) ?? 0) >= tierSlots(camp, tier))),
     lostCards: holds.length,
   };
   const suggestion = suggestSquad(free, context);
@@ -267,16 +296,22 @@ export default function ExpeditionBoard({
     const def = EXPEDITION_TIERS[tier];
     const squadIds = squad.map((copy) => copy.id);
     const target = def.target === "lost" ? rescueTarget : def.target === "afflicted" ? (cleanseTarget ?? afflictedInSquad[0]?.id ?? null) : null;
+    // A forged policy only where the route card offers one it can use.
+    const forgedHere = forged && forgedPolicyState(camp, forgedThisWeek, tier)?.reason === null;
+    // Another of this route can follow while a slot is free (the camp's
+    // second Scouting Run).
+    const slotLeft = (runsOut.get(tier) ?? 0) + 1 < tierSlots(camp, tier);
     startTransition(async () => {
       const convoy = convoyMode === "new" ? "new" : convoyMode === "join" ? normaliseConvoyCode(joinCode) : null;
       // A campaign stage: bound automatically when this route is the open
       // campaign's next stage and nothing is out for it.
       const forCampaign = campaign && canBind(campaign, tier) && convoy === null ? campaign.id : null;
       const result = await actions.launchExpeditionAction(tier, squadIds, {
-        insured: insured && insuranceLeft > 0 && def.risk !== "none",
+        insured: insured && insuranceLeft > 0 && def.risk !== "none" && !forgedHere,
         target,
         convoy,
         ...(forCampaign !== null ? { campaign: forCampaign } : {}),
+        ...(forgedHere ? { forged: true } : {}),
       });
       setBusyTier(null);
       if (!result.ok) {
@@ -287,16 +322,21 @@ export default function ExpeditionBoard({
       setChosenRoute(null);
       setSquadOpen(false);
       setInsured(false);
+      setForged(false);
       setConvoyMode("solo");
       setJoinCode("");
       setNotice(
-        `${def.label} is out. Back ${easternClock(result.resolvesAt)} ET${def.forks > 0 ? `, with ${def.forks} fork${def.forks === 1 ? "" : "s"} to answer on the way` : ""}.${result.fee > 0 ? ` ${fmtPoints(result.fee)} paid.` : ""}${result.freePolicy ? " This week's free policy covers it." : ""}${
+        `${def.label} is out. Back ${easternClock(result.resolvesAt)} ET${def.forks > 0 ? `, with ${def.forks} fork${def.forks === 1 ? "" : "s"} to answer on the way` : ""}.${result.fee > 0 ? ` ${fmtPoints(result.fee)} paid.` : ""}${result.freePolicy ? " This week's free policy covers it." : ""}${result.forged ? " A forged policy covers it." : ""}${
           convoy === "new" && result.convoyCode
             ? ` Convoy code ${result.convoyCode} — share it; a partner can join until the first fork opens.`
             : convoy
               ? " You're in the convoy: one clock, one set of forks."
               : ""
-        } One run per route at a time — pick three more to send another route.`,
+        }${
+          slotLeft
+            ? ` Your camp's second slot is free — pick three more to send another ${def.label}.`
+            : " One run per route at a time — pick three more to send another route."
+        }`,
       );
       reveal("send-a-squad");
       router.refresh();
@@ -443,7 +483,20 @@ export default function ExpeditionBoard({
           freePolicy={freePolicy}
           insuranceLeft={insuranceLeft}
           insured={insured}
-          onInsured={setInsured}
+          onInsured={(value) => {
+            setInsured(value);
+            if (value) setForged(false);
+          }}
+          camp={camp}
+          forgedThisWeek={forgedThisWeek}
+          forged={forged}
+          onForged={(value) => {
+            setForged(value);
+            if (value) setInsured(false);
+          }}
+          runsOut={runsOut.get(route) ?? 0}
+          league={league}
+          onOpenLeague={() => openDrawerTab("league")}
           convoyMode={convoyMode}
           onConvoyMode={setConvoyMode}
           joinCode={joinCode}
@@ -483,6 +536,34 @@ export default function ExpeditionBoard({
         rivalries={rivalries}
         graves={graves}
         campaign={campaign}
+        camp={
+          camp
+            ? {
+                camp,
+                fragments,
+                balance,
+                relics: wallRelics(copies),
+                // The wall hangs the viewer's own marks, not the season's.
+                accolades: viewerId ? accolades.filter((accolade) => accolade.discordId === viewerId) : [],
+                forgedThisWeek,
+                // Landmarks and roads come with the atlas (Phase 6); until
+                // then the wall leaves those rows out.
+                landmarks: undefined,
+                roads: undefined,
+                onUpgrade: async (upgrade, level) => {
+                  const result = await actions.upgradeCampAction(upgrade, level);
+                  if (result.ok) router.refresh();
+                  return result.ok ? null : result.error;
+                },
+                onForge: async (held) => {
+                  const result = await actions.forgePolicyAction(held);
+                  if (result.ok) router.refresh();
+                  return result.ok ? null : result.error;
+                },
+              }
+            : null
+        }
+        league={league}
         ledgerHref={`${base}/expeditions/ledger`}
         onStartCampaign={async (key) => {
           const result = await actions.startCampaignAction(key, season);

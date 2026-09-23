@@ -9,9 +9,15 @@
 // and only the options that apply to it. The launch button sits under the
 // consent sentence, and a refused launch is printed under the button that
 // was pressed.
+//
+// The board's word for what a squad adds up to is "power" (the chips say
+// "power 7"); the rules' word is shine. Everything printed here says
+// power — the requirement line, and squadMeets' reasons, which are the
+// rules' sentences word for word except for that one word.
 
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { fmtPoints } from "@/lib/betting/format";
+import { forgedPolicyState, tierSlots, type CampState } from "@/lib/expeditions/camp";
 import { CAMPAIGNS, canBind, type CampaignState } from "@/lib/expeditions/campaigns";
 import {
   BRIEF_BONUS,
@@ -28,8 +34,11 @@ import {
 import type { LostHold } from "@/lib/expeditions/queries";
 import { FRAGMENT_CHANCE, consentLine } from "@/lib/expeditions/routes";
 import { boardBlocked, type RouteGate } from "@/lib/expeditions/suggest";
+import type { LeagueBoard } from "@/lib/expeditions/league";
 import { WEATHERS, type WeatherKey } from "@/lib/expeditions/weather";
-import { RISK_CLASS, RISK_LABEL, requirementLine } from "../ExpeditionRules";
+import { ForgedPolicyToggle } from "../CampPanel";
+import { NO_REQUIREMENTS, RISK_CLASS, RISK_LABEL, requirementParts } from "../ExpeditionRules";
+import { LeagueGoalLine } from "../LeagueGoalPanel";
 import ExpeditionIcon, { type ExpeditionIconName } from "../expeditionIcons";
 import StepHeading from "./StepHeading";
 import Term from "./Term";
@@ -56,6 +65,13 @@ function hoursAway(hours: number): string {
   return hours >= 48 && hours % 24 === 0 ? `${hours / 24} days` : `${hours}h`;
 }
 
+/** A gate's sentence in the board's word: squadMeets says "needs 20
+ *  shine — this squad has 12", the board "needs 20 power". Nothing else
+ *  in the sentence changes. */
+export function inPowerWords(text: string): string {
+  return text.replace(/\bshine\b/g, "power");
+}
+
 export default function RouteStep({
   route,
   gates,
@@ -70,6 +86,13 @@ export default function RouteStep({
   insuranceLeft,
   insured,
   onInsured,
+  camp = null,
+  forgedThisWeek = null,
+  forged = false,
+  onForged = () => {},
+  runsOut = 0,
+  league = null,
+  onOpenLeague,
   convoyMode,
   onConvoyMode,
   joinCode,
@@ -100,6 +123,20 @@ export default function RouteStep({
   insuranceLeft: number;
   insured: boolean;
   onInsured: (value: boolean) => void;
+  /** The base camp (fetchCamp): its forged policies for the route card,
+   *  and the Scouting Run's second slot. Null when there is none. */
+  camp?: CampState | null;
+  /** Forged launches this Eastern week; null when unread. */
+  forgedThisWeek?: number | null;
+  /** Whether "Use a forged policy" is ticked. */
+  forged?: boolean;
+  onForged?: (value: boolean) => void;
+  /** This route's runs in the field right now. */
+  runsOut?: number;
+  /** The league goal, for the This-week line; null hides it. */
+  league?: LeagueBoard | null;
+  /** Opens the League tab. */
+  onOpenLeague?: () => void;
   convoyMode: ConvoyMode;
   onConvoyMode: (mode: ConvoyMode) => void;
   joinCode: string;
@@ -126,8 +163,13 @@ export default function RouteStep({
   const risky = def.risk !== "none";
   const binds = campaign !== null && canBind(campaign, route);
   const blocked = !gate.ok || busy;
-  const insuredHere = insured && insuranceLeft > 0 && risky;
-  const needs = requirementLine(def);
+  const forgedState = forgedPolicyState(camp, forgedThisWeek, route);
+  const forgedHere = forged && forgedState !== null && forgedState.reason === null;
+  const insuredHere = insured && insuranceLeft > 0 && risky && !forgedHere;
+  /** Covered either way: the week's policy, or one from the forge. */
+  const coveredHere = insuredHere || forgedHere;
+  const needs = requirementParts(def);
+  const slots = tierSlots(camp, route);
 
   // Keep the selected pill in view on a phone: a preselected Legend Hunt
   // is the third pill, off the edge of a 390px row.
@@ -204,42 +246,45 @@ export default function RouteStep({
           })}
         </div>
 
-        {/* This week, in one line: what changes the road for every run. */}
-        <p data-testid="expedition-brief" className="text-sm leading-7 text-steel">
-          <span className="label-dash mr-2">This week</span>
-          <Term term="brief">
-            <span className="font-semibold text-white">{brief.label} — +{Math.round(BRIEF_BONUS * 100)}% yield</span>
-          </Term>{" "}
-          <span>(send a {brief.role})</span>
-          {weather ? (
-            <>
-              <span aria-hidden> · </span>
-              <Term term="weather" testId="expedition-weather" extra={`${WEATHERS[weather].sky} ${WEATHERS[weather].does.join(" ")}`}>
-                <span aria-hidden className="mr-1 inline-block">
-                  {WEATHERS[weather].glyph}
-                </span>
-                <span className="font-semibold text-white">{WEATHERS[weather].label}</span>
-              </Term>
-            </>
-          ) : null}
-          {playingToday.length > 0 ? (
-            <>
-              <span aria-hidden> · </span>
-              <span data-testid="match-day">
-                <Term term="matchDay">
-                  <span className="font-semibold text-mint">Match day</span>
+        {/* This week, in one line: what changes the road for every run —
+            and under it, the league's shared goal, which opens its tab. */}
+        <div data-testid="expedition-brief" className="flex flex-col">
+          <p className="text-sm leading-7 text-steel">
+            <span className="label-dash mr-2">This week</span>
+            <Term term="brief">
+              <span className="font-semibold text-white">{brief.label} — +{Math.round(BRIEF_BONUS * 100)}% yield</span>
+            </Term>{" "}
+            <span>(send a {brief.role})</span>
+            {weather ? (
+              <>
+                <span aria-hidden> · </span>
+                <Term term="weather" testId="expedition-weather" extra={`${WEATHERS[weather].sky} ${WEATHERS[weather].does.join(" ")}`}>
+                  <span aria-hidden className="mr-1 inline-block">
+                    {WEATHERS[weather].glyph}
+                  </span>
+                  <span className="font-semibold text-white">{WEATHERS[weather].label}</span>
                 </Term>
-                : {playingToday.join(", ")} {playingToday.length === 1 ? "plays" : "play"} tonight, +{Math.round(SURGE_BONUS * 100)}%
-              </span>
-            </>
-          ) : null}
-          {/* Phase 4: the league goal's progress joins this line. */}
-          <span aria-hidden> · </span>
-          <Term term="fragment" buttonTestId="fragments">
-            <ExpeditionIcon name="fragment" className="mr-1 text-purple-200" />
-            {fragments}/{EXPEDITION_TIERS.legendary.fragments} map fragment{fragments === 1 ? "" : "s"}
-          </Term>
-        </p>
+              </>
+            ) : null}
+            {playingToday.length > 0 ? (
+              <>
+                <span aria-hidden> · </span>
+                <span data-testid="match-day">
+                  <Term term="matchDay">
+                    <span className="font-semibold text-mint">Match day</span>
+                  </Term>
+                  : {playingToday.join(", ")} {playingToday.length === 1 ? "plays" : "play"} tonight, +{Math.round(SURGE_BONUS * 100)}%
+                </span>
+              </>
+            ) : null}
+            <span aria-hidden> · </span>
+            <Term term="fragment" buttonTestId="fragments">
+              <ExpeditionIcon name="fragment" className="mr-1 text-purple-200" />
+              {fragments}/{EXPEDITION_TIERS.legendary.fragments} map fragment{fragments === 1 ? "" : "s"}
+            </Term>
+          </p>
+          <LeagueGoalLine league={league} onOpen={onOpenLeague} />
+        </div>
 
         <article
           data-testid={`tier-${route}`}
@@ -298,13 +343,22 @@ export default function RouteStep({
             <div>
               <dt className="label-dash">Needs</dt>
               <dd className="mt-1 flex flex-wrap items-center gap-x-2 text-white">
-                {/\bshine\b/.test(needs) ? (
-                  <Term term="shine">
-                    <span>{needs}</span>
-                  </Term>
-                ) : (
-                  <span>{needs}</span>
-                )}
+                <span data-testid={`tier-${route}-needs`}>
+                  {needs.length === 0
+                    ? NO_REQUIREMENTS
+                    : needs.map((part, index) => (
+                        <Fragment key={part.text}>
+                          {index > 0 ? " · " : null}
+                          {part.power !== undefined ? (
+                            <>
+                              <Term term="power">power</Term> {part.power}
+                            </>
+                          ) : (
+                            part.text
+                          )}
+                        </Fragment>
+                      ))}
+                </span>
                 {gate.ok ? (
                   <span className="inline-flex items-center gap-1 text-xs font-semibold text-mint">
                     <ExpeditionIcon name="check" size={12} />
@@ -329,6 +383,16 @@ export default function RouteStep({
             </p>
           ) : null}
 
+          {slots > 1 && runsOut > 0 && !gate.context.out ? (
+            <p data-testid={`tier-${route}-slot`} className="flex items-start gap-1.5 text-xs font-semibold text-mint">
+              <ExpeditionIcon name="check" className="mt-px" />
+              <span>
+                {runsOut === 1 ? `One ${def.label} is out` : `${runsOut} ${def.label}s are out`}; your camp&apos;s second squad slot lets
+                another go.
+              </span>
+            </p>
+          ) : null}
+
           {/* Why can't I? Every reason, before any click. */}
           {!gate.ok && (squad.length > 0 || gate.state !== "idle") ? (
             <div id={`why-${route}`} data-reason className="flex flex-col gap-1.5 rounded-lg border border-coral/40 bg-coral/5 p-3 text-sm">
@@ -338,7 +402,9 @@ export default function RouteStep({
               </p>
               {gate.context.out ? (
                 <p data-testid={`tier-${route}-out`} className="text-gold">
-                  Already in the field. One {def.label} at a time — bring this one home first.
+                  {slots > 1
+                    ? `Both squads are in the field. Your camp sends ${slots} ${def.label}s at a time — bring one home first.`
+                    : `Already in the field. One ${def.label} at a time — bring this one home first.`}
                 </p>
               ) : null}
               {gate.context.patron ? (
@@ -360,7 +426,7 @@ export default function RouteStep({
                 <ul className="flex flex-col gap-1">
                   {gate.squad.map((reason) => (
                     <li key={reason} className="text-coral">
-                      {reason}
+                      {inPowerWords(reason)}
                     </li>
                   ))}
                 </ul>
@@ -377,7 +443,7 @@ export default function RouteStep({
 
           {/* Only the options that apply to this route. */}
           {risky ? (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <div className="flex flex-wrap items-stretch gap-2">
               <label
                 className={`relative flex min-h-11 flex-1 basis-64 items-center gap-3 rounded-lg border px-3 py-2 ${
                   insuranceLeft === 0 ? "cursor-not-allowed border-line/60" : "cursor-pointer border-line hover:border-steel"
@@ -407,9 +473,19 @@ export default function RouteStep({
                   </span>
                 </span>
               </label>
-              <Term term="insurance" variant="chip">
-                What&apos;s insurance?
-              </Term>
+              {/* The forge's policy stands in for the week's: ticking one
+                  unticks the other (the board), and a launch carries one
+                  or neither. */}
+              {forgedState ? (
+                <div className="flex-1 basis-64">
+                  <ForgedPolicyToggle camp={camp} forgedThisWeek={forgedThisWeek} tier={route} checked={forgedHere} onChange={onForged} />
+                </div>
+              ) : null}
+              <span className="self-center">
+                <Term term="insurance" variant="chip">
+                  What&apos;s insurance?
+                </Term>
+              </span>
             </div>
           ) : null}
 
@@ -503,12 +579,18 @@ export default function RouteStep({
           data-testid={`consent-${route}`}
           className={`flex items-start gap-2 text-sm ${def.risk === "none" ? "text-steel" : def.risk === "dead" ? "text-red-300" : "text-gold"}`}
         >
-          {consentLine(route, squad, insuredHere)}
+          {consentLine(route, squad, coveredHere)}
         </p>
         <p className="text-xs text-steel">
           {[
             def.fee > 0 ? `${fmtPoints(def.fee)} fee at launch` : "Free to send",
-            insuredHere ? (freePolicy ? "insurance free this week" : `${fmtPoints(INSURANCE_FEE)} for insurance`) : null,
+            insuredHere
+              ? freePolicy
+                ? "insurance free this week"
+                : `${fmtPoints(INSURANCE_FEE)} for insurance`
+              : forgedHere
+                ? "insured with a forged policy, no fee"
+                : null,
             def.fragments > 0 ? `uses ${def.fragments} map fragments` : null,
             `back in ${hoursAway(def.durationHours)}`,
           ]

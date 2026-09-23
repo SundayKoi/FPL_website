@@ -22,6 +22,7 @@ import {
   type LeagueBoard,
   type LeagueWeek,
 } from "@/lib/expeditions/league";
+import ExpeditionIcon from "./expeditionIcons";
 
 const FRAGMENT_WORDS = LEAGUE_GOAL_FRAGMENTS === 1 ? "one map fragment" : `${LEAGUE_GOAL_FRAGMENTS} map fragments`;
 
@@ -207,21 +208,28 @@ export function LeagueGoalLine({ league, onOpen }: { league: LeagueBoard | null;
     : `${progress.total} of ${unitCount(goal.target, goal.unit)} ${unitVerb(goal.unit)} ${goal.kind === "landmark" ? "toward" : "on"} ${goal.title} by ${
         progress.collectors === 1 ? "1 collector" : `${progress.collectors} collectors`
       }`;
+  const label = <span className={`font-bold uppercase tracking-[0.14em] ${fell ? "text-mint" : "text-gold"}`}>League goal</span>;
   const body = (
     <>
-      <span className={`font-bold uppercase tracking-[0.14em] ${fell ? "text-mint" : "text-gold"}`}>League goal</span>{" "}
-      <span className="text-white">{text}</span>
+      {label} <span className="text-white">{text}</span>
     </>
   );
   if (onOpen) {
+    // A line of its own under the This-week sentence: the words are
+    // underlined dotted like the board's other explained words, and the
+    // chevron says it opens something.
     return (
       <button
         type="button"
         onClick={onOpen}
         data-testid="league-line"
-        className="inline-flex min-h-11 items-center text-left text-xs underline-offset-4 hover:underline"
+        className="group inline-flex min-h-11 w-fit items-center gap-1.5 text-left text-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       >
-        <span>{body}</span>
+        <span>
+          {label}{" "}
+          <span className="text-white underline decoration-steel/70 decoration-dotted underline-offset-4 group-hover:decoration-white">{text}</span>
+        </span>
+        <ExpeditionIcon name="chevron" className="shrink-0 text-steel group-hover:text-white" />
       </button>
     );
   }

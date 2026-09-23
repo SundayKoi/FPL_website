@@ -8,6 +8,8 @@ import type { Rivalry } from "@/lib/expeditions/company";
 import type { WeatherKey } from "@/lib/expeditions/weather";
 import type { Accolade, StandingRow } from "@/lib/expeditions/standings";
 import type { CampaignState } from "@/lib/expeditions/campaigns";
+import { EMPTY_CAMP, type CampState } from "@/lib/expeditions/camp";
+import type { LeagueBoard } from "@/lib/expeditions/league";
 import ExpeditionBoard from "./ExpeditionBoard";
 import { forkOptions, forksFor } from "@/lib/expeditions/routes";
 import { roadOf } from "@/lib/expeditions/queries";
@@ -31,13 +33,24 @@ const QUIET_ROUTE = (ids: number[]) => ({
 // The two server actions. "use server" modules pull in server-only
 // transitively (runs.ts), so jsdom can't load the real one at all — and the
 // board's whole job here is what it does with the results.
-const { launchExpeditionAction, claimExpeditionAction, decideForkAction, ransomLostCardAction, startCampaignAction, abandonCampaignAction } = vi.hoisted(() => ({
+const {
+  launchExpeditionAction,
+  claimExpeditionAction,
+  decideForkAction,
+  ransomLostCardAction,
+  startCampaignAction,
+  abandonCampaignAction,
+  upgradeCampAction,
+  forgePolicyAction,
+} = vi.hoisted(() => ({
   launchExpeditionAction: vi.fn(),
   claimExpeditionAction: vi.fn(),
   decideForkAction: vi.fn(),
   ransomLostCardAction: vi.fn(),
   startCampaignAction: vi.fn(),
   abandonCampaignAction: vi.fn(),
+  upgradeCampAction: vi.fn(),
+  forgePolicyAction: vi.fn(),
 }));
 vi.mock("@/lib/expeditions/actions", () => ({
   launchExpeditionAction,
@@ -46,6 +59,8 @@ vi.mock("@/lib/expeditions/actions", () => ({
   ransomLostCardAction,
   startCampaignAction,
   abandonCampaignAction,
+  upgradeCampAction,
+  forgePolicyAction,
 }));
 
 const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }));
@@ -183,6 +198,10 @@ function renderBoard(
     viewerId?: string | null;
     campaign?: CampaignState | null;
     legendMark?: boolean;
+    camp?: CampState | null;
+    forgedThisWeek?: number | null;
+    balance?: number;
+    league?: LeagueBoard | null;
   } = {},
 ) {
   return render(
@@ -208,6 +227,10 @@ function renderBoard(
       patron={over.patron}
       policyUsed={over.policyUsed}
       insuredThisWeek={over.insuredThisWeek}
+      camp={over.camp}
+      forgedThisWeek={over.forgedThisWeek}
+      balance={over.balance}
+      league={over.league}
     />,
   );
 }
@@ -230,6 +253,14 @@ function pickTwelveShineSquad() {
  *  route is a tap away. */
 function showRoute(key: string) {
   fireEvent.click(screen.getByTestId(`route-pill-${key}`));
+}
+
+/** What an element reads as on screen: its text without the closed
+ *  definitions of the Terms inside it. */
+function shownText(element: Element): string {
+  const copy = element.cloneNode(true) as Element;
+  copy.querySelectorAll("[hidden]").forEach((node) => node.remove());
+  return copy.textContent ?? "";
 }
 
 /** The drawer mounts one panel at a time (the log by default): open `key`. */
@@ -259,6 +290,8 @@ beforeEach(() => {
     fragments: 0,
   });
   decideForkAction.mockReset().mockResolvedValue({ ok: true, closesAt: "2026-08-28T00:00:00.000Z" });
+  upgradeCampAction.mockReset().mockResolvedValue({ ok: true, camp: EMPTY_CAMP, balance: 0, fragments: 0 });
+  forgePolicyAction.mockReset().mockResolvedValue({ ok: true, camp: EMPTY_CAMP, balance: 0, fragments: 0 });
   ransomLostCardAction.mockReset().mockResolvedValue({ ok: true, balance: 900, paid: 340 });
   refresh.mockReset();
   // The first-visit guide remembers a dismissal here; every case starts
@@ -283,23 +316,28 @@ describe("ExpeditionBoard — the day's brief", () => {
 });
 
 describe("ExpeditionBoard — tier cards", () => {
-  it("prints each tier's entry requirements and duration", () => {
+  it("prints each tier's entry requirements and duration, in the board's word for shine", () => {
     renderBoard();
 
     showRoute("raid");
     const raid = screen.getByTestId("tier-raid");
     expect(within(raid).getByText("Deep Raid")).toBeTruthy();
-    expect(within(raid).getByText("12 shine · 1 foil")).toBeTruthy();
+    expect(shownText(screen.getByTestId("tier-raid-needs"))).toBe("power 12 · 1 foil");
     expect(within(raid).getByText("24 hours away · 2 forks")).toBeTruthy();
 
     showRoute("legend");
     const legend = screen.getByTestId("tier-legend");
-    expect(within(legend).getByText("20 shine · 2 foils · 1 signed")).toBeTruthy();
+    expect(shownText(screen.getByTestId("tier-legend-needs"))).toBe("power 20 · 2 foils · 1 signed");
     expect(within(legend).getByText("48 hours away · 3 forks")).toBeTruthy();
+    // "power" is the Term, and its definition owns up to the rules' word.
+    const power = within(screen.getByTestId("tier-legend-needs")).getByRole("button", { name: "power" });
+    expect(power.closest("[data-term]")?.getAttribute("data-term")).toBe("power");
+    expect(document.getElementById(power.getAttribute("aria-controls")!)!.textContent).toContain("the rules call it shine");
+    expect(shownText(legend)).not.toMatch(/\bshine\b/);
 
     // The ungated tier says so rather than showing an empty line.
     showRoute("scout");
-    expect(within(screen.getByTestId("tier-scout")).getByText("Anyone can run it")).toBeTruthy();
+    expect(shownText(screen.getByTestId("tier-scout-needs"))).toBe("Anyone can run it");
   });
 
   it("locks the Gilded Road for everyone but a patron", () => {
@@ -308,7 +346,7 @@ describe("ExpeditionBoard — tier cards", () => {
     showRoute("gilded");
     const gilded = screen.getByTestId("tier-gilded");
     expect(within(gilded).getByTestId("tier-gilded-patron")).toBeTruthy();
-    expect(within(gilded).getByText("patrons only · 6 shine · 3 signed")).toBeTruthy();
+    expect(shownText(screen.getByTestId("tier-gilded-needs"))).toBe("patrons only · power 6 · 3 signed");
     expect(within(gilded).getByTestId("tier-gilded-locked")).toBeTruthy();
     const button = screen.getByRole("button", { name: "Launch The Gilded Road" }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
@@ -352,11 +390,12 @@ describe("ExpeditionBoard — tier cards", () => {
 
     showRoute("legend");
     const legend = screen.getByTestId("tier-legend");
-    // Verbatim from squadMeets — the board must not restate the gates in
-    // its own words, or the two drift.
+    // squadMeets' sentences — the board must not restate the gates in its
+    // own words, or the two drift — with the one word the board says
+    // differently: power, where the rules say shine.
     expect(within(legend).getByText("Legend Hunt needs 2 foil cards — this squad has 1.")).toBeTruthy();
     expect(within(legend).getByText("Legend Hunt needs 1 signed card — this squad has 0.")).toBeTruthy();
-    expect(within(legend).getByText("Legend Hunt needs 20 shine — this squad has 12.")).toBeTruthy();
+    expect(within(legend).getByText("Legend Hunt needs 20 power — this squad has 12.")).toBeTruthy();
     expect((screen.getByRole("button", { name: "Launch Legend Hunt" }) as HTMLButtonElement).disabled).toBe(true);
 
     // The same squad clears Deep Raid on the nose: 12 shine, one foil.
@@ -1639,5 +1678,186 @@ describe("ExpeditionBoard — edges on the board", () => {
     await click(screen.getByRole("button", { name: "Claim the Deep Raid" }));
     expect(screen.getByTestId("expedition-ceremony")).toBeTruthy();
     expect(screen.queryByTestId("ceremony-edges")).toBeNull();
+  });
+});
+
+// ── The base camp (Phase 3) and the league goal (Phase 4) on the board ────
+
+const camp = (over: Partial<CampState> = {}): CampState => ({ ...EMPTY_CAMP, ...over });
+
+describe("ExpeditionBoard — the base camp", () => {
+  it("has a Camp tab only when there is a camp to show", () => {
+    renderBoard();
+    expect(screen.queryByTestId("tab-camp")).toBeNull();
+    cleanup();
+
+    renderBoard({ camp: camp(), balance: 2000, fragments: 2 });
+    openTab("camp");
+    expect(screen.getByTestId("tab-camp").getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByTestId("camp-wallet").textContent).toContain("$2,000");
+    expect(screen.getByTestId("camp-wallet").textContent).toContain("2 map fragments");
+  });
+
+  it("builds through the action and refreshes; a refusal is printed in the panel", async () => {
+    renderBoard({ camp: camp({ tent: 1 }), balance: 5000, fragments: 2 });
+    openTab("camp");
+    await click(screen.getByTestId("camp-buy-tent"));
+    expect(upgradeCampAction).toHaveBeenCalledWith("tent", 2);
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    upgradeCampAction.mockResolvedValue({ ok: false, error: "You can't cover that price." });
+    await click(screen.getByTestId("camp-buy-slot"));
+    expect(upgradeCampAction).toHaveBeenLastCalledWith("slot", 1);
+    expect(screen.getByTestId("camp-error").textContent).toBe("You can't cover that price.");
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("forges through the action with the count the player saw", async () => {
+    renderBoard({ camp: camp({ forge: 1, forgedPolicies: 1 }), balance: 0, fragments: 2, forgedThisWeek: 0 });
+    openTab("camp");
+    await click(screen.getByTestId("camp-buy-policy"));
+    expect(forgePolicyAction).toHaveBeenCalledWith(1);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("hangs the shelf's relics and only the viewer's own marks on the wall", () => {
+    const relic = makeCopy(8, "Vesper", "diamond", {
+      card: { ...makeCard("Vesper", "Mid"), campaign: { key: "lost_print", date: "2026-08-20", campaign: 3, runs: [1, 2, 3], from: 1 } },
+    });
+    const accolades: Accolade[] = [
+      { kind: "pathfinder", discordId: "me", username: "Me", value: 40, awardedAt: "2026-08-20T00:00:00.000Z" },
+      { kind: "plunderer", discordId: "them", username: "Them", value: 9000, awardedAt: "2026-08-20T00:00:00.000Z" },
+    ];
+    renderBoard({ camp: camp({ wall: 1 }), copies: [...COPIES, relic], accolades, viewerId: "me" });
+    openTab("camp");
+    expect(within(screen.getByTestId("camp-wall-relics")).getByText("Vesper")).toBeTruthy();
+    const marks = screen.getByTestId("camp-wall-marks");
+    expect(within(marks).getAllByRole("listitem")).toHaveLength(1);
+    expect(marks.textContent).toContain("Pathfinder");
+    // The atlas rows wait for the atlas.
+    expect(screen.queryByTestId("camp-wall-landmarks")).toBeNull();
+    expect(screen.queryByTestId("camp-wall-roads-empty")).toBeNull();
+  });
+
+  it("offers a forged policy beside the insurance on a risky route, never both ticked, and launches with it", async () => {
+    renderBoard({ camp: camp({ forge: 1, forgedPolicies: 1 }), forgedThisWeek: 0 });
+    pickTwelveShineSquad();
+    showRoute("raid");
+    const insure = screen.getByRole("checkbox", { name: /Insure this run/ }) as HTMLInputElement;
+    const forge = screen.getByRole("checkbox", { name: /Use a forged policy/ }) as HTMLInputElement;
+    expect(within(screen.getByTestId("tier-raid")).getByTestId("forged-policy")).toBeTruthy();
+
+    fireEvent.click(insure);
+    expect(insure.checked).toBe(true);
+    fireEvent.click(forge);
+    expect(forge.checked).toBe(true);
+    expect(insure.checked).toBe(false);
+    fireEvent.click(insure);
+    expect(insure.checked).toBe(true);
+    expect(forge.checked).toBe(false);
+    fireEvent.click(forge);
+    expect(screen.getByTestId("step-send").textContent).toContain("insured with a forged policy, no fee");
+
+    await click(screen.getByRole("button", { name: "Launch Deep Raid" }));
+    expect(launchExpeditionAction).toHaveBeenCalledWith("raid", [1, 2, 3], { insured: false, target: null, convoy: null, forged: true });
+  });
+
+  it("hides the forged policy on a route that can't hurt a card, and says why it can't be used once the week's is spent", () => {
+    renderBoard({ camp: camp({ forge: 1, forgedPolicies: 1 }), forgedThisWeek: 1 });
+    pickTwelveShineSquad();
+    showRoute("scout");
+    expect(screen.queryByTestId("forged-policy")).toBeNull();
+    showRoute("raid");
+    const forge = screen.getByRole("checkbox", { name: /Use a forged policy/ }) as HTMLInputElement;
+    expect(forge.disabled).toBe(true);
+    expect(screen.getByTestId("forged-policy-reason").textContent).toContain("Monday");
+  });
+
+  it("lets a second Scouting Run go while one is out, once the camp has the slot", () => {
+    const scoutOut = (id: number) => makeRun({ id, tier: "scout", squad: [9 + id, 8, 7] });
+
+    // No camp: one Scouting Run at a time.
+    renderBoard({ runs: [scoutOut(40)] });
+    pickTwelveShineSquad();
+    showRoute("scout");
+    expect(screen.getByTestId("route-pill-scout").textContent).toContain("out now");
+    expect(screen.getByTestId("tier-scout-out").textContent).toContain("One Scouting Run at a time");
+    expect((screen.getByRole("button", { name: "Launch Scouting Run" }) as HTMLButtonElement).disabled).toBe(true);
+    cleanup();
+
+    // The slot: the second squad can go, and the card says why.
+    renderBoard({ runs: [scoutOut(40)], camp: camp({ slots: 1 }) });
+    pickTwelveShineSquad();
+    showRoute("scout");
+    expect(screen.getByTestId("route-pill-scout").textContent).not.toContain("out now");
+    expect(screen.queryByTestId("tier-scout-out")).toBeNull();
+    expect(screen.getByTestId("tier-scout-slot").textContent).toContain("One Scouting Run is out");
+    expect((screen.getByRole("button", { name: "Launch Scouting Run" }) as HTMLButtonElement).disabled).toBe(false);
+    cleanup();
+
+    // Both slots out: shut again, in the camp's words. Other routes keep
+    // one at a time whatever the camp.
+    renderBoard({ runs: [scoutOut(40), scoutOut(41), makeRun({ id: 42, tier: "raid", squad: [20, 21, 22] })], camp: camp({ slots: 1 }) });
+    pickTwelveShineSquad();
+    showRoute("scout");
+    expect(screen.getByTestId("route-pill-scout").textContent).toContain("out now");
+    expect(screen.getByTestId("tier-scout-out").textContent).toContain("2 Scouting Runs at a time");
+    showRoute("raid");
+    expect(screen.getByTestId("tier-raid-out").textContent).toContain("One Deep Raid at a time");
+  });
+
+  it("tells the collector a second scout can follow after the first launches", async () => {
+    launchExpeditionAction.mockResolvedValue({ ok: true, runId: 99, resolvesAt: "2026-08-28T00:00:00.000Z", fee: 0, freePolicy: false, convoyCode: null });
+    renderBoard({ camp: camp({ slots: 1 }) });
+    pickTwelveShineSquad();
+    showRoute("scout");
+    await click(screen.getByRole("button", { name: "Launch Scouting Run" }));
+    expect(screen.getByTestId("expedition-notice").textContent).toContain("second slot is free");
+  });
+});
+
+describe("ExpeditionBoard — the league goal", () => {
+  const league = () => boardFixture("mid", new Date()).league!;
+
+  it("shows nothing of the league goal when there is none", () => {
+    renderBoard();
+    expect(screen.queryByTestId("league-line")).toBeNull();
+    expect(screen.queryByTestId("tab-league")).toBeNull();
+  });
+
+  it("puts the goal's progress in the This-week line, and opens the League tab from it", async () => {
+    renderBoard({ league: league() });
+    const line = within(screen.getByTestId("expedition-brief")).getByTestId("league-line");
+    expect(line.textContent).toContain("League goal");
+    expect(line.textContent).toContain("by 4 collectors");
+    expect(screen.getByTestId("tab-league").getAttribute("aria-selected")).toBe("false");
+
+    await click(line);
+
+    expect(screen.getByTestId("tab-league").getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByTestId("league-goal")).toBeTruthy();
+    expect(screen.getByTestId("league-goal-mine").textContent).toContain("3rd of 4 collectors");
+  });
+});
+
+describe("ExpeditionBoard — the personas' camp and league", () => {
+  it("gives the veteran a Camp and a League tab, the mid-game collector a League tab, the newcomer neither", () => {
+    const tabs = () => [...screen.getByTestId("more-tabs").querySelectorAll("[role=tab]")].map((tab) => tab.textContent);
+    const { unmount } = renderPersona("veteran");
+    expect(tabs()).toEqual(["Log", "Standings", "Campaigns", "Camp", "League", "Graveyard", "Rules"]);
+    openTab("camp");
+    expect(screen.getByTestId("camp-slot-level").textContent).toContain("level 1 of 1");
+    expect(screen.getByTestId("camp-policy-held").textContent).toContain("You hold 1 of 2 forged policies.");
+    expect(within(screen.getByTestId("camp-wall-relics")).getByText("Vesper")).toBeTruthy();
+    openTab("league");
+    expect(screen.getByTestId("league-last-fell").textContent).toContain("Vanguard");
+    unmount();
+
+    const mid = renderPersona("mid");
+    expect(tabs()).toEqual(["Log", "Standings", "Campaigns", "League", "Graveyard", "Rules"]);
+    mid.unmount();
+
+    renderPersona("new");
+    expect(tabs()).toEqual(["Log", "Standings", "Campaigns", "Graveyard", "Rules"]);
   });
 });

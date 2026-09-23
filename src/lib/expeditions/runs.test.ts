@@ -14,6 +14,12 @@ vi.mock("@/lib/betting/service-client", () => ({ createBettingServiceClient }));
 const { postCardsWebhook } = vi.hoisted(() => ({ postCardsWebhook: vi.fn() }));
 vi.mock("@/lib/packs/announce", () => ({ postCardsWebhook, GOLD: 0xe8c14b, LIVE_RED: 0xff5063 }));
 
+// The league goal's step in the sweep has its own suite (leagueSweep.test.ts);
+// here it is a stand-in, so these sweeps count only what runs.ts does and
+// the one case below can prove it is called, and fenced.
+const { sweepLeagueGoals } = vi.hoisted(() => ({ sweepLeagueGoals: vi.fn() }));
+vi.mock("./leagueSweep", () => ({ sweepLeagueGoals }));
+
 // The CSPRNG itself, scripted. Mocking node:crypto rather than injecting a
 // rand keeps the module under test on the exact production line
 // (`randomBytes(6).readUIntBE(0, 6) / 2 ** 48`) — a refactor that reached
@@ -235,6 +241,7 @@ const scoutSquad = [copyRow({ id: 1 }), copyRow({ id: 2 }), copyRow({ id: 3 })];
 beforeEach(() => {
   createBettingServiceClient.mockReset();
   postCardsWebhook.mockReset();
+  sweepLeagueGoals.mockReset().mockResolvedValue({ checked: 0, fell: 0, rewarded: 0, errors: [] });
   randomBytes.mockReset();
   scriptRand();
   // Claim day is the 28th; every run below launched on the 27th, so the two
@@ -860,6 +867,37 @@ describe("sweepExpeditions", () => {
     );
     const update = service.calls.find((call) => call.verb === "update");
     expect(update).toMatchObject({ table: "expedition_runs", payload: { pinged: 1 }, filters: { id: 1 } });
+  });
+
+  it("walks the league goal once a pass, with the sweep's client and clock, and keeps what it reports", async () => {
+    const service = createService(() => ({ data: [] }));
+    service.rpc.mockResolvedValue({ data: 0, error: null });
+    createBettingServiceClient.mockReturnValue(service.client);
+    sweepLeagueGoals.mockResolvedValue({ checked: 2, fell: 1, rewarded: 3, errors: ["league S5 2026-08-24: boom"] });
+    const now = new Date("2026-08-28T18:00:00.000Z");
+
+    const result = await sweepExpeditions(now);
+
+    expect(sweepLeagueGoals).toHaveBeenCalledTimes(1);
+    expect(sweepLeagueGoals).toHaveBeenCalledWith(service.client, now);
+    expect(result.errors).toEqual(["league S5 2026-08-24: boom"]);
+  });
+
+  it("survives the league goal throwing: one line in errors, and the forks still pinged", async () => {
+    const service = createService((call) =>
+      call.table === "expedition_runs" && call.verb === "select"
+        ? { data: [runRow({ id: 1, tier: "raid", forks: 2, startedAt: "2026-08-28T09:00:00.000Z", resolvesAt: "2026-08-29T09:00:00.000Z" })] }
+        : { data: null },
+    );
+    service.rpc.mockResolvedValue({ data: 0, error: null });
+    createBettingServiceClient.mockReturnValue(service.client);
+    sweepLeagueGoals.mockRejectedValue(new Error("relation expedition_league_progress does not exist"));
+
+    const result = await sweepExpeditions(new Date("2026-08-28T18:00:00.000Z"));
+
+    expect(result.errors).toEqual(["league: relation expedition_league_progress does not exist"]);
+    expect(result.pinged).toBe(1);
+    expect(postCardsWebhook).toHaveBeenCalledWith(expect.objectContaining({ title: "Deep Raid — the squad is at a fork" }), expect.any(String));
   });
 });
 

@@ -4,7 +4,7 @@
 // module of async functions the board picks instead of the server actions
 // when it is rendered with `preview`.
 
-import type { CampaignActionResult } from "@/lib/expeditions/actions";
+import type { CampActionResult, CampaignActionResult } from "@/lib/expeditions/actions";
 import type { ClaimResult, DecideResult, LaunchResult, RansomResult } from "@/lib/expeditions/runs";
 
 export const PREVIEW_REFUSAL = "This is a preview: nothing was sent.";
@@ -16,4 +16,6 @@ export const PREVIEW_ACTIONS = {
   ransomLostCardAction: async (): Promise<RansomResult> => ({ ok: false, error: PREVIEW_REFUSAL }),
   startCampaignAction: async (): Promise<CampaignActionResult> => ({ ok: false, error: PREVIEW_REFUSAL }),
   abandonCampaignAction: async (): Promise<CampaignActionResult> => ({ ok: false, error: PREVIEW_REFUSAL }),
+  upgradeCampAction: async (): Promise<CampActionResult> => ({ ok: false, error: PREVIEW_REFUSAL }),
+  forgePolicyAction: async (): Promise<CampActionResult> => ({ ok: false, error: PREVIEW_REFUSAL }),
 };

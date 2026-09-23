@@ -28,7 +28,8 @@ export interface RouteContext {
   fragments: number;
   patron: boolean;
   legendMark: boolean;
-  /** Routes with a run in the field — one of each at a time. */
+  /** Routes with every slot in the field: one run of each at a time, two
+   *  Scouting Runs once the base camp has its squad slot (tierSlots). */
   tiersOut: ReadonlySet<string>;
   /** Cards lost right now; a Rescue needs one to go after. */
   lostCards: number;

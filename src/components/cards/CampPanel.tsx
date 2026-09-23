@@ -42,6 +42,7 @@ import {
 } from "@/lib/expeditions/camp";
 import { EXPEDITION_TIERS, type ExpeditionTierKey } from "@/lib/expeditions/config";
 import { ACCOLADES, type Accolade } from "@/lib/expeditions/standings";
+import ExpeditionIcon from "./expeditionIcons";
 
 export interface CampPanelProps {
   /** The collector's camp (fetchCamp). Null hides the panel. */
@@ -385,20 +386,33 @@ export function ForgedPolicyToggle({
   const state = forgedPolicyState(camp, forgedThisWeek, tier);
   if (!state) return null;
   const blocked = state.reason !== null;
+  const ticked = checked && !blocked;
   return (
-    <div data-testid="forged-policy" className="flex flex-col gap-1">
-      <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
+    <div data-testid="forged-policy" className="flex h-full flex-col gap-1">
+      {/* The whole bordered row is the tap target (the box itself is
+          20px), the same shape as "Insure this run" beside it. */}
+      <label
+        className={`relative flex min-h-11 flex-1 items-center gap-3 rounded-lg border px-3 py-2 ${
+          blocked ? "cursor-not-allowed border-line/60" : "cursor-pointer border-line hover:border-steel"
+        }`}
+      >
         <input
           type="checkbox"
           data-testid="forged-policy-toggle"
-          checked={checked && !blocked}
+          checked={ticked}
           disabled={blocked}
           aria-describedby={blocked ? reasonId : undefined}
           onChange={(event) => onChange(event.target.checked)}
-          className="h-5 w-5 shrink-0 accent-[var(--color-gold)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="peer absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-lg opacity-0 disabled:cursor-not-allowed"
         />
-        <span>
-          <span className="text-white">Use a forged policy</span>{" "}
+        <span
+          aria-hidden
+          className="grid h-5 w-5 shrink-0 place-content-center rounded border border-steel text-canvas peer-checked:border-gold peer-checked:bg-gold peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus peer-disabled:opacity-40"
+        >
+          {ticked ? <ExpeditionIcon name="check" size={12} /> : null}
+        </span>
+        <span className="flex flex-col">
+          <span className="text-sm font-semibold text-white">Use a forged policy</span>
           <span className="text-xs text-steel">
             free insurance from your forge: no fee, and this week&apos;s policy stays unused · {plural(state.held, "forged policy", "forged policies")}{" "}
             held · lost becomes wounded, dead becomes lost
