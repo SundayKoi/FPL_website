@@ -447,12 +447,19 @@ regular season or the playoffs.
 
 A bracket that has already been decided goes in as a file rather than by
 hand: `scripts/data/brackets/*.json` holds the matchups, kickoffs and
-series lengths (the Academy playoffs are `academy-2026-playoffs.json`),
+series lengths (the Premier and Academy files are named for their league),
 and the **Seed bracket** workflow puts them on the schedule — Actions →
 "Seed bracket" → Run workflow.
 
+The workflow defaults to `premier-2026-playoffs.json`. Select the Academy
+file explicitly when seeding Academy. Premier initialization also requires
+the Premier playoff migrations on the target database and a reviewed bracket
+file with `publishing_approved: true`; the checked-in file starts with this
+flag false while its kickoff dates are provisional. The Premier write uses
+an atomic RPC, and later rounds stay TBD until staff publish advancement.
+
 **Dry run is ticked by default.** A dry run reads the database, checks
-every team name against the league's team list, prints the exact
+every team name against the selected draft and canonical team list, prints the exact
 fixtures it would insert, update or leave alone, and writes nothing — a
 misspelt team fails the run with the bad names listed instead of landing
 a fixture whose send-off prints nobody. Read that log, then run it again
@@ -460,9 +467,9 @@ with the box unticked.
 
 Writing is repeatable: rows are keyed by season, stage and sort order,
 so a second run rewrites the rows it wrote rather than adding a second
-copy; a fixture that already has a score is left completely alone; and
-nothing is ever deleted. Fix a kickoff or fill in a TBD in the file and
-run it again. Same thing locally, with `SUPABASE_URL` and
+copy. Academy leaves a scored fixture alone; Premier refuses to change a
+fixture with scores or dependent work. Nothing is ever deleted. Update the
+file and rerun the dry run before writing. Same thing locally, with `SUPABASE_URL` and
 `SUPABASE_SERVICE_ROLE_KEY` set:
 
 ```bash
