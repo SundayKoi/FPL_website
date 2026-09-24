@@ -11,9 +11,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { easternDateOf } from "@/lib/packs/week";
 import type { ExpeditionMark, ExpeditionOutcome, ExpeditionTierKey, OutcomeGrade } from "./config";
-import { ROAD_RULES, type CardFate, type RecordedChoice, type RoadRef, type RouteEvent } from "./routes";
+// ROAD_RULES from forks.ts, not routes.ts: the board's client components
+// read hasRoad/roadOf from here, and routes.ts is the road itself.
+import { ROAD_RULES, type RecordedChoice, type RoadRef } from "./forks";
+import type { CardFate, RouteEvent } from "./routes";
 import type { RivalRecord, RoadCompany } from "./company";
 import type { WeatherKey } from "./weather";
+import { campFromRow, maxLevel, type CampState } from "./camp";
+import type { AbilityKind } from "./archetypes";
+import type { EncounterKey } from "./journal";
 
 /**
  * The outcome as the ROW stores it, which is not quite what rollOutcome
@@ -51,6 +57,12 @@ export type ExpeditionRunOutcome = Omit<ExpeditionOutcome, "briefHit"> & {
    *  Empty on runs from before COMPANY_RULES; optional so older fixtures
    *  and rows read as "none". */
   rivals?: RivalRecord[];
+  /** The edges that counted on the run (archetypes.ts), as the claim
+   *  stored them. Absent on runs stamped below ARCHETYPE_RULES. */
+  abilities?: { copyId: number; title: string; kind: AbilityKind }[];
+  /** What the run walked (atlas.ts), as the claim stamped it. Absent on
+   *  runs claimed before the atlas, unless the backfill stamped them. */
+  atlas?: AtlasStamp;
 };
 
 /** A run's tier, or 'lost': the HOLD on a lost card, which the board draws
@@ -108,6 +120,21 @@ export function hasRoad(run: Pick<ExpeditionRun, "rules">): boolean {
   return run.rules >= ROAD_RULES;
 }
 
+/**
+ * The rulebook the database will stamp on the next launch — for the one
+ * decision the app makes before the row exists (the Speedrunner's clock,
+ * archetypes.ts). Service role only. An environment that has not applied
+ * 20261101000001 has no such function, and an error of any kind reads as
+ * the oldest rulebook: a launch that assumed rules it will not be stamped
+ * with would cut a clock nothing pays for.
+ */
+export async function fetchRulesVersion(supabase: SupabaseClient): Promise<number> {
+  const { data, error } = await supabase.rpc("expedition_rules_version");
+  if (error) return 1;
+  const rules = Number(data);
+  return Number.isInteger(rules) && rules > 0 ? rules : 1;
+}
+
 /** The handle the road-drawing functions take, off a run row. */
 export function roadOf(run: Pick<ExpeditionRun, "id" | "rules" | "convoy" | "forks"> & { road?: string[] | null }): RoadRef {
   return { runId: run.id, rules: run.rules, convoy: run.convoy, forks: run.forks, places: run.road ?? null };
@@ -140,6 +167,8 @@ interface RunDbRow {
     surge?: string[] | null;
     echo?: { slug?: string; week?: string; moment?: number } | null;
     rivals?: RivalRecord[] | null;
+    abilities?: unknown;
+    atlas?: unknown;
   } | null;
   claimed_at: string | null;
   forks: number | null;
@@ -189,6 +218,9 @@ export function mapRun(row: RunDbRow): ExpeditionRun {
           rivals: Array.isArray(row.outcome.rivals)
             ? row.outcome.rivals.filter((rival) => rival && typeof rival.who === "string").map((rival) => ({ who: rival.who, name: String(rival.name ?? "Another collector"), runId: Number(rival.runId ?? 0), won: rival.won === true }))
             : [],
+          // Present only when the row carries them, so a run from before
+          // either reads exactly as it always did.
+          ...outcomeExtras(row.outcome),
         }
       : null,
     claimedAt: row.claimed_at,
@@ -317,6 +349,42 @@ export async function fetchInsuredThisWeek(supabase: SupabaseClient, discordId: 
     .neq("tier", "lost")
     .gte("started_at", since);
   if (error || !Array.isArray(data)) return 0;
+  return (data as { started_at: string }[]).filter((row) => easternDateOf(new Date(row.started_at)) >= weekStart).length;
+}
+
+// === the base camp ===========================================================
+// Both reads fail soft to null, and null means "the camp is not here": the
+// base camp migration (*_expedition_base_camp.sql) is not applied (no
+// table, no `forged` column) or the read broke. The page hides the Camp
+// tab and the forged-policy option on null, and the claim reads null as no
+// tent — every collector's camp before the camp existed. No row is not
+// null: it is a camp with nothing built yet.
+
+/** The collector's base camp (camp.ts), or null when it cannot be read. */
+export async function fetchCamp(supabase: SupabaseClient, discordId: string): Promise<CampState | null> {
+  const { data, error } = await supabase
+    .from("expedition_camps")
+    .select("slots, tent, forge, wall, forged_policies, spent")
+    .eq("discord_id", discordId)
+    .maybeSingle();
+  if (error) return null;
+  return campFromRow(data as Record<string, unknown> | null);
+}
+
+/** How many forged launches this collector has sent since Monday, Eastern
+ *  — against FORGED_PER_WEEK. Counted off the runs, the way the RPC counts
+ *  them. Null when it cannot be read. */
+export async function fetchForgedThisWeek(supabase: SupabaseClient, discordId: string, weekStart: string): Promise<number | null> {
+  // A day early in UTC, then trimmed on the Eastern calendar, exactly as
+  // fetchInsuredThisWeek does.
+  const since = new Date(new Date(`${weekStart}T00:00:00Z`).getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("expedition_runs")
+    .select("started_at")
+    .eq("discord_id", discordId)
+    .eq("forged", true)
+    .gte("started_at", since);
+  if (error || !Array.isArray(data)) return null;
   return (data as { started_at: string }[]).filter((row) => easternDateOf(new Date(row.started_at)) >= weekStart).length;
 }
 
@@ -769,4 +837,437 @@ export async function hasLegendMark(supabase: SupabaseClient, discordId: string)
     .limit(1);
   if (error) return false;
   return ((data as { id: number }[] | null) ?? []).length > 0;
+}
+
+// === the league's expedition of the week =====================================
+
+import {
+  leagueBoardFor,
+  weeksToWatch,
+  type LeagueBoard,
+  type LeagueFixture,
+  type LeagueGoalKind,
+  type LeagueGoalRecord,
+  type LeagueProgressRow,
+} from "./league";
+
+// Every read below fails soft to null, not to an empty list: null means
+// "the league goal is not here" (20261103000001 not applied, or the read
+// broke) and hides the panel, while [] means "nobody has walked yet" and
+// shows a goal at zero. A season of null reads every season — the sweep's
+// view; the page always passes its own league's season.
+
+interface LeagueProgressDbRow {
+  season: string;
+  week_start: string;
+  discord_id: string;
+  username: string | null;
+  miles: number | null;
+  pushes: number | null;
+}
+
+/** Each collector's miles and pushes for these weeks (the public
+ *  expedition_league_progress view), or null when it cannot be read.
+ *  `onError` hears why — the sweep reports it, the page does not care. */
+export async function fetchLeagueProgress(
+  supabase: SupabaseClient,
+  season: string | null,
+  weeks: string[],
+  onError?: (message: string) => void,
+): Promise<LeagueProgressRow[] | null> {
+  if (weeks.length === 0) return [];
+  let query = supabase
+    .from("expedition_league_progress")
+    .select("season, week_start, discord_id, username, miles, pushes")
+    .in("week_start", weeks);
+  if (season !== null) query = query.eq("season", season);
+  const { data, error } = await query;
+  if (error) {
+    onError?.(error.message ?? String(error));
+    return null;
+  }
+  return ((data as LeagueProgressDbRow[] | null) ?? []).map((row) => ({
+    season: String(row.season),
+    weekStart: String(row.week_start),
+    discordId: String(row.discord_id),
+    username: row.username ?? "Unknown",
+    miles: Number(row.miles ?? 0),
+    pushes: Number(row.pushes ?? 0),
+  }));
+}
+
+interface LeagueGoalDbRow {
+  season: string;
+  week_start: string;
+  kind: string;
+  target: number | null;
+  fell_at: string;
+  top_id: string | null;
+}
+
+interface LeagueRewardDbRow {
+  season: string;
+  week_start: string;
+  discord_id: string;
+  fragments: number | null;
+  top: boolean | null;
+}
+
+/** The goals that fell in these weeks, each with who was paid; null when
+ *  the goals cannot be read. The rewards are softer still: a failed read
+ *  leaves a fallen goal with nobody listed rather than hiding it. */
+export async function fetchLeagueGoals(
+  supabase: SupabaseClient,
+  season: string | null,
+  weeks: string[],
+): Promise<LeagueGoalRecord[] | null> {
+  if (weeks.length === 0) return [];
+  let goalsQuery = supabase
+    .from("expedition_league_goals")
+    .select("season, week_start, kind, target, fell_at, top_id")
+    .in("week_start", weeks);
+  if (season !== null) goalsQuery = goalsQuery.eq("season", season);
+  const { data, error } = await goalsQuery;
+  if (error) return null;
+  const goals = ((data as LeagueGoalDbRow[] | null) ?? []).filter((row) => row.kind === "landmark" || row.kind === "boss");
+  if (goals.length === 0) return [];
+
+  let rewardsQuery = supabase
+    .from("expedition_league_rewards")
+    .select("season, week_start, discord_id, fragments, top")
+    .in("week_start", [...new Set(goals.map((goal) => String(goal.week_start)))]);
+  if (season !== null) rewardsQuery = rewardsQuery.eq("season", season);
+  const { data: rewardData, error: rewardError } = await rewardsQuery;
+  const rewards = rewardError ? [] : ((rewardData as LeagueRewardDbRow[] | null) ?? []);
+
+  return goals.map((goal) => ({
+    season: String(goal.season),
+    weekStart: String(goal.week_start),
+    kind: goal.kind as LeagueGoalKind,
+    target: Number(goal.target ?? 0),
+    fellAt: String(goal.fell_at),
+    topId: goal.top_id ?? null,
+    rewards: rewards
+      // A reward belongs to its own league's goal: the same week in the
+      // other season is somebody else's fall.
+      .filter((reward) => reward.season === goal.season && String(reward.week_start) === String(goal.week_start))
+      .map((reward) => ({ discordId: String(reward.discord_id), fragments: Number(reward.fragments ?? 1), top: reward.top === true })),
+  }));
+}
+
+/** The fixtures that could name these weeks' goals, with their season so
+ *  the other league's matches can be told apart. A day either side in UTC;
+ *  league.ts trims to the Eastern week. Fails soft to none: an unnamed
+ *  goal is the Cairn of the Week, not a missing one. */
+export async function fetchLeagueFixtures(
+  supabase: SupabaseClient,
+  season: string | null,
+  weeks: string[],
+): Promise<LeagueFixture[]> {
+  if (weeks.length === 0) return [];
+  const dayMs = 24 * 60 * 60 * 1000;
+  const sorted = [...weeks].sort();
+  const since = new Date(Date.parse(`${sorted[0]}T00:00:00Z`) - dayMs).toISOString();
+  const until = new Date(Date.parse(`${sorted[sorted.length - 1]}T00:00:00Z`) + 8 * dayMs).toISOString();
+  let query = supabase
+    .from("fixtures")
+    .select("team_a, team_b, scheduled_at, season")
+    .gte("scheduled_at", since)
+    .lt("scheduled_at", until);
+  if (season !== null) query = query.eq("season", season);
+  const { data, error } = await query.order("scheduled_at", { ascending: true }).limit(200);
+  if (error) return [];
+  return ((data as LeagueFixture[] | null) ?? []);
+}
+
+/** The board's league goal for one season — this week's and last's — or
+ *  null when the feature is not here. One call for the page. */
+export async function fetchLeagueBoard(
+  supabase: SupabaseClient,
+  season: string,
+  viewerId: string | null,
+  now = new Date(),
+): Promise<LeagueBoard | null> {
+  const weeks = weeksToWatch(now);
+  const [progress, goals, fixtures] = await Promise.all([
+    fetchLeagueProgress(supabase, season, weeks),
+    fetchLeagueGoals(supabase, season, weeks),
+    fetchLeagueFixtures(supabase, season, weeks),
+  ]);
+  return leagueBoardFor({ season, now, fixtures, progress, goals, viewerId });
+}
+
+// === the road ahead ==========================================================
+
+import type { RevealReads } from "./reveal";
+
+/** A convoy partner's run, as fetchConvoyViews names it. */
+export interface PartnerRun {
+  discordId: string;
+  runId: number;
+}
+
+/**
+ * The paid reveals (expedition_reveals) that touch these runs: which of
+ * this collector's runs have one, and which of their convoy partners' runs
+ * do — two squads on one road share one map. Read with the service client,
+ * since a partner's reveal is theirs; every row is matched back to the
+ * collector who owns the run it names, so a stray id reveals nothing.
+ *
+ * Null when the table cannot be read (the expedition_road_ahead migration
+ * is not applied, or the read broke). That is "none paid" to the fog, which still applies, and
+ * "hide the button" to the board: a spend that could not be read back
+ * could not be shown either.
+ */
+export async function fetchReveals(
+  supabase: SupabaseClient,
+  discordId: string,
+  runIds: number[],
+  partners: PartnerRun[] = [],
+): Promise<RevealReads | null> {
+  const mine = new Set(runIds.filter((id) => Number.isInteger(id)));
+  const partnerOf = new Map(
+    partners.filter((partner) => Number.isInteger(partner.runId) && typeof partner.discordId === "string").map((partner) => [partner.runId, partner.discordId]),
+  );
+  const ids = [...new Set([...mine, ...partnerOf.keys()])];
+  if (ids.length === 0) return { mine: new Set(), partner: new Set() };
+  const { data, error } = await supabase.from("expedition_reveals").select("run_id, discord_id").in("run_id", ids);
+  if (error) return null;
+  const paid = new Set<number>();
+  const partner = new Set<number>();
+  for (const row of ((data as { run_id: number | string; discord_id: string }[] | null) ?? [])) {
+    const id = Number(row.run_id);
+    if (mine.has(id) && row.discord_id === discordId) paid.add(id);
+    if (partnerOf.get(id) === row.discord_id) partner.add(id);
+  }
+  return { mine: paid, partner };
+}
+
+// === the atlas ===============================================================
+
+import { fetchAllPages } from "@/lib/supabase/pagination";
+import type { AtlasAward, AtlasLandmark, AtlasRun } from "./atlas";
+
+/** Every encounter a road can hold, in the order the atlas lists them. */
+export const ENCOUNTER_KEYS: readonly EncounterKey[] = ["merchant", "stranded", "storm", "cache", "rival", "shrine", "hunter", "ghost"];
+
+export function isEncounterKey(value: unknown): value is EncounterKey {
+  return typeof value === "string" && (ENCOUNTER_KEYS as readonly string[]).includes(value);
+}
+
+/** A ghost met on the road: the dead card, its grave and whose it was. */
+export interface AtlasGhost {
+  grave: number;
+  name: string;
+  owner: string;
+}
+
+/**
+ * What a claimed run walked, stored in its outcome (`outcome.atlas`) by
+ * the claim (atlasStamp in atlas.ts). `places` are place keys in road
+ * order — the list name_expedition_landmarks checks a naming against and
+ * award_expedition_road counts. `backfilled` marks a stamp
+ * scripts/backfill-expedition-atlas.ts wrote after the fact, whose
+ * encounters were re-derived rather than recorded.
+ *
+ * Here rather than in atlas.ts because mapRun reads it off every claimed
+ * outcome, and atlas.ts reads the journal, which reads this module.
+ */
+export interface AtlasStamp {
+  places: string[];
+  encounters: EncounterKey[];
+  ghosts: AtlasGhost[];
+  backfilled?: boolean;
+}
+
+/** `outcome.atlas` as a row hands it over, checked: null for a run
+ *  claimed before the atlas, or for anything that is not a stamp. */
+export function readAtlasStamp(value: unknown): AtlasStamp | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as { places?: unknown; encounters?: unknown; ghosts?: unknown; backfilled?: unknown };
+  if (!Array.isArray(raw.places)) return null;
+  const places = raw.places.filter((place): place is string => typeof place === "string" && place.length > 0);
+  const encounters = Array.isArray(raw.encounters) ? raw.encounters.filter(isEncounterKey) : [];
+  const ghosts = Array.isArray(raw.ghosts)
+    ? raw.ghosts
+        .filter((ghost): ghost is { grave?: unknown; name?: unknown; owner?: unknown } => Boolean(ghost) && typeof ghost === "object")
+        .filter((ghost) => typeof ghost.name === "string")
+        .map((ghost) => ({ grave: Number(ghost.grave ?? 0), name: String(ghost.name), owner: typeof ghost.owner === "string" ? ghost.owner : "Unknown" }))
+    : [];
+  return { places, encounters, ghosts, ...(raw.backfilled === true ? { backfilled: true } : {}) };
+}
+
+/** The claim's stored edges, checked. */
+function readAbilities(value: unknown): { copyId: number; title: string; kind: AbilityKind }[] | null {
+  if (!Array.isArray(value)) return null;
+  return value
+    .filter((entry): entry is { copyId?: unknown; title?: unknown; kind?: unknown } => Boolean(entry) && typeof entry === "object")
+    .filter((entry) => typeof entry.title === "string" && typeof entry.kind === "string")
+    .map((entry) => ({ copyId: Number(entry.copyId ?? 0), title: String(entry.title), kind: entry.kind as AbilityKind }));
+}
+
+/** The optional halves of a claimed outcome, each only when stored. */
+function outcomeExtras(outcome: { abilities?: unknown; atlas?: unknown }): Pick<ExpeditionRunOutcome, "abilities" | "atlas"> {
+  const abilities = readAbilities(outcome.abilities);
+  const atlas = readAtlasStamp(outcome.atlas);
+  return { ...(abilities ? { abilities } : {}), ...(atlas ? { atlas } : {}) };
+}
+
+interface AtlasRunDbRow {
+  id: number;
+  tier: string;
+  started_at: string;
+  resolves_at: string;
+  claimed_at: string | null;
+  forks: number | null;
+  rules: number | null;
+  convoy: number | null;
+  road: unknown;
+  atlas: unknown;
+}
+
+// Every read below fails soft to null, not to an empty list: null means
+// "the atlas is not here" (the read broke, or the expedition_atlas
+// migration is not applied) and hides what it would have shown, while []
+// means "nothing yet". The claim reads the same way and skips on null.
+
+/**
+ * The collector's claimed runs in one season — the atlas's history — with
+ * only the columns it reads and the stamp, not the whole outcome (a
+ * claimed outcome carries every event of the run). `tier` narrows it to
+ * one route, for the claim's "is this road now walked?". Every page is
+ * read: a road completed by a run past the first thousand must still
+ * count. Holds are not runs. Needs no migration: the stamp is a key in
+ * the outcome, and a run without one reads as unstamped.
+ */
+export async function fetchAtlasRuns(
+  supabase: SupabaseClient,
+  discordId: string,
+  season: string,
+  tier?: ExpeditionTierKey,
+): Promise<AtlasRun[] | null> {
+  if (!season) return null;
+  try {
+    const rows = await fetchAllPages<AtlasRunDbRow>((from, to) => {
+      let query = supabase
+        .from("expedition_runs")
+        .select("id, tier, started_at, resolves_at, claimed_at, forks, rules, convoy, road, atlas:outcome->atlas")
+        .eq("discord_id", discordId)
+        .eq("season", season)
+        .not("claimed_at", "is", null)
+        .neq("tier", "lost");
+      if (tier) query = query.eq("tier", tier);
+      return query.order("claimed_at", { ascending: true }).order("id", { ascending: true }).range(from, to);
+    });
+    return rows
+      .filter((row) => row && typeof row === "object" && row.claimed_at)
+      .map((row) => ({
+        id: Number(row.id),
+        tier: row.tier,
+        startedAt: row.started_at,
+        resolvesAt: row.resolves_at,
+        claimedAt: row.claimed_at,
+        forks: Number(row.forks ?? 0),
+        rules: Number(row.rules ?? 1),
+        convoy: row.convoy === null || row.convoy === undefined ? null : Number(row.convoy),
+        road: Array.isArray(row.road) && row.road.every((place) => typeof place === "string") ? (row.road as string[]) : null,
+        stamp: readAtlasStamp(row.atlas),
+      }));
+  } catch {
+    return null;
+  }
+}
+
+interface LandmarkDbRow {
+  season: string;
+  place: string;
+  discord_id: string;
+  run_id: number | string;
+  reached_at: string;
+}
+
+/**
+ * The league's landmarks for one season: every place named, who named it
+ * and when, first named first. Public league news (a public read policy).
+ * The namers' usernames come from a second read; a failed name read leaves
+ * "Another collector" rather than hiding the landmark. A season's roads
+ * hold a few dozen places, so one page is all of them.
+ */
+export async function fetchLandmarks(supabase: SupabaseClient, season: string): Promise<AtlasLandmark[] | null> {
+  if (!season) return null;
+  const { data, error } = await supabase
+    .from("expedition_landmarks")
+    .select("season, place, discord_id, run_id, reached_at")
+    .eq("season", season)
+    .order("reached_at", { ascending: true })
+    .limit(500);
+  if (error) return null;
+  // A landmark belongs to its own league's season; anything else in the
+  // answer is somebody else's news.
+  const rows = ((data as LandmarkDbRow[] | null) ?? []).filter((row) => row.season === season && typeof row.place === "string");
+  const ids = [...new Set(rows.map((row) => row.discord_id))];
+  const names = new Map<string, string>();
+  if (ids.length > 0) {
+    const { data: profiles } = await supabase.from("betting_profiles").select("discord_id, username").in("discord_id", ids);
+    for (const profile of ((profiles as { discord_id: string; username: string | null }[] | null) ?? [])) {
+      if (profile.username) names.set(profile.discord_id, profile.username);
+    }
+  }
+  return rows.map((row) => ({
+    season: row.season,
+    place: row.place,
+    discordId: row.discord_id,
+    username: names.get(row.discord_id) ?? "Another collector",
+    runId: Number(row.run_id),
+    reachedAt: row.reached_at,
+  }));
+}
+
+interface AtlasAwardDbRow {
+  discord_id: string;
+  season: string;
+  tier: string;
+  fragments: number | null;
+  comp: boolean | null;
+  awarded_at: string;
+}
+
+/** The roads this collector has been paid for in one season. Owner read
+ *  under RLS; the page reads it with the service client, so the rows are
+ *  matched back to the collector and the season here too. */
+export async function fetchAtlasAwards(supabase: SupabaseClient, discordId: string, season: string): Promise<AtlasAward[] | null> {
+  if (!season) return null;
+  const { data, error } = await supabase
+    .from("expedition_atlas_awards")
+    .select("discord_id, season, tier, fragments, comp, awarded_at")
+    .eq("discord_id", discordId)
+    .eq("season", season);
+  if (error) return null;
+  return ((data as AtlasAwardDbRow[] | null) ?? [])
+    .filter((row) => row.discord_id === discordId && row.season === season)
+    .map((row) => ({ tier: row.tier, fragments: Number(row.fragments ?? 0), comp: row.comp === true, awardedAt: row.awarded_at }));
+}
+
+/**
+ * Which of these collectors wear a crest: whose base camp trophy wall is
+ * at its top level (the plaque, camp.ts). The landmarks they named carry
+ * it on everyone's map and in everyone's atlas, so the page asks about the
+ * namers, not only the reader. Service-client only (a camp is its owner's
+ * under RLS), and only the ids come back, never the camp. Fails soft to
+ * no crests: a landmark without one still says who got there first.
+ */
+export async function fetchCrests(supabase: SupabaseClient, discordIds: string[]): Promise<Set<string>> {
+  const ids = [...new Set(discordIds.filter((id) => typeof id === "string" && id.length > 0))];
+  if (ids.length === 0) return new Set();
+  try {
+    const { data, error } = await supabase.from("expedition_camps").select("discord_id, wall").in("discord_id", ids).gte("wall", maxLevel("wall"));
+    if (error || !Array.isArray(data)) return new Set();
+    return new Set(
+      (data as { discord_id: string; wall: number | null }[])
+        .filter((row) => ids.includes(row.discord_id) && Number(row.wall ?? 0) >= maxLevel("wall"))
+        .map((row) => row.discord_id),
+    );
+  } catch {
+    return new Set();
+  }
 }

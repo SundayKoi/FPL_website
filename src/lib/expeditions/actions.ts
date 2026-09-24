@@ -28,6 +28,9 @@ import type { ExpeditionTierKey } from "./config";
 import type { ForkChoice } from "./routes";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { CAMPAIGNS, type CampaignKey } from "./campaigns";
+import { revealErrorMessage } from "./reveal";
+import { CAMP_UPGRADES, campFromRow, friendlyCampError, nextLevel, nextPurchase, type CampPurchase, type CampState, type CampUpgrade } from "./camp";
+import { fetchCamp } from "./queries";
 
 /** Every expedition surface — the board itself, the shelves whose melt
  *  buttons the deploy lock disables, and the Play tab's status line. */
@@ -57,6 +60,7 @@ export async function launchExpeditionAction(
     target: typeof options.target === "number" ? options.target : null,
     convoy: typeof options.convoy === "string" && options.convoy.length > 0 ? options.convoy.slice(0, 12) : null,
     campaign: typeof options.campaign === "number" && Number.isInteger(options.campaign) ? options.campaign : null,
+    forged: options.forged === true,
   });
   // Only on success: a refused launch changed nothing, and busting the
   // page cache on every rejected click would make a mis-picked squad cost
@@ -121,4 +125,99 @@ export async function abandonCampaignAction(id: number): Promise<CampaignActionR
   if (error) return { ok: false, error: friendlyExpeditionError(error.message) };
   revalidateExpeditionSurfaces();
   return { ok: true };
+}
+
+export type CampActionResult =
+  | { ok: true; camp: CampState; balance: number; fragments: number }
+  | { ok: false; error: string };
+
+/**
+ * One purchase at the base camp, for the caller the session named. Not
+ * exported: only the two actions below, which authenticate first, reach it.
+ *
+ * `shown` is what the player was looking at when they clicked — the level
+ * they meant to build, or how many forged policies they held. A camp that
+ * has moved since (a second tab, a double click that got here second) is
+ * refused rather than sold the NEXT thing at the next price. The price is
+ * then read off the table for the level the camp is at, and
+ * upgrade_expedition_camp re-prices that level under the lock and refuses
+ * any other ('bad price'), which is the part a race cannot get past.
+ */
+async function buyForCamp(discordId: string, purchase: CampPurchase, shown: (camp: CampState) => boolean): Promise<CampActionResult> {
+  const service = createBettingServiceClient();
+  const camp = await fetchCamp(service, discordId);
+  // Null is "the camp is not here" (the migration is not applied, or the
+  // read broke): nothing to sell against.
+  if (!camp) return { ok: false, error: "The base camp isn't open yet — try again later." };
+  if (!shown(camp)) return { ok: false, error: friendlyCampError("bad price") ?? friendlyExpeditionError("bad price") };
+  const next = nextPurchase(camp, purchase);
+  if (!next) {
+    const reason = purchase !== "policy" ? "already built" : camp.forge < 1 ? "forge not built" : "forge is full";
+    return { ok: false, error: friendlyCampError(reason) ?? friendlyExpeditionError(reason) };
+  }
+  const { data, error } = await service.rpc("upgrade_expedition_camp", {
+    p_user: discordId,
+    p_upgrade: purchase,
+    p_dollars: next.price.dollars,
+    p_fragments: next.price.fragments,
+  });
+  if (error) return { ok: false, error: friendlyCampError(error.message) ?? friendlyExpeditionError(error.message) };
+  const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null;
+  if (!row) return { ok: false, error: "Something went wrong with that purchase — nothing was taken." };
+  revalidateExpeditionSurfaces();
+  return {
+    ok: true,
+    // The RPC hands back the levels, not the running total: the total is
+    // what it was plus what this cost.
+    camp: campFromRow({ ...row, spent: camp.spent + next.price.dollars }),
+    balance: Number(row.balance ?? 0),
+    fragments: Number(row.fragments ?? 0),
+  };
+}
+
+/** Builds the next level of one base-camp upgrade. `level` is the level
+ *  the player was shown and clicked to build. */
+export async function upgradeCampAction(upgrade: CampUpgrade, level: number): Promise<CampActionResult> {
+  const user = await getBettingUser();
+  if (!user) return { ok: false, error: SIGN_IN };
+  if (!user.allowed) return { ok: false, error: MEMBERS };
+  if (!CAMP_UPGRADES.includes(upgrade)) return { ok: false, error: friendlyCampError("unknown upgrade") ?? friendlyExpeditionError("unknown upgrade") };
+  if (!Number.isInteger(level)) return { ok: false, error: friendlyCampError("bad price") ?? friendlyExpeditionError("bad price") };
+  return buyForCamp(user.discordId, upgrade, (camp) => nextLevel(camp, upgrade) === level);
+}
+
+/** Forges one policy at the base camp's forge, from map fragments.
+ *  `held` is how many forged policies the player was shown holding. */
+export async function forgePolicyAction(held: number): Promise<CampActionResult> {
+  const user = await getBettingUser();
+  if (!user) return { ok: false, error: SIGN_IN };
+  if (!user.allowed) return { ok: false, error: MEMBERS };
+  if (!Number.isInteger(held)) return { ok: false, error: friendlyCampError("bad price") ?? friendlyExpeditionError("bad price") };
+  return buyForCamp(user.discordId, "policy", (camp) => camp.forgedPolicies === held);
+}
+
+// === the road ahead ==========================================================
+
+export type RevealRoadResult = { ok: true; fragments: number } | { ok: false; error: string };
+
+/**
+ * Spends a map fragment to see a run's whole road. The Discord id comes
+ * from the session, never the browser; reveal_expedition_road checks under
+ * its locks that the run is this collector's and still walking, that the
+ * road is not already theirs or their convoy's, and takes the fragment in
+ * the same transaction as the reveal. The page derives the revealed road
+ * again on the refresh this triggers — nothing about the road is returned.
+ */
+export async function revealRoadAction(runId: number): Promise<RevealRoadResult> {
+  const user = await getBettingUser();
+  if (!user) return { ok: false, error: SIGN_IN };
+  if (!user.allowed) return { ok: false, error: MEMBERS };
+  if (!Number.isSafeInteger(runId) || runId <= 0) return { ok: false, error: revealErrorMessage("unknown run") };
+  const service = createBettingServiceClient();
+  const { data, error } = await service.rpc("reveal_expedition_road", { p_user: user.discordId, p_run: runId });
+  if (error) return { ok: false, error: revealErrorMessage(error.message ?? String(error)) };
+  const row = (Array.isArray(data) ? data[0] : data) as { fragments?: number | string | null } | null;
+  const left = Number(row?.fragments);
+  revalidateExpeditionSurfaces();
+  return { ok: true, fragments: Number.isFinite(left) && left > 0 ? Math.floor(left) : 0 };
 }

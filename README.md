@@ -207,6 +207,11 @@ Choose checks using [Testing](docs/testing.md#choose-checks-by-change).
 Documentation-only edits need link, command, and diff review; they do not need
 application tests or a production build. Browser tests use self-seeding local
 fixtures; see the [Playwright setup](docs/testing.md#playwright).
+The expedition screenshot specs, `e2e/expedition-board.spec.ts` and
+`e2e/expedition-map.spec.ts`, need no seed. They render fixtures on the
+dev-only `/admin/expedition-board` and `/admin/expedition-map` previews and
+write PNGs for review to the gitignored `e2e/screenshots/`. Run one with
+`npx playwright test e2e/expedition-board.spec.ts`.
 
 ### Branches and releases
 

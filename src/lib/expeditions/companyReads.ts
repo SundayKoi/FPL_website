@@ -55,6 +55,12 @@ const candidateOf = (row: OtherRunRow): RunCandidate => ({
   convoy: row.convoy === null || row.convoy === undefined ? null : Number(row.convoy),
 });
 
+// Without the squad's traits (archetypes.ts), for this run and for every
+// other: nobody else's squad is read here, and none is needed. A trait only
+// drops a storm, turns a nobody's beat into the merchant or fills a
+// hunter's pack; it never moves a rival's leg or a ghost's, which are all
+// company reads. So the company found here is the one the page, the sweep
+// and the claim meet when they read the same road WITH the traits.
 const encountersOf = (run: RunCandidate) =>
   encountersFor({ id: run.id, tier: run.tier as ExpeditionTierKey, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, rules: run.rules, convoy: run.convoy });
 

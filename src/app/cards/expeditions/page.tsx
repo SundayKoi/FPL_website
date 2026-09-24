@@ -1,30 +1,40 @@
 import type { Metadata } from "next";
 import { parseInventoryId } from "@/lib/cards/params";
-import Link from "next/link";
 import CardsGate from "@/components/cards/CardsGate";
-import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 import ExpeditionBoard from "@/components/cards/ExpeditionBoard";
+import ExpeditionsHeader from "@/components/cards/expeditions/ExpeditionsHeader";
 import { bettingAccess } from "@/lib/betting/access";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import {
+  fetchAtlasAwards,
+  fetchAtlasRuns,
+  fetchCamp,
   fetchConvoyViews,
+  fetchCrests,
   fetchDeployedCopyIds,
   fetchFixturesSince,
+  fetchForgedThisWeek,
   fetchFragments,
   fetchGraveyard,
+  fetchLandmarks,
+  fetchLeagueBoard,
   fetchLostHolds,
   fetchInsuredThisWeek,
   fetchPolicyUsed,
+  fetchReveals,
   fetchRuns,
   type ExpeditionRun,
   type Grave,
   type LostHold,
+  type PartnerRun,
 } from "@/lib/expeditions/queries";
 import { nextOpponent, rosterTeam, teamsPlayingOn } from "@/lib/expeditions/matchday";
 import { fetchCompanies, fetchRivalries } from "@/lib/expeditions/companyReads";
 import { fetchAccolades, fetchOpenCampaign, fetchStandings, hasLegendMark } from "@/lib/expeditions/queries";
 import type { Rivalry, RoadCompany } from "@/lib/expeditions/company";
+import { atlasFor } from "@/lib/expeditions/atlas";
+import { buildRunViews, campaignRoadTitles, landmarkRefs } from "@/lib/expeditions/views";
 import { watchWeeksOf, weatherNow, weatherOfRun } from "@/lib/expeditions/weather";
 import { fetchInventory, fetchInventoryByIds, type InventoryRow } from "@/lib/packs/queries";
 import { easternDateOf, mondayOf } from "@/lib/packs/week";
@@ -135,7 +145,7 @@ export async function ExpeditionsPageView({
     number,
     boolean,
     number,
-    { patron_until?: string | null } | null,
+    { patron_until?: string | null; balance?: number | string | null } | null,
   ] = season
     ? await Promise.all([
         fetchInventory(service, discordId, season),
@@ -149,12 +159,15 @@ export async function ExpeditionsPageView({
         fetchFragments(service, discordId),
         fetchPolicyUsed(service, discordId, week),
         fetchInsuredThisWeek(service, discordId, week),
+        // The wallet: the patron flame (the Gilded Road, the free policy)
+        // and the balance the base camp's prices are set against. Fails
+        // soft to no wallet — no flame, and a camp that shows $0.
         service
           .from("betting_profiles")
-          .select("patron_until")
+          .select("patron_until, balance")
           .eq("discord_id", discordId)
           .maybeSingle()
-          .then((result) => (result.data as { patron_until?: string | null } | null) ?? null, () => null),
+          .then((result) => (result.data as { patron_until?: string | null; balance?: number | string | null } | null) ?? null, () => null),
       ])
     : [[], [], new Set<number>(), [], [], 0, false, 0, null];
 
@@ -185,8 +198,8 @@ export async function ExpeditionsPageView({
   // Who else is on the road with each squad in the field (company.ts):
   // the rivals it races, decided by shine, and the graveyard's ghosts.
   // Read here with the service role — the runs and graves it needs are
-  // other people's — and handed to the journal through the run.
-  const [fixtures, convoys, companies, rivalries, standings, accolades, campaign, legendMark] = await Promise.all([
+  // other people's — and handed to the views below, never to the board.
+  const [fixtures, convoys, companies, rivalries, standings, accolades, campaign, legendMark, camp, forgedThisWeek, leagueGoal, atlasRuns, landmarks, atlasAwards] = await Promise.all([
     fetchFixturesSince(service, new Date(oldest - DAY_MS).toISOString()),
     fetchConvoyViews(service, discordId, active),
     season
@@ -212,17 +225,35 @@ export async function ExpeditionsPageView({
     season ? fetchAccolades(service, season) : Promise.resolve([]),
     season ? fetchOpenCampaign(service, discordId, season) : Promise.resolve(null),
     hasLegendMark(service, discordId),
+    // The base camp belongs to the wallet, not the season, but a board
+    // with no season has nothing to spend it on. Null hides it (the
+    // migration is not applied, or the read broke).
+    season ? fetchCamp(service, discordId) : Promise.resolve(null),
+    season ? fetchForgedThisWeek(service, discordId, week) : Promise.resolve(null),
+    // This league's goal of the week, this week and last; null hides it.
+    season ? fetchLeagueBoard(service, season, discordId, now) : Promise.resolve(null),
+    // The atlas (atlas.ts): this season's claimed runs, the league's
+    // landmarks and the roads already paid. Each is null when it cannot
+    // be read, and any null hides the Atlas tab; the landmarks alone
+    // still tag the known places on the maps.
+    season ? fetchAtlasRuns(service, discordId, season) : Promise.resolve(null),
+    season ? fetchLandmarks(service, season) : Promise.resolve(null),
+    season ? fetchAtlasAwards(service, discordId, season) : Promise.resolve(null),
   ]);
   const playingToday = [...teamsPlayingOn(fixtures, today).values()];
   // The weather (weather.ts): this week's for the banner, and each run's
   // own — the week it launched under — for its journal and its forks.
   const watchWeeks = watchWeeksOf(fixtures);
   const weather = weatherNow(now, watchWeeks);
-  const runsWithCompany = runs.map((run) => ({
+  // Each run with the weather it launched under — what the board shows on
+  // its chip. The company rides only into the views below: it names the
+  // rivals and ghosts on every leg, walked or not, and the legs ahead are
+  // not the squad's to know yet.
+  const runsWithWeather = runs.map((run) => ({
     ...run,
-    ...(companies[run.id] ? { company: companies[run.id] } : {}),
     weather: run.tier === "lost" ? null : (weatherOfRun(run, watchWeeks)?.key ?? null),
   }));
+  const runsWithCompany = runsWithWeather.map((run) => (companies[run.id] ? { ...run, company: companies[run.id] } : run));
   const rivals: Record<number, string> = {};
   for (const run of active) {
     if (run.tier !== "legendary") continue;
@@ -232,34 +263,68 @@ export async function ExpeditionsPageView({
     if (rival) rivals[run.id] = rival;
   }
 
+  // The road ahead is earned (views.ts): what each squad in the field
+  // knows of its road, derived here on the server so the browser is handed
+  // only that — the places known, the `?`s and their danger, the journal
+  // written so far, the open fork. A fragment someone paid (theirs, or a
+  // convoy partner's on the same road) opens the rest; a read that fails
+  // leaves the fog and hides the button.
+  const partners: PartnerRun[] = Object.values(convoys).flatMap((convoy) =>
+    convoy.partner ? [{ discordId: convoy.partner.discordId, runId: convoy.partner.runId }] : [],
+  );
+  // Beside it, whose landmarks wear a crest: the namers whose trophy wall
+  // has its plaque (base camp, wall level 2). Fails soft to none.
+  const [reveals, crests] = await Promise.all([
+    fetchReveals(
+      service,
+      discordId,
+      active.map((run) => run.id),
+      partners,
+    ),
+    fetchCrests(service, (landmarks ?? []).map((landmark) => landmark.discordId)),
+  ]);
+  // The codex, derived here: it reads the road to title the places the
+  // collector has seen, and the Atlas tab is handed only what it built.
+  const atlas =
+    atlasRuns && landmarks && atlasAwards
+      ? atlasFor(atlasRuns, landmarks, {
+          awards: atlasAwards,
+          viewer: discordId,
+          // An unstamped run's encounters are re-drawn under the weather
+          // it launched in. The Watch is known for the weeks the fixture
+          // read above covers; an older playoff week reads as its
+          // ordinary weather.
+          weatherOf: (run) => weatherOfRun(run, watchWeeks)?.key ?? null,
+          crests,
+        })
+      : null;
+  const views = buildRunViews({
+    runs: runsWithCompany,
+    copies,
+    now,
+    reveals,
+    convoys,
+    rivals,
+    camp: camp ? { tent: camp.tent } : null,
+    fragments,
+    landmarks: landmarkRefs(landmarks ?? [], discordId, crests),
+  });
+
   return (
     <main className="page-container page-spacing bg-hash flex w-full flex-1 flex-col gap-8 text-white">
-      <CardsPageHeader
-        eyebrow={cardsEyebrow("Play", league, season)}
-        title="Expeditions"
-        tabHref={`${base}/play`}
-        below={
-          <Link href={`${base}/expeditions/ledger`} className="mt-3 inline-block text-sm text-coral underline-offset-4 hover:underline">
-            The league&apos;s ledger of the fallen and the found →
-          </Link>
-        }
-      >
-        Send three cards out on a route. The squad stops at forks and asks you what to do; push for
-        more and someone can get hurt, camp and keep what you have. They come home with betting
-        dollars, sometimes a pack or a map fragment — and sometimes changed for good: wounded,
-        mutated, lost, or on the deepest route, dead. Every rule is on this page, and the launch
-        button names which of your cards can be hurt before you press it.
-      </CardsPageHeader>
+      <ExpeditionsHeader league={league} season={season} base={base} />
 
       <ExpeditionBoard
         copies={copies}
-        runs={runsWithCompany}
+        runs={runsWithWeather}
+        views={views}
         rivalries={rivalries}
         weather={weather.key}
         standings={standings}
         accolades={accolades}
         viewerId={discordId}
         campaign={campaign}
+        campaignRoad={campaignRoadTitles(campaign)}
         season={season ?? ""}
         legendMark={legendMark}
         deployedIds={deployedIds}
@@ -271,8 +336,12 @@ export async function ExpeditionsPageView({
         patron={patronActive(wallet?.patron_until)}
         policyUsed={policyUsed}
         insuredThisWeek={insuredThisWeek}
+        camp={camp}
+        forgedThisWeek={forgedThisWeek}
+        balance={Number(wallet?.balance ?? 0) || 0}
+        league={leagueGoal}
+        atlas={atlas}
         playingToday={playingToday}
-        rivals={rivals}
         convoys={convoys}
         // Resolved server-side on the Eastern calendar the whole card
         // economy keeps, so the banner names the brief a launch is actually

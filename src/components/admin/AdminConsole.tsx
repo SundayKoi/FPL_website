@@ -64,6 +64,8 @@ const toolColumns: ToolGroup[][] = [
         { label: "The Send-off", description: "Playoff editions", href: "/admin/sendoff", icon: "star" },
         { label: "On Air", description: "Live-drop caster cards", href: "/admin/on-air", icon: "broadcast" },
         { label: "Expedition seasons", description: "Standings & season close", href: "/admin/expeditions", icon: "compass" },
+        { label: "Expedition board", description: "The page as three collectors see it", href: "/admin/expedition-board", icon: "compass" },
+        { label: "Expedition map", description: "The living map in every state", href: "/admin/expedition-map", icon: "compass" },
       ],
     },
     {

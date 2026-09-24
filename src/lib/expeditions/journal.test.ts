@@ -346,3 +346,108 @@ describe("the weather in the journal", () => {
     expect(plain).not.toContain("Harvest");
   });
 });
+
+// === edges in the journal =====================================================
+
+import { ARCHETYPE_ABILITIES, ARCHETYPE_RULES, MERCHANT_DRAW, traitsOf } from "./archetypes";
+
+describe("edges in the journal", () => {
+  const roles = ["Top", "Support", "Jungle"];
+  const titled = (titles: (string | undefined)[]) => titles.map((title, index) => copy(index + 1, { role: roles[index], card: { archetype: title } }));
+  const edgedSquad = titled(["Camp Thief", "Unkillable", "Gold Hoarder"]);
+  const raidSix = { id: 5, tier: "raid" as const, startedAt: "2026-09-04T00:00:00Z", resolvesAt: "2026-09-05T00:00:00Z", forks: 2, rules: ARCHETYPE_RULES };
+  const done = new Date("2026-09-10T00:00:00Z");
+  const traits = (titles: string[]) => traitsOf(titled(titles), ARCHETYPE_RULES);
+
+  it("names the squad's edges on the first leg, under the edge rulebook only", () => {
+    const line = journalFor(raidSix, edgedSquad, done).find((entry) => /^The squad's edge: /.test(entry.text))!;
+    expect(line).toMatchObject({ leg: 0, kind: "trail", text: "The squad's edge: Camp Thief, Unkillable and Gold Hoarder." });
+    // At 0.08 of the first leg (0–8h): after the sky, before the trail.
+    expect(line.at.toISOString()).toBe("2026-09-04T00:38:24.000Z");
+    expect(journalFor({ ...raidSix, rules: ARCHETYPE_RULES - 1 }, edgedSquad, done).some((entry) => /squad's edge/.test(entry.text))).toBe(false);
+    // An ignored duplicate is named as what it is.
+    const twice = journalFor(raidSix, titled(["Camp Thief", "Camp Thief", "Unkillable"]), done).find((entry) => /^The squad's edge: /.test(entry.text))!;
+    expect(twice.text).toMatch(/a second Camp Thief, which counts for nothing/);
+  });
+
+  it("writes a run stamped below the edge rulebook word for word, whatever its titles", () => {
+    const titles = Object.keys(ARCHETYPE_ABILITIES);
+    const plain = titled([undefined, undefined, undefined]);
+    const company = (legs: number): RoadCompany => ({
+      rivals: Array.from({ length: legs }, (_, leg) => ({ leg, runId: 900 + leg, who: `r${leg}`, name: `Rival ${leg}`, shine: 20, theirShine: 10 + leg * 5, won: leg % 2 === 0 })),
+      crossings: [],
+      ghosts: Array.from({ length: legs }, (_, leg) => ({ leg, graveId: leg, cardName: `Ghost ${leg}`, who: "g", name: "Grave", team: null, stood: false })),
+    });
+    for (let id = 1; id <= 60; id += 1) {
+      const trio = [titles[id % titles.length], titles[(id * 7) % titles.length], titles[(id * 13) % titles.length]];
+      for (const run of [
+        { ...raidSix, id, rules: ARCHETYPE_RULES - 1, weather: "harvest" as const, company: company(3) },
+        { id, tier: "legendary" as const, startedAt: "2026-09-04T00:00:00Z", resolvesAt: "2026-09-07T00:00:00Z", forks: 4, rules: ARCHETYPE_RULES - 1, weather: "watch" as const, company: company(5) },
+      ]) {
+        expect(journalFor(run, titled(trio), done)).toEqual(journalFor(run, plain, done));
+        expect(encountersFor(run, run.company, run.weather, traitsOf(titled(trio), ARCHETYPE_RULES))).toEqual(encountersFor(run, run.company, run.weather));
+      }
+    }
+  });
+
+  const legendaries = Array.from({ length: 400 }, (_, index) => ({ id: index + 1, tier: "legendary" as const, startedAt: "2026-09-04T00:00:00Z", resolvesAt: "2026-09-07T00:00:00Z", forks: 4, rules: ARCHETYPE_RULES }));
+
+  it("a Speedrunner or a Tempo Setter is never held by a storm, and nothing else on the road moves", () => {
+    const bare = legendaries.flatMap((run) => encountersFor(run));
+    expect(bare.some((entry) => entry.key === "storm")).toBe(true);
+    for (const clock of ["Speedrunner", "Tempo Setter"]) {
+      const kept = legendaries.flatMap((run) => encountersFor(run, null, null, traits([clock, "Farm Demon", "Duelist"])));
+      expect(kept.some((entry) => entry.key === "storm")).toBe(false);
+      expect(kept).toEqual(bare.filter((entry) => entry.key !== "storm"));
+    }
+  });
+
+  it("First Blood Merchant draws the merchant twice as often, never at a rival's or a ghost's leg", () => {
+    const raids = Array.from({ length: 3000 }, (_, index) => ({ ...raidSix, id: index + 1 }));
+    const count = (list: ReturnType<typeof encountersFor>) => list.filter((entry) => entry.key === "merchant").length;
+    const drawn = traits(["First Blood Merchant", "Farm Demon", "Duelist"]);
+    const bare = raids.map((run) => encountersFor(run));
+    const more = raids.map((run) => encountersFor(run, null, null, drawn));
+    const ratio = count(more.flat()) / count(bare.flat());
+    expect(ratio).toBeGreaterThan(MERCHANT_DRAW * 0.85);
+    expect(ratio).toBeLessThan(MERCHANT_DRAW * 1.15);
+    bare.forEach((list, index) => {
+      // Same legs; a changed beat became the merchant and was nobody's.
+      expect(more[index].map((entry) => entry.leg)).toEqual(list.map((entry) => entry.leg));
+      list.forEach((entry, at) => {
+        const after = more[index][at];
+        if (entry.key === "rival" || entry.key === "ghost") expect(after).toEqual(entry);
+        else if (after.key !== entry.key) expect(after.key).toBe("merchant");
+      });
+    });
+    // Company reads the same road: the rivals' legs never move.
+    const legendRivals = (withTraits: boolean) => legendaries.map((run) => encountersFor(run, null, null, withTraits ? drawn : null).filter((entry) => entry.key === "rival" || entry.key === "ghost"));
+    expect(legendRivals(true)).toEqual(legendRivals(false));
+  });
+
+  it("Roam Enjoyer fills every relic hunter's pack", () => {
+    const found = legendaries.flatMap((run) => encountersFor(run, null, null, traits(["Roam Enjoyer", "Farm Demon", "Duelist"]))).filter((entry) => entry.key === "hunter");
+    expect(found.length).toBeGreaterThan(0);
+    expect(found.every((entry) => entry.found === true)).toBe(true);
+    expect(legendaries.flatMap((run) => encountersFor(run)).some((entry) => entry.key === "hunter" && !entry.found)).toBe(true);
+  });
+
+  it("the journal owes the merchant and the rival edges a word, and reads the same traits the claim does", () => {
+    const raids = Array.from({ length: 400 }, (_, index) => ({ ...raidSix, id: index + 1 }));
+    const market = raids.find((run) => encountersFor(run).some((entry) => entry.key === "merchant"))!;
+    const hoard = journalFor({ ...market, weather: "clear" }, edgedSquad, done).find((entry) => entry.encounter === "merchant")!.text;
+    expect(hoard).toContain(String(MERCHANT * HARVEST_MERCHANT));
+    expect(hoard).toMatch(/Gold Hoarder: Card 3 would take nothing under Harvest prices\./);
+    // Under a Harvest the merchant already pays that: one price, one line.
+    const harvest = journalFor({ ...market, weather: "harvest" }, edgedSquad, done).find((entry) => entry.encounter === "merchant")!.text;
+    expect(harvest).not.toMatch(/Gold Hoarder/);
+    const raced = raids.find((run) => encountersFor(run).some((entry) => entry.key === "rival"))!;
+    const rivalLine = journalFor(raced, edgedSquad, done).find((entry) => entry.encounter === "rival")!.text;
+    expect(rivalLine).toMatch(/Camp Thief: Card 1 took their cache anyway, 15% more\.$/);
+    // The storm the claim's traits drop is not in the journal either.
+    const stormy = raids.find((run) => encountersFor(run).some((entry) => entry.key === "storm"))!;
+    const runner = titled(["Speedrunner", "Farm Demon", "Duelist"]);
+    expect(journalFor(stormy, runner, done).some((entry) => entry.encounter === "storm")).toBe(false);
+    expect(journalFor(stormy, titled(["Farm Demon", "Duelist", "Camp Thief"]), done).some((entry) => entry.encounter === "storm")).toBe(true);
+  });
+});

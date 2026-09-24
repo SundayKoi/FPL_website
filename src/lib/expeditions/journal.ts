@@ -32,7 +32,12 @@ import { mulberry32 } from "@/lib/expeditions/prng";
 import { TRAIL_RULES } from "./queries";
 import { EXPEDITION_TIERS, HARVEST_MERCHANT, MERCHANT_DOLLARS, type CardCopy, type ExpeditionTierKey } from "./config";
 import { DROUGHT_CACHES, WATCH_GHOSTS, WATCH_RIVALS, WEATHERS, WEATHER_RULES, type WeatherKey } from "./weather";
-import { CACHE_LOOT, COMPANY_RULES, GHOST_HAUNT, RIVAL_LOSS_LOOT, RIVAL_WIN_LOOT, ROAD_RULES, forkWindows, forksFor, type RoadRef, type RouteEncounter } from "./routes";
+import { CACHE_LOOT, COMPANY_RULES, EDGE_TITLE, GHOST_HAUNT, RIVAL_LOSS_LOOT, RIVAL_WIN_LOOT, ROAD_RULES, forkWindows, forksFor, type RoadRef, type RouteEncounter } from "./routes";
+// The trail's numbers the rules page quotes live in forks.ts, which the
+// browser may hold; re-exported so every caller keeps reading them here.
+import { HUNTER_FRAGMENT_CHANCE, ROAD_ENCOUNTER_CHANCE, STORM_HOURS } from "./forks";
+export { HUNTER_FRAGMENT_CHANCE, ROAD_ENCOUNTER_CHANCE, STORM_HOURS, STRANDED_BOUNTY } from "./forks";
+import { ARCHETYPE_RULES, EDGE_BIG, GANK_WIN_MULT, MERCHANT_DRAW, activeAbilities, edgeLine, traitsOf, type AbilityTraits } from "./archetypes";
 import type { RoadCompany } from "./company";
 
 export type EncounterKey = "merchant" | "stranded" | "storm" | "cache" | "rival" | "shrine" | "hunter" | "ghost";
@@ -40,13 +45,8 @@ export type EncounterKey = "merchant" | "stranded" | "storm" | "cache" | "rival"
 /** How often a leg carries an encounter at all — and on a road, where
  *  there is more to meet. */
 export const ENCOUNTER_CHANCE = 0.35;
-export const ROAD_ENCOUNTER_CHANCE = 0.45;
-/** Hours a storm holds the squad. Applied once per storm by the sweep. */
-export const STORM_HOURS = 2;
-/** What bringing a stranger's lost card home pays the rescuer. */
-export const STRANDED_BOUNTY = 150;
-/** How often a relic hunter actually has a fragment to trade. */
-export const HUNTER_FRAGMENT_CHANCE = 0.3;
+// ROAD_ENCOUNTER_CHANCE (a road's), STORM_HOURS, STRANDED_BOUNTY and
+// HUNTER_FRAGMENT_CHANCE: forks.ts, re-exported above.
 /** How often the squad beats a rival to the spot. */
 export const RIVAL_WIN_CHANCE = 0.5;
 
@@ -87,11 +87,17 @@ type RunRef = {
    *  from its launch week. A run handed over without it walks in no
    *  weather. */
   weather?: WeatherKey | null;
+  /** The road a campaign handed down (expedition_runs.road): one place
+   *  key per checkpoint, the places the resolver, the fork prompt and the
+   *  map all name. Null or absent for every run not on a campaign, which
+   *  reads exactly as it did before the journal knew about campaigns:
+   *  forksFor draws the same stream with or without it. */
+  road?: string[] | null;
 };
 
 const onRoad = (run: Pick<RunRef, "rules">): boolean => (run.rules ?? 1) >= ROAD_RULES;
 
-const roadOf = (run: RunRef): RoadRef => ({ runId: run.id, rules: run.rules ?? 1, convoy: run.convoy ?? null, forks: run.forks });
+const roadOf = (run: RunRef): RoadRef => ({ runId: run.id, rules: run.rules ?? 1, convoy: run.convoy ?? null, forks: run.forks, places: run.road ?? null });
 
 // === the fixed road's voice ==================================================
 
@@ -602,11 +608,23 @@ const roleWord = (member: Pick<CardCopy, "role">): string => {
  * The encounters a run carries, decided once from its id. An Exorcism
  * has none — nothing on the trail interrupts a rite — and a run from
  * before forks existed has no legs to carry them.
+ *
+ * `traits` are the squad's edges that change what the road IS
+ * (archetypes.ts), read under ARCHETYPE_RULES only: a Speedrunner or a
+ * Tempo Setter is never held by a storm, First Blood Merchant draws the
+ * merchant MERCHANT_DRAW times as often, and with Roam Enjoyer every relic
+ * hunter has a fragment. Each bends a leg AFTER that leg's own draws, so the
+ * beat is drawn exactly as it always was and only then bent — and none of
+ * them touches a rival's leg or a ghost's, which are other collectors' runs
+ * and graves that company.ts reads without this squad in hand. The page,
+ * the sweep and the claim each hold the squad, so each passes the same
+ * traits and all three meet the same road.
  */
 export function encountersFor(
   run: { id: number; tier: ExpeditionTierKey; startedAt: string; resolvesAt: string; forks: number; rules?: number; convoy?: number | null },
   company?: RoadCompany | null,
   weather?: WeatherKey | null,
+  traits?: AbilityTraits | null,
 ): Encounter[] {
   // A run that launched before the trail existed meets nothing on it: its
   // clock, its payout and its squad are exactly what it set out with.
@@ -617,6 +635,7 @@ export function encountersFor(
   // The weather weights the draw (WEATHER_RULES): more caches in a
   // Drought, rivals on every road and ghosts in daylight under the Watch.
   const sky = (run.rules ?? 1) >= WEATHER_RULES ? weather ?? null : null;
+  const edges = traits && (run.rules ?? 1) >= ARCHETYPE_RULES ? traits : null;
   const out: Encounter[] = [];
   legs(run).forEach((leg, index) => {
     const rand = seedOf(run.id, index, 1);
@@ -637,11 +656,27 @@ export function encountersFor(
       if (keys.includes("ghost")) for (let extra = 1; extra < WATCH_GHOSTS; extra += 1) keys.push("ghost");
     }
     const key = pick(keys, rand);
-    const encounter: Encounter = { leg: index, key, at: at(leg, 0.5) };
+    let encounter: Encounter = { leg: index, key, at: at(leg, 0.5) };
     // The coin is tossed here, once, so the journal can say how it landed
     // hours before the claim reads it.
     if (key === "rival") encounter.won = rand() < RIVAL_WIN_CHANCE;
     if (key === "hunter") encounter.found = rand() < HUNTER_FRAGMENT_CHANCE;
+    if (edges) {
+      // First Blood Merchant: one more draw, the leg's last, turns a beat
+      // that is nobody's into the merchant — at the chance that makes the
+      // merchant's share of the leg's beats exactly MERCHANT_DRAW times
+      // what it was. A rival and a ghost are never turned.
+      const merchants = keys.filter((entry) => entry === "merchant").length;
+      const others = keys.filter((entry) => entry !== "merchant" && entry !== "rival" && entry !== "ghost").length;
+      if (edges.merchantDraw && others > 0 && key !== "merchant" && key !== "rival" && key !== "ghost") {
+        const chance = Math.min(1, ((MERCHANT_DRAW - 1) * merchants) / others);
+        if (chance >= 1 || (chance > 0 && rand() < chance)) encounter = { leg: index, key: "merchant", at: encounter.at };
+      }
+      // Roam Enjoyer: the hunter always has something to trade.
+      if (edges.hunterFinds && encounter.key === "hunter") encounter.found = true;
+      // A Speedrunner or a Tempo Setter is past the storm before it breaks.
+      if (edges.stormproof && encounter.key === "storm") return;
+    }
     out.push(encounter);
   });
   // The company, read over the coins: a real rival's verdict is shine's,
@@ -714,11 +749,19 @@ function legacyJournal(run: RunRef, squad: Squad): JournalEntry[] {
  */
 function roadJournal(run: RunRef, squad: Squad): JournalEntry[] {
   const entries: JournalEntry[] = [];
-  const encounters = encountersFor(run, run.company, run.weather);
+  // The squad's edges (archetypes.ts), under ARCHETYPE_RULES: the traits
+  // the claim and the sweep read off the same squad, and the titles whose
+  // edges the encounter lines owe a word to.
+  const edged = (run.rules ?? 1) >= ARCHETYPE_RULES;
+  const encounters = encountersFor(run, run.company, run.weather, edged ? traitsOf(squad, run.rules ?? 1) : null);
+  const counted = new Map(edged ? activeAbilities(squad).map((entry) => [entry.ability.title, entry.copyId] as const) : []);
   // The sky, first: the week's weather is the first thing the squad sees.
   const sky = (run.rules ?? 1) >= WEATHER_RULES && run.weather ? WEATHERS[run.weather] : null;
   const firstLeg = legs(run)[0];
   if (sky && firstLeg) entries.push({ at: at(firstLeg, 0.05), leg: 0, kind: "trail", text: sky.sky });
+  // Then the squad's edges, named once, the ignored ones as what they are.
+  const edgeSaid = edged ? edgeLine(squad) : null;
+  if (edgeSaid && firstLeg) entries.push({ at: at(firstLeg, 0.08), leg: 0, kind: "trail", text: edgeSaid });
   const road = roadOf(run);
   const forks = forksFor(run.tier, road);
   const trail = shuffled(TRAIL[run.tier], seedOf(run.id, 0, 4));
@@ -766,14 +809,19 @@ function roadJournal(run: RunRef, squad: Squad): JournalEntry[] {
         : encounter.key === "ghost" && encounter.ghost ? (encounter.ghost.stood ? GHOST_STOOD_LINES : GHOST_LINES)
         : lines;
       const mate = encounter.ghost?.team ? squad.find((member) => member.card?.teamName === encounter.ghost!.team) ?? null : null;
+      // Gold Hoarder pays Harvest prices in any weather — never more, so a
+      // Harvest merchant reads the same with it or without.
+      const hoarded = encounter.key === "merchant" && sky?.key !== "harvest" && counted.has(EDGE_TITLE.goldHoarder);
       const named = (sky?.key === "harvest" && encounter.key === "merchant"
         ? `${pick(options, rand).replace(String(MERCHANT_DOLLARS), String(MERCHANT_DOLLARS * HARVEST_MERCHANT))} Harvest prices.`
-        : pick(options, rand))
+        : hoarded
+          ? `${pick(options, rand).replace(String(MERCHANT_DOLLARS), String(MERCHANT_DOLLARS * HARVEST_MERCHANT))} ${EDGE_TITLE.goldHoarder}: ${nameIn(squad, counted.get(EDGE_TITLE.goldHoarder))} would take nothing under Harvest prices.`
+          : pick(options, rand))
         .replaceAll("{rival}", encounter.rivalName ?? "Another collector")
         .replaceAll("{ghost}", encounter.ghost?.name ?? "something")
         .replaceAll("{owner}", encounter.ghost?.owner ?? "Somebody")
         .replaceAll("{mate}", mate?.playerName ?? "the squad");
-      entries.push({ at: encounter.at, leg: index, kind: "encounter", encounter: encounter.key, text: fill(named, squad, rand) });
+      entries.push({ at: encounter.at, leg: index, kind: "encounter", encounter: encounter.key, text: `${fill(named, squad, rand)}${edgeNote(encounter, counted, squad)}` });
     }
     entries.push({ at: at(leg, 0.7), leg: index, kind: "trail", text: secondLine });
     const last = index === run.forks;
@@ -800,6 +848,34 @@ function roadJournal(run: RunRef, squad: Squad): JournalEntry[] {
     entries.push({ at: when, leg: legIndex, kind: "encounter", encounter: "rival", text: fill(line, squad, rand) });
   }
   return entries;
+}
+
+/** A squad member's name by copy id, for an edge's word. */
+function nameIn(squad: Squad, id: number | undefined): string {
+  return squad.find((member) => member.id === id)?.playerName ?? "The squad";
+}
+
+/**
+ * What the squad's edges add to an encounter's line, under ARCHETYPE_RULES:
+ * the resolver pays a rival edge and a ghost edge at the claim, so the
+ * journal says so here rather than quote a number the claim will not pay.
+ * Appended after the line is drawn and filled, never drawn itself, so the
+ * line under it is the one it always was. Empty for everything else.
+ */
+function edgeNote(encounter: Encounter, counted: Map<string, number>, squad: Squad): string {
+  const who = (title: string) => nameIn(squad, counted.get(title));
+  const pct = (n: number) => Math.round(n * 100);
+  const notes: string[] = [];
+  if (encounter.key === "rival" && !encounter.alone) {
+    if (encounter.won && counted.has(EDGE_TITLE.gank)) notes.push(`${EDGE_TITLE.gank}: ${who(EDGE_TITLE.gank)} made them pay for it — the win pays ${GANK_WIN_MULT === 2 ? "double" : `${GANK_WIN_MULT} times over`}.`);
+    if (!encounter.won && counted.has(EDGE_TITLE.bornWinner)) notes.push(`${EDGE_TITLE.bornWinner}: ${who(EDGE_TITLE.bornWinner)} will not hear of losing — it costs the squad nothing.`);
+    if (counted.has(EDGE_TITLE.campThief)) notes.push(`${EDGE_TITLE.campThief}: ${who(EDGE_TITLE.campThief)} took their cache anyway, ${pct(EDGE_BIG)}% more.`);
+  }
+  if (encounter.key === "ghost" && encounter.ghost && !encounter.ghost.stood) {
+    if (counted.has(EDGE_TITLE.counterJungler)) notes.push(`${EDGE_TITLE.counterJungler}: ${who(EDGE_TITLE.counterJungler)} found the cache it was keeping, ${pct(EDGE_BIG)}% more — and the haunting will not double.`);
+    if (counted.has(EDGE_TITLE.visionDenier)) notes.push(`${EDGE_TITLE.visionDenier}: ${who(EDGE_TITLE.visionDenier)} keeps it at the edge of the light — the haunting will not double.`);
+  }
+  return notes.map((note) => ` ${note}`).join("");
 }
 
 /** The newest line, for the ping. */

@@ -2,7 +2,9 @@
 // pushes only when BOTH said so. Pure — the claim, the page and the tests
 // read the same verdict.
 
-import { isCampChoice, type ForkChoice, type RecordedChoice } from "./routes";
+// forks.ts, not routes.ts: the board reads this module, and routes.ts
+// carries the whole road.
+import { isCampChoice, type ForkChoice, type RecordedChoice } from "./forks";
 
 /** A join code is six characters from an alphabet with no 0/O or 1/I. */
 export const CONVOY_CODE_LENGTH = 6;

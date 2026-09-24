@@ -21,7 +21,7 @@
 
 import { mulberry32 } from "@/lib/expeditions/prng";
 import type { Encounter } from "./journal";
-import { COMPANY_RULES } from "./routes";
+import { COMPANY_RULES } from "./forks";
 
 /** How long before an encounter's hour a launch counts as being on the
  *  same road. */

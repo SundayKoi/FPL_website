@@ -47,6 +47,9 @@ out/
 /playwright-report/
 /playwright/.cache/
 e2e/.draft-id
+# Persona and map screenshots the e2e specs write for review (attached to
+# the PR, never committed).
+e2e/screenshots/
 
 # Local scratch scripts (never committed)
 scratchpad/
