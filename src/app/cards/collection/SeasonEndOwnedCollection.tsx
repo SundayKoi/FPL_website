@@ -84,6 +84,7 @@ export default async function SeasonEndOwnedCollection({ service, discordId, lea
 
   return (
     <section id="season-end-collection" className="flex flex-col gap-5">
+      <SeasonEndAutoDustPanel league={league} initialEnabled={autoDustEnabled} duplicateCount={seasonEndDuplicateIds(collections.flatMap(({ copies }) => copies)).length} />
       <div className="card-brand flex flex-col gap-4 p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex max-w-2xl flex-col gap-2">
@@ -133,7 +134,6 @@ export default async function SeasonEndOwnedCollection({ service, discordId, lea
         <SeasonEndOwnedShelf key={`${kind}-${sort}`} owned={owned} base={base} />
       )}
 
-      <SeasonEndAutoDustPanel league={league} initialEnabled={autoDustEnabled} duplicateCount={seasonEndDuplicateIds(collections.flatMap(({ copies }) => copies)).length} />
     </section>
   );
 }
