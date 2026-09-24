@@ -953,3 +953,545 @@ describe("the Mythic route", () => {
     expect(squadMeets("legendary", squad(), undefined, { legendMark: false }).reasons.some((r) => /Legend mark|Voidtouched/.test(r))).toBe(false);
   });
 });
+
+// === edges ===================================================================
+
+import { ARCHETYPE_ABILITIES, ARCHETYPE_RULES, EDGE_BIG, EDGE_SMALL, ISLAND_HOLD, LIFELINE_BENCH_HOURS, PLATE_TOLL } from "./archetypes";
+import { EDGE_TITLE, FORK_CHOICES, RESCUE_CAP, type RouteEncounter, type RouteInput } from "./routes";
+import { mulberry32 } from "./prng";
+
+/** Titles with no hook in the resolver — a clock, a reveal and a merchant
+ *  edge — so a squad built around one edge meets no other, and never reads
+ *  as Jack of All Trades by accident. */
+const FILLERS = ["Speedrunner", "Jungle Diff", "Gold Hoarder"];
+
+/** Card i+1 carries titles[i] (a filler where null); `over` adds per-card
+ *  fields by id. */
+const edged = (titles: (string | null)[], over: Record<number, Partial<Record<keyof CardCopy, unknown>>> = {}) =>
+  [0, 1, 2].map((slot) => {
+    const id = slot + 1;
+    const extra = over[id] ?? {};
+    return copy({ ...extra, id, card: { ...((extra.card as object | undefined) ?? {}), archetype: titles[slot] ?? FILLERS[slot] } });
+  });
+
+/** The fixed places on a road stamped with edges (the draw of places does
+ *  not read the rulebook, so these are roadWith's places). */
+const sixOn = (tier: ExpeditionTierKey, index: number | null = null, key: string | null = null) => ({ ...roadWith(tier, index, key), rules: ARCHETYPE_RULES });
+const fiveOn = (tier: ExpeditionTierKey, index: number | null = null, key: string | null = null) => ({ ...roadWith(tier, index, key), rules: ARCHETYPE_RULES - 1 });
+const fired = (result: ReturnType<typeof resolveRoute>) => result.events.filter((event) => event.ability).map((event) => event.ability);
+
+describe("edges on the road", () => {
+  const base = { insured: false, grade: "poor" as const, target: null, now };
+
+  it("reads only titles the table knows", () => {
+    for (const title of Object.values(EDGE_TITLE)) expect(ARCHETYPE_ABILITIES[title]?.title).toBe(title);
+  });
+
+  it("the loot edges pay after the push's bonus", () => {
+    // Two clean pushes on the fixed raid (every roll 0.99 misses, every
+    // pick lands on card 3): 1 + 0.25 + 0.25 with no edge that pays.
+    const raid = (titles: (string | null)[]) => resolveRoute({ ...base, copies: edged(titles), tier: "raid", forks: 2, road: sixOn("raid"), choices: ["push", "push"] }, always(0.99));
+    expect(raid([null]).lootMultiplier).toBe(1.5);
+    expect(fired(raid([null]))).toEqual([]);
+    expect(raid(["Glass Cannon"]).lootMultiplier).toBe(1.6);
+    expect(fired(raid(["Glass Cannon"]))).toEqual(["Glass Cannon", "Glass Cannon"]);
+    // The first fork's bonus ×1.5; the last fork's ×1.75.
+    expect(raid(["Lane Bully"]).lootMultiplier).toBe(1.63);
+    expect(raid(["The Hypercarry"]).lootMultiplier).toBe(1.69);
+    // Only the brutal fork is dark.
+    expect(raid(["Burst Mage"]).lootMultiplier).toBe(1.6);
+    // Clean, both times — and Pentakill only the first.
+    expect(raid(["Executioner"]).lootMultiplier).toBe(1.6);
+    expect(raid(["Pentakill Machine"]).lootMultiplier).toBe(1.65);
+    // No warned fork and no unsafe camp on a raid: nothing to pay for.
+    expect(raid(["Duelist"]).lootMultiplier).toBe(1.5);
+    expect(raid(["The Engage"]).lootMultiplier).toBe(1.5);
+    // Every event an edge makes says which title made it.
+    for (const event of raid(["Pentakill Machine"]).events.filter((entry) => entry.ability)) expect(event.text).toMatch(/^Pentakill Machine: /);
+  });
+
+  it("a harmed push pays no clean-push edge, and a role call pays the Playmaker", () => {
+    // Ridge push: victim card 1, wound 0.1 lands.
+    const hurt = resolveRoute({ ...base, copies: edged(["Executioner"]), tier: "raid", forks: 2, road: sixOn("raid"), choices: [null, "push"] }, script([0, 0.1, 0, 0.99]));
+    expect(fates(hurt)[1]).toBe("wounded");
+    expect(hurt.lootMultiplier).toBe(1.25);
+    // A Jungle's scout at the ridge is a role call: 0.25 and 0.05 more.
+    const jungle = edged(["Playmaker"], { 1: { role: "Jungle" } });
+    const scouted = resolveRoute({ ...base, copies: jungle, tier: "raid", forks: 2, road: sixOn("raid"), choices: [null, "scout"] }, always(0.99));
+    expect(scouted.lootMultiplier).toBe(1.3);
+    expect(fired(scouted)).toEqual(["Playmaker"]);
+  });
+
+  it("momentum edges carry consecutive pushes on every route, and Tempo Conductor slows the Mythic death roll", () => {
+    const raid = (title: string) => resolveRoute({ ...base, copies: edged([title]), tier: "raid", forks: 2, road: sixOn("raid"), choices: ["push", "push"] }, always(0.99));
+    expect(raid("On A Heater").lootMultiplier).toBe(1.55);
+    expect(raid("Tempo Conductor").lootMultiplier).toBe(1.53);
+    // The Mythic route's third fork, two pushes carried: the death roll is
+    // 0.2 + 0.1 bare and 0.2 + 0.05 with the Conductor. A 0.25 roll kills
+    // one squad and not the other.
+    const mythic = sixOn("mythic");
+    const choices: ForkChoice[] = ["push", "push", "push", "camp", "camp"];
+    const bare = resolveRoute({ ...base, copies: edged([null]), tier: "mythic", forks: 5, road: mythic, choices }, always(0.25));
+    const slowed = resolveRoute({ ...base, copies: edged(["Tempo Conductor"]), tier: "mythic", forks: 5, road: mythic, choices }, always(0.25));
+    expect(Object.values(fates(bare))).toContain("dead");
+    expect(Object.values(fates(slowed))).not.toContain("dead");
+    expect(bare.events.some((e) => /2 pushes behind them, \+20% to the bag and \+10% to the death roll/.test(e.text))).toBe(true);
+    expect(slowed.events.some((e) => /2 pushes behind them, \+20% to the bag and \+5% to the death roll/.test(e.text))).toBe(true);
+  });
+
+  it("guards scale the harm rolled on the card, or on the whole squad, and say when it mattered", () => {
+    // The brutal fork (wounded 0.3): victim card 1, then the wound roll.
+    const ridge = (titles: (string | null)[], wound: number) =>
+      resolveRoute({ ...base, copies: edged(titles), tier: "raid", forks: 2, road: sixOn("raid"), choices: [null, "push"] }, script([0, wound, 0, 0.99]));
+    expect(fates(ridge([null], 0.25))[1]).toBe("wounded");
+    // The Surgeon, on card 2, cuts every wound roll to 0.225.
+    const surgeon = ridge([null, "The Surgeon"], 0.25);
+    expect(fates(surgeon)[1]).toBe("home");
+    expect(surgeon.events.find((e) => e.ability === "The Surgeon")?.text).toMatch(/should have been a wound for Card 1/);
+    // Weakside Warrior and Positioning God only guard their own card.
+    expect(fates(ridge(["Weakside Warrior"], 0.2))[1]).toBe("home");
+    expect(fates(ridge([null, "Weakside Warrior"], 0.2))[1]).toBe("wounded");
+    expect(fates(ridge(["Positioning God"], 0.1))[1]).toBe("home");
+    // A roll the guard did not decide says nothing.
+    expect(fired(ridge(["Weakside Warrior"], 0.99))).toEqual([]);
+    // Glass Cannon cuts the other way: 0.45 on its own card.
+    const glass = ridge(["Glass Cannon"], 0.4);
+    expect(fates(glass)[1]).toBe("wounded");
+    expect(glass.events.find((e) => e.ability === "Glass Cannon" && e.tone === "bad")?.text).toMatch(/cracked/);
+  });
+
+  it("the deep guards and the warned edges act at the vault", () => {
+    // Legend, fixed road: fork 1 camps (haunting 0.99 misses); the vault
+    // push: victim card 1, wound, lost.
+    const vault = (titles: (string | null)[], wound: number, lost: number) =>
+      resolveRoute({ ...base, copies: edged(titles), tier: "legend", forks: 3, road: sixOn("legend"), choices: [null, null, "push"] }, script([0.99, 0, wound, lost]));
+    const lost = vault([null], 0.99, 0.1);
+    expect(fates(lost)[1]).toBe("lost");
+    expect(mutations(lost)[1]).toBe("cursed");
+    // The Assassin halves the lost roll on its card: 0.075, so 0.1 misses —
+    // and a harm that never landed curses nobody.
+    const assassin = vault(["The Assassin"], 0.99, 0.1);
+    expect(fates(assassin)[1]).toBe("home");
+    expect(mutations(assassin)[1]).toBeNull();
+    // A wound at the vault is a curse; Ice In The Veins keeps the wound and
+    // refuses the curse.
+    const cursed = vault([null], 0.1, 0.99);
+    expect(fates(cursed)[1]).toBe("home");
+    expect(mutations(cursed)[1]).toBe("cursed");
+    const ice = vault(["Ice In The Veins"], 0.1, 0.99);
+    expect(fates(ice)[1]).toBe("wounded");
+    expect(mutations(ice)[1]).toBeNull();
+    // Skirmish King: harm at a warned fork ×0.75 for the whole squad.
+    expect(mutations(vault([null, "Skirmish King"], 0.25, 0.99))[1]).toBeNull();
+    // Clutch Gene: the last fork's harm ×0.5.
+    expect(mutations(vault([null, "Clutch Gene"], 0.2, 0.99))[1]).toBeNull();
+    // Duelist: +0.1 for a push at a warned fork.
+    const warned = (title: string | null) => resolveRoute({ ...base, copies: edged([title]), tier: "legend", forks: 3, road: sixOn("legend"), choices: [null, null, "push"] }, always(0.99));
+    expect(warned("Duelist").lootMultiplier).toBe(Math.round((warned(null).lootMultiplier + 0.1) * 100) / 100);
+  });
+
+  it("a shield ignores its card's first harm, once — Unkillable any harm, The Anchor a wound", () => {
+    const vault = (titles: (string | null)[], queue: number[]) =>
+      resolveRoute({ ...base, copies: edged(titles), tier: "legend", forks: 3, road: sixOn("legend"), choices: [null, null, "push"] }, script(queue));
+    const unkillable = vault(["Unkillable"], [0.99, 0, 0.99, 0.1]);
+    expect(fates(unkillable)[1]).toBe("home");
+    expect(mutations(unkillable)[1]).toBeNull();
+    expect(unkillable.events.find((e) => e.ability === "Unkillable")?.text).toMatch(/the loss meant for Card 1 .* never landed/);
+    // The Anchor does not stop a loss.
+    expect(fates(vault(["The Anchor"], [0.99, 0, 0.99, 0.1]))[1]).toBe("lost");
+    // It stops a wound — the first. Two ridge wounds on a raid pushed twice
+    // at card 1: the second lands.
+    const twice = resolveRoute({ ...base, copies: edged(["The Anchor"]), tier: "raid", forks: 2, road: sixOn("raid"), choices: ["push", "push"] }, script([0, 0.1, 0.5, 0.99, 0, 0.1, 0.5, 0.99]));
+    expect(fates(twice)[1]).toBe("wounded");
+    expect(fired(twice)).toEqual(["The Anchor"]);
+  });
+
+  it("a front takes the first hit for a squadmate without a draw; Split Pusher is never in the pool", () => {
+    // The ridge: the road picks card 1 (0), and the wound roll is 0.2.
+    const ridge = (titles: (string | null)[]) =>
+      resolveRoute({ ...base, copies: edged(titles), tier: "raid", forks: 2, road: sixOn("raid"), choices: [null, "push"] }, script([0, 0.2, 0, 0.99]));
+    expect(fates(ridge([null]))).toEqual({ 1: "wounded", 2: "home", 3: "home" });
+    const jugg = ridge([null, null, "The Juggernaut"]);
+    expect(fates(jugg)).toEqual({ 1: "home", 2: "home", 3: "wounded" });
+    expect(jugg.events.find((e) => e.ability === "The Juggernaut")?.text).toMatch(/Card 3 stepped in front of Card 1/);
+    const sacrifice = ridge([null, null, "Sacrificial Play"]);
+    expect(fates(sacrifice)[3]).toBe("wounded");
+    expect(sacrifice.lootMultiplier).toBe(Math.round((1.25 + EDGE_BIG) * 100) / 100);
+    // The Bodyguard steps in and shrugs off its first wound.
+    const guard = ridge([null, null, "The Bodyguard"]);
+    expect(Object.values(fates(guard))).toEqual(["home", "home", "home"]);
+    expect(guard.events.find((e) => e.ability === "The Bodyguard")?.text).toMatch(/shrugged it off/);
+    // Split Pusher on card 1: the same draw falls on card 2.
+    expect(fates(ridge(["Split Pusher"]))).toEqual({ 1: "home", 2: "wounded", 3: "home" });
+  });
+
+  it("Roaming Threat rolls a roam's harm on one card, and The Veteran gives the shape, not the miles", () => {
+    // Every card is a Mid. Victim card 1, wound 0.1, reward pick, miss.
+    const roam = resolveRoute({ ...base, copies: edged([null, "Roaming Threat"]), tier: "raid", forks: 2, road: sixOn("raid"), choices: [null, "roam"] }, script([0, 0.1, 0.5, 0.99]));
+    expect(Object.values(fates(roam)).filter((fate) => fate !== "home")).toEqual(["wounded"]);
+    expect(fired(roam)).toContain("Roaming Threat");
+    // A green Jungle scouts the ridge at 0.225; The Veteran's at 0.15.
+    const jungle = (title: string | null) => edged([null, title], { 1: { role: "Top" }, 2: { role: "Jungle" } });
+    const green = resolveRoute({ ...base, copies: jungle(null), tier: "raid", forks: 2, road: sixOn("raid"), choices: [null, "scout"] }, script([0.2, 0, 0.99]));
+    expect(fates(green)[2]).toBe("wounded");
+    const vet = resolveRoute({ ...base, copies: jungle("The Veteran"), tier: "raid", forks: 2, road: sixOn("raid"), choices: [null, "scout"] }, script([0.2, 0, 0.99]));
+    expect(Object.values(fates(vet))).toEqual(["home", "home", "home"]);
+    expect(fired(vet)).toContain("The Veteran");
+  });
+
+  it("camp edges pay for the night and soften it; a hold is not a camp", () => {
+    // Legend, fixed road: three camps, the checkpoint's haunting 0.15.
+    const camps = (titles: (string | null)[], rand: () => number, camp?: { tent: number }) =>
+      resolveRoute({ ...base, copies: edged(titles), tier: "legend", forks: 3, road: sixOn("legend"), choices: [null, "camp", null], camp }, rand);
+    expect(camps(["Farm Demon"], always(0.99)).lootMultiplier).toBe(Math.round((1 + 3 * EDGE_SMALL) * 100) / 100);
+    expect(camps(["Power Farmer"], always(0.99)).lootMultiplier).toBe(1.24);
+    // A 0.1 haunting lands on card 1 bare; Space Creator halves it to 0.075.
+    expect(mutations(camps([null], script([0.1, 0])))[1]).toBe("haunted");
+    const spaced = camps([null, "Space Creator"], script([0.1, 0]));
+    expect(Object.values(mutations(spaced))).toEqual([null, null, null]);
+    expect(fired(spaced)).toEqual(["Space Creator"]);
+    // Silent Carry never comes home Haunted — and nobody else does instead.
+    const silent = camps(["Silent Carry"], script([0.1, 0]));
+    expect(Object.values(mutations(silent))).toEqual([null, null, null]);
+    expect(fired(silent)).toEqual(["Silent Carry"]);
+    // The tent takes the first haunting, under the edge rulebook only.
+    const tented = camps([null], script([0.1, 0]), { tent: 1 });
+    expect(Object.values(mutations(tented))).toEqual([null, null, null]);
+    expect(tented.events.some((e) => /^The tent held: /.test(e.text) && !e.ability)).toBe(true);
+    const oldTent = resolveRoute({ ...base, copies: edged([null]), tier: "legend", forks: 3, road: fiveOn("legend"), choices: [null, "camp", null], camp: { tent: 1 } }, script([0.1, 0]));
+    expect(mutations(oldTent)[1]).toBe("haunted");
+  });
+
+  it("camp wound edges, Free Win Lane and the shields at a camp that bites", () => {
+    // A Rescue that camps: the wound roll (0.15), then the victim, then
+    // the rescue roll.
+    const rescue = (titles: (string | null)[], queue: number[], camp?: { tent: number }) =>
+      resolveRoute({ ...base, copies: edged(titles), tier: "rescue", forks: 1, road: sixOn("rescue"), choices: ["camp"], target: 77, camp }, script(queue));
+    expect(fates(rescue([null], [0.1, 0, 0.01]))[1]).toBe("wounded");
+    // Wave Manager halves it: 0.1 misses, and the rescue roll comes next.
+    const wave = rescue(["Wave Manager"], [0.1, 0.01]);
+    expect(Object.values(fates(wave))).toEqual(["home", "home", "home"]);
+    expect(wave.rescued).toBe(true);
+    expect(fired(wave)).toEqual(["Wave Manager"]);
+    // Poke Support zeroes it and Free Win Lane frees the first night: no
+    // wound roll is drawn at all.
+    for (const title of ["Poke Support", "Free Win Lane"]) {
+      const free = rescue([title], [0.01]);
+      expect(Object.values(fates(free))).toEqual(["home", "home", "home"]);
+      expect(free.rescued).toBe(true);
+      expect(fired(free)).toEqual([title]);
+    }
+    // The wound lands on card 1: its Anchor, or the tent, takes it.
+    expect(fates(rescue(["The Anchor"], [0.1, 0, 0.01]))[1]).toBe("home");
+    const tented = rescue([null], [0.1, 0, 0.01], { tent: 1 });
+    expect(fates(tented)[1]).toBe("home");
+    expect(tented.events.some((e) => /^The tent held: /.test(e.text))).toBe(true);
+  });
+
+  it("toll edges: Priority Merchant waives it, Plate Collector halves it, a second-level tent pays the first", () => {
+    // The toll bridge's camp pays its toll (0.1 < 0.3); the lanterns camp free.
+    const bridge = (titles: (string | null)[], camp?: { tent: number }) =>
+      resolveRoute({ ...base, copies: edged(titles), tier: "gilded", forks: 2, road: sixOn("gilded"), choices: ["camp", null], camp }, always(0.1));
+    expect(bridge([null]).lootMultiplier).toBe(1 - TOLL_LOOT);
+    expect(bridge(["Priority Merchant"]).lootMultiplier).toBe(1);
+    expect(fired(bridge(["Priority Merchant"]))).toEqual(["Priority Merchant"]);
+    expect(bridge(["Plate Collector"]).lootMultiplier).toBe(Math.round((1 - TOLL_LOOT * PLATE_TOLL) * 100) / 100);
+    expect(bridge([null], { tent: 2 }).lootMultiplier).toBe(1);
+    expect(bridge([null], { tent: 1 }).lootMultiplier).toBe(1 - TOLL_LOOT);
+  });
+
+  it("Island King pays on top of the hold, and holds twice", () => {
+    const tops = (title: string | null) => edged([null, title], { 1: { role: "Top" } });
+    const held = resolveRoute({ ...base, copies: tops("Island King"), tier: "legend", forks: 3, road: sixOn("legend"), choices: ["hold", "hold", null] }, always(0.99));
+    expect(held.lootMultiplier).toBe(Math.round((1 + 2 * (HOLD_LOOT + ISLAND_HOLD)) * 100) / 100);
+    expect(fired(held)).toEqual(["Island King", "Island King"]);
+    // Without the King the second hold is a camp.
+    const once = resolveRoute({ ...base, copies: tops(null), tier: "legend", forks: 3, road: sixOn("legend"), choices: ["hold", "hold", null] }, always(0.99));
+    expect(once.lootMultiplier).toBe(1 + HOLD_LOOT);
+    // The Veteran on the Top holds like one.
+    const vet = resolveRoute({ ...base, copies: edged(["The Veteran"], { 1: { role: "Top" } }), tier: "legend", forks: 3, road: sixOn("legend"), choices: ["hold", null, null] }, always(0.99));
+    expect(vet.lootMultiplier).toBe(1 + VETERAN_HOLD_LOOT);
+  });
+
+  it("the gamble edges: Coinflip Gamer doubles the swing, Free Win Lane shades the coin, the loot edges ride the win", () => {
+    const flip = (title: string | null, rand: () => number) => resolveRoute({ ...base, copies: edged([title]), tier: "scout", forks: 1, road: sixOn("scout"), choices: ["push"] }, rand);
+    expect(flip(null, always(0.99)).lootMultiplier).toBe(1.4);
+    expect(flip("Coinflip Gamer", always(0.99)).lootMultiplier).toBe(1.8);
+    expect(flip("Coinflip Gamer", always(0)).lootMultiplier).toBe(0.4);
+    // 0.4 loses at 0.45 and wins at 0.35.
+    expect(flip(null, always(0.4)).lootMultiplier).toBe(0.7);
+    expect(flip("Free Win Lane", always(0.4)).lootMultiplier).toBe(1.4);
+    expect(flip("Glass Cannon", always(0.99)).lootMultiplier).toBe(1.45);
+    expect(flip("Glass Cannon", always(0)).lootMultiplier).toBe(0.7);
+    // On a road with no coin flip the first push is one: its draw is that
+    // fork's last. Heads pays the bonus twice, tails pays none.
+    const coin = (last: number) => resolveRoute({ ...base, copies: edged(["Coinflip Gamer"]), tier: "raid", forks: 2, road: sixOn("raid"), choices: ["push", "push"] }, script([0.99, 0.99, 0.99, 0.99, last, 0.99, 0.99, 0.99, 0.99]));
+    expect(coin(0.1).lootMultiplier).toBe(1.75);
+    expect(coin(0.9).lootMultiplier).toBe(1.25);
+  });
+
+  it("the find and mutation edges move their chances", () => {
+    // The sleeper's pack (0.2) doubled by Turret Melter: a 0.3 roll finds it.
+    const sleeper = (title: string | null) =>
+      resolveRoute({ ...base, copies: edged([title]), tier: "legend", forks: 3, road: sixOn("legend", 2, "sleeper"), choices: [null, null, "push"] }, script([0.99, 0, 0.99, 0.99, 0.3]));
+    expect(sleeper(null).comp).toBe(false);
+    expect(sleeper("Turret Melter").comp).toBe(true);
+    // The reactor's irradiation (0.2) ×1.5 by Highlight Reel.
+    const reactor = (title: string | null) =>
+      resolveRoute({ ...base, copies: edged([title]), tier: "raid", forks: 2, road: sixOn("raid"), choices: ["push", null] }, script([0.99, 0.99, 0, 0.25]));
+    expect(mutations(reactor(null))[1]).toBeNull();
+    expect(mutations(reactor("Highlight Reel"))[1]).toBe("irradiated");
+  });
+
+  it("the rival and ghost edges move this run's bag, never the verdict", () => {
+    const quiet = (title: string | null, encounters: RouteEncounter[]) =>
+      resolveRoute({ ...base, copies: edged([title]), tier: "raid", forks: 2, road: sixOn("raid"), choices: [null, null], encounters }, always(0));
+    const won: RouteEncounter[] = [{ leg: 0, key: "rival", won: true, rivalName: "Doug" }];
+    const lost: RouteEncounter[] = [{ leg: 0, key: "rival", won: false, rivalName: "Doug" }];
+    expect(quiet("Gank Squad", won).lootMultiplier).toBe(1 + 2 * RIVAL_WIN_LOOT);
+    expect(quiet("Born Winner", lost).lootMultiplier).toBe(1);
+    expect(quiet("Camp Thief", won).lootMultiplier).toBe(Math.round((1 + RIVAL_WIN_LOOT + EDGE_BIG) * 100) / 100);
+    expect(quiet("Camp Thief", lost).lootMultiplier).toBe(Math.round((1 - RIVAL_LOSS_LOOT + EDGE_BIG) * 100) / 100);
+    // The verdict's own event is untouched.
+    expect(quiet("Born Winner", lost).events.some((e) => /Doug's squad on the same trail got there first/.test(e.text))).toBe(true);
+    // A ghost at the first camp: bare, the floor (0.2) haunts at 0.1.
+    // Counter Jungler takes its cache and Vision Denier keeps it at the
+    // edge: the shaft's own haunting is 0, so no roll is drawn at all.
+    const ghost: RouteEncounter[] = [{ leg: 0, key: "ghost", ghost: { name: "Faker", stood: false } }];
+    const camp = (title: string | null) => resolveRoute({ ...base, copies: edged([title]), tier: "legend", forks: 1, road: sixOn("legend"), choices: ["camp"], encounters: ghost }, script([0.1, 0]));
+    expect(mutations(camp(null))[1]).toBe("haunted");
+    const jungler = camp("Counter Jungler");
+    expect(Object.values(mutations(jungler))).toEqual([null, null, null]);
+    expect(jungler.lootMultiplier).toBe(1 + EDGE_BIG);
+    const denier = camp("Vision Denier");
+    expect(Object.values(mutations(denier))).toEqual([null, null, null]);
+    expect(denier.lootMultiplier).toBe(1);
+    expect(fired(denier)).toEqual(["Vision Denier"]);
+  });
+
+  it("the finale edges settle the bag after insurance and before the clamp", () => {
+    const quiet = (copies: CardCopy[], shine?: number) => resolveRoute({ ...base, copies, tier: "raid", forks: 2, road: sixOn("raid"), choices: [null, null], shine }, always(0));
+    // A squad with no title reads as Jack of All Trades.
+    const jack = quiet(squad());
+    expect(jack.lootMultiplier).toBe(1 + EDGE_SMALL);
+    expect(fired(jack)).toEqual(["Jack of All Trades"]);
+    // The Underdog: the raid's gate is 12, the margin 3.
+    expect(quiet(edged(["The Underdog"]), 15).lootMultiplier).toBe(1 + EDGE_BIG);
+    expect(quiet(edged(["The Underdog"]), 16).lootMultiplier).toBe(1);
+    // Late Game Insurance raises a lost coin flip to 1.
+    const floor = resolveRoute({ ...base, copies: edged(["Late Game Insurance"]), tier: "scout", forks: 1, road: sixOn("scout"), choices: ["push"] }, always(0));
+    expect(floor.lootMultiplier).toBe(1);
+    // An exorcism has no bag: no finale edge, no draw.
+    let draws = 0;
+    const rite = resolveRoute({ ...base, copies: squad(), tier: "exorcism", road: sixOn("exorcism"), choices: [], target: 2 }, () => { draws += 1; return 0; });
+    expect(draws).toBe(0);
+    expect(rite.lootMultiplier).toBe(1);
+  });
+
+  it("The Lifeline: a better rescue, inside the cap, and a shorter bench", () => {
+    // A Rescue that camps: wound roll 0.99 misses, then the rescue roll at
+    // 0.585 bare and 0.735 with the Lifeline.
+    const rescue = (title: string | null) => resolveRoute({ ...base, copies: edged([title]), tier: "rescue", forks: 1, road: sixOn("rescue"), choices: ["camp"], target: 77 }, script([0.99, 0.65, 0.99, 0.99, 0.99, 0.99]));
+    expect(rescue(null).rescued).toBe(false);
+    expect(rescue("The Lifeline").rescued).toBe(true);
+    expect(RESCUE_CAP).toBeLessThan(1);
+    // A ridge wound benches 48h, not 72h.
+    const hurt = resolveRoute({ ...base, copies: edged([null, "The Lifeline"]), tier: "raid", forks: 2, road: sixOn("raid"), choices: [null, "push"] }, script([0, 0.1, 0, 0.99]));
+    expect(hurt.fates.find((fate) => fate.id === 1)?.woundedUntil).toBe(new Date(now.getTime() + LIFELINE_BENCH_HOURS * 3_600_000).toISOString());
+    expect(fired(hurt)).toContain("The Lifeline");
+  });
+
+  it("The Enabler pays once, the first time another edge fires", () => {
+    const run = resolveRoute({ ...base, copies: edged(["The Enabler", "On A Heater"]), tier: "raid", forks: 2, road: sixOn("raid"), choices: ["push", "push"] }, always(0.99));
+    expect(run.lootMultiplier).toBe(1.6);
+    expect(fired(run)).toEqual(["On A Heater", "The Enabler"]);
+  });
+
+  it("a card that dies takes its edge with it, and the edge it outranked stays ignored", () => {
+    // The Legendary route: card 2 dies at the second push (the existing
+    // death fixture's queue), then the squad camps twice. Power Farmer
+    // (card 2) outranks Farm Demon (card 1): nobody farms after the death.
+    const copies = edged(["Farm Demon", "Power Farmer"]);
+    const queue = [0, 0.99, 0.99, 0, 0.99, 0.5, 0.99, 0.99, 0.1, 0.99, 0.99, 0, 0.99];
+    const legendary = sixOn("legendary");
+    const dies = resolveRoute({ ...base, copies, tier: "legendary", forks: 4, road: legendary, choices: ["push", "push", null, null] }, script(queue));
+    expect(fates(dies)[2]).toBe("dead");
+    expect(fired(dies)).toEqual([]);
+    // Spare card 2 (the dead roll misses) and both camps pay Power Farmer.
+    const lives = resolveRoute({ ...base, copies, tier: "legendary", forks: 4, road: legendary, choices: ["push", "push", null, null] }, script(queue.map((value, index) => (index === 8 ? 0.99 : value))));
+    expect(fates(lives)[2]).not.toBe("dead");
+    expect(fired(lives)).toEqual(["Power Farmer", "Power Farmer"]);
+  });
+
+  it("says on the buttons what the squad's edges do to each choice", () => {
+    const raid = sixOn("raid");
+    const options = forkOptions("raid", 1, edged(["Unkillable", "Farm Demon"]), [], raid);
+    const push = options.find((o) => o.choice === "push")!;
+    expect(push.edges?.map((note) => note.title)).toEqual(["Unkillable"]);
+    expect(push.tease).toBe(`${push.baseTease} Unkillable: the first harm on Card 1 is ignored.`);
+    const camp = options.find((o) => o.choice === "camp")!;
+    expect(camp.edges?.[0]).toMatchObject({ title: "Farm Demon", kind: "camp", copyId: 2 });
+    // Below the edge rulebook: the old buttons, word for word.
+    const old = forkOptions("raid", 1, edged(["Unkillable", "Farm Demon"]), [], fiveOn("raid"));
+    expect(old).toEqual(forkOptions("raid", 1, squad(), [], fiveOn("raid")));
+    expect(old.every((o) => o.edges === undefined && o.baseTease === undefined)).toBe(true);
+    // A locked option carries no edge.
+    expect(options.find((o) => o.choice === "favour")?.edges).toBeUndefined();
+    // Roaming Threat on the roam.
+    const roam = forkOptions("raid", 1, edged([null, "Roaming Threat"]), [], raid).find((o) => o.choice === "roam")!;
+    expect(roam.tease).toMatch(/Roaming Threat: the harm is rolled on one card, not two\./);
+  });
+
+  it("an Island King keeps the hold open for a second night, and the server allows it", () => {
+    const tops = (title: string | null) => edged([null, title], { 1: { role: "Top" } });
+    const hold = (copies: CardCopy[], earlier: (ForkChoice | null)[], r = sixOn("legend")) => forkOptions("legend", 1, copies, earlier, r).find((o) => o.choice === "hold")!;
+    expect(hold(tops(null), ["hold"]).locked).toBe("Already spent on this run.");
+    expect(hold(tops("Island King"), ["hold"]).locked).toBeNull();
+    expect(hold(tops("Island King"), ["hold"]).tease).toMatch(/Island King: /);
+    expect(forkOptions("legend", 2, tops("Island King"), ["hold", "hold"], sixOn("legend")).find((o) => o.choice === "hold")!.locked).toBe("Already spent on this run.");
+    expect(hold(tops("Island King"), ["hold"], fiveOn("legend")).locked).toBe("Already spent on this run.");
+    expect(choiceAllowed("legend", 1, "hold", tops("Island King"), ["hold"], sixOn("legend"))).toBe(true);
+  });
+});
+
+describe("the rules 5 snapshot", () => {
+  // Every title in the pool, three to a squad. A run stamped below
+  // ARCHETYPE_RULES must resolve with these exactly as it does with none:
+  // the same draws, in the same number, and the same result to the letter.
+  const titles = Object.keys(ARCHETYPE_ABILITIES);
+  const trios = Array.from({ length: Math.ceil(titles.length / 3) }, (_, index) => titles.slice(index * 3, index * 3 + 3));
+  const cast = (trio: (string | undefined)[]) => [
+    copy({ id: 1, role: "Top", signed: true, card: { archetype: trio[0], teamName: "A" } }),
+    copy({ id: 2, role: "Jungle", foil: true, card: { archetype: trio[1], teamName: "A" } }),
+    copy({ id: 3, role: "Mid", card: { archetype: trio[2], teamName: "B", trail: { miles: 20, runs: 6, deepest: "legend" } } }),
+  ];
+  const counting = (seed: number) => {
+    const stream = mulberry32(seed);
+    const counter = { draws: 0, rand: () => { counter.draws += 1; return stream(); } };
+    return counter;
+  };
+  const encounters: RouteEncounter[] = [
+    { leg: 0, key: "rival", won: true, rivalName: "Doug" },
+    { leg: 1, key: "ghost", ghost: { name: "Faker", stood: false } },
+    { leg: 1, key: "hunter", found: true },
+    { leg: 2, key: "shrine" },
+  ];
+  const tiers: ExpeditionTierKey[] = ["scout", "gilded", "raid", "legend", "rescue", "legendary", "mythic"];
+
+  it("resolves every fixture the same with a squad full of edges as with none", () => {
+    let compared = 0;
+    for (const tier of tiers) {
+      for (let seed = 1; seed <= 12; seed += 1) {
+        const pickChoice = mulberry32(seed * 31 + tier.length);
+        const choices = Array.from({ length: EXPEDITION_TIERS[tier].forks }, () => {
+          const at = Math.floor(pickChoice() * (FORK_CHOICES.length + 1));
+          return at === FORK_CHOICES.length ? null : FORK_CHOICES[at];
+        });
+        for (const rules of [0, ROAD_RULES, ARCHETYPE_RULES - 1]) {
+          for (const trio of trios) {
+            const input = (copies: CardCopy[]): RouteInput => ({
+              tier, copies, choices, insured: seed % 3 === 0, grade: seed % 2 ? "solid" : "jackpot", target: tier === "rescue" ? 77 : null, now,
+              road: rules === 0 ? null : { runId: seed * 97, rules, convoy: null }, encounters, weather: seed % 4 === 0 ? "fog" : null, camp: { tent: 2 }, shine: 12,
+            });
+            const bare = counting(seed);
+            const titled = counting(seed);
+            const plain = resolveRoute(input(cast([undefined, undefined, undefined])), bare.rand);
+            const edgedRun = resolveRoute(input(cast(trio)), titled.rand);
+            expect(edgedRun).toEqual(plain);
+            expect(titled.draws).toBe(bare.draws);
+            compared += 1;
+          }
+        }
+      }
+    }
+    expect(compared).toBe(tiers.length * 12 * 3 * trios.length);
+  });
+
+  it("runs the existing scripted fixtures at rules 5 with edges, word for word", () => {
+    const loaded = edged(["Unkillable", "The Surgeon", "Split Pusher"]);
+    const plain = squad();
+    const fixtures: { tier: ExpeditionTierKey; forks: number; choices: (ForkChoice | null)[]; queue: number[]; insured?: boolean }[] = [
+      { tier: "raid", forks: 2, choices: ["push", "push"], queue: [0.5, 0.99, 0, 0.1, 0.99, 0.1, 0.5, 0.99] },
+      { tier: "legend", forks: 3, choices: [null, "camp", null], queue: [0.1, 0] },
+      { tier: "legend", forks: 3, choices: [null, null, "push"], queue: [0.99, 0, 0.1, 0.99] },
+      { tier: "legend", forks: 3, choices: [null, null, "push"], queue: [0.99, 0, 0.99, 0.1], insured: true },
+      { tier: "legendary", forks: 4, choices: ["push", "push", null, null], queue: [0, 0.99, 0.99, 0, 0.99, 0.5, 0.99, 0.99, 0.1, 0.99, 0.99, 0, 0.99] },
+      { tier: "rescue", forks: 1, choices: [null], queue: [0.99, 0.99, 0.1, 0.99, 0.1, 0.05, 0.99] },
+      { tier: "gilded", forks: 2, choices: ["camp", "push"], queue: [0.1, 0.99, 0.99, 0.99, 0.99] },
+      { tier: "scout", forks: 1, choices: ["push"], queue: [0.4] },
+    ];
+    const input = (fixture: (typeof fixtures)[number], copies: CardCopy[], rules: number): RouteInput => ({
+      tier: fixture.tier, forks: fixture.forks, choices: fixture.choices, copies, grade: "solid", now,
+      road: { ...roadWith(fixture.tier), rules }, target: fixture.tier === "rescue" ? 77 : null, insured: fixture.insured ?? false,
+    });
+    for (const fixture of fixtures) {
+      expect(resolveRoute(input(fixture, loaded, ARCHETYPE_RULES - 1), script(fixture.queue))).toEqual(resolveRoute(input(fixture, plain, ARCHETYPE_RULES - 1), script(fixture.queue)));
+    }
+    // The same fixtures under the edge rulebook do not all agree: the
+    // edges are there to be read.
+    const differs = fixtures.filter((fixture) =>
+      JSON.stringify(resolveRoute(input(fixture, loaded, ARCHETYPE_RULES), script(fixture.queue))) !== JSON.stringify(resolveRoute(input(fixture, plain, ARCHETYPE_RULES), script(fixture.queue))),
+    );
+    expect(differs.length).toBeGreaterThan(0);
+  });
+});
+
+// === the half of the road a browser may hold ================================
+
+import { readFileSync as readSource } from "node:fs";
+import { join as joinPath } from "node:path";
+import * as forkModule from "./forks";
+import type { MutationSource } from "./forks";
+import * as routeModule from "./routes";
+
+describe("forks.ts, the client-safe half", () => {
+  it("counts every place a route's road can hold as ROAD_SIZES", () => {
+    // The atlas and the rules page count against this table without
+    // importing ROADS; a place added there without a line here fails.
+    expect(Object.keys(forkModule.ROAD_SIZES).sort()).toEqual([...TIER_ORDER].sort());
+    for (const tier of TIER_ORDER) {
+      expect(forkModule.ROAD_SIZES[tier]).toBe(ROADS[tier].flat().length);
+      // Distinct across slots too, so the size is the atlas' count of places.
+      expect(new Set(ROADS[tier].flat().map((fork) => fork.key)).size).toBe(forkModule.ROAD_SIZES[tier]);
+    }
+    expect(forkModule.ROAD_SIZES).toEqual({ scout: 4, gilded: 6, raid: 6, legend: 9, rescue: 3, exorcism: 0, legendary: 12, mythic: 10 });
+  });
+
+  it("is re-exported by routes.ts binding for binding, so no server caller changes", () => {
+    const shared = Object.keys(forkModule) as (keyof typeof forkModule)[];
+    expect(shared.length).toBeGreaterThan(15);
+    for (const name of shared) expect((routeModule as Record<string, unknown>)[name]).toBe(forkModule[name]);
+  });
+
+  it("never imports the road, the journal, the views or the queries, and no value but the rulebook's", () => {
+    const importsOf = (file: string) =>
+      [...readSource(joinPath(process.cwd(), file), "utf8").matchAll(/^import\s+(type\s+)?[^;]*?from\s+"([^"]+)";/gm)].map((match) => ({ typeOnly: Boolean(match[1]), from: match[2] }));
+    const imports = importsOf("src/lib/expeditions/forks.ts");
+    expect(imports.length).toBeGreaterThan(0);
+    for (const entry of imports) {
+      expect(entry.from).not.toMatch(/(^|\/)(routes|journal|views|queries)$/);
+      // The consent line reads the tier table and the bench (config.ts) —
+      // the rulebook every client surface already holds. Nothing else.
+      if (!entry.typeOnly) expect(entry.from).toBe("./config");
+    }
+    // And the rulebook is a leaf of the same kind: no road in it either.
+    for (const entry of importsOf("src/lib/expeditions/config.ts").filter((entry) => !entry.typeOnly)) {
+      expect(entry.from).not.toMatch(/^(\.\/|@\/lib\/expeditions\/)(routes|journal|views|queries|forks)$/);
+    }
+  });
+
+  it("carries every place a mutation can come from, as ROADS does", () => {
+    // The rules page quotes MUTATION_SOURCES without importing ROADS; a
+    // reward added to a place there without a line here fails.
+    const derived: MutationSource[] = [];
+    for (const tier of TIER_ORDER) {
+      for (const fork of ROADS[tier].flat()) {
+        if (fork.pushReward) derived.push({ tier, place: fork.title, mutation: fork.pushReward.mutation, by: "push", chance: fork.pushReward.chance });
+        if (fork.campReward) derived.push({ tier, place: fork.title, mutation: fork.campReward.mutation, by: "camp", chance: fork.campReward.chance });
+        if (fork.campRisk.haunted > 0) derived.push({ tier, place: fork.title, mutation: "haunted", by: "camp", chance: fork.campRisk.haunted });
+      }
+    }
+    expect(derived.length).toBeGreaterThan(20);
+    expect([...forkModule.MUTATION_SOURCES]).toEqual(derived);
+  });
+});

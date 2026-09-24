@@ -27,7 +27,9 @@ describe("CampaignPanel", () => {
   });
 
   it("follows the open campaign: the stage, the road the last stage set, and what is out", () => {
-    render(<CampaignPanel campaign={open} onStart={vi.fn()} onAbandon={vi.fn()} />);
+    // The road arrives named: the server turns the campaign's place keys
+    // into titles (views.ts campaignRoadTitles), so no road ships here.
+    render(<CampaignPanel campaign={open} places={["The flooded works", "The dog pits"]} onStart={vi.fn()} onAbandon={vi.fn()} />);
     expect(screen.getByTestId("campaign-stage").textContent).toBe("Stage 2 of 3 — send a Deep Raid");
     expect(screen.getByTestId("campaign-stage-0").textContent).toContain("✓");
     expect(screen.getByTestId("campaign-story").textContent).toContain("A poor scout: the raid opens in the flooded works.");

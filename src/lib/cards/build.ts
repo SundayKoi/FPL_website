@@ -754,6 +754,10 @@ const ARCHETYPES: { title: string; roles?: ArchetypeRole[]; score: (f: Archetype
   { title: "Skirmish King", roles: SOLOS, score: (f) => (f.solo >= 55 && f.kda >= 55 ? (f.solo + f.kda) / 2 - 5 : 0) },
 ];
 
+/** Every title the pool can mint. An expedition reads each one as an edge
+ *  (expeditions/archetypes.ts), and its test fails on a title with none. */
+export const ARCHETYPE_TITLES = ARCHETYPES.map((a) => a.title);
+
 /** Whether a title's wording is true of the position holding it. */
 function claimableBy(archetype: (typeof ARCHETYPES)[number], role: string): boolean {
   if (!archetype.roles) return true;

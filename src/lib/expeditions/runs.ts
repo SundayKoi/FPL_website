@@ -23,15 +23,20 @@ import {
   type ExpeditionOutcome,
   type ExpeditionTierKey,
 } from "./config";
-import { RUN_COLUMNS, fetchFixturesSince, fetchInsuredThisWeek, fetchPolicyUsed, fetchStrangersHolds, hasTrail, mapRun, roadOf, type ExpeditionRun } from "./queries";
+import { RUN_COLUMNS, fetchCamp, fetchFixturesSince, fetchForgedThisWeek, fetchInsuredThisWeek, fetchPolicyUsed, fetchRulesVersion, fetchStrangersHolds, hasTrail, mapRun, roadOf, type ExpeditionRun } from "./queries";
+import { FORGED_PER_WEEK, friendlyCampError } from "./camp";
 import { convoySheet, normaliseConvoyCode } from "./convoy";
-import { isCampChoice } from "./routes";
+import { EDGE_TITLE, isCampChoice } from "./routes";
+import { ARCHETYPE_RULES, SPEEDRUN_HOURS, SPEEDRUN_MAX_HOURS, activeAbilities, traitsOf } from "./archetypes";
 import { echoPool, surgeTeams, teamsPlayingOn } from "./matchday";
 import { STORM_HOURS, STRANDED_BOUNTY, encountersFor, latestJournalLine } from "./journal";
 import { fetchCompany } from "./companyReads";
 import { fetchCampaign, hasLegendMark } from "./queries";
 import { CAMPAIGNS, canBind, nextRoad, relicBearer, type CampaignState, type StageLog } from "./campaigns";
 import { watchWeeksOf, weatherOfRun } from "./weather";
+import { sweepLeagueGoals } from "./leagueSweep";
+import { ROAD_REWARDS, atlasFor, atlasStamp, firstNamedLine, placeTitle, rewardWords, roadComplete, routeName, type AtlasStamp } from "./atlas";
+import { fetchAtlasRuns } from "./queries";
 import {
   forksFor,
   choiceAllowed,
@@ -60,7 +65,16 @@ import {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type LaunchResult =
-  | { ok: true; runId: number; resolvesAt: string; fee: number; freePolicy: boolean; convoyCode: string | null }
+  | {
+      ok: true;
+      runId: number;
+      resolvesAt: string;
+      fee: number;
+      freePolicy: boolean;
+      convoyCode: string | null;
+      /** Set (true) only when a forged policy insured the run. */
+      forged?: boolean;
+    }
   | { ok: false; error: string };
 
 export interface LaunchOptions {
@@ -74,6 +88,12 @@ export interface LaunchOptions {
   /** The open campaign to walk this run for (campaigns.ts): the tier must
    *  be the campaign's next stage. */
   campaign?: number | null;
+  /** Insure the run with a forged policy from the base camp's forge
+   *  (camp.ts) instead of buying one: no INSURANCE_FEE, and the weekly
+   *  cap never counts it; FORGED_PER_WEEK a week. It IS the run's
+   *  insurance, so it takes the place of `insured` — a launch never
+   *  spends two policies. Refused on a route that cannot hurt a card. */
+  forged?: boolean;
 }
 
 export type ClaimResult =
@@ -104,8 +124,17 @@ export type ClaimResult =
        *  whether the campaign finished, and the relic's bearer if one was
        *  printed. Null off a campaign. */
       campaign: { key: CampaignState["key"]; stage: number; finished: boolean; relicName: string | null } | null;
+      /** The atlas's news, when there is any: the places this squad was
+       *  first to this season (titles), and the road this claim completed.
+       *  Absent otherwise, and whenever the atlas is not deployed. */
+      atlas?: ClaimAtlas;
     }
   | { ok: false; error: string };
+
+export interface ClaimAtlas {
+  firsts: string[];
+  road: { tier: ExpeditionTierKey; fragments: number; comp: boolean } | null;
+}
 
 export type DecideResult = { ok: true; closesAt: string } | { ok: false; error: string };
 
@@ -135,6 +164,17 @@ export function friendlyExpeditionError(message: string): string {
   // "you're done for today" sends them to bed.
   if (/tier already out/i.test(message)) {
     return "That expedition is already out — bring it home before you send another.";
+  }
+  // The base camp's forged policies (the 14-argument launch_expedition).
+  if (/no forged policy/i.test(message)) return "You have no forged policy — build a forge at your base camp and forge one first.";
+  if (/forge spent this week/i.test(message)) return "This week's forged launch is used — one a week. The next can go out Monday (Eastern).";
+  if (/policy not wanted/i.test(message)) return "A Scouting Run or an Exorcism can't hurt a card, so it takes no policy.";
+  if (/forged policy stands alone/i.test(message)) return "A forged policy is this run's insurance on its own — don't buy one on top of it.";
+  // The camp's own purchases (upgrade_expedition_camp), for any caller
+  // that reaches here with one. The camp actions ask friendlyCampError
+  // first, which also words the fragments and the balance as a price.
+  if (/bad price|already built|forge not built|forge is full|unknown upgrade/i.test(message)) {
+    return friendlyCampError(message) ?? GENERIC_EXPEDITION_ERROR;
   }
   if (/card not owned/i.test(message)) return "Those cards aren't yours.";
   if (/no such convoy/i.test(message)) return "No convoy has that code — check it with whoever gave it to you.";
@@ -223,6 +263,11 @@ export async function launchExpeditionFor(
   if (def.target === "afflicted" && !squad.includes(target!)) {
     return { ok: false, error: friendlyExpeditionError("target not in squad") };
   }
+  // A forged policy is the run's insurance, not a second one on top: it
+  // takes the place of a bought policy below, and a route that cannot hurt
+  // a card has nothing for it to cover (the RPC's 'policy not wanted').
+  const forged = options.forged === true;
+  if (forged && def.risk === "none") return { ok: false, error: friendlyExpeditionError("policy not wanted") };
 
   const service = createBettingServiceClient();
   // Scoped to this owner inside the query, so a short result is always
@@ -255,7 +300,7 @@ export async function launchExpeditionFor(
 
   // Insurance: a patron's first policy of the Eastern week is free, claimed
   // by the RPC by primary-key insert so two launches can't both be free.
-  const insured = options.insured === true && def.risk !== "none";
+  const insured = !forged && options.insured === true && def.risk !== "none";
   let freePolicy = false;
   let policyWeek: string | null = null;
   // One read of the flame serves both the free policy and the patrons'
@@ -285,6 +330,22 @@ export async function launchExpeditionFor(
       }
     }
   }
+  // The forge (camp.ts): a policy held, and this Eastern week's forged
+  // launch not yet sent. The friendly word before the round trip; the
+  // 14-argument launch_expedition checks both again under the wallet lock
+  // and spends the policy there. A camp that cannot be read has no forged
+  // policy: the only way to hold one is a camp row, which needs the base
+  // camp migration — so an environment without it refuses here and never
+  // reaches for a function it does not have. A weekly count that cannot
+  // be read is left to the RPC.
+  if (forged) {
+    const camp = await fetchCamp(service, discordId);
+    if (!camp || camp.forgedPolicies < 1) return { ok: false, error: friendlyExpeditionError("no forged policy") };
+    const sent = await fetchForgedThisWeek(service, discordId, mondayOf(new Date()));
+    if (sent !== null && sent >= FORGED_PER_WEEK) return { ok: false, error: friendlyExpeditionError("forge spent this week") };
+  }
+  // A forged run pays the tier's fee only: `insured` is false for it, so
+  // no INSURANCE_FEE, and no free policy was claimed.
   const fee = def.fee + (insured && !freePolicy ? INSURANCE_FEE : 0);
 
   // A convoy needs forks to share; a code is tidied the way the box
@@ -302,13 +363,27 @@ export async function launchExpeditionFor(
     if (convoy !== null) return { ok: false, error: "A campaign stage is walked alone — no convoy." };
   }
 
-  const { data, error } = await service.rpc("launch_expedition", {
+  // The Speedrunner's clock (archetypes.ts): an hour off a route no longer
+  // than SPEEDRUN_MAX_HOURS — the guardrail's line, held by config.test.ts.
+  // It is the one edge that acts before the run exists, so the rulebook is
+  // asked rather than read off a row: an environment still on the rules
+  // before ARCHETYPE_RULES (no expedition_rules_version, read as 1) keeps
+  // the full clock. Asked only when a Speedrunner counts on a short route,
+  // so every other launch costs no extra round trip. A convoy guest rides
+  // the host's clock whatever it asks for.
+  let hours = def.durationHours;
+  const joining = convoy !== null && convoy !== "new";
+  if (!joining && def.durationHours <= SPEEDRUN_MAX_HOURS && traitsOf(copies, ARCHETYPE_RULES).speedrun) {
+    if ((await fetchRulesVersion(service)) >= ARCHETYPE_RULES) hours = def.durationHours - SPEEDRUN_HOURS;
+  }
+
+  const args = {
     p_user: discordId,
     p_season: season,
     p_tier: tier,
     p_squad: squad,
     p_shine: squadShine(copies),
-    p_hours: def.durationHours,
+    p_hours: hours,
     p_forks: def.forks,
     p_insured: insured,
     p_fee: fee,
@@ -316,7 +391,12 @@ export async function launchExpeditionFor(
     p_target: target,
     p_policy_week: policyWeek,
     p_convoy: convoy,
-  });
+  };
+  // PostgREST picks the overload by the argument names it is sent, so
+  // `p_forged` is sent ONLY on a forged launch: every other launch stays
+  // the 13-argument call it always was, and works on a database that has
+  // never heard of the camp.
+  const { data, error } = await service.rpc("launch_expedition", forged ? { ...args, p_forged: true } : args);
   if (error) return { ok: false, error: friendlyExpeditionError(error.message) };
 
   const row = (Array.isArray(data) ? data[0] : data) as { run_id: number; resolves_at: string; convoy_code?: string | null } | null;
@@ -330,7 +410,7 @@ export async function launchExpeditionFor(
     // simply walks on its own.
     if (bindError) console.error("expeditions: campaign bind refused", { discordId, runId: row.run_id, message: bindError.message });
   }
-  return { ok: true, runId: Number(row.run_id), resolvesAt: row.resolves_at, fee, freePolicy, convoyCode: code };
+  return { ok: true, runId: Number(row.run_id), resolvesAt: row.resolves_at, fee, freePolicy, convoyCode: code, ...(forged ? { forged: true } : {}) };
 }
 
 /** Who is on the other side of a convoy from `discordId`, with their run's
@@ -572,7 +652,19 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
     convoy: run.convoy,
     squadTeams: copies.map((copy) => copy.card?.teamName ?? null).filter((team): team is string => Boolean(team)),
   });
-  const encounters = encountersFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, rules: run.rules, convoy: run.convoy }, company, weather?.key ?? null);
+  // The squad's edges (archetypes.ts), under the rulebook the run was
+  // stamped with: the traits bend the road the journal showed (the page
+  // read them off the same squad), and the sheet is the launch squad's.
+  const traits = traitsOf(copies, run.rules);
+  const edges = run.rules >= ARCHETYPE_RULES ? activeAbilities(copies) : [];
+  const encounters = encountersFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, rules: run.rules, convoy: run.convoy }, company, weather?.key ?? null, traits);
+  // The base camp as it stands when the squad comes home covers the run
+  // (camp.ts): a tent bought while the squad was out still pitches. Read
+  // only under the rulebook that has a tent — the resolver ignores it
+  // below ARCHETYPE_RULES, so an older run costs no round trip. A camp
+  // that cannot be read (the base camp migration not applied, or the read
+  // broke) is no tent, which is what every collector had before the camp.
+  const camp = { tent: run.rules >= ARCHETYPE_RULES ? ((await fetchCamp(service, discordId))?.tent ?? 0) : 0 };
   // The route: what the forks made of it and what the squad looks like.
   // The road is the run's own (or the convoy's), so the places it walked
   // are the places the page showed.
@@ -588,12 +680,17 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
       target: run.target,
       encounters,
       weather: weather?.key ?? null,
+      camp,
+      shine: run.shine,
       now: new Date(),
     },
     expeditionRand,
   );
-  // The merchant's flat — at Harvest prices under a Harvest.
-  const merchant = encounters.some((entry) => entry.key === "merchant") ? MERCHANT_DOLLARS * (weather?.key === "harvest" ? HARVEST_MERCHANT : 1) : 0;
+  // The merchant's flat — at Harvest prices under a Harvest, or in any
+  // weather with a Gold Hoarder. Never both: Harvest prices are the most a
+  // merchant pays, and the payout ceiling already carries them.
+  const hoarded = edges.some((entry) => entry.ability.title === EDGE_TITLE.goldHoarder);
+  const merchant = encounters.some((entry) => entry.key === "merchant") ? MERCHANT_DOLLARS * (weather?.key === "harvest" || hoarded ? HARVEST_MERCHANT : 1) : 0;
   let stranded: { holdId: number; bounty: number } | null = null;
   if (encounters.some((entry) => entry.key === "stranded")) {
     const [hold] = await fetchStrangersHolds(service, discordId);
@@ -620,6 +717,9 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
   // A dead card cannot wear the mark.
   const dead = new Set(route.fates.filter((fate) => fate.fate === "dead").map((fate) => fate.id));
   const bearer = bearerId !== null && dead.has(bearerId) ? null : bearerId;
+  // What the squad walked, for the atlas: the road the resolver just
+  // walked, and the encounters and ghosts this claim read.
+  const atlas = atlasStamp(run, forksFor(tier, roadOf(run)), encounters, company);
 
   const { data: claimData, error: claimError } = await service.rpc("resolve_expedition", {
     p_user: discordId,
@@ -653,6 +753,12 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
       rivals: (company?.rivals ?? []).map((rival) => ({ who: rival.who, name: rival.name, runId: rival.runId, won: rival.won })),
       ...(stranded ? { stranded: stranded.holdId, bounty: stranded.bounty } : {}),
       ...(echo ? { echo: { slug: echo.slug, week: echo.week, moment: echo.moment } } : {}),
+      // The edges that counted, stored with the outcome so the log can say
+      // what the squad walked with. Only under the rulebook that has them.
+      ...(run.rules >= ARCHETYPE_RULES ? { abilities: edges.map((entry) => ({ copyId: entry.copyId, title: entry.ability.title, kind: entry.ability.kind })) } : {}),
+      // Every claim, whatever its rulebook: the atlas's record of where the
+      // squad went, and the only places a landmark or a road can count.
+      atlas,
     },
   });
   if (claimError) {
@@ -756,6 +862,9 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
     }
   }
 
+  // The atlas, last and best effort: the claim above has paid.
+  const walked = await recordAtlas(service, { discordId, season, runId, tier, stamp: atlas });
+
   return {
     ok: true,
     outcome,
@@ -764,13 +873,87 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
     surge,
     echo: echo && row?.echo_id ? { inventoryId: Number(row.echo_id), slug: echo.slug, playerName: echo.playerName, moment: echo.moment } : null,
     balance: Number(row?.balance ?? 0),
-    fragments: Number(row?.fragments ?? 0),
+    fragments: Number(row?.fragments ?? 0) + (walked?.road?.fragments ?? 0),
     baseDollars: base.dollars,
     merchant,
     stranded,
     rescueMissed,
     campaign,
+    ...(walked ? { atlas: walked } : {}),
   };
+}
+
+/**
+ * The atlas's half of a claim, after resolve_expedition has committed:
+ * name the places this squad was first to this season, then — when the
+ * season's stamps now cover the route's whole road — pay the road. Both
+ * RPCs decide for themselves (first claim wins; a road is paid once), so
+ * this only asks. Every failure is logged and swallowed: a claim that paid
+ * never fails here, and an environment without the atlas migration simply
+ * names nothing and pays nothing.
+ */
+async function recordAtlas(
+  service: ReturnType<typeof createBettingServiceClient>,
+  input: { discordId: string; season: string; runId: number; tier: ExpeditionTierKey; stamp: AtlasStamp },
+): Promise<ClaimAtlas | null> {
+  const { discordId, season, runId, tier, stamp } = input;
+  if (!season || stamp.places.length === 0) return null;
+
+  let firsts: string[] = [];
+  try {
+    const { data, error } = await service.rpc("name_expedition_landmarks", { p_user: discordId, p_run: runId, p_places: stamp.places });
+    if (error) {
+      console.error("expeditions: landmarks not named", { discordId, runId, message: error.message });
+    } else {
+      // Only rows for this run's own places count as news, whatever else
+      // comes back.
+      const named = (Array.isArray(data) ? data : []) as { place?: unknown }[];
+      firsts = stamp.places.filter((place) => named.some((entry) => entry?.place === place));
+    }
+  } catch (atlasError) {
+    console.error("expeditions: landmarks not named", atlasError);
+  }
+  const titles = firsts.map((place) => placeTitle(place)).filter((title): title is string => title !== null);
+  if (titles.length > 0) {
+    try {
+      await postCardsWebhook({
+        title: titles.length === 1 ? "A landmark named" : "Landmarks named",
+        description: `${firstNamedLine(`<@${discordId}>`, titles, tier)} ${titles.length === 1 ? "It carries" : "They carry"} their name this season.`,
+        color: GOLD,
+      });
+    } catch (announceError) {
+      console.error("expeditions: landmark announcement failed", announceError);
+    }
+  }
+
+  let road: ClaimAtlas["road"] = null;
+  const history = await fetchAtlasRuns(service, discordId, season, tier);
+  if (history && roadComplete(atlasFor(history), tier)) {
+    try {
+      const { data, error } = await service.rpc("award_expedition_road", { p_user: discordId, p_season: season, p_tier: tier });
+      if (error) {
+        console.error("expeditions: road not awarded", { discordId, runId, tier, message: error.message });
+      } else {
+        const paid = (Array.isArray(data) ? data[0] : data) as { awarded?: boolean; fragments?: number } | null;
+        if (paid?.awarded === true) road = { tier, fragments: Number(paid.fragments ?? 0), comp: ROAD_REWARDS[tier].comp };
+      }
+    } catch (atlasError) {
+      console.error("expeditions: road not awarded", atlasError);
+    }
+  }
+  if (road) {
+    try {
+      await postCardsWebhook({
+        title: `${EXPEDITION_TIERS[tier].label} — every place walked`,
+        description: `<@${discordId}> has walked every place on ${routeName(tier)} this season: ${rewardWords(road)}.`,
+        color: GOLD,
+      });
+    } catch (announceError) {
+      console.error("expeditions: road announcement failed", announceError);
+    }
+  }
+
+  return titles.length > 0 || road ? { firsts: titles, road } : null;
 }
 
 async function announceClaim(
@@ -863,9 +1046,18 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
   if (buryError) errors.push(`expire: ${buryError.message}`);
   else buried = Number(buriedCount ?? 0);
 
+  // The league goal of the week (leagueSweep.ts): before the forks read,
+  // which returns early on an error, and fenced so a throw there is one
+  // line in `errors` rather than a sweep that stops.
+  try {
+    errors.push(...(await sweepLeagueGoals(service, now)).errors);
+  } catch (leagueError) {
+    errors.push(`league: ${leagueError instanceof Error ? leagueError.message : String(leagueError)}`);
+  }
+
   const { data, error } = await service
     .from("expedition_runs")
-    .select("id, discord_id, season, tier, squad, shine, forks, choices, started_at, resolves_at, pinged, encounters, rules, convoy")
+    .select("id, discord_id, season, tier, squad, shine, forks, choices, started_at, resolves_at, pinged, encounters, rules, convoy, road")
     .is("claimed_at", null)
     .gt("forks", 0)
     .limit(200);
@@ -894,14 +1086,35 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
     encounters: { key: string; leg: number }[] | null;
     rules: number | null;
     convoy: number | null;
+    /** A campaign's handed-down road, so the ping names its places. */
+    road?: string[] | null;
   }[]) ?? []) {
     const tier = row.tier as ExpeditionTierKey;
+    const rules = Number(row.rules ?? 1);
     let resolvesAt = row.resolves_at;
     // A storm whose hour has come holds the squad: the run's end moves out
     // (and every fork after it), once per storm.
     const applied = new Set((row.encounters ?? []).filter((entry) => entry.key === "storm").map((entry) => entry.leg));
-    for (const storm of encountersFor({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules: Number(row.rules ?? 1), convoy: row.convoy })) {
-      if (storm.key !== "storm" || applied.has(storm.leg) || storm.at.getTime() > now.getTime()) continue;
+    const road = { id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules, convoy: row.convoy };
+    const due = (list: ReturnType<typeof encountersFor>) => list.filter((entry) => entry.key === "storm" && !applied.has(entry.leg) && entry.at.getTime() <= now.getTime());
+    let coming = due(encountersFor(road));
+    // The squad's traits only ever take a storm away (a Speedrunner is past
+    // it; First Blood Merchant turned its beat), so the squad is read only
+    // when a storm is due on a run stamped with edges — the read the ping
+    // would make anyway. Unread, the storm waits for the next pass rather
+    // than hold a squad its edges would have kept moving.
+    let squadRead: CardCopy[] | null = null;
+    if (coming.length > 0 && rules >= ARCHETYPE_RULES) {
+      squadRead = await fetchInventoryByIds(service, row.discord_id, row.squad ?? []);
+      if (squadRead.length !== (row.squad ?? []).length) {
+        errors.push(`storm ${row.id}: squad unread`);
+        coming = [];
+        squadRead = null;
+      } else {
+        coming = due(encountersFor(road, null, null, traitsOf(squadRead, rules)));
+      }
+    }
+    for (const storm of coming) {
       const { data: delayed, error: delayError } = await service.rpc("delay_expedition", { p_run: row.id, p_leg: storm.leg, p_hours: STORM_HOURS });
       if (delayError) {
         errors.push(`storm ${row.id}: ${delayError.message}`);
@@ -920,7 +1133,7 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
     const by = open.closesAt.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
     // The ping quotes the trail: the latest journal line, so the fork
     // arrives as the next line of a story rather than a bare deadline.
-    const squad = await fetchInventoryByIds(service, row.discord_id, row.squad ?? []);
+    const squad = squadRead ?? (await fetchInventoryByIds(service, row.discord_id, row.squad ?? []));
     // The ping names the same company the page does.
     const company = await fetchCompany(service, row.season, {
       id: row.id,
@@ -930,12 +1143,12 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
       startedAt: row.started_at,
       resolvesAt,
       forks: row.forks,
-      rules: Number(row.rules ?? 1),
+      rules,
       convoy: row.convoy,
       squadTeams: squad.map((copy) => copy.card?.teamName ?? null).filter((team): team is string => Boolean(team)),
     });
-    const weather = weatherOfRun({ startedAt: row.started_at, rules: Number(row.rules ?? 1) }, watchWeeks);
-    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules: Number(row.rules ?? 1), convoy: row.convoy, choices: row.choices ?? [], company, weather: weather?.key ?? null }, squad, now);
+    const weather = weatherOfRun({ startedAt: row.started_at, rules }, watchWeeks);
+    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules, convoy: row.convoy, choices: row.choices ?? [], company, weather: weather?.key ?? null, road: row.road ?? null }, squad, now);
     try {
       await postCardsWebhook(
         {

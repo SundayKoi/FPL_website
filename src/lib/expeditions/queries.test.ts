@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fetchConvoyViews, fetchDeployedCopyIds, fetchFixturesSince, fetchLedger, fetchRuns, fetchStrangersHolds } from "./queries";
+import { fetchCamp, fetchConvoyViews, fetchDeployedCopyIds, fetchFixturesSince, fetchForgedThisWeek, fetchLedger, fetchRulesVersion, fetchRuns, fetchStrangersHolds } from "./queries";
+import { EMPTY_CAMP } from "./camp";
 
 type QueryCall = { table: string; filters: Record<string, unknown> };
 type QueryResult = { data: unknown; error: unknown };
@@ -334,5 +335,61 @@ describe("fetchStrangersHolds", () => {
   it("skips a hold with no card on it", async () => {
     const found = await fetchStrangersHolds(client([{ id: 1, squad: [], discord_id: "someone" }], []), "42");
     expect(found).toEqual([]);
+  });
+});
+
+describe("fetchRulesVersion", () => {
+  const rpcClient = (result: { data: unknown; error: unknown }) => {
+    const rpc = vi.fn(async () => result);
+    return { client: { rpc } as unknown as SupabaseClient, rpc };
+  };
+
+  it("asks the database which rulebook the next launch gets", async () => {
+    const { client, rpc } = rpcClient({ data: 6, error: null });
+    expect(await fetchRulesVersion(client)).toBe(6);
+    expect(rpc).toHaveBeenCalledWith("expedition_rules_version");
+  });
+
+  it("reads a database without the function as the oldest rulebook", async () => {
+    // The Speedrunner's clock is cut only when this says 6; a database
+    // that cannot answer must never let the app cut it early.
+    const { client } = rpcClient({ data: null, error: { code: "PGRST202", message: "Could not find the function" } });
+    expect(await fetchRulesVersion(client)).toBe(1);
+  });
+
+  it("reads an answer that is not a rulebook as the oldest one", async () => {
+    expect(await fetchRulesVersion(rpcClient({ data: null, error: null }).client)).toBe(1);
+    expect(await fetchRulesVersion(rpcClient({ data: "six", error: null }).client)).toBe(1);
+  });
+});
+
+describe("the base camp reads", () => {
+  it("reads the collector's camp in the app's names", async () => {
+    const { client, calls } = createService(() => ({ data: { slots: 1, tent: 2, forge: 1, wall: 0, forged_policies: 1, spent: 3300 } }));
+    expect(await fetchCamp(client, "42")).toEqual({ slots: 1, tent: 2, forge: 1, wall: 0, forgedPolicies: 1, spent: 3300 });
+    expect(calls).toEqual([{ table: "expedition_camps", filters: { discord_id: "42" } }]);
+  });
+
+  it("reads no row as a camp with nothing built, and a missing table as no camp at all", async () => {
+    // The difference is the whole deploy story: an empty camp shows the
+    // Camp tab at level 0; null hides it, because the migration is not in.
+    expect(await fetchCamp(createService(() => ({ data: null })).client, "42")).toEqual(EMPTY_CAMP);
+    const missing = createService(() => ({ error: { code: "42P01", message: 'relation "public.expedition_camps" does not exist' } }));
+    expect(await fetchCamp(missing.client, "42")).toBeNull();
+  });
+
+  it("counts this Eastern week's forged launches off the runs", async () => {
+    // Monday 2026-09-21 ET. The Sunday-night launch is Monday in UTC but
+    // still last week on the Eastern calendar the RPC keeps.
+    const { client, calls } = createService(() => ({
+      data: [{ started_at: "2026-09-22T15:00:00.000Z" }, { started_at: "2026-09-21T02:00:00.000Z" }],
+    }));
+    expect(await fetchForgedThisWeek(client, "42", "2026-09-21")).toBe(1);
+    expect(calls[0]).toEqual({ table: "expedition_runs", filters: { discord_id: "42", forged: true, "started_at>=": "2026-09-20T00:00:00.000Z" } });
+  });
+
+  it("reads a database without the forged column as unknown, not as zero", async () => {
+    const missing = createService(() => ({ error: { code: "42703", message: "column expedition_runs.forged does not exist" } }));
+    expect(await fetchForgedThisWeek(missing.client, "42", "2026-09-21")).toBeNull();
   });
 });
