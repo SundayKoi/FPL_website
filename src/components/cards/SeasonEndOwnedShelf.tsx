@@ -126,12 +126,12 @@ export default function SeasonEndOwnedShelf({ owned, base }: { owned: OwnedRelea
             <h3 className="type-display text-xl text-gold">{release.season} · Season&apos;s End</h3>
             <span className="text-xs text-steel">Revision {release.catalogVersion} · {releaseCopies.length} {releaseCopies.length === 1 ? "copy" : "copies"}</span>
           </div>
-          <div className="mx-auto grid w-full max-w-[90rem] grid-cols-1 justify-items-center gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <div className="flex w-full flex-wrap justify-evenly gap-x-5 gap-y-5">
             {releaseCopies.map((copy) => {
               const selected = selectedIds.has(copy.inventoryId);
               const atCap = !selected && selectedCount >= MAX_DUST_BATCH;
               return (
-                <article key={copy.inventoryId} className={`card-cell flex w-full max-w-[20rem] flex-col items-center gap-2 rounded-xl ${selected ? "bg-gold/5 ring-2 ring-gold/70" : ""}`}>
+                <article key={copy.inventoryId} className={`card-cell flex w-80 max-w-full flex-none flex-col items-center gap-2 rounded-xl ${selected ? "bg-gold/5 ring-2 ring-gold/70" : ""}`}>
                   {selecting ? (
                     <button
                       type="button"
