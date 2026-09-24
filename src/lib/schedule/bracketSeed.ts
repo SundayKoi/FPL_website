@@ -11,6 +11,14 @@ export interface BracketFixture {
   team_b: string | null;
   best_of: BestOf;
   scheduled_at: string | null;
+  /** Explicit next-round slot for this fixture's winner. */
+  winner_to?: WinnerDestination | null;
+}
+
+export interface WinnerDestination {
+  stage: FixtureStage;
+  sort_order: number;
+  side: "team_a" | "team_b";
 }
 
 export interface BracketEntrantSeed {
@@ -126,6 +134,25 @@ export function parseBracketFile(raw: unknown): BracketFile {
     if (teamA && teamB && normalizePlayoffTeamName(teamA) === normalizePlayoffTeamName(teamB)) {
       throw new Error(`fixtures[${index}] names the same team on both sides.`);
     }
+    let winnerTo: WinnerDestination | null = null;
+    if (value.winner_to !== undefined && value.winner_to !== null) {
+      if (!isRecord(value.winner_to)) {
+        throw new Error(`fixtures[${index}].winner_to must be an object or null.`);
+      }
+      const targetStage = value.winner_to.stage;
+      if (typeof targetStage !== "string" || !(FIXTURE_STAGES as readonly string[]).includes(targetStage)) {
+        throw new Error(`fixtures[${index}].winner_to.stage must be one of ${FIXTURE_STAGES.join(", ")}.`);
+      }
+      const targetOrder = value.winner_to.sort_order;
+      if (typeof targetOrder !== "number" || !Number.isInteger(targetOrder) || targetOrder < 0) {
+        throw new Error(`fixtures[${index}].winner_to.sort_order must be a non-negative whole number.`);
+      }
+      const side = value.winner_to.side;
+      if (side !== "team_a" && side !== "team_b") {
+        throw new Error(`fixtures[${index}].winner_to.side must be \"team_a\" or \"team_b\".`);
+      }
+      winnerTo = { stage: targetStage as FixtureStage, sort_order: targetOrder, side };
+    }
     return {
       stage: stage as FixtureStage,
       sort_order: sortOrder,
@@ -133,6 +160,7 @@ export function parseBracketFile(raw: unknown): BracketFile {
       team_b: teamB,
       best_of: bestOf as BestOf,
       scheduled_at: (kickoff as string | null | undefined) ?? null,
+      ...(winnerTo ? { winner_to: winnerTo } : {}),
     } satisfies BracketFixture;
   });
   const seen = new Set<string>();
@@ -140,6 +168,29 @@ export function parseBracketFile(raw: unknown): BracketFile {
     const key = slotKey(fixture.stage, fixture.sort_order);
     if (seen.has(key)) throw new Error(`The bracket lists ${key} more than once.`);
     seen.add(key);
+  }
+
+  const stageOrder = new Map(FIXTURE_STAGES.map((stage, index) => [stage, index]));
+  const bySlot = new Map(fixtures.map((fixture) => [slotKey(fixture.stage, fixture.sort_order), fixture]));
+  const destinations = new Set<string>();
+  for (const fixture of fixtures) {
+    const destination = fixture.winner_to;
+    if (!destination) continue;
+    if ((stageOrder.get(destination.stage) ?? -1) <= (stageOrder.get(fixture.stage) ?? -1)) {
+      throw new Error(`${fixture.stage} #${fixture.sort_order} must advance to a later stage.`);
+    }
+    const target = bySlot.get(slotKey(destination.stage, destination.sort_order));
+    if (!target) {
+      throw new Error(`${fixture.stage} #${fixture.sort_order} advances to a fixture the bracket does not define.`);
+    }
+    if (target[destination.side] !== null) {
+      throw new Error(`${fixture.stage} #${fixture.sort_order} advances into ${destination.stage} #${destination.sort_order} ${destination.side}, which is already seeded.`);
+    }
+    const destinationKey = `${slotKey(destination.stage, destination.sort_order)}#${destination.side}`;
+    if (destinations.has(destinationKey)) {
+      throw new Error(`${destination.stage} #${destination.sort_order} ${destination.side} has more than one feeder fixture.`);
+    }
+    destinations.add(destinationKey);
   }
 
   const entrants = parseEntrants(raw.entrants);

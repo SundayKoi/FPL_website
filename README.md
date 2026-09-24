@@ -609,10 +609,29 @@ rows in `match_reports`/`match_report_games`. A GitHub Actions workflow —
 [`.github/workflows/ingest-stats.yml`](.github/workflows/ingest-stats.yml)
 — runs `python scripts/riot_stats_ingest.py --from-reports` every Tuesday at
 07:23 UTC (`cron: "23 7 * * 2"`; GitHub cron is UTC-only) and is also runnable
-on demand. The same run immediately invokes
-`python scripts/settle-betting-from-stats.py`. This is now the
-normal path for game-night stats; the manual `--dates`/explicit-match-id
-invocations above stay available for one-off backfills.
+on demand. After ingest completes, a separate downstream workflow runs
+`python scripts/settle-betting-from-stats.py`; another advances Academy
+playoff winners into the next scheduled fixture. It uses `winner_to`
+destinations from `scripts/data/brackets/academy-2026-playoffs.json` and fills
+a slot only when the latest linked report is ingested without a score warning
+and the fixture score clinches its best-of series. It runs after partial
+ingests too, so a failed report cannot block a different completed series
+from advancing. The updater is idempotent and can also backfill a completed
+week.
+
+To review or backfill advancement, open GitHub Actions → "Advance Academy
+playoffs". Manual runs default to dry-run; untick it to write the listed empty
+slots. Locally, with `SUPABASE_URL=https://tyywoneobreracfnujdk.supabase.co`
+and `SUPABASE_SERVICE_ROLE_KEY` set, preview first and use `--apply` to write:
+
+```bash
+npx tsx scripts/advance-academy-playoffs.ts --dry-run
+npx tsx scripts/advance-academy-playoffs.ts --apply
+```
+
+This is now the normal path for game-night stats; the manual
+`--dates`/explicit-match-id invocations above stay available for one-off
+backfills.
 
 **Manual trigger**: GitHub → Actions tab → "Ingest match reports" → **Run
 workflow**. Useful for testing after a report is filed, or to retry after

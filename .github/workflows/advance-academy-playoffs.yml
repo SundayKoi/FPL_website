@@ -1,0 +1,44 @@
+name: Advance Academy playoffs
+
+# Catch up verified results whenever the report ingester finishes. This is a
+# separate workflow so a bracket conflict cannot change the ingest conclusion
+# or block the unrelated Tuesday card/brief chain. Report-level evidence keeps
+# partial ingest failures from advancing an unfinished series.
+on:
+  workflow_run:
+    workflows: ["Ingest match reports"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print the advancement plan without writing fixture slots."
+        type: boolean
+        default: true
+
+concurrency:
+  group: advance-academy-playoffs
+  cancel-in-progress: false
+
+jobs:
+  advance:
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Advance verified Academy playoff winners
+        if: github.event_name == 'workflow_run' || inputs.dry_run == false
+        run: npx tsx scripts/advance-academy-playoffs.ts --apply
+        env:
+          SUPABASE_URL: https://tyywoneobreracfnujdk.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - name: Preview Academy playoff advancement
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        run: npx tsx scripts/advance-academy-playoffs.ts --dry-run
+        env:
+          SUPABASE_URL: https://tyywoneobreracfnujdk.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

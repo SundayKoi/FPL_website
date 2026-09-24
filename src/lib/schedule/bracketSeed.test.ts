@@ -192,6 +192,41 @@ describe("parseBracketFile", () => {
     expect(parseBracketFile({ ...file, season: "A1" }).season).toBe("A1");
   });
 
+  it("accepts explicit winner destinations into open later-round slots", () => {
+    const parsed = parseBracketFile({
+      league: "academy",
+      fixtures: [
+        {
+          stage: "quarterfinals", sort_order: 0, team_a: "A", team_b: "B", best_of: 5, scheduled_at: null,
+          winner_to: { stage: "semifinals", sort_order: 0, side: "team_b" },
+        },
+        {
+          stage: "semifinals", sort_order: 0, team_a: "Bye", team_b: null, best_of: 5, scheduled_at: null,
+          winner_to: { stage: "finals", sort_order: 0, side: "team_a" },
+        },
+        { stage: "finals", sort_order: 0, team_a: null, team_b: null, best_of: 5, scheduled_at: null },
+      ],
+    });
+
+    expect(parsed.fixtures[0].winner_to).toEqual({ stage: "semifinals", sort_order: 0, side: "team_b" });
+  });
+
+  it("rejects duplicate or occupied winner destinations", () => {
+    const source = {
+      stage: "quarterfinals", sort_order: 0, team_a: "A", team_b: "B", best_of: 5, scheduled_at: null,
+      winner_to: { stage: "semifinals", sort_order: 0, side: "team_b" },
+    };
+    const semi = { stage: "semifinals", sort_order: 0, team_a: "Bye", team_b: null, best_of: 5, scheduled_at: null };
+    const finals = { stage: "finals", sort_order: 0, team_a: null, team_b: null, best_of: 5, scheduled_at: null };
+
+    expect(() => parseBracketFile({ league: "academy", fixtures: [source, { ...source, sort_order: 1 }, semi, finals] }))
+      .toThrow(/more than one feeder/);
+    expect(() => parseBracketFile({
+      league: "academy",
+      fixtures: [source, { ...semi, team_b: "Already seeded" }, finals],
+    })).toThrow(/already seeded/);
+  });
+
   it("names the row and the field it rejected", () => {
     expect(() => parseBracketFile({ ...file, fixtures: [{ ...file.fixtures[0], stage: "quarterfinal" }] })).toThrow(
       /fixtures\[0\]\.stage/,
