@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
+import { MAX_DUST_BATCH } from "@/lib/packs/config";
 
 type Result = { ok: true; id?: number; value?: number; balance?: number } | { ok: false; error: string };
 const SIGN_IN = "Sign in with Discord to use Season's End commerce.";
@@ -38,14 +39,14 @@ function revalidateCommerce(): void {
   revalidatePath("/academy/cards/season-end/market");
 }
 
-async function member(): Promise<{ discordId: string } | Result> {
+async function member(): Promise<{ discordId: string } | { ok: false; error: string }> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: SIGN_IN };
   if (!user.allowed) return { ok: false, error: MEMBERS_ONLY };
   return { discordId: user.discordId };
 }
 
-function isError(value: { discordId: string } | Result): value is Result {
+function isError(value: { discordId: string } | { ok: false; error: string }): value is { ok: false; error: string } {
   return "ok" in value;
 }
 
@@ -60,6 +61,28 @@ export async function quoteSeasonEndDustAction(inventoryId: number): Promise<Res
   return { ok: true, value: Number(row.value), balance: Number(row.balance ?? 0) };
 }
 
+export async function quoteSeasonEndDustCopiesAction(inventoryIds: number[]): Promise<{ ok: true; value: number } | { ok: false; error: string }> {
+  const auth = await member();
+  if (isError(auth)) return auth;
+  if (!Array.isArray(inventoryIds) || inventoryIds.length === 0 || inventoryIds.length > MAX_DUST_BATCH || inventoryIds.some((id) => !positiveInteger(id))) {
+    return { ok: false, error: `Choose between 1 and ${MAX_DUST_BATCH} valid copies.` };
+  }
+  const ids = [...new Set(inventoryIds)];
+  if (ids.length !== inventoryIds.length) return { ok: false, error: "A copy can only be selected once." };
+
+  const service = createBettingServiceClient();
+  const quotes = await Promise.all(ids.map((inventoryId) => service.rpc("season_end_dust_quote", { p_user: auth.discordId, p_inventory: inventoryId })));
+  let value = 0;
+  for (const quote of quotes) {
+    if (quote.error) return { ok: false, error: friendly(quote.error.message) };
+    const row = (Array.isArray(quote.data) ? quote.data[0] : quote.data) as { value?: unknown } | null;
+    const quoteValue = Number(row?.value);
+    if (!row || !Number.isSafeInteger(quoteValue) || quoteValue < 0) return { ok: false, error: "A selected copy could not be valued." };
+    value += quoteValue;
+  }
+  return { ok: true, value };
+}
+
 export async function dustSeasonEndCopyAction(inventoryId: number): Promise<Result> {
   const auth = await member();
   if (isError(auth)) return auth;
@@ -69,6 +92,67 @@ export async function dustSeasonEndCopyAction(inventoryId: number): Promise<Resu
   const row = (Array.isArray(data) ? data[0] : data) as { value?: unknown; balance?: unknown } | null;
   revalidateCommerce();
   return { ok: true, value: Number(row?.value ?? 0), balance: Number(row?.balance ?? 0) };
+}
+
+/**
+ * Dusts a deliberate selection of public Season's End copies. Each copy is
+ * still committed by the existing authoritative per-copy RPC, so one stale
+ * copy cannot prevent the other selected copies from being processed.
+ */
+export async function dustSeasonEndCopiesAction(inventoryIds: number[], expectedValue: number): Promise<
+  | { ok: true; dusted: number; value: number; balance: number; skipped: number }
+  | { ok: false; error: string }
+> {
+  const auth = await member();
+  if (isError(auth)) return auth;
+  if (!Array.isArray(inventoryIds) || inventoryIds.length === 0 || inventoryIds.length > MAX_DUST_BATCH || inventoryIds.some((id) => !positiveInteger(id))) {
+    return { ok: false, error: `Choose between 1 and ${MAX_DUST_BATCH} valid copies.` };
+  }
+  const ids = [...new Set(inventoryIds)];
+  if (ids.length !== inventoryIds.length) return { ok: false, error: "A copy can only be selected once." };
+  if (!Number.isSafeInteger(expectedValue) || expectedValue < 0) return { ok: false, error: "That dust quote is invalid. Please review the selection again." };
+
+  const service = createBettingServiceClient();
+  const quotes = await Promise.all(ids.map((inventoryId) => service.rpc("season_end_dust_quote", { p_user: auth.discordId, p_inventory: inventoryId })));
+  const failedQuote = quotes.find(({ error }) => error);
+  if (failedQuote?.error) return { ok: false, error: friendly(failedQuote.error.message) };
+  let currentValue = 0;
+  for (const quote of quotes) {
+    const row = (Array.isArray(quote.data) ? quote.data[0] : quote.data) as { value?: unknown } | null;
+    const quoteValue = Number(row?.value);
+    if (!row || !Number.isSafeInteger(quoteValue) || quoteValue < 0) return { ok: false, error: "A selected copy could not be valued. Please review the selection again." };
+    currentValue += quoteValue;
+  }
+  if (currentValue !== expectedValue) {
+    return { ok: false, error: `The selected copies now dust for +${currentValue.toLocaleString("en-US")} betting dollars. Select them again to review the updated value.` };
+  }
+
+  let dusted = 0;
+  let value = 0;
+  let balance = 0;
+  let skipped = 0;
+  let firstError: string | null = null;
+  for (const inventoryId of ids) {
+    const { data, error } = await service.rpc("dust_season_end_copy", { p_user: auth.discordId, p_inventory: inventoryId });
+    if (error) {
+      skipped += 1;
+      firstError ??= friendly(error.message);
+      continue;
+    }
+    const row = (Array.isArray(data) ? data[0] : data) as { value?: unknown; balance?: unknown } | null;
+    if (!row || !Number.isSafeInteger(Number(row.value)) || !Number.isSafeInteger(Number(row.balance))) {
+      skipped += 1;
+      firstError ??= "Season's End dusting did not return a balance update.";
+      continue;
+    }
+    dusted += 1;
+    value += Number(row.value);
+    balance = Number(row.balance);
+  }
+
+  if (dusted === 0) return { ok: false, error: firstError ?? "Could not dust the selected copies." };
+  revalidateCommerce();
+  return { ok: true, dusted, value, balance, skipped };
 }
 
 export async function createSeasonEndListingAction(input: { inventoryId: number; ask: number; note?: string | null }): Promise<Result> {
