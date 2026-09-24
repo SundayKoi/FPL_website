@@ -167,10 +167,12 @@ async function AdminPage(props?: AdminPageProps) {
     : settings?.current_phase && FIXTURE_STAGES.includes(settings.current_phase as FixtureStage)
       ? stageMeta(settings.current_phase as FixtureStage).label
       : "Season setup";
+  const renderedAt = new Date();
+  const renderedAtMs = renderedAt.getTime();
   const upcomingFixtures = displaySchedule.upcoming.filter((fixture) =>
     fixture.score_a === null &&
     fixture.score_b === null &&
-    (!fixture.scheduled_at || new Date(fixture.scheduled_at).getTime() >= Date.now()),
+    (!fixture.scheduled_at || new Date(fixture.scheduled_at).getTime() >= renderedAtMs),
   );
   const upcoming = upcomingFixtures.slice(0, 4).map((fixture) => ({
     id: fixture.id,
@@ -183,7 +185,7 @@ async function AdminPage(props?: AdminPageProps) {
     day: "2-digit",
     month: "short",
     timeZone: "America/Chicago",
-  }).format(new Date()).toUpperCase();
+  }).format(renderedAt).toUpperCase();
 
   let queueCounts = { reports: 0, claims: 0 };
   let queueItems: AdminQueueItem[] = [];
@@ -313,7 +315,7 @@ async function AdminPage(props?: AdminPageProps) {
       return {
         id: `report-${report.id}`,
         title: `${teamName(names, report.team_a_id)} ${report.score_a}–${report.score_b} ${teamName(names, report.team_b_id)}`,
-        detail: `${statusDetail} · ${report.season} · ${timeAgo(report.submitted_at)}`,
+        detail: `${statusDetail} · ${report.season} · ${timeAgo(report.submitted_at, renderedAtMs)}`,
         href: `/admin?league=${league}&season=${encodeURIComponent(season)}#match-reports`,
         action: "Review",
         type: "reports",
@@ -324,7 +326,7 @@ async function AdminPage(props?: AdminPageProps) {
     const claimItems: AdminQueueItem[] = pendingClaims.map((claim) => ({
       id: `claim-${claim.season}-${claim.summoner_name}-${claim.tag}`,
       title: `${claim.summoner_name}#${claim.tag}`,
-      detail: `Card ownership · ${timeAgo(claim.created_at)}`,
+      detail: `Card ownership · ${timeAgo(claim.created_at, renderedAtMs)}`,
       href: `/admin/claims?league=${league}&season=${encodeURIComponent(season)}`,
       action: "Review",
       type: "claims",
@@ -334,7 +336,7 @@ async function AdminPage(props?: AdminPageProps) {
     const identityItems: AdminQueueItem[] = pendingIdentity.map((claim) => ({
       id: `identity-${claim.id}`,
       title: `${identityPlayerNames.get(claim.player_pool_id) ?? "Roster identity request"} · ${identityTeamNames.get(claim.league_team_id) ?? "Team"}`,
-      detail: `Roster identity · ${timeAgo(claim.requested_at)}`,
+      detail: `Roster identity · ${timeAgo(claim.requested_at, renderedAtMs)}`,
       href: `/identity-claims?league=${league}&season=${encodeURIComponent(season)}`,
       action: "Review",
       type: "claims",
@@ -348,7 +350,7 @@ async function AdminPage(props?: AdminPageProps) {
     ]
       .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
 
-    const activitySince = Date.now() - 14 * 24 * 60 * 60 * 1000;
+    const activitySince = renderedAtMs - 14 * 24 * 60 * 60 * 1000;
     const reportActivity: AdminActivityItem[] = reports
       .filter((report) => Date.parse(report.submitted_at) >= activitySince)
       .map((report) => ({
@@ -356,7 +358,7 @@ async function AdminPage(props?: AdminPageProps) {
         title: "Match report submitted",
         detail: `${teamName(names, report.team_a_id)} ${report.score_a}–${report.score_b} ${teamName(names, report.team_b_id)} · ${season} ${report.season_phase}`,
         occurredAt: report.submitted_at,
-        timeLabel: timeAgo(report.submitted_at),
+        timeLabel: timeAgo(report.submitted_at, renderedAtMs),
         icon: "file",
       }));
     const claimActivity: AdminActivityItem[] = approvedClaims
@@ -366,7 +368,7 @@ async function AdminPage(props?: AdminPageProps) {
         title: "Player card claim approved",
         detail: `${claim.summoner_name}#${claim.tag} · ${season}`,
         occurredAt: claim.decided_at,
-        timeLabel: timeAgo(claim.decided_at),
+        timeLabel: timeAgo(claim.decided_at, renderedAtMs),
         icon: "people",
       }));
     const identityActivity: AdminActivityItem[] = approvedIdentity
@@ -376,7 +378,7 @@ async function AdminPage(props?: AdminPageProps) {
         title: "Roster identity approved",
         detail: `${identityPlayerNames.get(claim.player_pool_id) ?? "Player"} · ${identityTeamNames.get(claim.league_team_id) ?? "Team"} · ${season}`,
         occurredAt: claim.decided_at,
-        timeLabel: timeAgo(claim.decided_at),
+        timeLabel: timeAgo(claim.decided_at, renderedAtMs),
         icon: "people",
       }));
     recentActivity = [...reportActivity, ...claimActivity, ...identityActivity]

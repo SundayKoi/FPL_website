@@ -300,10 +300,7 @@ export default function AdminConsole({
   const [query, setQuery] = useState(initialQuery);
   const [queueFilter, setQueueFilter] = useState<"all" | QueueType>("all");
   const currentCategory = searchParams?.get("category") ?? "all";
-  const [toolFilter, setToolFilter] = useState(currentCategory);
-
-  useEffect(() => setQuery(initialQuery), [initialQuery, pathname]);
-  useEffect(() => setToolFilter(currentCategory), [currentCategory, pathname]);
+  const toolFilter = currentCategory;
 
   useEffect(() => {
     const onShortcut = (event: KeyboardEvent) => {
@@ -363,7 +360,6 @@ export default function AdminConsole({
   }
 
   function chooseToolFilter(value: string) {
-    setToolFilter(value);
     const params = new URLSearchParams(searchParams?.toString());
     if (value === "all") params.delete("category");
     else params.set("category", value);

@@ -216,7 +216,7 @@ export default function SiteNavigation({
         borderColor: adminSection ? "#303036" : undefined,
       }}
     >
-      <div className="relative flex w-full items-center gap-4 px-4 py-3 sm:min-h-[5.5rem] sm:gap-6 sm:px-8 sm:py-4 lg:px-10">
+      <div className="relative flex w-full items-center gap-2 page-container py-3 sm:min-h-[5.5rem] sm:gap-6 sm:py-4">
         <LeagueBrandChooser
           pathname={pathname ?? "/"}
           search={searchParams?.toString() ?? ""}
@@ -302,7 +302,7 @@ export default function SiteNavigation({
           })}
         </nav>
 
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="site-navigation-actions ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           <SiteSearch league={league} />
           {showAdmin ? (
             // Staff-only, beside the avatar rather than buried in About.
@@ -319,7 +319,7 @@ export default function SiteNavigation({
               Admin
             </Link>
           ) : null}
-          <div className="shrink-0">{authSlot}</div>
+          <div className="site-navigation-auth shrink-0">{authSlot}</div>
           <button
             type="button"
             onClick={() => {
