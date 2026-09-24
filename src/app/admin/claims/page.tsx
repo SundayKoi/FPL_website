@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import type { ReactElement } from "react";
 import Link from "next/link";
 import ClaimQueueRow from "@/components/cards/ClaimQueueRow";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { cardSlug } from "@/lib/cards/build";
 import { fetchAllCardSeasons, type CardLeague } from "@/lib/cards/queries";
+import { seasonBelongsToLeague } from "@/lib/league/season";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -94,7 +96,14 @@ async function loadSeason(
 }
 
 /** One inbox for every pending player card claim the viewer can rule on. */
-export default async function PlayerClaimsPage() {
+type PlayerClaimsPageProps = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+function PlayerClaimsPage(): Promise<ReactElement>;
+function PlayerClaimsPage(props: PlayerClaimsPageProps): Promise<ReactElement>;
+async function PlayerClaimsPage(props?: PlayerClaimsPageProps) {
+  const searchParams = props?.searchParams;
   const supabase = await createServerSupabase();
   const { data: userData } = await supabase.auth
     .getUser()
@@ -103,7 +112,7 @@ export default async function PlayerClaimsPage() {
 
   if (!viewerProfileId) {
     return (
-      <main className="page-container page-spacing page-backdrop flex flex-1 flex-col items-center justify-center gap-4 text-center">
+      <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Player claims</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to review player claims</h1>
         <p className="max-w-md text-sm text-muted">
@@ -117,7 +126,20 @@ export default async function PlayerClaimsPage() {
   }
 
   const staffTier = await fetchStaffTier(supabase);
-  const seasons = await fetchAllCardSeasons(supabase);
+  const params = await (searchParams ?? Promise.resolve<Record<string, string | string[] | undefined>>({}));
+  const leagueValue = Array.isArray(params.league) ? params.league[0] : params.league;
+  const seasonValue = Array.isArray(params.season) ? params.season[0] : params.season;
+  const selectedLeague: CardLeague | null = leagueValue === "premier" || leagueValue === "academy" ? leagueValue : null;
+  const selectedSeason = selectedLeague
+    && typeof seasonValue === "string"
+    && seasonValue.length <= 12
+    && /^[SA]\d+$/i.test(seasonValue)
+    && seasonBelongsToLeague(seasonValue, selectedLeague)
+    ? seasonValue
+    : null;
+  const seasons = selectedLeague && selectedSeason
+    ? [{ league: selectedLeague, season: selectedSeason }]
+    : await fetchAllCardSeasons(supabase);
   const sections: QueueSection[] = [];
   for (const { league, season } of seasons) {
     sections.push(await loadSeason(supabase, league, season, staffTier.isAdmin));
@@ -125,7 +147,7 @@ export default async function PlayerClaimsPage() {
   const totalPending = sections.reduce((sum, section) => sum + section.actionable.length + section.otherCount, 0);
 
   return (
-    <main className="page-container page-spacing page-backdrop flex w-full flex-1 flex-col gap-8 text-white">
+    <main className="page-backdrop mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header>
         <span className="label-dash">Admin · Player claims</span>
         <h1 className="type-display mt-2 text-4xl sm:text-5xl">Player claims</h1>
@@ -174,3 +196,5 @@ export default async function PlayerClaimsPage() {
     </main>
   );
 }
+
+export default PlayerClaimsPage;

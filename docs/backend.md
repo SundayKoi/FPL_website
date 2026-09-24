@@ -457,6 +457,20 @@ disabled while `publishing_approved` is false. A local implementation or dry
 run does not authorize a production write or deployment. pgTAP coverage lives
 in `supabase/tests/0121_premier_playoffs_test.sql`.
 
+### Academy playoff advancement
+
+The Academy bracket file declares each winner's destination with `winner_to`,
+including the fixed bye teams and the two final slots. After every completed
+match-report ingest, `.github/workflows/advance-academy-playoffs.yml` runs
+`scripts/advance-academy-playoffs.ts`. It advances only a series whose latest
+linked report is ingested (or a forfeit) without a score warning and whose
+fixture score clinches its configured best-of series. The script verifies the
+seeded teams and the empty, unscored destination before writing, and uses a
+guarded update so a concurrent schedule change cannot be overwritten. Its
+default is dry-run for manual recovery; the workflow-run path applies clean
+results even when another report in the ingest batch failed. No SQL migration
+is needed because advancement fills the existing `fixtures` rows.
+
 Important RPC families include:
 
 - Auction: `nominate`, `place_bid`, `close_lot`, `start_draft`,
@@ -695,7 +709,7 @@ change and update their local state.
 
 | Workflow | Entry point | Writes/side effects |
 | --- | --- | --- |
-| Weekly match stats and betting settlement | `.github/workflows/ingest-stats.yml` → `scripts/riot_stats_ingest.py --from-reports` → `scripts/settle-betting-from-stats.py` | Tuesday at 07:23 UTC and manual runs. Ingests queued reports, then scans all linked Premier/Academy fixture markets—including older fixtures—and uses raw-stats evidence to settle markets and ready pick'ems. The settlement pass runs after partial ingest results too; each fixture is independently validated and the workflow remains non-zero for ingest failures, settlement failures, or evidence conflicts. |
+| Weekly match stats, Academy playoff advancement, and betting settlement | `.github/workflows/ingest-stats.yml` → `scripts/riot_stats_ingest.py --from-reports`; `.github/workflows/advance-academy-playoffs.yml` → `scripts/advance-academy-playoffs.ts --apply`; `.github/workflows/settle-betting.yml` → `scripts/settle-betting-from-stats.py` | Tuesday at 07:23 UTC and manual runs. The separate Academy workflow runs after every ingest completion, including partial failures, and fills a declared next-round slot only when the latest linked report is ingested (or a clean forfeit), has no score warning, and the fixture score clinches the series. It can also backfill an already-ingested round; manual dispatch defaults to dry-run. The separate settlement workflow also runs after every ingest completion and independently validates linked Premier/Academy fixtures with raw-stats evidence before settling markets and readying pick'ems. |
 | Weekly Premier brief | `.github/workflows/weekly-brief-premier.yml` → `scripts/generate-homepage-brief.ts --league premier` | Computes facts from Supabase, asks Anthropic for constrained prose, cleans it, and writes `homepage_briefs`. |
 | Weekly Academy brief | `.github/workflows/weekly-brief-academy.yml` → same script with `--league academy` | Same flow, narrowed to the Academy season and teams. |
 | Weekly cards | `.github/workflows/weekly-card-drop.yml` → `scripts/weekly-card-drop.ts` | Reads current ratings, writes `card_snapshots`/`card_rating_history`, archives the week's edition through `buildEditionForWeek` (a **Send-off** in a playoff week, announced with its own embed ahead of the Eclipse board), and posts movement/showcase content to Discord. |

@@ -1,7 +1,5 @@
 import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import CollectibleRenderer from "@/components/cards/CollectibleRenderer";
-import SeasonEndDustButton from "@/components/cards/SeasonEndDustButton";
 import SeasonEndAutoDustPanel from "@/components/cards/SeasonEndAutoDustPanel";
 import type { CardLeague } from "@/lib/cards/queries";
 import { seasonEndDuplicateIds } from "@/lib/season-end/autoDust";
@@ -10,6 +8,7 @@ import { fetchPublishedSeasonEndReleases, fetchSeasonEndOwnedCopies, type Season
 import type { SeasonEndKind } from "@/lib/season-end/collectibles";
 import { SEASON_END_COLLECTION_SORTS, type SeasonEndCollectionSort } from "@/lib/season-end/collectionSort";
 import SeasonEndCollectionSortControl from "@/components/cards/SeasonEndCollectionSort";
+import SeasonEndOwnedShelf from "@/components/cards/SeasonEndOwnedShelf";
 
 const COLLECTION_FILTERS: Array<{ kind: SeasonEndKind | "all"; label: string }> = [
   { kind: "all", label: "All cards" },
@@ -84,14 +83,24 @@ export default async function SeasonEndOwnedCollection({ service, discordId, lea
   if (sort === "week") owned.sort((a, b) => compareNewestSeason(a.release.season, b.release.season));
 
   return (
-    <section id="season-end-collection" className="flex flex-col gap-6">
-      <SeasonEndAutoDustPanel league={league} initialEnabled={autoDustEnabled} duplicateCount={seasonEndDuplicateIds(collections.flatMap(({ copies }) => copies)).length} />
-      <div className="flex flex-wrap items-baseline gap-3">
-        <h2 className="type-display text-2xl sm:text-3xl">Your Season&apos;s End cards</h2>
-        <Link href={`${base}/season-end`} className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline">Browse the full checklist →</Link>
+    <section id="season-end-collection" className="flex flex-col gap-5">
+      <div className="card-brand flex flex-col gap-4 p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex max-w-2xl flex-col gap-2">
+            <p className="label-dash text-gold">Your shelf · Season&apos;s End</p>
+            <h2 className="type-display text-2xl sm:text-3xl">Your Season&apos;s End cards</h2>
+            <p className="text-sm leading-6 text-steel">Each entry is a copy you own. Open a copy to inspect it, or select copies to review their dust value together.</p>
+          </div>
+          <Link href={`${base}/season-end`} className="text-sm text-coral underline-offset-4 hover:underline">Browse the full checklist →</Link>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full border border-line bg-canvas/50 px-3 py-1.5 text-steel">{totalCopies} {totalCopies === 1 ? "copy" : "copies"} owned</span>
+          <span className="rounded-full border border-line bg-canvas/50 px-3 py-1.5 text-steel">{owned.reduce((count, collection) => count + collection.copies.length, 0)} in this view</span>
+        </div>
       </div>
+
       {totalCopies > 0 ? (
-        <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="card-brand flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
           <nav aria-label="Filter Season's End cards by family" className="flex flex-wrap gap-2">
             {COLLECTION_FILTERS.map((filter) => {
               const params = new URLSearchParams({ view: "season-end" });
@@ -102,9 +111,9 @@ export default async function SeasonEndOwnedCollection({ service, discordId, lea
                   key={filter.kind}
                   href={`${base}/collection?${params.toString()}`}
                   aria-current={kind === filter.kind ? "page" : undefined}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${kind === filter.kind ? "border-coral bg-coral text-navy" : "border-line text-steel hover:border-coral hover:text-white"}`}
+                  className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${kind === filter.kind ? "border-coral bg-coral text-navy" : "border-line text-steel hover:border-coral hover:text-white"}`}
                 >
-                  {filter.label} · {familyCounts[filter.kind]}
+                  {filter.label} <span className={kind === filter.kind ? "opacity-80" : "text-steel/80"}>{familyCounts[filter.kind]}</span>
                 </Link>
               );
             })}
@@ -112,29 +121,19 @@ export default async function SeasonEndOwnedCollection({ service, discordId, lea
           <SeasonEndCollectionSortControl value={sort} />
         </div>
       ) : null}
+
       {totalCopies === 0 ? (
-        <p className="text-sm text-steel">No Season&apos;s End cards collected in this league yet. <Link href={`${base}/packs`} className="text-coral underline">Explore packs</Link></p>
+        <div className="card-brand flex flex-col gap-2 p-5">
+          <p className="font-semibold text-white">No Season&apos;s End cards yet</p>
+          <p className="text-sm text-steel">Open a Season&apos;s End pack to start your shelf. <Link href={`${base}/packs`} className="text-coral underline-offset-4 hover:underline">Explore packs →</Link></p>
+        </div>
       ) : owned.length === 0 ? (
-        <p className="text-sm text-steel">No {COLLECTION_FILTERS.find((filter) => filter.kind === kind)?.label ?? "matching"} collected yet. <Link href={`${base}/collection?view=season-end`} className="text-coral underline-offset-4 hover:underline">Show all cards</Link></p>
-      ) : owned.map(({ release, copies }) => (
-        <section key={release.id} className="flex flex-col gap-4" aria-label={`${release.season} Season's End release revision ${release.catalogVersion}`}>
-          <div className="flex flex-wrap items-baseline gap-3 border-b border-line pb-2">
-            <h3 className="type-display text-xl text-gold">{release.season} · Season&apos;s End</h3>
-            <span className="text-xs text-steel">Revision {release.catalogVersion} · {copies.length} {copies.length === 1 ? "copy" : "copies"}</span>
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {copies.map((copy) => (
-              <article key={copy.inventoryId} className="flex flex-col gap-2">
-                <CollectibleRenderer pull={{ design: copy.payload, foil: copy.foil, foilType: copy.foilType as never, signed: copy.signed, autograph: copy.autograph, guaranteedFoil: copy.slotPosition === 5, inventoryId: copy.inventoryId }} compact />
-                <div className="flex items-center gap-3">
-                  <Link href={`${base}/season-end/copy/${copy.inventoryId}`} className="text-xs text-coral underline-offset-4 hover:underline">View copy #{copy.inventoryId}</Link>
-                  <SeasonEndDustButton inventoryId={copy.inventoryId} />
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      ))}
+        <p className="rounded-lg border border-line bg-panel/50 p-4 text-sm text-steel">No {COLLECTION_FILTERS.find((filter) => filter.kind === kind)?.label ?? "matching"} collected yet. <Link href={`${base}/collection?view=season-end`} className="text-coral underline-offset-4 hover:underline">Show all cards</Link></p>
+      ) : (
+        <SeasonEndOwnedShelf key={`${kind}-${sort}`} owned={owned} base={base} />
+      )}
+
+      <SeasonEndAutoDustPanel league={league} initialEnabled={autoDustEnabled} duplicateCount={seasonEndDuplicateIds(collections.flatMap(({ copies }) => copies)).length} />
     </section>
   );
 }

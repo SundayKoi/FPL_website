@@ -19,14 +19,16 @@ export default function AdminReportsQueue({
   reports,
   games,
   teams,
+  initiallyOpen = false,
 }: {
   reports: MatchReport[];
   games: MatchReportGame[];
   teams: LeagueTeam[];
+  initiallyOpen?: boolean;
 }) {
   const supabase = createClient();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
