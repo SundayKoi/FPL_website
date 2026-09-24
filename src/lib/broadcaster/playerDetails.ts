@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cardPlayerKey, type PlayerCardData } from "@/lib/cards/build";
-import { fetchCurrentWeekCards } from "@/lib/cards/queries";
+import { fetchSeasonCards } from "@/lib/cards/queries";
 import { playerAccountNames, riotIdKey, riotIdKeys } from "@/lib/players/accountNames";
 import { normalizePlayerName as nameKey } from "@/lib/players/normalize";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
@@ -128,7 +128,7 @@ export function buildBroadcasterPlayerDetails(
   });
 }
 
-/** Fetch live premium cards plus the aggregate/raw fields absent from card payloads. */
+/** Fetch cumulative season cards plus the aggregate/raw fields absent from card payloads. */
 export async function fetchBroadcasterPlayerDetails(
   supabase: SupabaseClient,
   season: string,
@@ -137,8 +137,8 @@ export async function fetchBroadcasterPlayerDetails(
   if (roster.length === 0) return [];
 
   const [cards, statsResult, turretResult] = await Promise.all([
-    fetchCurrentWeekCards(supabase, season).catch((error) => {
-      console.error("Unable to load premium cards for broadcaster matchups", error);
+    fetchSeasonCards(supabase, season).catch((error) => {
+      console.error("Unable to load season cards for broadcaster matchups", error);
       return [];
     }),
     supabase.from("stats_player_agg").select("*").eq("season", season),
