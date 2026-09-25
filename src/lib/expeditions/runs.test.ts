@@ -1299,6 +1299,173 @@ describe("the storm and the squad's clock", () => {
   });
 });
 
+// === the storm under the run's weather =========================================
+
+import { STORM_HOURS, journalFor } from "./journal";
+import { EXPEDITION_TIERS, type ExpeditionTierKey } from "./config";
+import { traitsOf } from "./archetypes";
+import { WEATHER_RULES, weatherForWeek, weatherOfRun, watchWeeksOf, type WeatherKey } from "./weather";
+import type { RoadCompany } from "./company";
+import { mondayOf } from "@/lib/packs/week";
+import { fetchInventoryByIds } from "@/lib/packs/queries";
+
+describe("the storm under the run's weather", () => {
+  // The sweep holds a squad for exactly the storms its journal shows and its
+  // claim resolves, in every weather. A Drought (more caches) and the Watch
+  // (more rivals, more ghosts) weight the draw and so move which leg draws
+  // the storm: a sweep that read the road in no weather held some squads for
+  // a storm their journal never showed, and let others walk through one it
+  // had.
+  const HOUR = 60 * 60 * 1000;
+  /** The first Monday from September whose drawn weather is `key`. */
+  const weekOf = (key: WeatherKey): string => {
+    for (let week = 0; week < 520; week += 1) {
+      const monday = mondayOf(new Date(Date.parse("2026-09-07T16:00:00.000Z") + week * 7 * 24 * HOUR));
+      if (weatherForWeek(monday).key === key) return monday;
+    }
+    throw new Error(`no ${key} week`);
+  };
+  // The Watch is never drawn; it is a playoff week's. Here it is a Clear
+  // week with a semifinal in it — the sky a weatherless sweep walked it in.
+  const weeks: Record<WeatherKey, string> = {
+    clear: weekOf("clear"),
+    fog: weekOf("fog"),
+    drought: weekOf("drought"),
+    harvest: weekOf("harvest"),
+    watch: weekOf("clear"),
+  };
+  const WEATHER_KEYS = Object.keys(weeks) as WeatherKey[];
+  const fixturesIn = (key: WeatherKey) =>
+    key === "watch" ? [{ team_a: "Solari Sun", team_b: "Lunar Tide", scheduled_at: `${weeks.watch}T23:00:00.000Z`, stage: "semifinals" }] : [];
+  // Squad [1, 2, 3] is plain; [4, 2, 3] carries First Blood Merchant, which
+  // turns some storms into merchants by a draw that counts the weather's keys.
+  const copies = [copyRow({ id: 1 }), copyRow({ id: 2 }), copyRow({ id: 3 }), titledRow({ id: 4 }, "First Blood Merchant")];
+  const tiers = (Object.keys(EXPEDITION_TIERS) as ExpeditionTierKey[]).filter((tier) => EXPEDITION_TIERS[tier].forks > 0);
+  const nobody: RoadCompany = { rivals: [], crossings: [], ghosts: [] };
+  /** A rival and a ghost on every leg: the most the company can bend. */
+  const crowd = (legs: number): RoadCompany => ({
+    rivals: Array.from({ length: legs }, (_, leg) => ({ leg, runId: 900 + leg, who: `r${leg}`, name: `Rival ${leg}`, shine: 20, theirShine: 10, won: leg % 2 === 0 })),
+    crossings: [],
+    ghosts: Array.from({ length: legs }, (_, leg) => ({ leg, graveId: leg, cardName: `Ghost ${leg}`, who: "g", name: "Grave", team: null, stood: false })),
+  });
+  const stormLegs = (list: { key: string; leg: number }[]) =>
+    list.filter((entry) => entry.key === "storm").map((entry) => entry.leg).sort((a, b) => a - b);
+
+  type Row = ReturnType<typeof runRow>;
+  /** A run launched on the Monday of `key`'s week, clocked as its route. */
+  const runIn = (key: WeatherKey, id: number, tier: ExpeditionTierKey, rules: number, squad = [1, 2, 3]): Row => {
+    const startedAt = `${weeks[key]}T16:00:00.000Z`;
+    const resolvesAt = new Date(Date.parse(startedAt) + EXPEDITION_TIERS[tier].durationHours * HOUR).toISOString();
+    return runRow({ id, tier, squad, startedAt, resolvesAt, forks: EXPEDITION_TIERS[tier].forks, rules });
+  };
+  /** The runs in the field, `key`'s calendar, and the squads' copies. */
+  const boardFor = (key: WeatherKey, rows: Row[]) =>
+    createService((call) => {
+      if (call.table === "expedition_runs" && call.verb === "select") return { data: rows };
+      if (call.table === "fixtures") return { data: fixturesIn(key) };
+      if (call.table === "card_inventory") {
+        const wanted = (call.filters.id as number[]) ?? [];
+        return { data: copies.filter((row) => wanted.includes(row.id)) };
+      }
+      return { data: [] };
+    });
+  /** Sweeps `rows` well after every one of them is home, so every storm on
+   *  them is due, and hands back the legs each run was held for. */
+  async function sweepLegs(key: WeatherKey, rows: Row[]) {
+    const service = boardFor(key, rows);
+    service.rpc.mockResolvedValue({ data: 0, error: null });
+    createBettingServiceClient.mockReturnValue(service.client);
+    const home = Math.max(...rows.map((row) => Date.parse(row.resolves_at)));
+    const result = await sweepExpeditions(new Date(home + HOUR));
+    expect(result.errors).toEqual([]);
+    const held = new Map<number, number[]>();
+    for (const [name, args] of service.rpc.mock.calls as unknown as [string, { p_run: number; p_leg: number }][]) {
+      if (name === "delay_expedition") held.set(args.p_run, [...(held.get(args.p_run) ?? []), args.p_leg].sort((a, b) => a - b));
+    }
+    return { held, result, service };
+  }
+  /** What the page's journal shows for a row, what the claim resolves, and
+   *  what the old weatherless sweep read — the squad read exactly as the
+   *  sweep and the claim read it. */
+  async function readRoad(key: WeatherKey, row: Row, service: ReturnType<typeof createService>) {
+    const squad = await fetchInventoryByIds(service.client, row.discord_id, row.squad);
+    const weather = weatherOfRun({ startedAt: row.started_at, rules: row.rules }, watchWeeksOf(fixturesIn(key)))?.key ?? null;
+    const run = { id: row.id, tier: row.tier as ExpeditionTierKey, startedAt: row.started_at, resolvesAt: row.resolves_at, forks: row.forks, rules: row.rules, convoy: row.convoy };
+    const traits = traitsOf(squad, row.rules);
+    const journal = journalFor({ ...run, company: crowd(row.forks + 1), weather }, squad, new Date(Date.parse(row.resolves_at) + HOUR))
+      .filter((entry) => entry.kind === "encounter" && entry.encounter === "storm")
+      .map((entry) => entry.leg)
+      .sort((a, b) => a - b);
+    return {
+      weather,
+      journal,
+      claim: stormLegs(encountersFor(run, nobody, weather, traits)),
+      crowded: stormLegs(encountersFor(run, crowd(row.forks + 1), weather, traits)),
+      weatherless: stormLegs(encountersFor(run, null, null, traits)),
+    };
+  }
+
+  it.each(WEATHER_KEYS)("holds each run for exactly the storms its journal shows and its claim resolves, under %s", async (key) => {
+    // Every route with forks; the weather's rulebook and the edges'; a plain
+    // squad and a First Blood Merchant; a spread of ids.
+    const shapes = tiers.flatMap((tier) => [
+      { tier, rules: WEATHER_RULES, squad: [1, 2, 3] },
+      { tier, rules: ARCHETYPE_RULES, squad: [1, 2, 3] },
+      { tier, rules: ARCHETYPE_RULES, squad: [4, 2, 3] },
+    ]);
+    const rows = shapes.flatMap((shape, index) => Array.from({ length: 30 }, (_, n) => runIn(key, 1 + index * 211 + n * 7, shape.tier, shape.rules, shape.squad)));
+    const { held, service } = await sweepLegs(key, rows);
+
+    let storms = 0;
+    let moved = 0;
+    for (const row of rows) {
+      const road = await readRoad(key, row, service);
+      expect(road.weather).toBe(key);
+      const swept = held.get(row.id) ?? [];
+      expect({ id: row.id, tier: row.tier, swept }).toEqual({ id: row.id, tier: row.tier, swept: road.journal });
+      expect(road.claim).toEqual(road.journal);
+      // The company names a rival or turns a ghost into a cache after the
+      // draw: it never makes or takes a storm, so the sweep needs none.
+      expect(road.crowded).toEqual(road.journal);
+      storms += swept.length;
+      if (road.weatherless.join() !== road.journal.join()) moved += 1;
+    }
+    expect(storms).toBeGreaterThan(0);
+    // A Drought and the Watch move storms; the other skies weigh nothing
+    // on the draw, so the weatherless read was right in them by luck.
+    if (key === "drought" || key === "watch") expect(moved).toBeGreaterThan(0);
+    else expect(moved).toBe(0);
+  });
+
+  it("no longer holds a squad for a storm its journal never showed, or lets one walk through a storm it did", async () => {
+    // The first Legend Hunt whose weatherless read disagrees with its
+    // journal, each way: under the Watch, run 3's old sweep held the squad
+    // on leg 1 for a storm the journal never showed; in a Drought, run 16's
+    // journal shows a storm on leg 1 the old sweep never held it for. The
+    // weather's extra keys (rivals and a ghost, a cache) moved the draw.
+    const probe = async (key: WeatherKey, wanted: (road: Awaited<ReturnType<typeof readRoad>>) => boolean) => {
+      const service = boardFor(key, []);
+      for (let id = 1; id <= 2000; id += 1) {
+        const road = await readRoad(key, runIn(key, id, "legend", ARCHETYPE_RULES), service);
+        if (wanted(road)) return { id, road };
+      }
+      throw new Error(`no ${key} run found`);
+    };
+    const phantom = await probe("watch", (road) => road.weatherless.some((leg) => !road.journal.includes(leg)));
+    const missed = await probe("drought", (road) => road.journal.some((leg) => !road.weatherless.includes(leg)));
+    expect(phantom).toMatchObject({ id: 3, road: { weatherless: [1], journal: [], claim: [] } });
+    expect(missed).toMatchObject({ id: 16, road: { weatherless: [], journal: [1], claim: [1] } });
+
+    const watch = await sweepLegs("watch", [runIn("watch", phantom.id, "legend", ARCHETYPE_RULES)]);
+    expect(watch.result.storms).toBe(0);
+    expect(watch.service.rpc).not.toHaveBeenCalledWith("delay_expedition", expect.anything());
+
+    const drought = await sweepLegs("drought", [runIn("drought", missed.id, "legend", ARCHETYPE_RULES)]);
+    expect(drought.result.storms).toBe(1);
+    expect(drought.service.rpc).toHaveBeenCalledWith("delay_expedition", { p_run: missed.id, p_leg: 1, p_hours: STORM_HOURS });
+  });
+});
+
 // === the base camp =============================================================
 
 import { FORKS } from "./routes";

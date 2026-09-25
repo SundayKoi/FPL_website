@@ -1096,13 +1096,22 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
     // (and every fork after it), once per storm.
     const applied = new Set((row.encounters ?? []).filter((entry) => entry.key === "storm").map((entry) => entry.leg));
     const road = { id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules, convoy: row.convoy };
+    // The weather the run launched under weights the draw (more caches in a
+    // Drought, rivals and ghosts under the Watch), and so moves which leg
+    // draws the storm: the sweep reads the road in the same weather the
+    // journal and the claim do, or it holds a squad for a storm its journal
+    // never showed. The company is not needed here: it only names a rival or
+    // turns a ghost into a cache, after the draw, and never makes or takes a
+    // storm.
+    const weather = weatherOfRun({ startedAt: row.started_at, rules }, watchWeeks);
+    const sky = weather?.key ?? null;
     const due = (list: ReturnType<typeof encountersFor>) => list.filter((entry) => entry.key === "storm" && !applied.has(entry.leg) && entry.at.getTime() <= now.getTime());
-    let coming = due(encountersFor(road));
-    // The squad's traits only ever take a storm away (a Speedrunner is past
-    // it; First Blood Merchant turned its beat), so the squad is read only
-    // when a storm is due on a run stamped with edges — the read the ping
-    // would make anyway. Unread, the storm waits for the next pass rather
-    // than hold a squad its edges would have kept moving.
+    let coming = due(encountersFor(road, null, sky));
+    // In the same weather, the squad's traits only ever take a storm away (a
+    // Speedrunner is past it; First Blood Merchant turned its beat), so the
+    // squad is read only when a storm is due on a run stamped with edges —
+    // the read the ping would make anyway. Unread, the storm waits for the
+    // next pass rather than hold a squad its edges would have kept moving.
     let squadRead: CardCopy[] | null = null;
     if (coming.length > 0 && rules >= ARCHETYPE_RULES) {
       squadRead = await fetchInventoryByIds(service, row.discord_id, row.squad ?? []);
@@ -1111,7 +1120,7 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
         coming = [];
         squadRead = null;
       } else {
-        coming = due(encountersFor(road, null, null, traitsOf(squadRead, rules)));
+        coming = due(encountersFor(road, null, sky, traitsOf(squadRead, rules)));
       }
     }
     for (const storm of coming) {
@@ -1147,8 +1156,7 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
       convoy: row.convoy,
       squadTeams: squad.map((copy) => copy.card?.teamName ?? null).filter((team): team is string => Boolean(team)),
     });
-    const weather = weatherOfRun({ startedAt: row.started_at, rules }, watchWeeks);
-    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules, convoy: row.convoy, choices: row.choices ?? [], company, weather: weather?.key ?? null, road: row.road ?? null }, squad, now);
+    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules, convoy: row.convoy, choices: row.choices ?? [], company, weather: sky, road: row.road ?? null }, squad, now);
     try {
       await postCardsWebhook(
         {
