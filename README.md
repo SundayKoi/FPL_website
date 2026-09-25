@@ -135,6 +135,25 @@ GitHub Actions exposes the incomplete refresh and the success-dependent weekly
 draw does not continue. Operators can retry only this connection with
 `npm run refresh:higher-lower`.
 
+### Season rollover: card ratings
+
+From Premier S6 and Academy A2, cards are rated by playstyle: each game is
+graded on its champion's job against the league's history of that style
+([design](docs/superpowers/specs/2026-09-25-style-aware-card-ratings-design.md)).
+S1–S5 and A1 keep the rating they were printed with. Before each new season's
+first card drop, rebuild that history from the seasons that just finished and
+commit the result:
+
+```sh
+npx tsx scripts/build-style-yardstick.ts S6 A2   # the new season codes
+```
+
+It reads `raw_stats` (read-only, `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`)
+and rewrites `src/lib/cards/styleYardsticks.json`, keeping every other
+season's entry. Skipping it grades the new season against the previous
+yardstick rather than failing. Re-running it for a season whose cards are
+already out changes that season's ratings, so do it before the first drop.
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) 20.9+ (Node 22 is recommended)

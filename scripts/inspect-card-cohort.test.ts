@@ -119,6 +119,19 @@ describe("inspect-card-cohort", () => {
     expect(output).not.toContain("LastWeek");
   });
 
+  it("breaks a style-rated season down by each game's style", async () => {
+    // From S6 on a card is scored on playstyle and fundamentals, and the old
+    // measure breakdown would describe a rating that season never used.
+    fetchAllCardSeasons.mockResolvedValue([{ league: "premier", season: "S6" }]);
+    await inspectCohort(createSupabase(WEEK_ROWS.map((row) => ({ ...row, season: "S6", champion: "Zed" }) as WeeklyRawStatRow)), WEEK, "");
+    const output = printed();
+
+    expect(blockOf("Farmer")).toMatch(/Games: Zed \(assassin\) graded \d+/);
+    expect(blockOf("Farmer")).toMatch(/Bars: Assassin \d+ · Laning \d+ · Survival \d+ · Teamplay \d+ · Vision \d+/);
+    expect(output).toContain("Weights: win 30 · playstyle 30 · Laning 14 · Survival 10 · Teamplay 9 · Vision 7");
+    expect(output).not.toContain("Combat");
+  });
+
   it("prints the bar the card actually wears", async () => {
     // Which percentiles make up a bar is restated in the script, not
     // imported, so this is what notices when measureValues changes and
