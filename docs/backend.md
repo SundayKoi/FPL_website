@@ -1132,7 +1132,10 @@ route with forks that is not the Exorcism — a **merchant** (a flat
 `maxExpeditionPayout` and `resolve_expedition`'s ceiling both add it), a
 **storm** (the sweep calls `delay_expedition` once, pushing the run's
 clock by `STORM_HOURS`, and records the leg in `expedition_runs.encounters`
-so the next sweep skips it), or a **stranded card** (only where the route
+so the next sweep skips it; it draws the legs under the run's own weather
+and traits, as the journal and the claim do, because a Drought or the
+Watch moves which leg draws the storm — the company never does), or a
+**stranded card** (only where the route
 can lose a card; at the claim, the oldest open `lost` hold belonging to
 someone else is released, its card comes home wounded, and the finder is
 paid `STRANDED_BOUNTY` on a separate `expedition_bounty` ledger row). The
