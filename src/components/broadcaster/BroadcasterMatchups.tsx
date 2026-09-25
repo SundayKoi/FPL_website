@@ -10,19 +10,19 @@ import { ROLE_LABELS } from "@/lib/draft/types";
 import type { ScoutScope, ScoutSource } from "@/lib/scouting/types";
 import BroadcasterPlayerStats from "./BroadcasterPlayerStats";
 
-function PremiumCardThumbnail({ player }: { player: BroadcasterMatchupPlayer }) {
+function SeasonCardThumbnail({ player }: { player: BroadcasterMatchupPlayer }) {
   if (!player.card) return null;
   return <Link
-    href={`/card/${player.card.slug}`}
-    aria-label={`View ${player.name}'s premium card`}
+    href={`/card/${player.card.slug}?edition=season`}
+    aria-label={`View ${player.name}'s season card`}
     className="block shrink-0 rounded-md text-center transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
   >
     <div className="h-[9.8rem] w-[7rem] overflow-hidden rounded-md border border-border-subtle/70 bg-black/20">
       <div style={{ transform: "scale(0.35)", transformOrigin: "top left" }}>
-        <PlayerCard3D card={player.card} interactive={false} />
+        <PlayerCard3D card={player.card} edition="season" interactive={false} />
       </div>
     </div>
-    <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wider text-muted">Premium card</span>
+    <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wider text-muted">Season card</span>
   </Link>;
 }
 
@@ -42,7 +42,7 @@ function PlayerCard({ player }: { player: BroadcasterMatchupPlayer }) {
       {player.totalPicks} picks · {player.distinctChampions} {player.distinctChampions === 1 ? "champion" : "champions"} · {player.gamesSampled} games
     </p>
     {player.card || player.averages ? <div className="mt-4 flex flex-wrap items-start gap-4 border-t border-border-subtle/50 pt-4">
-      <PremiumCardThumbnail player={player} />
+      <SeasonCardThumbnail player={player} />
       <BroadcasterPlayerStats player={player} />
     </div> : null}
     {player.inhouse ? <details className="group mt-4 border-t border-border-subtle/50 pt-3">

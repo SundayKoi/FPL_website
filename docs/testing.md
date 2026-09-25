@@ -21,8 +21,10 @@ browser tests write fixtures: confirm they target the local stack before running
 them. Operational scripts and linked-database migration pushes have different
 side effects and are not test commands.
 
-CI runs TypeScript, ESLint, Vitest, and Python checks. Commands are defined in
-[package.json](../package.json); the production build is `npm run build`.
+CI runs TypeScript, ESLint, Vitest, and Python checks in its `checks` job,
+and the pgTAP suite against a fresh local Postgres in its `database` job (see
+[SQL](#sql)). Commands are defined in [package.json](../package.json); the
+production build is `npm run build`.
 
 ## Vitest
 
@@ -76,11 +78,32 @@ requests and do not need Riot credentials or a Supabase connection.
 
 ## SQL
 
-Start the local Supabase stack as described in the README, with the database
-migrations required by the tests applied. Use `npm run test:db`: it selects
-the numbered `supabase/tests/[0-9]*_test.sql` files and excludes operational
-SQL scripts in the same directory. Shared SQL fixtures live in
-`supabase/tests/helpers/*.sql.inc` and are included inside each transaction.
+The database under test is built from the staged fresh-database project,
+not from `supabase/` directly: two immutable migrations cannot run on an
+empty database as written, and the migration wrapper stages reviewed
+replacements for them (see the
+[README](../README.md#ci-and-what-vercel-builds)).
+
+```sh
+npm run db:stage                                   # writes supabase/.staged
+npx supabase start --workdir supabase/.staged      # or `db start` for Postgres only
+npm run test:db
+```
+
+`npm run db:stage` runs
+`node scripts/supabase-migrations.mjs stage supabase/.staged --fresh`. It
+writes the config, edge functions, staged migrations, and the numbered
+`supabase/tests/[0-9]*_test.sql` files with their helpers, leaving out the
+operational SQL scripts in the same directory. `npm run test:db` restages
+(so edited tests are picked up) and runs
+`supabase test db --workdir supabase/.staged`. It does not reapply
+migrations; after adding or changing one, restage and run
+`npx supabase db reset --workdir supabase/.staged` first. A new volume
+applies every staged migration and fails on the first that errors. The CI
+`database` job relies on that: it runs
+`npx supabase db start --workdir supabase/.staged`, then `npm run test:db`.
+Shared SQL fixtures live in `supabase/tests/helpers/*.sql.inc` and are
+included inside each transaction.
 
 Every test file declares a plan, calls `finish()`, and rolls back its
 transaction. Give fixtures test-specific names, supply required columns,
@@ -90,7 +113,8 @@ reason to skip an assertion or mark a migration applied.
 
 ## Playwright
 
-Start local Supabase with `npx supabase start`. Playwright expects the app at
+Start local Supabase from the staged project (`npm run db:stage`, then
+`npx supabase start --workdir supabase/.staged`). Playwright expects the app at
 `http://localhost:3000` and starts `npm run dev` if needed. No manual demo seed
 is required.
 

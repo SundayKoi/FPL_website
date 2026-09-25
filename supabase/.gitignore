@@ -1,6 +1,9 @@
 # Supabase
 .branches
 .temp
+# The fresh-database project `npm run db:stage` writes
+# (scripts/supabase-migrations.mjs stage --fresh)
+.staged
 
 # dotenvx
 .env.keys

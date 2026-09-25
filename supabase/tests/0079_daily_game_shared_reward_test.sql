@@ -7,9 +7,9 @@ select is((select count(*) from information_schema.columns where table_schema = 
 select ok((select relrowsecurity from pg_class where oid = 'public.daily_game_rewards'::regclass), 'shared reward claims use RLS');
 select is(has_table_privilege('anon', 'public.daily_game_rewards', 'select'), false, 'anonymous users cannot read shared reward claims');
 select is(has_table_privilege('authenticated', 'public.daily_game_rewards', 'select'), false, 'authenticated users cannot read shared reward claims');
-select is(has_function_privilege('anon', 'public.claim_daily_game_reward(date,uuid,text,text,bigint)', 'execute'), false, 'anonymous users cannot claim the shared reward');
-select is(has_function_privilege('authenticated', 'public.claim_daily_game_reward(date,uuid,text,text,bigint)', 'execute'), false, 'authenticated users cannot claim the shared reward');
-select is(has_function_privilege('service_role', 'public.claim_daily_game_reward(date,uuid,text,text,bigint)', 'execute'), true, 'service role can claim the shared reward');
+select is(has_function_privilege('anon', 'public.claim_daily_game_reward(date,uuid,text,text,bigint,text)', 'execute'), false, 'anonymous users cannot claim the shared reward');
+select is(has_function_privilege('authenticated', 'public.claim_daily_game_reward(date,uuid,text,text,bigint,text)', 'execute'), false, 'authenticated users cannot claim the shared reward');
+select is(has_function_privilege('service_role', 'public.claim_daily_game_reward(date,uuid,text,text,bigint,text)', 'execute'), true, 'service role can claim the shared reward');
 
 insert into public.profiles (id, display_name)
 values

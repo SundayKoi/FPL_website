@@ -40,21 +40,23 @@ select
   (select coalesce(sum((w ->> 'stattrak')::int), 0) from jsonb_array_elements(j -> 'pulls' -> 'by_week') w)       as stattrak
 from (select public.analytics_overview(2) as j) r;
 
-insert into public.betting_profiles (discord_id, balance, patron_until)
-  values ('t_analytics_a', 100, now() + interval '30 days'), ('t_analytics_b', 250, null)
+insert into public.betting_profiles (discord_id, username, balance, patron_until)
+  values ('t_analytics_a', 'Analytics A', 100, now() + interval '30 days'),
+         ('t_analytics_b', 'Analytics B', 250, null)
   on conflict (discord_id) do nothing;
 
-insert into public.card_pack_openings (discord_id, season, source, variant, status, created_at)
-  values ('t_analytics_a', 'T', 'paid', 'standard', 'fulfilled', now() - interval '1 day'),
-         ('t_analytics_a', 'T', 'daily', 'standard', 'fulfilled', now() - interval '1 day'),
-         ('t_analytics_b', 'T', 'paid', 'god',      'fulfilled', now() - interval '1 day'),
+insert into public.card_pack_openings (request_id, discord_id, season, source, variant, status, created_at)
+  values (gen_random_uuid(), 't_analytics_a', 'T', 'paid', 'standard', 'fulfilled', now() - interval '1 day'),
+         (gen_random_uuid(), 't_analytics_a', 'T', 'daily', 'standard', 'fulfilled', now() - interval '1 day'),
+         (gen_random_uuid(), 't_analytics_b', 'T', 'paid', 'god',      'fulfilled', now() - interval '1 day'),
          -- A refunded open is not an open: the pack never happened.
-         ('t_analytics_b', 'T', 'paid', 'standard', 'refunded',  now() - interval '1 day');
+         (gen_random_uuid(), 't_analytics_b', 'T', 'paid', 'standard', 'refunded',  now() - interval '1 day');
 
-insert into public.card_inventory (discord_id, season, tier, foil, foil_type, signed, card, acquired_at)
-  values ('t_analytics_a', 'T', 'bronze', false, null,     false, '{}'::jsonb,                          now() - interval '1 day'),
-         ('t_analytics_a', 'T', 'gold',   true,  'prisma', false, '{"shiny": true}'::jsonb,             now() - interval '1 day'),
-         ('t_analytics_b', 'T', 'master', true,  'ice',    true,  '{"stattrak": {"points": 3}}'::jsonb, now() - interval '1 day');
+insert into public.card_inventory
+    (discord_id, season, slug, player_name, role, edition_week, overall, tier, foil, foil_type, signed, card, acquired_at)
+  values ('t_analytics_a', 'T', 't-analytics-1', 'Analytics One',   'Mid', date '2026-08-24', 60, 'bronze', false, null,     false, '{}'::jsonb,                          now() - interval '1 day'),
+         ('t_analytics_a', 'T', 't-analytics-2', 'Analytics Two',   'Mid', date '2026-08-24', 75, 'gold',   true,  'prisma', false, '{"shiny": true}'::jsonb,             now() - interval '1 day'),
+         ('t_analytics_b', 'T', 't-analytics-3', 'Analytics Three', 'Mid', date '2026-08-24', 90, 'master', true,  'ice',    true,  '{"stattrak": {"points": 3}}'::jsonb, now() - interval '1 day');
 
 create temporary table after_fixtures as
 select
@@ -116,13 +118,13 @@ with paid as (
     values ('t_analytics_a', 'T', 200, now() - interval '1 day')
   returning id
 )
-insert into public.card_pack_openings (discord_id, season, source, variant, status, created_at, pack_open_id)
-  select 't_analytics_a', 'T', 'paid', 'god', 'fulfilled', now() - interval '1 day', id from paid;
+insert into public.card_pack_openings (request_id, discord_id, season, source, variant, status, created_at, pack_open_id)
+  select gen_random_uuid(), 't_analytics_a', 'T', 'paid', 'god', 'fulfilled', now() - interval '1 day', id from paid;
 
 -- And one comped pack, which has no money row and exists only in the
 -- newer table — the half the old anchor cannot see.
-insert into public.card_pack_openings (discord_id, season, source, variant, status, created_at, pack_open_id)
-  values ('t_analytics_b', 'T', 'comp', 'standard', 'fulfilled', now() - interval '1 day', null);
+insert into public.card_pack_openings (request_id, discord_id, season, source, variant, status, created_at, pack_open_id)
+  values (gen_random_uuid(), 't_analytics_b', 'T', 'comp', 'standard', 'fulfilled', now() - interval '1 day', null);
 
 create temporary table pack_after as
 select
@@ -157,8 +159,10 @@ select is((select a.rolled - b.rolled from pack_bare a, pack_after b)::int, 0,
   'but it was never rolled for a God Pack, so it stays out of that denominator');
 
 -- The chase roll call names who holds each Dribb, in number order.
-insert into public.card_inventory (discord_id, season, tier, foil, signed, card, acquired_at)
-  values ('t_analytics_b', 'T', 'challenger', false, false, '{"dribb": {"number": 5, "of": 5}}'::jsonb, now() - interval '1 day');
+insert into public.card_inventory
+    (discord_id, season, slug, player_name, role, edition_week, overall, tier, foil, signed, card, acquired_at)
+  values ('t_analytics_b', 'T', 't-analytics-dribb', 'Analytics Dribb', 'Mid', date '2026-08-24', 99, 'challenger',
+          false, false, '{"dribb": {"number": 5, "of": 5}}'::jsonb, now() - interval '1 day');
 select is(
   (select (d ->> 'discord_id')
      from jsonb_array_elements(public.analytics_overview(2) -> 'pulls' -> 'dribb') d

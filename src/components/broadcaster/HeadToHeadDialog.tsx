@@ -189,7 +189,7 @@ function SpotlightPlayer({
       {player.card ? (
         <div className={`flex items-start gap-1.5 sm:gap-2 ${tone === "coral" ? "flex-row-reverse" : "flex-row"}`}>
           <div className="min-w-0 flex-1">
-            <PlayerCard3D card={player.card} interactive={false} className="!w-full" />
+            <PlayerCard3D card={player.card} edition="season" interactive={false} className="!w-full" />
           </div>
           <BroadcasterPlayerStats player={player} spotlight layout="rail" />
         </div>
