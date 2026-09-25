@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import type { ReactElement } from "react";
 import Link from "next/link";
 import IdentityClaimQueueRow from "@/components/players/IdentityClaimQueueRow";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
+import { seasonBelongsToLeague } from "@/lib/league/season";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -31,12 +33,19 @@ function formatRequested(iso: string): string {
   });
 }
 
-export default async function IdentityClaimsPage() {
+type IdentityClaimsPageProps = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+function IdentityClaimsPage(): Promise<ReactElement>;
+function IdentityClaimsPage(props: IdentityClaimsPageProps): Promise<ReactElement>;
+async function IdentityClaimsPage(props?: IdentityClaimsPageProps) {
+  const searchParams = props?.searchParams;
   const supabase = await createServerSupabase();
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user?.id) {
     return (
-      <main className="page-container page-spacing page-backdrop flex flex-1 flex-col items-center justify-center gap-4 text-center">
+      <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Roster identities</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to review identity claims</h1>
         <p className="max-w-md text-sm text-muted">Captains see requests for their own team. Admins see every team.</p>
@@ -44,6 +53,18 @@ export default async function IdentityClaimsPage() {
       </main>
     );
   }
+
+  const params = await (searchParams ?? Promise.resolve<Record<string, string | string[] | undefined>>({}));
+  const leagueValue = Array.isArray(params.league) ? params.league[0] : params.league;
+  const seasonValue = Array.isArray(params.season) ? params.season[0] : params.season;
+  const selectedLeague = leagueValue === "premier" || leagueValue === "academy" ? leagueValue : null;
+  const selectedSeason = selectedLeague
+    && typeof seasonValue === "string"
+    && seasonValue.length <= 12
+    && /^[SA]\d+$/i.test(seasonValue)
+    && seasonBelongsToLeague(seasonValue, selectedLeague)
+    ? seasonValue
+    : null;
 
   const [staffTier, [captainsSettled, claimsSettled]] = await Promise.all([
     fetchStaffTier(supabase),
@@ -55,11 +76,17 @@ export default async function IdentityClaimsPage() {
       // RLS is the authority boundary. It also lets a claimant read their own
       // row, so the presentation filter below narrows non-admin reviewers to
       // teams and seasons they captain rather than drawing forbidden controls.
-      supabase
-        .from("player_identity_links")
-        .select("id, player_pool_id, profile_id, league_team_id, league, season, source, requested_at")
-        .eq("status", "pending")
-        .order("requested_at"),
+      (() => {
+        let query = supabase
+          .from("player_identity_links")
+          .select("id, player_pool_id, profile_id, league_team_id, league, season, source, requested_at")
+          .eq("status", "pending")
+          .order("requested_at");
+        if (selectedLeague && selectedSeason) {
+          query = query.eq("league", selectedLeague).eq("season", selectedSeason);
+        }
+        return query;
+      })(),
     ]),
   ]);
   const captainsResult = captainsSettled.status === "fulfilled" ? captainsSettled.value : null;
@@ -102,7 +129,7 @@ export default async function IdentityClaimsPage() {
     .map((row) => [row.id, row.display_name ?? "a signed-in player"]));
 
   return (
-    <main className="page-container page-spacing page-backdrop flex w-full flex-1 flex-col gap-8 text-white">
+    <main className="page-backdrop mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header>
         <span className="label-dash">Roster identities</span>
         <h1 className="type-display mt-2 text-4xl sm:text-5xl">Identity claims</h1>
@@ -138,3 +165,5 @@ export default async function IdentityClaimsPage() {
     </main>
   );
 }
+
+export default IdentityClaimsPage;

@@ -6,7 +6,25 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } 
 import styles from "./AdminConsole.module.css";
 
 type League = "premier" | "academy";
-type QueueType = "reports" | "claims" | "publishing";
+type QueueType = "reports" | "claims";
+export type AdminQueueItem = {
+  id: string;
+  title: string;
+  detail: string;
+  href: string;
+  action: string;
+  type: QueueType;
+  icon: string;
+  createdAt: string;
+};
+export type AdminActivityItem = {
+  id: string;
+  title: string;
+  detail: string;
+  occurredAt: string;
+  timeLabel: string;
+  icon: string;
+};
 type Tool = {
   label: string;
   description: string;
@@ -20,13 +38,6 @@ type ToolGroup = {
   category: "league" | "content" | "cards" | "insights";
   tools: Tool[];
 };
-
-const queueItems: { id: string; title: string; detail: string; href: string; action: string; type: QueueType; icon: string }[] = [
-  { id: "report-night-shift", title: "Night Shift vs Red Side", detail: "Match report · Game 2 · 18 min ago", href: "/schedule", action: "Review", type: "reports", icon: "file" },
-  { id: "report-blue-buff", title: "Blue Buff vs Rift Rats", detail: "Match report · Game 1 · 42 min ago", href: "/schedule", action: "Review", type: "reports", icon: "file" },
-  { id: "claims", title: "2 player identity claims", detail: "Card ownership · Waiting for approval", href: "/admin/claims", action: "Review", type: "claims", icon: "people" },
-  { id: "announcement", title: "Weekly card announcement", detail: "Draft ready · Not published", href: "/admin/announce", action: "Preview", type: "publishing", icon: "megaphone" },
-];
 
 const toolColumns: ToolGroup[][] = [
   [
@@ -59,13 +70,14 @@ const toolColumns: ToolGroup[][] = [
       title: "Cards & rewards",
       category: "cards",
       tools: [
-        { label: "Player claims", description: "Identity & ownership reviews", href: "/admin/claims", icon: "file" },
+        { label: "Card claims", description: "Player card ownership reviews", href: "/admin/claims", icon: "file" },
+        { label: "Roster identity claims", description: "Player-to-team identity requests", href: "/identity-claims", icon: "people" },
         { label: "Season’s End", description: "Regular-season honors", href: "/admin/seasons-end", icon: "trophy" },
         { label: "The Send-off", description: "Playoff editions", href: "/admin/sendoff", icon: "star" },
         { label: "On Air", description: "Live-drop caster cards", href: "/admin/on-air", icon: "broadcast" },
         { label: "Expedition seasons", description: "Standings & season close", href: "/admin/expeditions", icon: "compass" },
-        { label: "Expedition board", description: "The page as three collectors see it", href: "/admin/expedition-board", icon: "compass" },
-        { label: "Expedition map", description: "The living map in every state", href: "/admin/expedition-map", icon: "compass" },
+        { label: "Expedition board", description: "Collector views", href: "/admin/expedition-board", icon: "compass" },
+        { label: "Expedition map", description: "Season map states", href: "/admin/expedition-map", icon: "compass" },
       ],
     },
     {
@@ -88,8 +100,7 @@ const designTools: Tool[] = [
   { label: "Expedition mutations", description: "Expedition card traits", href: "/admin/mutations", icon: "arrow" },
   { label: "Card overlays", description: "Alternate card finishes", href: "/admin/overlays", icon: "arrow" },
   { label: "The Dribb card", description: "Five-copy chase print", href: "/admin/dribb", icon: "arrow" },
-  { label: "God Pack preview", description: "Preview the pack reveal", href: "/admin#god-pack-preview", icon: "arrow" },
-  { label: "Guess the Card", description: "Daily game preview", href: "/guess-the-card", icon: "arrow" },
+  { label: "Guess the Card", description: "Staff access to the daily game", href: "/guess-the-card", icon: "arrow" },
 ];
 
 const filterTabs = [
@@ -185,7 +196,6 @@ function SidebarLinks({
         {link(`/admin?${context}#staff-controls`, "Staff & access", "people", true)}
         {link("/admin/patrons", "Patrons", "heart", true)}
       </div>
-      <div className={styles.sideNote}>Prototype / Sample data</div>
     </>
   );
 }
@@ -212,8 +222,6 @@ function toolHref(tool: Tool, league: League, season: string): string {
       return `${workspace}#drafts`;
     case "Staff & access":
       return `${workspace}#staff-controls`;
-    case "God Pack preview":
-      return `${workspace}#god-pack-preview`;
     default:
       return tool.href;
   }
@@ -232,51 +240,67 @@ export type AdminScheduleRow = {
   status: string;
 };
 
-type AdminConsoleProps = {
-  view: "overview" | "tools";
-  isOwner: boolean;
-  isFullAdmin: boolean;
-  league: League;
-  season: string;
-  defaultSeasons: Record<League, string>;
-  seasonOptions: string[];
-  phase: string;
-  upcomingCount: number;
-  signupsOpen: boolean;
-  homepageMode: string;
-  featuredMatch: { teamA: string; teamB: string; starts: string } | null;
-  upcoming: AdminScheduleRow[];
-  today: string;
-  initialQuery?: string;
-  children?: ReactNode;
-};
-
-function AdminConsoleContent({
-  pathname,
+export default function AdminConsole({
   view,
   isOwner,
   isFullAdmin,
   league,
   season,
+  featuredSeason,
   defaultSeasons,
   seasonOptions,
   phase,
   upcomingCount,
+  settingsAvailable = true,
   signupsOpen,
   homepageMode,
   featuredMatch,
   upcoming,
   today,
+  canReviewQueues = false,
+  queueCounts = { reports: 0, claims: 0 },
+  queueItems = [],
+  queueUnavailable = false,
+  recentActivity = [],
+  reportQueue,
+  reportQueueUnavailable,
   initialQuery = "",
   children,
-}: AdminConsoleProps & { pathname: string }) {
+}: {
+  view: "overview" | "tools";
+  isOwner: boolean;
+  isFullAdmin: boolean;
+  league: League;
+  season: string;
+  featuredSeason?: string;
+  defaultSeasons: Record<League, string>;
+  seasonOptions: string[];
+  phase: string;
+  upcomingCount: number;
+  settingsAvailable?: boolean;
+  signupsOpen: boolean;
+  homepageMode: string;
+  featuredMatch: { teamA: string; teamB: string; starts: string } | null;
+  upcoming: AdminScheduleRow[];
+  today: string;
+  canReviewQueues?: boolean;
+  queueCounts?: { reports: number; claims: number };
+  queueItems?: AdminQueueItem[];
+  queueUnavailable?: boolean;
+  recentActivity?: AdminActivityItem[];
+  reportQueue?: ReactNode;
+  reportQueueUnavailable?: boolean;
+  initialQuery?: string;
+  children?: ReactNode;
+}) {
+  const pathname = usePathname() ?? "/admin";
   const searchParams = useSearchParams();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState(initialQuery);
   const [queueFilter, setQueueFilter] = useState<"all" | QueueType>("all");
   const currentCategory = searchParams?.get("category") ?? "all";
-  const [toolFilter, setToolFilter] = useState(currentCategory);
+  const toolFilter = currentCategory;
 
   useEffect(() => {
     const onShortcut = (event: KeyboardEvent) => {
@@ -290,6 +314,7 @@ function AdminConsoleContent({
   }, []);
 
   const activeSeasonOptions = seasonOptions.length ? seasonOptions : [season];
+  const homepageSeason = featuredSeason ?? season;
   const visibleColumns = useMemo(() => toolColumns.map((column) => column.map((group) => ({
     ...group,
     tools: group.tools.filter((tool) => {
@@ -303,6 +328,12 @@ function AdminConsoleContent({
     const needle = query.trim().toLocaleLowerCase();
     return (!needle || `${tool.label} ${tool.description}`.toLocaleLowerCase().includes(needle)) && toolFilter === "all";
   });
+  const visibleQueueItems = useMemo(() => queueItems
+    .filter((item) => queueFilter === "all" || item.type === queueFilter)
+    .slice(0, 6), [queueFilter, queueItems]);
+  const activeQueueCount = queueFilter === "all"
+    ? queueCounts.reports + queueCounts.claims
+    : queueCounts[queueFilter];
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -329,7 +360,6 @@ function AdminConsoleContent({
   }
 
   function chooseToolFilter(value: string) {
-    setToolFilter(value);
     const params = new URLSearchParams(searchParams?.toString());
     if (value === "all") params.delete("category");
     else params.set("category", value);
@@ -393,45 +423,56 @@ function AdminConsoleContent({
               <>
                 <div className={styles.statusStrip} aria-label="League status">
                   <div><Icon name="trophy" /><span><strong>{season} · {phase}</strong><small>Current phase</small></span></div>
-                <div><Icon name="people" /><span><strong>{league === "academy" ? "Premier signups" : "Signups"}</strong><small className={signupsOpen ? styles.statusGood : styles.statusClosed}>{signupsOpen ? "Open" : "Closed"}</small></span></div>
+                <div><Icon name="people" /><span><strong>Signups</strong><small className={settingsAvailable ? (signupsOpen ? styles.statusGood : styles.statusClosed) : undefined}>{settingsAvailable ? (signupsOpen ? "Open" : "Closed") : "Unavailable"}</small></span></div>
                   <div><Icon name="calendar" /><span><strong>{upcomingCount}</strong><small>Upcoming series</small></span></div>
-                  <div><Icon name="file" /><span><strong>6</strong><small>Awaiting review <em>Sample</em></small></span></div>
+                  <div><Icon name="file" /><span><strong>{canReviewQueues ? (queueUnavailable ? "—" : queueCounts.reports + queueCounts.claims) : "—"}</strong><small>Open reports &amp; claims</small></span></div>
                 </div>
 
                 <div className={styles.topGrid}>
                   <section className={styles.attention} aria-labelledby="attention-title">
                     <div className={styles.sectionHeading}>
-                      <h2 id="attention-title">Needs attention <span className={styles.count}>6</span></h2>
-                      <span className={styles.sampleLabel}>Illustrative queue</span>
+                      <h2 id="attention-title">Needs attention <span className={styles.count}>{canReviewQueues && !queueUnavailable ? queueCounts.reports + queueCounts.claims : "—"}</span></h2>
                     </div>
-                    <div className={styles.queueTabs} role="group" aria-label="Filter attention queue">
-                      {[
-                        ["all", "All", "6"],
-                        ["reports", "Match reports", "3"],
-                        ["claims", "Player claims", "2"],
-                        ["publishing", "Publishing", "1"],
-                      ].map(([id, label, count]) => (
-                        <button key={id} type="button" onClick={() => setQueueFilter(id as "all" | QueueType)} aria-pressed={queueFilter === id}>
-                          {label}<span>{count}</span>
-                        </button>
-                      ))}
-                    </div>
-                    <div className={styles.queueRows}>
-                        {queueItems.filter((item) => queueFilter === "all" || item.type === queueFilter).map((item) => (
-                          <div className={styles.queueRow} key={item.id}>
-                          <span className={styles.rowIcon}><Icon name={item.icon} size={24} /></span>
-                          <span className={styles.rowCopy}><strong>{item.title}</strong><small>{item.detail}</small></span>
-                          <Link href={item.href} aria-label={item.type === "claims" ? "Review player claims" : undefined} className={styles.rowAction}>{item.action}<span aria-hidden="true">→</span></Link>
+                    {canReviewQueues ? (
+                      <>
+                        <div className={styles.queueTabs} role="group" aria-label="Filter attention queue">
+                          {[
+                            ["all", "All", queueCounts.reports + queueCounts.claims],
+                            ["reports", "Match reports", queueCounts.reports],
+                            ["claims", "Player claims", queueCounts.claims],
+                          ].map(([id, label, count]) => (
+                            <button key={id} type="button" onClick={() => setQueueFilter(id as "all" | QueueType)} aria-pressed={queueFilter === id}>
+                              {label}<span>{queueUnavailable ? "—" : count}</span>
+                            </button>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                    <div className={styles.queueFooter}><span>Showing {queueFilter === "all" ? "4 of 6" : `${queueItems.filter((item) => item.type === queueFilter).length} sample item${queueFilter === "claims" ? "" : "s"}`}</span><Link href="/admin/tools">View tools <span aria-hidden="true">→</span></Link></div>
+                        {queueUnavailable ? (
+                          <p className={styles.queueEmpty}>Review queue data is temporarily unavailable.</p>
+                        ) : visibleQueueItems.length ? (
+                          <div className={styles.queueRows}>
+                            {visibleQueueItems.map((item) => (
+                              <div className={styles.queueRow} key={item.id}>
+                                <span className={styles.rowIcon}><Icon name={item.icon} size={24} /></span>
+                                <span className={styles.rowCopy}><strong>{item.title}</strong><small>{item.detail}</small></span>
+                                <Link href={item.href} className={styles.rowAction}>{item.action}<span aria-hidden="true">→</span></Link>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className={styles.queueEmpty}>{queueFilter === "all" ? "No reports or player claims need review for this league and season." : `No ${queueFilter === "reports" ? "match reports" : "player claims"} need review for this league and season.`}</p>
+                        )}
+                        {!queueUnavailable ? <div className={styles.queueFooter}>
+                          <span>Showing {visibleQueueItems.length} of {activeQueueCount} items</span>
+                          <Link href={`/admin/tools?league=${league}&season=${encodeURIComponent(season)}`}>View tools <span aria-hidden="true">→</span></Link>
+                        </div> : null}
+                      </>
+                    ) : <p className={styles.queueEmpty}>Review queues are available to admins.</p>}
                   </section>
 
                   <aside className={styles.rightColumn}>
                     <section className={styles.broadcast} aria-labelledby="broadcast-title">
                       <div className={styles.broadcastEyebrow} id="broadcast-title">Homepage & broadcast</div>
-                      <div className={styles.broadcastMeta}>{league === "academy" ? "Academy" : "Premier"} · {season}</div>
+                      <div className={styles.broadcastMeta}>{league === "academy" ? "Academy" : "Premier"} · {homepageSeason}</div>
                       <div className={styles.broadcastRule} />
                       <div className={styles.featureLabel}>Featured match</div>
                       {featuredMatch ? (
@@ -442,7 +483,7 @@ function AdminConsoleContent({
                         </div>
                       ) : <p className={styles.noMatch}>No featured matchup selected.</p>}
                       <div className={styles.matchStarts}>{featuredMatch?.starts || "Set a featured match in the editor below"}</div>
-                      <div className={styles.broadcastMode}><span>Homepage mode</span><strong>{homepageMode}</strong></div>
+                      <div className={styles.broadcastMode}><span>Homepage mode</span><strong>{settingsAvailable ? homepageMode : "Unavailable"}</strong></div>
                       <Link href={`/admin?league=${league}&season=${encodeURIComponent(season)}#homepage-controls`} className={styles.broadcastButton}>Edit featured matchup</Link>
                     </section>
                     <section className={styles.quickActions} aria-labelledby="quick-actions-title">
@@ -451,6 +492,7 @@ function AdminConsoleContent({
                         <Link href={league === "academy" ? `/academy/schedule?season=${encodeURIComponent(season)}` : `/schedule?season=${encodeURIComponent(season)}`}><Icon name="calendar" size={18} />Edit fixtures <span aria-hidden="true">→</span></Link>
                         <Link href="/signup"><Icon name="people" size={18} />Review signups <span aria-hidden="true">→</span></Link>
                         <Link href={league === "academy" ? "/academy/teams" : "/teams"}><Icon name="shield" size={18} />Manage rosters <span aria-hidden="true">→</span></Link>
+                        {canReviewQueues ? <Link href="/admin/claims"><Icon name="people" size={18} />Review player claims <span aria-hidden="true">→</span></Link> : null}
                         {isOwner ? <Link href={`/admin?league=${league}&season=${encodeURIComponent(season)}#drafts`}><Icon name="file" size={18} />Open draft room <span aria-hidden="true">→</span></Link> : null}
                       </div>
                     </section>
@@ -472,25 +514,32 @@ function AdminConsoleContent({
                     </div>
                   </section>
                   <section className={styles.activity} aria-labelledby="activity-title">
-                    <h2 id="activity-title">Recent activity <span className={styles.sampleLabel}>Illustrative</span></h2>
-                    <div className={styles.activityRow}><Icon name="megaphone" size={20} /><span><strong>Featured matchup updated</strong><small>Homepage set to Night Shift vs Red Side</small></span><time>12 min</time></div>
-                    <div className={styles.activityRow}><Icon name="people" size={20} /><span><strong>Claim approved</strong><small>Player identity claim for xNova</small></span><time>38 min</time></div>
-                    <div className={styles.activityRow}><Icon name="file" size={20} /><span><strong>Fixtures edited</strong><small>Week 7 updated with 3 changes</small></span><time>1 hr</time></div>
+                    <h2 id="activity-title">Recent activity</h2>
+                    {canReviewQueues && !queueUnavailable && recentActivity.length ? recentActivity.map((item) => (
+                      <div className={styles.activityRow} key={item.id}>
+                        <Icon name={item.icon} size={20} />
+                        <span><strong>{item.title}</strong><small>{item.detail}</small></span>
+                        <time dateTime={item.occurredAt}>{item.timeLabel}</time>
+                      </div>
+                    )) : (
+                      <p className={styles.activityEmpty}>{queueUnavailable ? "Activity is temporarily unavailable." : canReviewQueues ? "No recent report or claim activity for this league and season." : "Recent activity is available to admins."}</p>
+                    )}
                   </section>
                 </div>
               </>
             ) : (
               <section className={styles.broadcasterWelcome}>
-                <span className={styles.sampleLabel}>Broadcast workspace</span>
+                <span className={styles.workspaceEyebrow}>Broadcast workspace</span>
                 <h2>Homepage controls</h2>
                 <p>Choose a featured matchup for {league === "academy" ? "Academy" : "Premier"}. Your existing access stays limited to broadcast controls.</p>
                 <Link href={`/admin?league=${league}&season=${encodeURIComponent(season)}#homepage-controls`} className={styles.outlineButton}>Open featured matchup controls <span aria-hidden="true">↓</span></Link>
               </section>
             )}
 
-            {isFullAdmin ? <div className={styles.illustrativeNote}>Queue and activity rows are sample content. Schedule rows and league settings come from the current workspace data.</div> : null}
+            {isFullAdmin && canReviewQueues && reportQueue ? <section id="match-reports" aria-label="Match report review" className={styles.reportQueue}>{reportQueue}</section> : null}
+            {isFullAdmin && canReviewQueues && reportQueueUnavailable ? <section id="match-reports" aria-label="Match report review" className={styles.reportQueue}><p className={styles.queueEmpty}>Match report data is temporarily unavailable.</p></section> : null}
             {children ? <div className={styles.managementWorkspaces}>{children}</div> : null}
-            <footer className={styles.consoleFooter}><span>FPL / ADMIN CONCEPT 01</span><span>Illustrative queue · {isOwner ? "Owner view" : "Staff view"}</span></footer>
+            <footer className={styles.consoleFooter}><span>FPL / ADMIN</span><span>{isOwner ? "Owner view" : "Staff view"}</span></footer>
           </>
         ) : (
           <>
@@ -526,29 +575,22 @@ function AdminConsoleContent({
               </div>
 
               <aside className={styles.designLab} id="design-lab" aria-labelledby="design-lab-title">
-                <div className={styles.designTitle}><Icon name="flask" size={38} /><div><span>Previews & experiments</span><h2 id="design-lab-title">Design lab</h2></div></div>
-                <p>Explore treatments before they ship.</p>
+                <div className={styles.designTitle}><Icon name="flask" size={38} /><div><span>Card treatments</span><h2 id="design-lab-title">Design tools</h2></div></div>
+                <p>Review card treatments and season presentations.</p>
                 <div className={styles.designRows}>
                   {visibleDesignTools.map((tool) => (
                     <Link href={tool.href} key={tool.label}>{tool.label}<Icon name="arrow" size={17} /></Link>
                   ))}
-                  {visibleDesignTools.length === 0 ? <span className={styles.designEmpty}>Use All tools to browse design previews.</span> : null}
+                  {visibleDesignTools.length === 0 ? <span className={styles.designEmpty}>No design tools match this search.</span> : null}
                 </div>
-                <Link href="/admin/parallels" className={styles.designButton}>Open design lab <span aria-hidden="true">→</span></Link>
-                <div className={styles.quieterWorkspace}><strong>A quieter workspace</strong><p>Previews live here, leaving daily operations focused.</p></div>
+                <Link href="/admin/parallels" className={styles.designButton}>Open design tools <span aria-hidden="true">→</span></Link>
+                <div className={styles.quieterWorkspace}><strong>Focused operations</strong><p>Design tools stay grouped here so daily work is easy to scan.</p></div>
               </aside>
             </div>
-            <footer className={styles.consoleFooter}><span>FPL / ADMIN CONCEPT 02</span><span>Illustrative data · Owner view</span></footer>
+            <footer className={styles.consoleFooter}><span>FPL / ADMIN</span><span>{isOwner ? "Owner view" : "Staff view"}</span></footer>
           </>
         )}
       </div>
     </div>
   );
-}
-
-export default function AdminConsole(props: AdminConsoleProps) {
-  const pathname = usePathname() ?? "/admin";
-  const category = useSearchParams()?.get("category") ?? "all";
-  const key = `${pathname}:${category}:${props.initialQuery ?? ""}`;
-  return <AdminConsoleContent key={key} pathname={pathname} {...props} />;
 }
