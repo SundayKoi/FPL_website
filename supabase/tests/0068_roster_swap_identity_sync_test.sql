@@ -117,6 +117,9 @@ select
     where p.draft_id = (select id from trade_draft)
       and p.display_name = 'Mid2'
   ) as right_id;
+-- The RPC calls below run as `authenticated` and read the ids from here; a
+-- temporary table only grants its owner, as in 0053 and 0057.
+grant select on trade_players to authenticated;
 
 select tests.acting_as(tests.cap(3));
 set local role authenticated;

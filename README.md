@@ -144,8 +144,8 @@ draw does not continue. Operators can retry only this connection with
 ## Local setup
 
 The quickest path is the repository helper. It checks Node and Docker,
-starts local Supabase, updates `.env.local` with the local API URL and anon
-key, and starts Next.js:
+stages and starts local Supabase, updates `.env.local` with the local API URL
+and anon key, and starts Next.js:
 
 ```sh
 npm run run-locally
@@ -155,10 +155,28 @@ For a manual setup:
 
 ```sh
 npm install
-npx supabase start
+npm run db:stage
+npx supabase start --workdir supabase/.staged
 cp .env.example .env.local
-npx supabase status
+npx supabase status --workdir supabase/.staged
 npm run dev
+```
+
+Local Supabase runs from a staged copy of the project in the gitignored
+`supabase/.staged/`, not from `supabase/` directly. Two immutable migrations
+cannot run on an empty database as written, so `npm run db:stage`
+(`node scripts/supabase-migrations.mjs stage supabase/.staged --fresh`) writes
+`config.toml`, the edge functions, every migration with the reviewed
+[overrides](#ci-and-what-vercel-builds) applied, and the numbered pgTAP files.
+A plain `npx supabase start` or `db reset` from the repository root fails on
+the first of those two migrations. The staged `config.toml` keeps the same
+`project_id`, so it drives the same containers and volume, and
+`npx supabase status` and `stop` from the root still reach them. After pulling
+new migrations, restage and rebuild the local database:
+
+```sh
+npm run db:stage
+npx supabase db reset --workdir supabase/.staged
 ```
 
 Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in
@@ -195,13 +213,17 @@ npm run typecheck        # generate Next.js route types, then check TypeScript
 npm test                 # Vitest unit/component suite
 npm run test:python      # Python mapper and settlement suites
 npm run build            # production Next.js build
-npm run test:db          # pgTAP suite; local Supabase must be running
+npm run test:db          # pgTAP suite; restages, runs against the local stack
 npm run e2e              # Playwright auction + betting smoke tests
 ```
 
 Python tests require Python 3 with `requests` and `python-dotenv` installed
-in an active virtual environment. See [docs/testing.md](docs/testing.md)
-for test discovery, fixtures, cleanup conventions, and focused commands.
+in an active virtual environment. `npm run test:db` restages
+`supabase/.staged` and runs `supabase test db --workdir supabase/.staged`
+against the local stack started from it (see [Local setup](#local-setup)).
+It tests the database as the last start or reset left it, so reset after
+migration changes. See [docs/testing.md](docs/testing.md) for test
+discovery, fixtures, cleanup conventions, and focused commands.
 
 Choose checks using [Testing](docs/testing.md#choose-checks-by-change).
 Documentation-only edits need link, command, and diff review; they do not need
@@ -258,12 +280,33 @@ A raw `supabase db push` still sees the duplicate and can incorrectly offer
 to replay God Packs. Do not use `--include-all` to get past that warning.
 The wrapper does not repair history or mark missing SQL applied.
 
+The wrapper also stages reviewed overrides from `supabase/migration-overrides/`
+under the original version and name. Each one is pinned in
+`scripts/supabase-migrations.mjs` to the git blob ids of the original and of
+the override, so a changed file fails staging (and `npm test`) instead of
+being replaced silently:
+
+- `20261018000001_card_art_champion_preferences.sql` has two `language sql`
+  function bodies without `select`, which no PostgreSQL accepts. Every stage
+  uses the corrected copy, so `push` applies it if the linked database lacks
+  that version and skips it if the version is recorded.
+- `20260922052204_rebuild_season_end_draft_after_hash_fix.sql` is a data
+  repair restored after it was applied to the linked database. It sorts
+  before the migration that creates `season_end_releases`, so only
+  `stage --fresh` (local stacks and CI) replaces it with an empty stand-down.
+  A fresh database has no draft to repair. `list` and `push` stage it
+  unchanged.
+
 
 `.github/workflows/ci.yml` runs the type-check, ESLint and the Vitest suite
-on every pull request and every push to `develop` or `main`. The shared
-`npm run typecheck` command generates Next.js route types before checking
-TypeScript, so it also works on a fresh checkout. Production builds retain
-Next.js type checking; `next.config.ts` does not enable `ignoreBuildErrors`.
+on every pull request and every push to `develop` or `main`. Its separate
+`database` job stages the fresh-database project, starts only Postgres with
+`npx supabase db start --workdir supabase/.staged` (which applies every
+staged migration), and runs `npm run test:db`. The release workflow waits
+on the `checks` job only. The shared `npm run typecheck` command generates
+Next.js route types before checking TypeScript, so it also works on a fresh
+checkout. Production builds retain Next.js type checking; `next.config.ts`
+does not enable `ignoreBuildErrors`.
 
 Vercel builds are billed per CPU-minute rounded up, and most builds here
 were building nothing anyone looked at, so `vercel.json` points the Ignored

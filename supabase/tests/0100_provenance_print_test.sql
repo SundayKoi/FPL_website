@@ -30,7 +30,8 @@ select is(
 select is(
   (select print from public.card_provenance where inventory_id = (select id from shiny_copy) and event = 'minted'),
   '{"alt": true, "foil": true, "tier": "platinum", "champ": false, "shiny": true, "team": false, "moment": false,
-    "dribb": false, "secret": false, "signed": true, "stattrak": true, "foil_type": "ice", "edition_week": "2026-08-24"}'::jsonb,
+    "dribb": false, "onAir": false, "secret": false, "signed": true, "stattrak": true, "foil_type": "ice",
+    "edition_week": "2026-08-24"}'::jsonb,
   'and every flat fact of the print');
 
 create temporary table plain_copy on commit drop as
