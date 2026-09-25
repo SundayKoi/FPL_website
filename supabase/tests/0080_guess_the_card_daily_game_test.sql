@@ -31,7 +31,7 @@ select ok(has_function_privilege('service_role', 'public.record_box_score_guess(
 select ok(not has_function_privilege('anon', 'public.reset_box_score_daily_puzzle(date,text)', 'execute'), 'anon cannot reset Guess the Card puzzles');
 select ok(not has_function_privilege('authenticated', 'public.reset_box_score_daily_puzzle(date,text)', 'execute'), 'authenticated cannot reset Guess the Card puzzles');
 select ok(has_function_privilege('service_role', 'public.reset_box_score_daily_puzzle(date,text)', 'execute'), 'service role can reset Guess the Card puzzles');
-select ok(has_function_privilege('service_role', 'public.claim_daily_game_reward(date,uuid,text,text,bigint)', 'execute'), 'service role can claim the shared reward for Guess the Card');
+select ok(has_function_privilege('service_role', 'public.claim_daily_game_reward(date,uuid,text,text,bigint,text)', 'execute'), 'service role can claim the shared reward for Guess the Card');
 
 insert into public.profiles (id, display_name)
 values

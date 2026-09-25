@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(26);
+select plan(27);
 
 select has_table('public', 'fpldle_daily_candidates', 'candidate snapshot table exists');
 select has_table('public', 'fpldle_daily_puzzles', 'daily puzzle table exists');
@@ -64,13 +64,16 @@ select is(has_function_privilege('anon', 'public.ensure_fpldle_daily_puzzle(date
 select is(has_function_privilege('authenticated', 'public.ensure_fpldle_daily_puzzle(date,text,text,date,jsonb)', 'execute'), false, 'authenticated cannot create puzzles');
 select is(has_function_privilege('service_role', 'public.ensure_fpldle_daily_puzzle(date,text,text,date,jsonb)', 'execute'), true, 'service role can create puzzles');
 
+-- The answer is drawn with `order by random()`, so the day before holds a
+-- one-player pool: its answer is certain, and the avoidance assertion below
+-- always has a previous answer to avoid rather than depending on the draw.
 select public.ensure_fpldle_daily_puzzle(
   '2026-08-27', 'premier', 'S99', '2026-08-24',
   '[
-    {"player_slug":"repeat-player","player_name":"Repeat Player","player_tag":"NA1","team":"Alpha","position":"Top","champion":"Ahri","overall":80},
-    {"player_slug":"yesterday-only","player_name":"Yesterday Only","player_tag":"NA1","team":"Bravo","position":"Mid","champion":"Orianna","overall":81}
+    {"player_slug":"repeat-player","player_name":"Repeat Player","player_tag":"NA1","team":"Alpha","position":"Top","champion":"Ahri","overall":80}
   ]'::jsonb
 );
+select is((select answer_slug from public.fpldle_daily_puzzles where puzzle_date = '2026-08-27' and league = 'premier'), 'repeat-player', 'a one-player pool can only draw that player');
 
 select public.ensure_fpldle_daily_puzzle(
   '2026-08-28', 'premier', 'S99', '2026-08-24',

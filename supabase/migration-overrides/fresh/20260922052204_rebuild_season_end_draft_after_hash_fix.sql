@@ -1,0 +1,16 @@
+-- FRESH-DATABASE STAND-DOWN of
+-- supabase/migrations/20260922052204_rebuild_season_end_draft_after_hash_fix.sql
+--
+-- That migration is a one-off data repair: it rebuilds an existing Premier S5
+-- Season's End draft after the serializer hash fix. It was applied to the
+-- linked database and later restored to the repository under its original
+-- version (see restoredApplied in scripts/check-migrations.mjs), so it sorts
+-- before 20261019000001_season_end_packs.sql, which creates
+-- public.season_end_releases. Its DO block declares
+-- `v_release public.season_end_releases%rowtype`, so on a fresh database it
+-- cannot even compile (relation "public.season_end_releases" does not exist).
+--
+-- A fresh database has no draft to repair, so
+-- `node scripts/supabase-migrations.mjs stage <dir> --fresh` (local resets,
+-- CI) stages this intentionally empty file in its place. `list` and `push`
+-- for the linked database stage the original unchanged; it is recorded there.

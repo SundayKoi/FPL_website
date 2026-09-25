@@ -11,6 +11,14 @@ are in [README.md](../README.md#branches-and-releases).
   this repository contains future-dated versions.
 - Never edit, rename, or delete migrations on the target branch or applied to
   a shared database. Correct them with a forward migration and pgTAP coverage.
+- A migration whose SQL cannot run as written, at a version that must keep
+  its place, gets a reviewed copy in `supabase/migration-overrides/` instead.
+  `scripts/supabase-migrations.mjs` stages that copy under the original name
+  and pins the git blob ids of both files (`git hash-object`), so staging
+  fails if either changes. Copies under `fresh/` are for SQL that fails only
+  on an empty database. They apply only to `stage <dir> --fresh`, the
+  project for local stacks and CI, never to `push`. The
+  [README](../README.md#ci-and-what-vercel-builds) lists the current ones.
 - Check committed history with
   `node scripts/check-migrations.mjs <base-commit> [head-commit]`.
   This validates Git history, not the deployment database.

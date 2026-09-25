@@ -7,7 +7,7 @@ select plan(20);
 
 insert into public.profiles (id, display_name, is_admin) values
   (tests.admin_id(), 'Postseason Codes Admin', true),
-  (tests.cap(1), 'Postseason Codes Captain')
+  (tests.cap(1), 'Postseason Codes Captain', false)
 on conflict (id) do nothing;
 
 insert into public.drafts (id, name) values
@@ -83,6 +83,11 @@ select is(
   '6',
   'admin populates missing Bo1/Bo3/Bo5 postseason slots in bracket order'
 );
+-- Through PostgREST every RPC call is its own transaction, so the
+-- function's `on commit drop` scratch tables are gone before the next call.
+-- This file is one transaction: end the successful call by hand.
+drop table if exists pg_temp._postseason_target_fixtures,
+  pg_temp._postseason_requested_assignments, pg_temp._postseason_expected_assignments;
 select is((select array_agg(code order by game_number) from public.match_codes where fixture_id = '70000000-0000-0000-0000-000000000020'), array['G1-1'], 'gauntlet round 1 receives one code');
 select is((select array_agg(code order by game_number) from public.match_codes where fixture_id = '70000000-0000-0000-0000-000000000021'), array['KEEP-G2-1', 'G2-2', 'G2-3'], 'gauntlet round 2 preserves its existing code and fills missing games');
 select is((select array_agg(code order by game_number) from public.match_codes where fixture_id = '70000000-0000-0000-0000-000000000022'), array['KEEP-QF-1', 'QF-2', 'KEEP-QF-3', 'QF-4', 'QF-5'], 'quarterfinals fills only missing Bo5 games');
@@ -168,7 +173,10 @@ select throws_like($$
     ),
     '[]'::jsonb,
     array['KEEP-G2-1', 'NEW-2', 'NEW-3']::text[],
-    3
+    -- Since 20261029000002 the preview (buildPostseasonCodePreview) and the
+    -- RPC both count the slot a reclaimed code vacates: three new slots plus
+    -- KEEP-G2-1's old one. A preview that still said 3 is STALE_PREVIEW.
+    4
   )
 $$, '%CODES_INSUFFICIENT%', 'reclaiming an assigned unused code also opens its old slot and requires a replacement code');
 
@@ -196,6 +204,9 @@ select is(
   '3',
   'a later run fills only the newly eligible fixture slots'
 );
+-- As after the first successful call.
+drop table if exists pg_temp._postseason_target_fixtures,
+  pg_temp._postseason_requested_assignments, pg_temp._postseason_expected_assignments;
 select is((select array_agg(code order by game_number) from public.match_codes where fixture_id = '70000000-0000-0000-0000-000000000027'), array['LATE-1', 'LATE-2', 'LATE-3'], 'later-round reruns are additive');
 
 select is(

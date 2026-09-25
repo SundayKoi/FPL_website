@@ -20,17 +20,25 @@ select plan(11);
 insert into public.betting_profiles (discord_id, username, balance)
   values ('t_rescue', 'Rescue Test', 5000) on conflict (discord_id) do nothing;
 
-insert into public.card_inventory (discord_id, season, edition_week, slug, player_name, role, tier, card)
-  values ('t_rescue', 'T', '2026-08-24', 't-gone', 'Gone', 'Top', 'gold', '{}'::jsonb),
-         ('t_rescue', 'T', '2026-08-24', 't-home', 'Home', 'Top', 'gold', '{}'::jsonb);
+insert into public.card_inventory (discord_id, season, edition_week, slug, player_name, role, overall, tier, card)
+  values ('t_rescue', 'T', '2026-08-24', 't-gone', 'Gone', 'Top', 70, 'gold', '{}'::jsonb),
+         ('t_rescue', 'T', '2026-08-24', 't-home', 'Home', 'Top', 70, 'gold', '{}'::jsonb),
+         -- The rescue squad. A run holds one to three copies
+         -- (expedition_runs_squad_check), and a Rescue launches with three.
+         ('t_rescue', 'T', '2026-08-24', 't-rescuer-1', 'Rescuer One', 'Jungle', 70, 'gold', '{}'::jsonb),
+         ('t_rescue', 'T', '2026-08-24', 't-rescuer-2', 'Rescuer Two', 'Mid', 70, 'gold', '{}'::jsonb),
+         ('t_rescue', 'T', '2026-08-24', 't-rescuer-3', 'Rescuer Three', 'Support', 70, 'gold', '{}'::jsonb);
 
 -- ── A hold whose deadline has passed, with a rescue still in the field ──
-insert into public.expedition_runs (discord_id, season, tier, squad, resolves_at, target)
-  select 't_rescue', 'T', 'lost', array[ci.id], now() - interval '1 hour', null
+insert into public.expedition_runs (discord_id, season, tier, squad, shine, resolves_at, target)
+  select 't_rescue', 'T', 'lost', array[ci.id], 0, now() - interval '1 hour', null
     from public.card_inventory ci where ci.slug = 't-gone' and ci.discord_id = 't_rescue';
 
-insert into public.expedition_runs (discord_id, season, tier, squad, resolves_at, target)
-  select 't_rescue', 'T', 'rescue', '{}'::bigint[], now() + interval '2 hours', r.id
+insert into public.expedition_runs (discord_id, season, tier, squad, shine, resolves_at, target)
+  select 't_rescue', 'T', 'rescue',
+         (select array_agg(ci.id order by ci.id) from public.card_inventory ci
+           where ci.discord_id = 't_rescue' and ci.slug like 't-rescuer-%'),
+         0, now() + interval '2 hours', r.id
     from public.expedition_runs r
    where r.discord_id = 't_rescue' and r.tier = 'lost';
 
@@ -85,12 +93,15 @@ select is(
   'the outcome records that there was nothing left to bring home');
 
 -- ── The happy path is untouched ────────────────────────────────────────
-insert into public.expedition_runs (discord_id, season, tier, squad, resolves_at, target)
-  select 't_rescue', 'T', 'lost', array[ci.id], now() + interval '3 days', null
+insert into public.expedition_runs (discord_id, season, tier, squad, shine, resolves_at, target)
+  select 't_rescue', 'T', 'lost', array[ci.id], 0, now() + interval '3 days', null
     from public.card_inventory ci where ci.slug = 't-home' and ci.discord_id = 't_rescue';
 
-insert into public.expedition_runs (discord_id, season, tier, squad, resolves_at, target)
-  select 't_rescue', 'T', 'rescue', '{}'::bigint[], now() - interval '1 minute', r.id
+insert into public.expedition_runs (discord_id, season, tier, squad, shine, resolves_at, target)
+  select 't_rescue', 'T', 'rescue',
+         (select array_agg(ci.id order by ci.id) from public.card_inventory ci
+           where ci.discord_id = 't_rescue' and ci.slug like 't-rescuer-%'),
+         0, now() - interval '1 minute', r.id
     from public.expedition_runs r
    where r.discord_id = 't_rescue' and r.tier = 'lost' and r.claimed_at is null;
 

@@ -6,7 +6,8 @@ name: CI
 # discovered — and so `typescript.ignoreBuildErrors` can be turned on in
 # next.config.ts once this check is required, taking the type-check out of
 # the billed build minute. The release workflow reads this job's result on
-# develop before it will merge to main.
+# develop before it will merge to main. The `database` job below runs the
+# pgTAP suite against a fresh local Postgres alongside it.
 on:
   pull_request:
   push:
@@ -46,3 +47,30 @@ jobs:
         run: python -m pip install requests python-dotenv
       - name: Python script tests
         run: npm run test:python
+
+  # pgTAP against a database built from nothing. `checks` never starts a
+  # database, so migrations that cannot apply to an empty database and
+  # pgTAP files that no longer match the schema went unnoticed until
+  # someone ran `npm run test:db` by hand. This job stages the
+  # fresh-database project (scripts/supabase-migrations.mjs stage --fresh:
+  # every migration with its reviewed overrides, and the numbered pgTAP
+  # files), starts only Postgres, which applies every staged migration to
+  # its new volume and fails on the first that errors, and runs the whole
+  # suite. It is a separate job so the job named `checks`, which
+  # release.yml waits on, keeps its name and its steps.
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Stage the fresh-database project
+        run: npm run db:stage
+      - name: Start Postgres and apply every migration
+        run: npx supabase db start --workdir supabase/.staged
+      - name: pgTAP suite
+        run: npm run test:db
