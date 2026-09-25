@@ -1134,7 +1134,9 @@ route with forks that is not the Exorcism — a **merchant** (a flat
 clock by `STORM_HOURS`, and records the leg in `expedition_runs.encounters`
 so the next sweep skips it; it draws the legs under the run's own weather
 and traits, as the journal and the claim do, because a Drought or the
-Watch moves which leg draws the storm — the company never does), or a
+Watch moves which leg draws the storm — the company never does; and it
+never storms a run already home, so a storm the sweep missed cannot pull
+a finished run back into the field), or a
 **stranded card** (only where the route
 can lose a card; at the claim, the oldest open `lost` hold belonging to
 someone else is released, its card comes home wounded, and the finder is
