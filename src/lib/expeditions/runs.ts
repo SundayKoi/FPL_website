@@ -1106,7 +1106,15 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
     const weather = weatherOfRun({ startedAt: row.started_at, rules }, watchWeeks);
     const sky = weather?.key ?? null;
     const due = (list: ReturnType<typeof encountersFor>) => list.filter((entry) => entry.key === "storm" && !applied.has(entry.leg) && entry.at.getTime() <= now.getTime());
-    let coming = due(encountersFor(road, null, sky));
+    // A squad already home is past every storm on its road: a storm the
+    // sweep never applied (a pass that missed its hour) must not pull a
+    // finished run back into the field. Nothing is recorded for it — the
+    // only record is delay_expedition's, which always moves the clock, and
+    // the card reads it as "a storm held them". Once a run is out, only that
+    // delay moves resolves_at, so the run stays home and every later pass
+    // skips it here, before the squad read.
+    const home = now.getTime() >= Date.parse(resolvesAt);
+    let coming = home ? [] : due(encountersFor(road, null, sky));
     // In the same weather, the squad's traits only ever take a storm away (a
     // Speedrunner is past it; First Blood Merchant turned its beat), so the
     // squad is read only when a storm is due on a run stamped with edges —

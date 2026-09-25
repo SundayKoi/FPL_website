@@ -1290,6 +1290,23 @@ describe("the storm and the squad's clock", () => {
     }
   });
 
+  it("never pulls a squad that is already home back into the field, and writes nothing for the storm", async () => {
+    // The journal's storm on leg 0 is long past, but no pass applied it;
+    // the run is home at 09:00 on the 29th.
+    const squad = await fetchInventoryByIds(createService(() => ({ data: scoutSquad })).client, "42", [1, 2, 3]);
+    const storm = journalFor({ id: stormId, ...at }, squad, new Date(at.resolvesAt)).find((entry) => entry.encounter === "storm")!;
+    expect(storm).toMatchObject({ leg: 0, kind: "encounter" });
+    for (const now of [at.resolvesAt, "2026-08-29T10:00:00.000Z"]) {
+      expect(storm.at.getTime()).toBeLessThan(Date.parse(now));
+      const home = sweepBoard(scoutSquad);
+      expect(await sweepExpeditions(new Date(now))).toEqual({ pinged: 0, buried: 0, storms: 0, errors: [] });
+      expect(home.rpc).not.toHaveBeenCalledWith("delay_expedition", expect.anything());
+      // No record written some other way, and no squad read to decide it.
+      expect(home.calls.filter((call) => call.verb !== "select")).toEqual([]);
+      expect(home.calls.some((call) => call.table === "card_inventory")).toBe(false);
+    }
+  });
+
   it("waits for the next pass rather than storm a squad it could not read", async () => {
     const short = sweepBoard([copyRow({ id: 1 })]);
     const result = await sweepExpeditions(new Date("2026-08-28T14:00:00.000Z"));
@@ -1352,11 +1369,14 @@ describe("the storm under the run's weather", () => {
     list.filter((entry) => entry.key === "storm").map((entry) => entry.leg).sort((a, b) => a - b);
 
   type Row = ReturnType<typeof runRow>;
-  /** A run launched on the Monday of `key`'s week, clocked as its route. */
+  const longest = Math.max(...tiers.map((tier) => EXPEDITION_TIERS[tier].durationHours));
+  /** A run launched in `key`'s week, clocked as its route: every route
+   *  comes home at the same hour (the longest leaves on the Monday), so one
+   *  sweep can find every storm due and no squad home yet. */
   const runIn = (key: WeatherKey, id: number, tier: ExpeditionTierKey, rules: number, squad = [1, 2, 3]): Row => {
-    const startedAt = `${weeks[key]}T16:00:00.000Z`;
-    const resolvesAt = new Date(Date.parse(startedAt) + EXPEDITION_TIERS[tier].durationHours * HOUR).toISOString();
-    return runRow({ id, tier, squad, startedAt, resolvesAt, forks: EXPEDITION_TIERS[tier].forks, rules });
+    const finish = Date.parse(`${weeks[key]}T16:00:00.000Z`) + longest * HOUR;
+    const startedAt = new Date(finish - EXPEDITION_TIERS[tier].durationHours * HOUR).toISOString();
+    return runRow({ id, tier, squad, startedAt, resolvesAt: new Date(finish).toISOString(), forks: EXPEDITION_TIERS[tier].forks, rules });
   };
   /** The runs in the field, `key`'s calendar, and the squads' copies. */
   const boardFor = (key: WeatherKey, rows: Row[]) =>
@@ -1369,14 +1389,13 @@ describe("the storm under the run's weather", () => {
       }
       return { data: [] };
     });
-  /** Sweeps `rows` well after every one of them is home, so every storm on
-   *  them is due, and hands back the legs each run was held for. */
-  async function sweepLegs(key: WeatherKey, rows: Row[]) {
+  /** Sweeps `rows` a minute before the first of them is home — every storm
+   *  on them is due by then — and hands back the legs each run was held for. */
+  async function sweepLegs(key: WeatherKey, rows: Row[], now = Math.min(...rows.map((row) => Date.parse(row.resolves_at))) - 60_000) {
     const service = boardFor(key, rows);
     service.rpc.mockResolvedValue({ data: 0, error: null });
     createBettingServiceClient.mockReturnValue(service.client);
-    const home = Math.max(...rows.map((row) => Date.parse(row.resolves_at)));
-    const result = await sweepExpeditions(new Date(home + HOUR));
+    const result = await sweepExpeditions(new Date(now));
     expect(result.errors).toEqual([]);
     const held = new Map<number, number[]>();
     for (const [name, args] of service.rpc.mock.calls as unknown as [string, { p_run: number; p_leg: number }][]) {
@@ -1463,6 +1482,19 @@ describe("the storm under the run's weather", () => {
     const drought = await sweepLegs("drought", [runIn("drought", missed.id, "legend", ARCHETYPE_RULES)]);
     expect(drought.result.storms).toBe(1);
     expect(drought.service.rpc).toHaveBeenCalledWith("delay_expedition", { p_run: missed.id, p_leg: 1, p_hours: STORM_HOURS });
+  });
+
+  it("leaves a run the old sweep let walk through its storm alone once it is home", async () => {
+    // Run 16 in a Drought: the storm on leg 1 the weatherless sweep never
+    // applied. The first pass after the fix that finds it home — at the
+    // hour or after — must not hold a finished squad for STORM_HOURS.
+    const run = runIn("drought", 16, "legend", ARCHETYPE_RULES);
+    for (const now of [Date.parse(run.resolves_at), Date.parse(run.resolves_at) + 6 * HOUR]) {
+      const { held, result, service } = await sweepLegs("drought", [run], now);
+      expect(result.storms).toBe(0);
+      expect(held.size).toBe(0);
+      expect(service.calls.filter((call) => call.verb !== "select")).toEqual([]);
+    }
   });
 });
 
