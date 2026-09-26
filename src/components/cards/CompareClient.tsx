@@ -7,6 +7,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { PlayerCardData } from "@/lib/cards/build";
+import { STYLE_MEASURE_LABELS } from "@/lib/cards/measures";
 import PlayerCard3D from "./PlayerCard3D";
 
 function Picker({
@@ -54,17 +55,25 @@ interface CompareRow {
  * follow the left card's order, then pick up any bar only the right card
  * has, so nothing is silently dropped. Copies frozen in card_inventory with
  * the retired form/clutch keys line up by the same rule.
+ *
+ * The style bar is the one key whose label differs card to card ("Assassin",
+ * "Tank"): both grade the player against their own style's history, so the
+ * two ARE comparable, but the row cannot be named after either side's style
+ * when they differ.
  */
 function statRows(cardA: PlayerCardData, cardB: PlayerCardData): CompareRow[] {
   const bByKey = new Map(cardB.subStats.map((stat) => [stat.key, stat]));
   const aKeys = new Set(cardA.subStats.map((stat) => stat.key));
   return [
-    ...cardA.subStats.map((stat) => ({
-      key: stat.key,
-      label: stat.label,
-      a: stat.value,
-      b: bByKey.get(stat.key)?.value ?? null,
-    })),
+    ...cardA.subStats.map((stat) => {
+      const other = bByKey.get(stat.key);
+      return {
+        key: stat.key,
+        label: stat.key === "style" && other && other.label !== stat.label ? STYLE_MEASURE_LABELS.style : stat.label,
+        a: stat.value,
+        b: other?.value ?? null,
+      };
+    }),
     ...cardB.subStats
       .filter((stat) => !aKeys.has(stat.key))
       .map((stat) => ({ key: stat.key, label: stat.label, a: null, b: stat.value })),

@@ -24,6 +24,7 @@ import {
   type SendoffFixture,
 } from "./sendoff";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
+import { styleYardstickFor } from "./styleYardsticks";
 import { aggregateWeeklyPlayerRows, type WeeklyRawStatRow } from "@/lib/stats/weekly";
 import type { GameLogRow, PlayerAggRow, RecordRow } from "@/lib/stats/types";
 import {
@@ -42,6 +43,12 @@ export type CardLeague = "premier" | "academy";
  *  raw_stats — stats_player_agg has no such columns — so both build paths
  *  read it here.
  *
+ *  The last line is what the style rating (styleRating.ts, S6 and A2 on)
+ *  reads besides: each game's own role and clock, its lane-opponent figures
+ *  at 10, and the job stats a style is graded on. A season build rates a
+ *  whole split by style, so it needs them as much as the weekly build does,
+ *  and a missing one silently grades that stat as absent for everyone.
+ *
  *  A single string literal, line-continued with `\` rather than `+`
  *  concatenated: `+` would widen the result to `string` and defeat
  *  Supabase's column-checking `.select()` overload. */
@@ -49,7 +56,9 @@ const CARD_GAME_COLUMNS =
   "summoner_name, tag, champion, win, game_date, match_id, team_name, kills, deaths, assists, cs, \
 total_damage_to_champions, dragon_kills, baron_kills, objective_damage, turret_kills, turret_damage, \
 wards_killed, control_wards_bought, detector_wards_placed, damage_mitigated, \
-turret_plates_destroyed";
+turret_plates_destroyed, \
+role, game_duration_min, damage_share_pct, damage_taken, solo_kills, time_ccing_others_s, \
+effective_heal_and_shield, cs_at_10, gold_at_10, xp_at_10";
 
 /**
  * `CARD_GAME_COLUMNS` plus every column `aggregateWeeklyPlayerRows` (see
@@ -62,7 +71,9 @@ turret_plates_destroyed";
  * column here doesn't error, it just silently zeroes that stat for every
  * player — e.g. without `game_duration_min` every per-minute rate
  * (dmg/cs/gold per min) reads as 0 for the whole cohort, flattening the
- * ratings the whole feature exists to spread out.
+ * ratings the whole feature exists to spread out. The last line is the style
+ * rating's, as in CARD_GAME_COLUMNS; the rest of what it reads the weekly
+ * aggregation already needed.
  */
 const WEEK_GAME_COLUMNS =
   "summoner_name, tag, champion, win, game_date, match_id, team_name, kills, deaths, assists, cs, \
@@ -71,7 +82,8 @@ wards_killed, control_wards_bought, detector_wards_placed, damage_mitigated, \
 turret_plates_destroyed, cs_at_10, cs_per_min, damage_per_min, damage_share_pct, damage_taken_per_min, \
 double_kills, first_blood_assist, first_blood_kill, game_duration_min, gold_at_10, gold_earned, \
 gold_per_min, kda_challenges, kill_participation_pct, penta_kills, quadra_kills, role, season, \
-season_phase, solo_kills, triple_kills, vision_score, vision_score_per_min, xp_at_10";
+season_phase, solo_kills, triple_kills, vision_score, vision_score_per_min, xp_at_10, \
+damage_taken, time_ccing_others_s, effective_heal_and_shield";
 
 async function readOptionalPages<T>(
   read: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>,
@@ -385,6 +397,7 @@ export async function fetchSeasonCards(
       teamImages: teamIdentity.badges,
       teamAbbrs: teamIdentity.abbrs,
       artPrefs,
+      yardstick: styleYardstickFor(season),
     }),
     gameRows,
     fixtures,
@@ -562,6 +575,7 @@ export async function fetchWeekCards(
     teamImages: teamIdentity.badges,
     teamAbbrs: teamIdentity.abbrs,
     artPrefs,
+    yardstick: styleYardstickFor(season),
   });
 }
 

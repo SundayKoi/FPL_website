@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_ACADEMY_SEASON, fetchLeagueSeasons, seasonBelongsToLeague } from "./season";
+import { DEFAULT_ACADEMY_SEASON, compareSeasonCodes, fetchLeagueSeasons, seasonBelongsToLeague } from "./season";
 
 function client(data: Record<string, unknown> | null) {
   return {
@@ -38,5 +38,19 @@ describe("seasonBelongsToLeague", () => {
     expect(seasonBelongsToLeague("A2", "premier")).toBe(false);
     expect(seasonBelongsToLeague("S5", "premier")).toBe(true);
     expect(seasonBelongsToLeague(null, "academy")).toBe(false);
+  });
+});
+
+describe("compareSeasonCodes", () => {
+  it("orders seasons by their number, not their spelling", () => {
+    expect(["S10", "S2", "S1", "S5"].sort(compareSeasonCodes)).toEqual(["S1", "S2", "S5", "S10"]);
+  });
+
+  it("keeps each league's seasons together", () => {
+    expect(["S6", "A2", "S5", "A1"].sort(compareSeasonCodes)).toEqual(["A1", "A2", "S5", "S6"]);
+  });
+
+  it("ignores case and surrounding space", () => {
+    expect(compareSeasonCodes(" s5", "S5")).toBe(0);
   });
 });
