@@ -16,6 +16,8 @@ import { createClient } from "@supabase/supabase-js";
 import { OVR_BASE, OVR_SCALE, scoreWeightsForRole } from "../src/lib/cards/build";
 import { fetchAllCardSeasons, fetchCurrentWeekCards } from "../src/lib/cards/queries";
 import type { PlayerCardData } from "../src/lib/cards/build";
+import { STYLE_WEIGHT, WIN_WEIGHT, fundamentalWeightsForRole } from "../src/lib/cards/styleRating";
+import { styleYardstickFor } from "../src/lib/cards/styleYardsticks";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -39,9 +41,21 @@ function pad(value: string | number, width: number): string {
   return String(value).padStart(width);
 }
 
+/** The weights and curve that produced this card: the style rating's for a
+ *  card that carries a style bar (S6 / A2 onward), the old ones otherwise. */
+function ratingOf(card: PlayerCardData, roleMode: string): { weights: Record<string, number>; base: number; scale: number } {
+  const yardstick = card.subStats[0]?.key === "style" ? styleYardstickFor(card.season) : null;
+  if (!yardstick) return { weights: scoreWeightsForRole(roleMode) as Record<string, number>, base: OVR_BASE, scale: OVR_SCALE };
+  return {
+    weights: { win: WIN_WEIGHT, style: STYLE_WEIGHT, ...(fundamentalWeightsForRole(roleMode) as Record<string, number>) },
+    base: yardstick.curve.base,
+    scale: yardstick.curve.scale,
+  };
+}
+
 function describe(card: PlayerCardData): string {
   const roleMode = ROLE_MODE[card.role] ?? card.role.toUpperCase();
-  const weights = scoreWeightsForRole(roleMode) as Record<string, number>;
+  const { weights, base, scale } = ratingOf(card, roleMode);
   // The card's displayed bars are squeezed into 20-99; the score uses the
   // raw percentile. Undo the squeeze so the printed numbers are the ones
   // the weights actually multiplied.
@@ -55,7 +69,7 @@ function describe(card: PlayerCardData): string {
   const barMean =
     card.subStats.reduce((sum, stat) => sum + (stat.value - 20) / 0.79, 0) / (card.subStats.length || 1);
   const winrate = Math.round(card.winratePct);
-  const score = (card.overall - OVR_BASE) / OVR_SCALE;
+  const score = (card.overall - base) / scale;
   return (
     `  ${card.name.padEnd(16)} OVR ${pad(card.overall, 2)}  score ${pad(score.toFixed(1), 5)}  ` +
     `${card.wins}-${card.losses} (win ${pad(winrate, 3)}, w${pad(weights.win ?? 0, 2)})  ` +

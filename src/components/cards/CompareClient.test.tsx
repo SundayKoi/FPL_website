@@ -91,6 +91,26 @@ describe("CompareClient", () => {
     expect(combat[2].className).not.toContain("text-mint");
   });
 
+  it("compares two style bars under a neutral name when the styles differ", () => {
+    // A style-rated card (S6 onward) names its style bar after the style the
+    // player mostly played, so an assassin and a mage share the key but not
+    // the label. Printing either name on the shared row would call the other
+    // player's grade something it is not.
+    const assassin = makeCard("Stabby", "Mid", [{ key: "style", label: "Assassin", value: 88 }]);
+    const mage = makeCard("Blasty", "Mid", [{ key: "style", label: "Mage", value: 74 }]);
+    render(<CompareClient cards={[assassin, mage]} initialA={assassin.slug} initialB={mage.slug} />);
+
+    expect(rowCells("Playstyle")).toEqual(["88", "Playstyle", "74"]);
+  });
+
+  it("keeps the style's own name when both cards played the same style", () => {
+    const one = makeCard("TankOne", "Top", [{ key: "style", label: "Tank", value: 70 }]);
+    const two = makeCard("TankTwo", "Top", [{ key: "style", label: "Tank", value: 65 }]);
+    render(<CompareClient cards={[one, two]} initialA={one.slug} initialB={two.slug} />);
+
+    expect(rowCells("Tank")).toEqual(["70", "Tank", "65"]);
+  });
+
   it("keeps overall and win rate around the stat rows", () => {
     render(<CompareClient cards={[jungler, adc]} initialA={jungler.slug} initialB={adc.slug} />);
 

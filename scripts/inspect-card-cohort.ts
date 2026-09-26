@@ -21,7 +21,11 @@
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { pathToFileURL } from "node:url";
-import { CARD_METRICS, createCardPercentiles, scoreWeightsForRole, type CardMetric, type CardPercentile } from "../src/lib/cards/build";
+import { CARD_METRICS, cardPlayerKey, createCardPercentiles, scoreWeightsForRole, seasonStyleRatings, type CardGameRow, type CardMetric, type CardPercentile } from "../src/lib/cards/build";
+import { championDisplayName } from "../src/lib/match-draft/champions";
+import { STYLE_MEASURE_LABELS, type StyleMeasureKey } from "../src/lib/cards/measures";
+import { STYLE_WEIGHT, WIN_WEIGHT, fundamentalWeightsForRole, gradeGame, indexGames, type GameIndex, type StyleRating, type StyleYardstick } from "../src/lib/cards/styleRating";
+import { styleYardstickFor } from "../src/lib/cards/styleYardsticks";
 import { barsForRole, MEASURE_LABELS, type MeasureKey } from "../src/lib/cards/measures";
 import { fetchAllCardSeasons } from "../src/lib/cards/queries";
 import { mondayOf } from "../src/lib/packs/week";
@@ -197,6 +201,32 @@ function describeWeights(roleMode: string): string {
   return `  Weights: ${weights}  (win is the raw win rate, not a percentile)`;
 }
 
+/**
+ * A style-rated season (S6 / A2 onward — src/lib/cards/styleRating.ts): each
+ * game's style and its grade against that style's history, then the bars
+ * the card was scored on, before the card squeezes them into 20-99.
+ */
+function describeStylePlayer(row: PlayerAggRow, games: CardGameRow[], rating: StyleRating, index: GameIndex, yardstick: StyleYardstick): string {
+  const lines = [
+    `  ${row.summoner_name}#${row.tag}  ${row.games} game${row.games === 1 ? "" : "s"}  ${row.wins}-${row.games - row.wins}  win ${Math.round(row.winrate_pct)}%  score ${rating.score.toFixed(1)}`,
+  ];
+  const graded = games.map((game) => {
+    const { style, grade } = gradeGame(game, row.role_mode, game.game_duration_min ?? 0, index, yardstick);
+    const champion = game.champion ? championDisplayName(game.champion) : "?";
+    return `${champion} (${style ?? "no style"}) ${grade === null ? "not graded" : `graded ${Math.round(grade)}`}`;
+  });
+  lines.push(`      Games: ${graded.join(" · ")}`);
+  lines.push(`      Bars: ${rating.bars.map((bar) => `${bar.label} ${Math.round(bar.value)}`).join(" · ")}`);
+  return lines.join("\n");
+}
+
+function describeStyleWeights(roleMode: string): string {
+  const fundamentals = Object.entries(fundamentalWeightsForRole(roleMode))
+    .map(([key, weight]) => `${STYLE_MEASURE_LABELS[key as StyleMeasureKey]} ${weight}`)
+    .join(" · ");
+  return `  Weights: win ${WIN_WEIGHT} · playstyle ${STYLE_WEIGHT} · ${fundamentals}  (win is the raw win rate; playstyle is graded against history, not ranked)`;
+}
+
 /** Stable, and the order a reader scans a results table in. */
 function byRecordThenName(a: PlayerAggRow, b: PlayerAggRow): number {
   return (
@@ -218,6 +248,19 @@ export async function inspectCohort(supabase: SupabaseClient, requestedWeek: str
     }
     const cohort = aggregateWeeklyPlayerRows(games);
     const percentile = createCardPercentiles(cohort);
+    // A style-rated season is broken down the way it was scored: per game,
+    // by the champion's style, then the bars. The raw rows double as the
+    // per-game rows, and their own clock stands in for the game log's.
+    const yardstick = styleYardstickFor(season);
+    const gamesByPlayer = new Map<string, CardGameRow[]>();
+    for (const game of games as unknown as CardGameRow[]) {
+      const key = cardPlayerKey(game.summoner_name, game.tag);
+      const list = gamesByPlayer.get(key);
+      if (list) list.push(game);
+      else gamesByPlayer.set(key, [game]);
+    }
+    const ratings = yardstick ? seasonStyleRatings({ cohort, gamesByPlayer, gameLog: new Map(), yardstick }) : null;
+    const index = indexGames([...gamesByPlayer.values()].flat());
 
     const byRole = new Map<string, PlayerAggRow[]>();
     for (const row of cohort) {
@@ -247,8 +290,15 @@ export async function inspectCohort(supabase: SupabaseClient, requestedWeek: str
       const basis =
         players.length >= ROLE_COHORT_MIN ? "ranked within the role" : `fewer than ${ROLE_COHORT_MIN}, ranked against the whole week`;
       console.log(`\n${role} (${players.length} in cohort; ${basis})`);
-      for (const row of players) console.log(describePlayer(row, percentile));
-      console.log(describeWeights(role));
+      for (const row of players) {
+        const rating = ratings?.get(row);
+        console.log(
+          rating && yardstick
+            ? describeStylePlayer(row, gamesByPlayer.get(cardPlayerKey(row.summoner_name, row.tag)) ?? [], rating, index, yardstick)
+            : describePlayer(row, percentile),
+        );
+      }
+      console.log(yardstick ? describeStyleWeights(role) : describeWeights(role));
     }
   }
 }
