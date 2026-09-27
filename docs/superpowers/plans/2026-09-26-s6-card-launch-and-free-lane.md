@@ -134,11 +134,12 @@ it means make the launch great rather than chase a mid-season fix.
 3. Launch package.
 4. Survey — independent; can go out now.
 
-## Open questions
+## Decided (2026-09-27)
 
-- Is the free lane Premier and Academy both? (Assumed yes.)
-- Free pack weekly, or a few spread across the season?
-- Does anything free-lane players do earn betting dollars? (Assumed no.)
+- The free lane covers **Premier and Academy** both.
+- Free players get **one free pack a week**.
+- Free players **never earn betting dollars** — not from daily games, packs,
+  the signup bonus or anything else.
 
 ## Research behind this
 
