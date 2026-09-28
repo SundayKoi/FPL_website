@@ -67,4 +67,28 @@ describe("HomeOrientation", () => {
     // Nothing a member cannot open is offered as a shortcut.
     expect(within(shortcuts).queryByRole("link", { name: /today's pack/i })).toBeNull();
   });
+
+  it("in the workspace intro, keeps two doors for visitors and gives members their shortcuts", () => {
+    const { unmount } = render(<HomeOrientation league="premier" viewer="signed-out" fixture={null} appearance="workspace" workspacePart="intro" />);
+    expect(screen.getByRole("navigation", { name: "Start here" })).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "Your shortcuts" })).toBeNull();
+    unmount();
+
+    render(<HomeOrientation league="premier" viewer="premium" fixture={null} appearance="workspace" workspacePart="intro" />);
+    const shortcuts = screen.getByRole("navigation", { name: "Your shortcuts" });
+    expect(within(shortcuts).getByRole("link", { name: /open today's pack/i }).getAttribute("href")).toBe("/cards/packs");
+  });
+
+  it("in the workspace supporting strip, the door still follows who is looking", () => {
+    const door = (viewer: "signed-out" | "member" | "premium") => {
+      const { unmount } = render(<HomeOrientation league="premier" viewer={viewer} fixture={null} appearance="workspace" workspacePart="supporting" />);
+      const text = screen.getByTestId("home-third-door").textContent;
+      unmount();
+      return text;
+    };
+    expect(door("signed-out")).toMatch(/sign in with discord/i);
+    expect(door("member")).toMatch(/get/i);
+    expect(door("member")).not.toMatch(/sign in/i);
+    expect(door("premium")).toMatch(/premium hq/i);
+  });
 });

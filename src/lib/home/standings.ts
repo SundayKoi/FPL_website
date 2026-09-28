@@ -2,7 +2,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { PREMIER_SEASON } from "./awards";
 import { fetchDraftId } from "./fetchDraftId";
 import { normalizeTeamName } from "@/lib/league/context";
-import { FIXTURE_STAGES, type FixtureStage } from "@/lib/schedule/types";
+import { DIVISIONS, FIXTURE_STAGES, type Division, type FixtureStage } from "@/lib/schedule/types";
 import { stageMeta } from "@/lib/schedule/format";
 
 export interface HomeStandingTeam {
@@ -58,7 +58,23 @@ export interface RaceWeek {
 export interface HomeStandingsData {
   teams: HomeStandingTeam[];
   race: RaceWeek[];
+  /** Division seeds computed from regular-season fixtures only. */
+  playoffSeeds?: HomepagePlayoffSeeds;
+  /** A single league-wide seed order, used by leagues without divisions. */
+  overallPlayoffSeeds?: HomepagePlayoffSeed[];
 }
+
+export interface HomepagePlayoffSeed {
+  division?: Division | null;
+  seed: number;
+  id: string;
+  name: string;
+  abbreviation: string;
+}
+
+export type HomepagePlayoffSeeds = Record<Division, HomepagePlayoffSeed[]>;
+
+export type HomepagePlayoffSeedingMode = "divisions" | "league-wide";
 
 function stageIndex(stage: FixtureStage | undefined): number {
   return stage ? FIXTURE_STAGES.indexOf(stage) : 0;
@@ -131,6 +147,56 @@ export function deriveStandingsRace(
       })),
     };
   });
+}
+
+/** Seeds each division from regular-season results, keeping playoff results
+ *  from changing the original seed once the bracket has begun. */
+export function deriveHomepagePlayoffSeeds(
+  fixtures: StandingsFixture[],
+  season: string,
+  teams: TeamRow[],
+  seriesMinutes?: Map<string, number>,
+): HomepagePlayoffSeeds {
+  const regularSeason = fixtures.filter(
+    (fixture) => fixture.stage !== undefined && stageMeta(fixture.stage).group === "Regular Season",
+  );
+
+  return Object.fromEntries(DIVISIONS.map((division) => {
+    const ordered = deriveSeriesStandings(
+      regularSeason,
+      season,
+      teams.filter((team) => team.division === division),
+      seriesMinutes,
+    );
+    return [division, ordered.map((team, index) => ({
+      division,
+      seed: index + 1,
+      id: team.id,
+      name: team.name,
+      abbreviation: team.abbreviation,
+    }))];
+})) as HomepagePlayoffSeeds;
+}
+
+/** Seed a league without divisions from the same regular-season standings
+ *  used for its table. Playoff results never alter this order. */
+export function deriveHomepageOverallPlayoffSeeds(
+  fixtures: StandingsFixture[],
+  season: string,
+  teams: TeamRow[],
+  seriesMinutes?: Map<string, number>,
+): HomepagePlayoffSeed[] {
+  const regularSeason = fixtures.filter(
+    (fixture) => fixture.stage !== undefined && stageMeta(fixture.stage).group === "Regular Season",
+  );
+
+  return deriveSeriesStandings(regularSeason, season, teams, seriesMinutes).map((team, index) => ({
+    ...(DIVISIONS.includes(team.division as Division) ? { division: team.division as Division } : {}),
+    seed: index + 1,
+    id: team.id,
+    name: team.name,
+    abbreviation: team.abbreviation,
+  }));
 }
 
 /**
@@ -378,6 +444,8 @@ export async function fetchHomepageStandings(
   season: string = PREMIER_SEASON,
   teamNames?: string[],
   draftColumn: "featured_draft_id" | "academy_draft_id" = "featured_draft_id",
+  playoffSeedingMode: HomepagePlayoffSeedingMode = "divisions",
+  failOnFixtureError = false,
 ): Promise<HomeStandingsData> {
   const supabase = await createServerSupabase();
   const featuredDraftId = await fetchDraftId(supabase, draftColumn);
@@ -398,18 +466,26 @@ export async function fetchHomepageStandings(
     : draftTeams;
 
   try {
-    const { data: fixturesData } = await supabase
+    const { data: fixturesData, error: fixturesError } = await supabase
       .from("fixtures")
       .select("id, season, team_a, team_b, score_a, score_b, stage, sort_order")
       .eq("season", season);
+    if (fixturesError) throw fixturesError;
     const fixtures = (fixturesData as StandingsFixture[]) ?? [];
     const seriesMinutes = await fetchSeriesMinutes(supabase, season);
     const standings = deriveSeriesStandings(fixtures, season, scoped, seriesMinutes).map((team) => ({
       ...team,
       ...deriveTeamExtras(fixtures, season, team.name),
     }));
-    return { teams: standings, race: deriveStandingsRace(fixtures, season, scoped) };
-  } catch {
+    return {
+      teams: standings,
+      race: deriveStandingsRace(fixtures, season, scoped),
+      ...(playoffSeedingMode === "league-wide"
+        ? { overallPlayoffSeeds: deriveHomepageOverallPlayoffSeeds(fixtures, season, scoped, seriesMinutes) }
+        : { playoffSeeds: deriveHomepagePlayoffSeeds(fixtures, season, scoped, seriesMinutes) }),
+    };
+  } catch (error) {
+    if (failOnFixtureError) throw error;
     // A fixtures outage should leave the roster on screen at 0-0 rather than
     // blanking the panel.
     return { teams: scoped.map((team) => ({ ...team, wins: 0, losses: 0 })), race: [] };

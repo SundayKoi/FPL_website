@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { RaceWeek } from "@/lib/home/standings";
+import type { HomeAppearance } from "./appearance";
+import styles from "./HomeWorkspace.module.css";
 
 const ROW_HEIGHT = 44;
 
@@ -22,7 +24,8 @@ function sortedEntries(week: RaceWeek) {
  * season" auto-plays from week 1; reduced-motion visitors get instant
  * position changes (no transitions) and no auto-play.
  */
-export default function StandingsRace({ race }: { race: RaceWeek[] }) {
+export default function StandingsRace({ race, appearance = "legacy" }: { race: RaceWeek[]; appearance?: HomeAppearance }) {
+  const workspace = appearance === "workspace";
   const [index, setIndex] = useState(race.length - 1);
   const [playing, setPlaying] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -59,11 +62,11 @@ export default function StandingsRace({ race }: { race: RaceWeek[] }) {
   const teams = week.entries;
 
   return (
-    <article aria-labelledby="standings-race-title" className="card-brand flex min-h-0 flex-col overflow-hidden p-5 sm:p-6">
+    <article aria-labelledby="standings-race-title" className={workspace ? `${styles.panel} flex min-h-0 flex-col overflow-hidden p-5 sm:p-6` : "card-brand flex min-h-0 flex-col overflow-hidden p-5 sm:p-6"} data-appearance={appearance}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <span className="label-dash">THE SEASON SO FAR</span>
-          <h2 id="standings-race-title" className="type-display mt-2 text-3xl sm:text-4xl">
+          <span className={workspace ? styles.eyebrow : "label-dash"}>THE SEASON SO FAR</span>
+          <h2 id="standings-race-title" className={workspace ? `${styles.title} mt-2 text-3xl sm:text-4xl` : "type-display mt-2 text-3xl sm:text-4xl"}>
             Standings race
           </h2>
         </div>
@@ -77,7 +80,7 @@ export default function StandingsRace({ race }: { race: RaceWeek[] }) {
             setIndex(0);
             setPlaying(true);
           }}
-          className="shrink-0 rounded-full border border-action-text/60 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-action-text transition hover:bg-action-fill hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          className={workspace ? `${styles.action} shrink-0` : "shrink-0 rounded-full border border-action-text/60 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-action-text transition hover:bg-action-fill hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"}
         >
           ▶ Replay season
         </button>
@@ -94,7 +97,7 @@ export default function StandingsRace({ race }: { race: RaceWeek[] }) {
               setPlaying(false);
               setIndex(frameIndex);
             }}
-            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
+            className={workspace ? styles.raceTab : `rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
               frameIndex === index
                 ? "bg-action-fill text-white"
                 : "border border-border-subtle bg-surface text-muted hover:text-white"
@@ -117,13 +120,13 @@ export default function StandingsRace({ race }: { race: RaceWeek[] }) {
             >
               <span className="w-5 shrink-0 font-mono text-xs font-semibold text-muted">#{rank + 1}</span>
               <span className="w-10 shrink-0 font-mono text-xs font-bold text-league-accent">{entry.abbreviation}</span>
-              <div className="relative h-4 min-w-0 flex-1 overflow-hidden rounded-full bg-canvas/80">
+              <div className={`relative h-4 min-w-0 flex-1 overflow-hidden rounded-full ${workspace ? styles.raceTrack : "bg-canvas/80"}`}>
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-league-accent/70 to-league-accent transition-[width] duration-700 ease-out motion-reduce:transition-none"
+                  className={`h-full rounded-full transition-[width] duration-700 ease-out motion-reduce:transition-none ${workspace ? styles.raceBar : "rounded-full bg-gradient-to-r from-league-accent/70 to-league-accent"}`}
                   style={{ width: `${width}%` }}
                 />
               </div>
-              <span className="w-12 shrink-0 text-right font-mono text-xs font-semibold text-white">
+              <span className={`w-12 shrink-0 text-right font-mono text-xs font-semibold ${workspace ? styles.ink : "text-white"}`}>
                 {entry.wins}–{entry.losses}
               </span>
             </div>
@@ -131,7 +134,7 @@ export default function StandingsRace({ race }: { race: RaceWeek[] }) {
         })}
       </div>
 
-      <p className="mt-4 text-[10px] uppercase tracking-[0.1em] text-muted/70">
+      <p className={`mt-4 text-[10px] uppercase tracking-[0.1em] ${workspace ? styles.muted : "text-muted/70"}`}>
         Cumulative series records through {week.label}
       </p>
     </article>

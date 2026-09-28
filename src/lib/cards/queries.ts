@@ -485,7 +485,9 @@ export async function fetchSeasonFixtures(supabase: SupabaseClient, season: stri
  */
 export async function fetchCurrentWeekCards(supabase: SupabaseClient, season: string): Promise<PlayerCardData[]> {
   const week = await fetchLatestGameWeek(supabase, season);
-  if (!week) return fetchSeasonCards(supabase, season);
+  if (!week) {
+    return (await fetchSeasonCards(supabase, season)).map((card) => ({ ...card, snapshotWeek: null }));
+  }
   // During the bracket the hub, browse, compare and the teams page show the
   // week the way the week's edition prints it (weekRoster): a player whose
   // split has ended wears the season-rated send-off their team's exit
@@ -501,13 +503,14 @@ export async function fetchCurrentWeekCards(supabase: SupabaseClient, season: st
       fetchSeasonCards(supabase, season),
       fetchWeekCards(supabase, season, week),
     ]);
-    return weekRoster(seasonBuild, weekBuild, fixtures, week);
+    return weekRoster(seasonBuild, weekBuild, fixtures, week).map((card) => ({ ...card, snapshotWeek: week }));
   }
   const cards = await fetchWeekCards(supabase, season, week);
   // A week that ingested no usable rows would otherwise blank every card
   // surface at once; the season build is a worse answer than the week's,
   // but it is a far better one than nothing.
-  return cards.length > 0 ? cards : fetchSeasonCards(supabase, season);
+  if (cards.length > 0) return cards.map((card) => ({ ...card, snapshotWeek: week }));
+  return (await fetchSeasonCards(supabase, season)).map((card) => ({ ...card, snapshotWeek: null }));
 }
 
 export async function fetchWeekCards(

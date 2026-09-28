@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import LeagueBrandChooser from "./LeagueBrandChooser";
 import SiteSearch from "./SiteSearch";
+import styles from "./SiteNavigation.module.css";
 import { leagueNavigationLinks } from "@/lib/league/navigation";
 import { resolveLeagueFromPath } from "@/lib/league/links";
 import { headerMenus, type MenuKey } from "@/lib/site/menus";
@@ -15,8 +16,8 @@ type DropdownKey = MenuKey;
 const linkBase =
   "whitespace-nowrap text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral sm:text-sm lg:text-base";
 
-function topLinkClass(active: boolean, extra = "") {
-  return `${linkBase} ${extra ? `${extra} ` : ""}rounded px-3 py-2 md:px-0 md:py-1 ${
+function topLinkClass(active: boolean, extra = "", roomy = false) {
+  return `${linkBase} ${extra ? `${extra} ` : ""}rounded px-3 ${roomy ? "py-[14px]" : "py-2"} md:px-0 md:py-1 ${
     active ? "text-white md:text-coral" : "text-steel hover:text-gold hover:bg-line/40 md:hover:bg-transparent"
   }`;
 }
@@ -43,6 +44,7 @@ export default function SiteNavigation({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const adminSection = pathname?.startsWith("/admin") ?? false;
+  const homepage = pathname === "/";
   const league = resolveLeagueFromPath(pathname ?? "/");
   const premiumHref =
     league === "academy" || (pathname === "/premium" && searchParams?.get("league") === "academy")
@@ -101,27 +103,28 @@ export default function SiteNavigation({
   return (
     <header
       ref={navRef}
-      className="sticky top-0 z-40 border-b border-gold/30 backdrop-blur"
+      className={homepage ? `sticky top-0 z-40 border-b backdrop-blur ${styles.siteHeader} ${styles.homeHeader}` : "sticky top-0 z-40 border-b border-gold/30 backdrop-blur"}
       style={{
-        backgroundColor: adminSection ? "rgba(20,20,23,0.97)" : "rgba(0,18,31,0.9)",
-        borderColor: adminSection ? "#303036" : undefined,
+        backgroundColor: homepage ? "#101018" : adminSection ? "rgba(20,20,23,0.97)" : "rgba(0,18,31,0.9)",
+        borderColor: !homepage && adminSection ? "#303036" : undefined,
       }}
     >
-      <div className="relative flex w-full items-center gap-2 page-container py-3 sm:min-h-[5.5rem] sm:gap-6 sm:py-4">
+      <div className={homepage ? `relative flex w-full items-center gap-4 sm:gap-6 ${styles.homeHeaderInner}` : "relative flex w-full items-center gap-2 page-container py-3 sm:min-h-[5.5rem] sm:gap-6 sm:py-4"}>
         <LeagueBrandChooser
           pathname={pathname ?? "/"}
           search={searchParams?.toString() ?? ""}
           onNavigate={closeMenus}
+          homeStyle={homepage}
         />
 
         <nav
           id={menuId}
           aria-label="Primary"
           data-open={open}
-          className={`${
+          className={`${homepage ? styles.homeNavigation : ""} ${
             open ? "flex" : "hidden"
           } absolute inset-x-0 top-full flex-col gap-1 border-b border-line px-2 py-2 shadow-lg backdrop-blur md:static md:flex md:min-w-0 md:flex-1 md:flex-row md:items-center md:justify-evenly md:gap-2 md:border-0 md:p-0 md:shadow-none md:backdrop-blur-0 lg:gap-6`}
-          style={{ backgroundColor: adminSection ? "rgba(20,20,23,0.99)" : "rgba(0,18,31,0.97)" }}
+          style={{ backgroundColor: homepage ? "#101018" : adminSection ? "rgba(20,20,23,0.99)" : "rgba(0,18,31,0.97)" }}
         >
           {directLinks.map((link) => {
             const active = isActive(pathname, link.href);
@@ -131,7 +134,7 @@ export default function SiteNavigation({
                 href={link.href}
                 aria-current={active ? "page" : undefined}
                 onClick={closeMenus}
-                className={topLinkClass(active)}
+                className={`${topLinkClass(active, "", homepage)} ${homepage ? styles.homeNavLink : ""}`}
               >
                 {link.label}
               </Link>
@@ -158,7 +161,7 @@ export default function SiteNavigation({
                     setExpanded(null);
                     setOpenDropdown((current) => (current === dropdown.key ? null : dropdown.key));
                   }}
-                  className={topLinkClass(active || dropdownOpen, "inline-flex items-center gap-1")}
+                  className={`${topLinkClass(active || dropdownOpen, "inline-flex items-center gap-1", homepage)} ${homepage ? styles.homeNavLink : ""}`}
                 >
                   {dropdown.label}
                   <span aria-hidden="true" className="text-[0.7em]">
@@ -201,7 +204,7 @@ export default function SiteNavigation({
         </nav>
 
         <div className="site-navigation-actions ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
-          <SiteSearch league={league} />
+          <SiteSearch league={league} touchTarget={homepage} />
           {showAdmin ? (
             // Staff-only, beside the avatar rather than buried in About.
             // Presentation only; /admin re-checks the staff tier.
@@ -209,9 +212,7 @@ export default function SiteNavigation({
               href="/admin"
               aria-current={isActive(pathname, "/admin") ? "page" : undefined}
               className={`hidden rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide transition md:inline-flex ${
-                adminSection
-                  ? "border-[#6241a5] text-[#c8b5ff] hover:border-[#b59aff] hover:text-white"
-                  : "border-border-strong text-muted hover:border-action-text hover:text-white"
+                adminSection ? "border-[#6241a5] text-[#c8b5ff] hover:border-[#b59aff] hover:text-white" : "border-border-strong text-muted hover:border-action-text hover:text-white"
               }`}
             >
               Admin
@@ -227,7 +228,7 @@ export default function SiteNavigation({
             aria-expanded={open}
             aria-controls={menuId}
             aria-label={open ? "Close menu" : "Open menu"}
-            className="inline-flex h-9 w-9 items-center justify-center rounded border border-line text-steel transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral md:hidden"
+            className={`inline-flex items-center justify-center rounded border border-line text-steel transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral md:hidden ${homepage ? "h-11 w-11" : "h-9 w-9"}`}
           >
             {open ? (
               <svg
