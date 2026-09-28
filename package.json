@@ -11,6 +11,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:python": "python3 -m unittest discover -s scripts -p \"test_*.py\" -b",
+    "db:stage": "node scripts/supabase-migrations.mjs stage supabase/.staged --fresh",
     "test:db": "node scripts/run-infra-tests.mjs --db-only",
     "test:infra": "node scripts/run-infra-tests.mjs",
     "e2e": "node scripts/run-infra-tests.mjs --browser-only",

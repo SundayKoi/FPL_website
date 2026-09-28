@@ -19,10 +19,19 @@
 // ticked. Every week is recomputed from that week's raw_stats, so a
 // rebuild reproduces the drop exactly with today's formula. Cards people
 // already pulled are frozen in card_inventory and are NOT touched.
+//
+// TWO RATINGS LIVE HERE. Seasons up to Premier S5 and Academy A1 are rated
+// by the measures below (legacyRating) and always will be — see
+// LEGACY_RATING_SEASONS in styleYardsticks.ts. From S6 and A2 on, a card is
+// rated by playstyle (styleRating.ts): 30% winning, 40% fundamentals, 30%
+// how well the player did their champion's job, graded against the league's
+// history of that style. That history is regenerated at every season
+// rollover by scripts/build-style-yardstick.ts.
 
 import { championDisplayName } from "@/lib/match-draft/champions";
 import type { PlayerAggRow } from "@/lib/stats/types";
-import { MEASURE_LABELS, type MeasureKey, barsForRole, gameTotals, pctOf, type GameTotals } from "./measures";
+import { MEASURE_LABELS, type MeasureKey, type StyleMeasureKey, barsForRole, gameTotals, pctOf, type GameTotals } from "./measures";
+import { rateByStyle, type StyleRating, type StyleYardstick } from "./styleRating";
 
 /** One game a player actually played, distilled from raw_stats. */
 export interface CardGameRow {
@@ -57,6 +66,20 @@ export interface CardGameRow {
   detector_wards_placed?: number | null;
   /** Damage absorbed by armour, MR and shields — the tanking stat. */
   damage_mitigated?: number | null;
+  /** Read only by the style rating (styleRating.ts), which grades each game
+   *  on its champion's job and needs the game's own role, its lane opponent
+   *  (same role, other team), and the job stats themselves. Optional, like
+   *  the columns above: the rating that came before never reads them. */
+  role?: string | null;
+  game_duration_min?: number | null;
+  damage_share_pct?: number | null;
+  damage_taken?: number | null;
+  solo_kills?: number | null;
+  time_ccing_others_s?: number | null;
+  effective_heal_and_shield?: number | null;
+  cs_at_10?: number | null;
+  gold_at_10?: number | null;
+  xp_at_10?: number | null;
 }
 
 /** Per-match context from stats_game_log — the clock and both team names. */
@@ -88,8 +111,9 @@ export interface CardTier {
 export interface CardSubStat {
   /** "form" and "clutch" are retired but stay in the union: every copy
    *  already frozen in card_inventory carries them, and the renderer prints
-   *  whatever a card holds. */
-  key: MeasureKey | "form" | "clutch";
+   *  whatever a card holds. StyleMeasureKey is what a style-rated card
+   *  (S6/A2 onward) carries; its "style" bar is labelled per card. */
+  key: MeasureKey | StyleMeasureKey | "form" | "clutch";
   label: string;
   value: number;
 }
@@ -1021,30 +1045,24 @@ export interface BuildCardInput {
    *  those two bars land at the middle, and this player's own totals are
    *  computed fresh from `games` instead of looked up. */
   totalsByKey?: Map<string, GameTotals>;
+  /** The player's style rating (styleRating.ts), for a season rated by
+   *  playstyle — S6 and A2 onward. Absent, the card is rated the way every
+   *  season before those was. buildSeasonCards fills it in. */
+  rating?: StyleRating;
 }
 
-export function buildCard({
-  row,
-  cohort,
-  games,
-  gameLog,
-  archetype,
-  recordCategories = [],
-  teamImages,
-  teamAbbrs,
-  artSkin = 0,
-  artChampion = null,
-  motto = null,
-  standout = false,
-  totalsByKey = new Map<string, GameTotals>(),
-}: BuildCardInput, percentile = createCardPercentiles(cohort)): PlayerCardData {
-  const key = playerKey(row);
-
-  // buildSeasonCards already computed every cohort member's totals once to
-  // build totalsByKey — reuse this player's own entry instead of calling
-  // gameTotals(games) a second time. A solo buildCard (no map) still needs
-  // its own totals computed fresh.
-  const totals = totalsByKey.get(key) ?? gameTotals(games);
+/**
+ * The rating every season up to S5 and A1 was printed with, and still is:
+ * those seasons' live cards, and any rebuild of their editions, must keep
+ * producing exactly the numbers already frozen on copies people own.
+ */
+function legacyRating(
+  row: PlayerAggRow,
+  cohort: PlayerAggRow[],
+  totals: GameTotals,
+  totalsByKey: Map<string, GameTotals>,
+  percentile: CardPercentile,
+): { overall: number; subStats: CardSubStat[] } {
   const values = measureValues(cohort, row, totals, totalsByKey, percentile);
   const bars = barsForRole(row.role_mode);
 
@@ -1062,6 +1080,37 @@ export function buildCard({
   // depending on how crowded the winners' bracket happened to be.
   const score = cardScore(row.role_mode, values, row.winrate_pct);
   const overall = Math.max(1, Math.min(99, Math.round(OVR_BASE + score * OVR_SCALE)));
+  return {
+    overall,
+    subStats: bars.map((barKey) => ({ key: barKey, label: MEASURE_LABELS[barKey], value: toStat(values[barKey]) })),
+  };
+}
+
+export function buildCard({
+  row,
+  cohort,
+  games,
+  gameLog,
+  archetype,
+  recordCategories = [],
+  teamImages,
+  teamAbbrs,
+  artSkin = 0,
+  artChampion = null,
+  motto = null,
+  standout = false,
+  totalsByKey = new Map<string, GameTotals>(),
+  rating,
+}: BuildCardInput, percentile = createCardPercentiles(cohort)): PlayerCardData {
+  const key = playerKey(row);
+
+  // buildSeasonCards already computed every cohort member's totals once to
+  // build totalsByKey — reuse this player's own entry instead of calling
+  // gameTotals(games) a second time. A solo buildCard (no map) still needs
+  // its own totals computed fresh.
+  const { overall, subStats } = rating
+    ? { overall: rating.overall, subStats: rating.bars.map((bar) => ({ key: bar.key, label: bar.label, value: toStat(bar.value) })) }
+    : legacyRating(row, cohort, totalsByKey.get(key) ?? gameTotals(games), totalsByKey, percentile);
 
   // Form: the last five results, weighted toward the streak the player is
   // currently on — still tracked for the flip-card dots and the "On A
@@ -1163,7 +1212,7 @@ export function buildCard({
     highlights: computeHighlights(dated, gameLog),
     badges: computeBadges(row, dated, recordCategories),
     standout,
-    subStats: bars.map((barKey) => ({ key: barKey, label: MEASURE_LABELS[barKey], value: toStat(values[barKey]) })),
+    subStats,
     wins: row.wins,
     losses: row.games - row.wins,
     winratePct: row.winrate_pct,
@@ -1185,6 +1234,73 @@ export interface BuildSeasonCardsInput {
   teamAbbrs?: Map<string, string>;
   /** player key -> chosen art (champion, skin + motto) from card_art_prefs. */
   artPrefs?: Map<string, { artChampion?: string | null; skin: number; motto: string | null }>;
+  /**
+   * The history this season is graded against, when the season is rated by
+   * playstyle (styleRating.ts) — S6 and A2 onward. Null or absent rates the
+   * way every season before those was, which is what S1-S5 and A1 must keep
+   * doing. The data layer decides (styleYardsticks.ts): the season is the
+   * one thing it knows and this function does not.
+   */
+  yardstick?: StyleYardstick | null;
+}
+
+/**
+ * Every cohort member's per-game objective, turret, vision and mitigation
+ * work. It lives on the per-game rows, not on the agg view, so it has to be
+ * assembled where every player's games are in hand; measureValues and the
+ * style rating each percentile a player against their own role's slice.
+ * Rates rather than per-game counts, over match_id -> minutes built once.
+ */
+function cohortTotals(
+  cohort: PlayerAggRow[],
+  gamesByPlayer: Map<string, CardGameRow[]>,
+  gameLog: Map<string, CardGameMeta>,
+): Map<string, GameTotals> {
+  const durations = new Map<string, number>();
+  for (const [matchId, meta] of gameLog) {
+    if (meta.durationMin > 0) durations.set(matchId, meta.durationMin);
+  }
+  const totalsByKey = new Map<string, GameTotals>();
+  for (const row of cohort) {
+    const key = playerKey(row);
+    totalsByKey.set(key, gameTotals(gamesByPlayer.get(key) ?? [], durations));
+  }
+  return totalsByKey;
+}
+
+function styleRatings(
+  cohort: PlayerAggRow[],
+  gamesByPlayer: Map<string, CardGameRow[]>,
+  gameLog: Map<string, CardGameMeta>,
+  yardstick: StyleYardstick,
+  percentile: CardPercentile,
+  totalsByKey: Map<string, GameTotals>,
+): Map<PlayerAggRow, StyleRating> {
+  return rateByStyle({
+    cohort,
+    gamesOf: (row) => gamesByPlayer.get(playerKey(row)) ?? [],
+    allGames: [...gamesByPlayer.values()].flat(),
+    gameLog,
+    yardstick,
+    percentile,
+    totalsOf: (row) => totalsByKey.get(playerKey(row)) ?? { objectives: 0, turrets: 0, visionWork: 0, mitigated: 0 },
+  });
+}
+
+/**
+ * The style ratings buildSeasonCards prints for a playstyle-rated window,
+ * unrounded. Exported for the yardstick generator, which fits the OVR curve
+ * to these scores — through this function, so the fit can never drift from
+ * what the cards themselves compute.
+ */
+export function seasonStyleRatings({
+  cohort,
+  gamesByPlayer,
+  gameLog,
+  yardstick,
+}: Pick<BuildSeasonCardsInput, "cohort" | "gamesByPlayer" | "gameLog"> & { yardstick: StyleYardstick }): Map<PlayerAggRow, StyleRating> {
+  const percentile = createCardPercentiles(cohort);
+  return styleRatings(cohort, gamesByPlayer, gameLog, yardstick, percentile, cohortTotals(cohort, gamesByPlayer, gameLog));
 }
 
 /** The whole league's cards with league-wide scarce archetypes, best
@@ -1197,6 +1313,7 @@ export function buildSeasonCards({
   teamImages,
   teamAbbrs,
   artPrefs,
+  yardstick = null,
 }: BuildSeasonCardsInput): PlayerCardData[] {
   const extrasByKey = new Map<string, ArchetypeExtras>();
   for (const row of cohort) {
@@ -1209,22 +1326,11 @@ export function buildSeasonCards({
   }
   const percentile = createCardPercentiles(cohort);
   const archetypes = assignArchetypes(cohort, extrasByKey, percentile);
-
-  // Objective and turret work live on the per-game rows, not on the agg
-  // view, so their cohort has to be assembled here where every player's
-  // games are in hand. measureValues percentiles each player against just
-  // their own role's slice of this map (roleCohort), not the flat map.
-  // match_id -> minutes, so objective and turret work can be a rate rather
-  // than a per-game count. Built once for the whole cohort.
-  const durations = new Map<string, number>();
-  for (const [matchId, meta] of gameLog) {
-    if (meta.durationMin > 0) durations.set(matchId, meta.durationMin);
-  }
-  const totalsByKey = new Map<string, GameTotals>();
-  for (const row of cohort) {
-    const key = playerKey(row);
-    totalsByKey.set(key, gameTotals(gamesByPlayer.get(key) ?? [], durations));
-  }
+  const totalsByKey = cohortTotals(cohort, gamesByPlayer, gameLog);
+  // A season rated by playstyle is rated as a whole here — every player's
+  // games are graded against the style yardstick, and the lane opponents and
+  // team totals those grades need are other players' rows.
+  const ratings = yardstick ? styleRatings(cohort, gamesByPlayer, gameLog, yardstick, percentile, totalsByKey) : null;
 
   const cards = cohort
     .map((row) => {
@@ -1243,6 +1349,7 @@ export function buildSeasonCards({
         artSkin: prefs?.skin ?? 0,
         artChampion: prefs?.artChampion ?? null,
         motto: prefs?.motto ?? null,
+        rating: ratings?.get(row),
       }, percentile);
       const eligible = new Set(
         (gamesByPlayer.get(key) ?? [])

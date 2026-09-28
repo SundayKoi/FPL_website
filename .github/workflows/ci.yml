@@ -6,7 +6,8 @@ name: CI
 # discovered — and so `typescript.ignoreBuildErrors` can be turned on in
 # next.config.ts once this check is required, taking the type-check out of
 # the billed build minute. The release workflow reads this job's result on
-# develop before it will merge to main.
+# develop before it will merge to main. Its infrastructure step proves fresh
+# migration replay, pgTAP, a production build, and the browser journeys.
 on:
   pull_request:
   push:

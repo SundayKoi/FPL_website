@@ -4,7 +4,7 @@ Date: 2026-09-27
 
 Branch: `clean-up-tests`
 
-Status: implementation and local verification complete. The CSV inventory has 629 assertion rows across 626 test paths. Final Vitest is 257 files / 2,738 tests; typecheck passes, ESLint has one existing `<img>` advisory, and Python passes (25 tests). The final `npm run test:infra` passes: 245 migration sources stage to 242 versions; fresh replay and 157 pgTAP files / 2,433 assertions pass; the production build completes; and all seven Chromium browser journeys pass. The retained Vitest suite is 44,849 lines with 6,635 `expect()` calls, down from 431 files, 59,642 lines, and 8,805 calls. The 85–130 file target remains unmet; the remaining contracts and rationale are recorded below. Two exact, user-authorized repairs to already-applied migrations are pinned in the history checker and detailed in the [historical replay repair handoff](2026-09-27-historical-migration-replay-repair.md). The seven migration versions previously missing locally are present on `origin/develop` and confirmed applied remotely; no cloud history repair was needed.
+Status: implementation complete. The refreshed CSV inventory has 634 assertion rows across 631 test paths. Final Vitest is 263 files / 2,820 tests; typecheck passes, ESLint has one existing `<img>` advisory, and Python passes (25 tests). Before syncing the now-advanced `develop` branch, `npm run test:infra` passed: 245 migration sources staged as 242 versions; fresh replay and 157 pgTAP files / 2,433 assertions passed; the production build completed; and all seven Chromium browser journeys passed. The updated source/test tree has 46,797 lines with 6,925 `expect()` calls, down from the original 431 files, 59,642 lines, and 8,805 calls. The 85–130 file target remains unmet; the remaining contracts and rationale are recorded below. Two exact, user-authorized repairs to already-applied migrations are pinned in the history checker and detailed in the [historical replay repair handoff](2026-09-27-historical-migration-replay-repair.md). The seven migration versions previously missing locally are present on `origin/develop` and confirmed applied remotely; no cloud history repair was needed.
 
 ## Objective and decisions
 
@@ -26,7 +26,7 @@ These are planning targets, not permission to remove unique important coverage t
 
 ## Evidence from discovery
 
-The implementation branch `feature/clean-up-tests-infra` is based on `origin/develop` at `ff20e8582c61e6a43600bfed0eb38bbcb67a5d5d`. It is isolated from the original `feature/redesign-UI` checkout, whose extensive unrelated tracked and untracked changes remain untouched and outside this branch.
+The implementation branch `feature/clean-up-tests-infra` was started from `origin/develop` at `ff20e8582c61e6a43600bfed0eb38bbcb67a5d5d` and synced with the current base at `cbb73342d93a384e1e8da9e5678b445651ca3004` before final verification. It is isolated from the original `feature/redesign-UI` checkout, whose extensive unrelated tracked and untracked changes remain untouched and outside this branch.
 
 | Surface | Observed baseline | Implication |
 | --- | --- | --- |
@@ -77,9 +77,9 @@ Before deleting a meaningful assertion, name where its failure would now be dete
 
 ### Final reduction audit
 
-The safe reduction stopped at 257 Vitest files (250 under `src/`, plus seven script contracts), not the initial 85–130 target. That is a 40% file reduction, with 24.8% fewer test lines, 24.6% fewer `expect()` calls, and 41.4% fewer files using `vi.mock()`. The 629-row inventory records 206 deletions, seven consolidations, four replacements, and 412 retained contract rows (some mixed files have more than one row).
+The safe reduction stopped at 263 Vitest files (255 under `src/`, plus eight script contracts), not the initial 85–130 target. That is a 39.0% file reduction, with 21.5% fewer test lines, 21.4% fewer `expect()` calls, and 39.6% fewer files using `vi.mock()`. The 634-row inventory records 205 deletions, seven consolidations, four replacements, and 418 retained contract rows (some mixed files have more than one row).
 
-The 250 remaining `src/` files cover 181 library, 37 component, 28 app, and four hook contracts. Their failure modes are spread across distinct authoritative systems that seven browser journeys cannot replace: money calculations and ledger/idempotency edges; ownership and league/season scoping; authentication, OAuth redirect and signed-provider verification; ingestion/identity normalization and duplicate handling; pagination and data-loss boundaries; and the rule/state machines for multiple independent games and card systems. The database suite supplies real RLS, grants, transaction, rollback, and RPC checks; Vitest keeps deterministic branch and malformed-input coverage that browser happy paths cannot establish. Removing another 127 files to hit the numeric target would delete unique protection without an equivalent passing replacement. The target is therefore recorded as unmet rather than met by grouping files or relabeling unrelated tests.
+The 255 remaining `src/` files cover 185 library, 38 component, 28 app, and four hook contracts. Their failure modes are spread across distinct authoritative systems that seven browser journeys cannot replace: money calculations and ledger/idempotency edges; ownership and league/season scoping; authentication, OAuth redirect and signed-provider verification; ingestion/identity normalization and duplicate handling; pagination and data-loss boundaries; and the rule/state machines for multiple independent games and card systems. The database suite supplies real RLS, grants, transaction, rollback, and RPC checks; Vitest keeps deterministic branch and malformed-input coverage that browser happy paths cannot establish. Removing another 133 files to hit the numeric target would delete unique protection without an equivalent passing replacement. The target is therefore recorded as unmet rather than met by grouping files or relabeling unrelated tests.
 
 ## Target E2E journeys
 
@@ -191,7 +191,7 @@ For the completed implementation, run typecheck, lint, retained Vitest, Python, 
 
 - `npm run typecheck` — passed.
 - `npm run lint` — passed with one existing `@next/next/no-img-element` warning in `src/components/captain/scouting/ChampionDatum.tsx`.
-- `npm test` — 257 files and 2,738 tests passed.
+- `npm test` — 263 files and 2,820 tests passed on the synced tree.
 - `npm run test:python` — 25 tests passed.
 - `npm run test:infra` — fresh migrations, 157 pgTAP files / 2,433 assertions, production build, and seven real Chromium journeys passed; runner stopped and removed its disposable project in `finally`.
 - Migration history checker — exact replay-repair exceptions and adversarial regression tests are included; final `node scripts/check-migrations.mjs origin/develop HEAD` passed, with only the three documented pre-existing duplicate-version warnings.

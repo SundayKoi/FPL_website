@@ -384,6 +384,59 @@ describe("fetchSeasonCards", () => {
   });
 });
 
+describe("the style rating's data", () => {
+  /** Every raw_stats column the style rating reads from a game — listed
+   *  here rather than imported from queries.ts, so narrowing the select and
+   *  this list together cannot make the test pass. */
+  const STYLE_READS = [
+    "role", "game_duration_min", "champion", "match_id", "team_name", "kills", "assists", "cs",
+    "total_damage_to_champions", "damage_share_pct", "damage_taken", "damage_mitigated", "solo_kills",
+    "time_ccing_others_s", "effective_heal_and_shield", "turret_damage", "cs_at_10", "gold_at_10", "xp_at_10",
+  ];
+
+  function selectCapturing(selects: { table: string; columns: string }[]): SupabaseClient {
+    return {
+      from: (table: string) => {
+        const chain: Record<string, unknown> = {};
+        for (const m of ["eq", "not", "order", "range", "limit", "gte", "lt"]) chain[m] = () => chain;
+        chain.select = (columns: string) => { selects.push({ table, columns }); return chain; };
+        chain.maybeSingle = async () => ({ data: null, error: null });
+        chain.then = (resolve: (r: { data: unknown; error: null }) => unknown) => Promise.resolve({ data: [], error: null }).then(resolve);
+        return chain;
+      },
+    } as unknown as SupabaseClient;
+  }
+
+  const missingFrom = (selects: { table: string; columns: string }[]) => {
+    const columns = new Set((selects.find((s) => s.table === "raw_stats")?.columns ?? "").split(",").map((c) => c.trim()));
+    return STYLE_READS.filter((column) => !columns.has(column));
+  };
+
+  it("is selected by the weekly build", async () => {
+    // A missing column does not error: the stat silently grades as absent
+    // for everyone, and a frozen edition would keep that forever.
+    const selects: { table: string; columns: string }[] = [];
+    await fetchWeekCards(selectCapturing(selects), "S6", "2026-10-05");
+    expect(missingFrom(selects)).toEqual([]);
+  });
+
+  it("is selected by the season build, which rates a whole split", async () => {
+    const selects: { table: string; columns: string }[] = [];
+    await fetchSeasonCards(selectCapturing(selects), "S6");
+    expect(missingFrom(selects)).toEqual([]);
+  });
+
+  it("rates S6 by playstyle and leaves S5 exactly as it was", async () => {
+    const week = (season: string) => ["A", "B", "C", "D"].map((name) => ({ ...statRow(name, "2026-10-06T00:30:00Z"), season }));
+    const s6 = await fetchWeekCards(weekSupabase(week("S6")), "S6", "2026-10-05");
+    const s5 = await fetchWeekCards(weekSupabase(week("S5")), "S5", "2026-10-05");
+    expect(s6[0].subStats.map((stat) => stat.key)).toEqual(["style", "laning", "survival", "teamplay", "vision"]);
+    // Ahri mid is graded as a mage.
+    expect(s6[0].subStats[0].label).toBe("Mage");
+    expect(s5[0].subStats[0].key).toBe("combat");
+  });
+});
+
 /** A Supabase stand-in for card_editions that pages: `pages` is handed out
  *  one `.range()` call at a time, so a test can prove the reader keeps
  *  going past the first 1000-row response. */

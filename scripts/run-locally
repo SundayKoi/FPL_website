@@ -29,10 +29,15 @@ if [ ! -d node_modules ]; then
   npm install
 fi
 
-echo "Starting local Supabase..."
-npx supabase start
+# Local Supabase runs from the staged fresh-database project (README, Local
+# setup): two immutable migrations cannot run on an empty database as written.
+echo "Staging local Supabase..."
+npm run db:stage
 
-status_json="$(npx supabase status -o json)"
+echo "Starting local Supabase..."
+npx supabase start --workdir supabase/.staged
+
+status_json="$(npx supabase status --workdir supabase/.staged -o json)"
 supabase_url="$(printf '%s' "$status_json" | node -e '
   let input = "";
   process.stdin.on("data", (chunk) => { input += chunk; });

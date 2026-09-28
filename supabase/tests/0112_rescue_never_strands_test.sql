@@ -21,9 +21,13 @@ insert into public.betting_profiles (discord_id, username, balance)
   values ('t_rescue', 'Rescue Test', 5000) on conflict (discord_id) do nothing;
 
 insert into public.card_inventory (discord_id, season, edition_week, slug, player_name, role, overall, tier, card)
-  values ('t_rescue', 'T', '2026-08-24', 't-gone', 'Gone', 'Top', 50, 'gold', '{}'::jsonb),
-         ('t_rescue', 'T', '2026-08-24', 't-home', 'Home', 'Top', 50, 'gold', '{}'::jsonb),
-         ('t_rescue', 'T', '2026-08-24', 't-rescuer', 'Rescuer', 'Top', 50, 'gold', '{}'::jsonb);
+  values ('t_rescue', 'T', '2026-08-24', 't-gone', 'Gone', 'Top', 70, 'gold', '{}'::jsonb),
+         ('t_rescue', 'T', '2026-08-24', 't-home', 'Home', 'Top', 70, 'gold', '{}'::jsonb),
+         -- The rescue squad. A run holds one to three copies
+         -- (expedition_runs_squad_check), and a Rescue launches with three.
+         ('t_rescue', 'T', '2026-08-24', 't-rescuer-1', 'Rescuer One', 'Jungle', 70, 'gold', '{}'::jsonb),
+         ('t_rescue', 'T', '2026-08-24', 't-rescuer-2', 'Rescuer Two', 'Mid', 70, 'gold', '{}'::jsonb),
+         ('t_rescue', 'T', '2026-08-24', 't-rescuer-3', 'Rescuer Three', 'Support', 70, 'gold', '{}'::jsonb);
 
 -- ── A hold whose deadline has passed, with a rescue still in the field ──
 insert into public.expedition_runs (discord_id, season, tier, squad, shine, resolves_at, target)
@@ -31,9 +35,11 @@ insert into public.expedition_runs (discord_id, season, tier, squad, shine, reso
     from public.card_inventory ci where ci.slug = 't-gone' and ci.discord_id = 't_rescue';
 
 insert into public.expedition_runs (discord_id, season, tier, squad, shine, resolves_at, target)
-  select 't_rescue', 'T', 'rescue', array[ci.id], 0, now() + interval '2 hours', r.id
+  select 't_rescue', 'T', 'rescue',
+         (select array_agg(ci.id order by ci.id) from public.card_inventory ci
+           where ci.discord_id = 't_rescue' and ci.slug like 't-rescuer-%'),
+         0, now() + interval '2 hours', r.id
     from public.expedition_runs r
-    join public.card_inventory ci on ci.slug = 't-rescuer' and ci.discord_id = 't_rescue'
    where r.discord_id = 't_rescue' and r.tier = 'lost';
 
 select is(
@@ -92,9 +98,11 @@ insert into public.expedition_runs (discord_id, season, tier, squad, shine, reso
     from public.card_inventory ci where ci.slug = 't-home' and ci.discord_id = 't_rescue';
 
 insert into public.expedition_runs (discord_id, season, tier, squad, shine, resolves_at, target)
-  select 't_rescue', 'T', 'rescue', array[ci.id], 0, now() - interval '1 minute', r.id
+  select 't_rescue', 'T', 'rescue',
+         (select array_agg(ci.id order by ci.id) from public.card_inventory ci
+           where ci.discord_id = 't_rescue' and ci.slug like 't-rescuer-%'),
+         0, now() - interval '1 minute', r.id
     from public.expedition_runs r
-    join public.card_inventory ci on ci.slug = 't-rescuer' and ci.discord_id = 't_rescue'
    where r.discord_id = 't_rescue' and r.tier = 'lost' and r.claimed_at is null;
 
 select public.resolve_expedition('t_rescue',

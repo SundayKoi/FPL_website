@@ -31,6 +31,23 @@ export function seasonBelongsToLeague(
   return league === "academy" ? isAcademy : !isAcademy;
 }
 
+/**
+ * Orders season codes the way the league counts them: by prefix, then by
+ * the number at the end, so S2 comes before S10 (a string sort puts S10
+ * first). Codes without a trailing number sort after numbered ones of the
+ * same prefix, alphabetically.
+ */
+export function compareSeasonCodes(a: string, b: string): number {
+  const parse = (code: string) => {
+    const value = code.trim().toLocaleUpperCase();
+    const match = value.match(/^(.*?)(\d+)$/);
+    return match ? { prefix: match[1], number: Number(match[2]), value } : { prefix: value, number: Number.POSITIVE_INFINITY, value };
+  };
+  const left = parse(a);
+  const right = parse(b);
+  return left.prefix.localeCompare(right.prefix) || left.number - right.number || left.value.localeCompare(right.value);
+}
+
 export async function fetchLeagueSeasons(supabase: SupabaseClient): Promise<LeagueSeasons> {
   const { data } = await supabase
     .from("league_settings")

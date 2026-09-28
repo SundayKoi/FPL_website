@@ -21,8 +21,10 @@ browser tests write fixtures: confirm they target the local stack before running
 them. Operational scripts and linked-database migration pushes have different
 side effects and are not test commands.
 
-CI runs TypeScript, ESLint, Vitest, and Python checks. Commands are defined in
-[package.json](../package.json); the production build is `npm run build`.
+CI runs TypeScript, ESLint, Vitest, and Python checks in its `checks` job,
+and the pgTAP suite against a fresh local Postgres in its `database` job (see
+[SQL](#sql)). Commands are defined in [package.json](../package.json); the
+production build is `npm run build`.
 
 ## Vitest
 
@@ -76,14 +78,31 @@ requests and do not need Riot credentials or a Supabase connection.
 
 ## SQL
 
-Use `npm run test:db`: the isolated runner creates a fresh disposable local
-Supabase project, stages the known migration collisions, replays the full
-history, then runs the numbered pgTAP contracts. It excludes operational SQL
-scripts in the same directory. Shared SQL fixtures live in
+The database under test is built from the staged fresh-database project,
+not from `supabase/` directly: one immutable data-repair migration cannot
+run on an empty database as written, and the migration wrapper stages a
+reviewed stand-down for it (see the
+[README](../README.md#ci-and-what-vercel-builds)).
+
+```sh
+npm run test:db                                    # isolated fresh replay + pgTAP
+npm run db:stage                                   # optional manual project at supabase/.staged
+npx supabase start --workdir supabase/.staged      # for manual database work
+npx supabase test db --workdir supabase/.staged
+```
+
+`npm run db:stage` runs
+`node scripts/supabase-migrations.mjs stage supabase/.staged --fresh`. It
+writes the config, edge functions, staged migrations, and numbered pgTAP
+files with their helpers, leaving out operational SQL scripts. This staged
+project is useful for manual database work. For verification, `npm run
+test:db` creates a fresh disposable local Supabase project, stages the
+reviewed migration collisions and fresh-only stand-down, replays the full
+history, and runs every numbered pgTAP contract in one command. It uses unique loopback ports and
+project identity, rejects ambient Supabase credential overrides, and cleans
+only the project it started. It does not read or rewrite `.env.local` or the
+cloud CLI link. Shared SQL fixtures live in
 `supabase/tests/helpers/*.sql.inc` and are included inside each transaction.
-The runner uses unique loopback ports and project identity, rejects ambient
-Supabase credential overrides, and cleans only the project it started. It does
-not read or rewrite `.env.local` or the cloud CLI link.
 
 Every test file declares a plan, calls `finish()`, and rolls back its
 transaction. Give fixtures test-specific names, supply required columns,
@@ -102,7 +121,8 @@ are removed on success or failure. Ambient Supabase settings cause an early
 failure so fixtures cannot write to a linked or mixed database.
 
 The full command `npm run test:infra` adds the entire pgTAP suite against that
-freshly replayed database before the production build and browser run. Use
+freshly replayed database before the production build and browser run. CI
+runs this command inside the existing required `checks` job. Use
 `npm run test:db` for fresh replay plus pgTAP without the build/browser step.
 `npm run e2e:list` checks Playwright discovery only; it does not prove any
 journey passes.

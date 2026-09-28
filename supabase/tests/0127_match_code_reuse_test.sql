@@ -59,6 +59,11 @@ select is(
   '2',
   'postseason import reassigns an existing code whose source game has no ingested stats'
 );
+-- Through PostgREST every RPC call is its own transaction, so the
+-- function's `on commit drop` scratch tables are gone before the next call.
+-- This file is one transaction: end the successful call by hand.
+drop table if exists pg_temp._postseason_target_fixtures,
+  pg_temp._postseason_requested_assignments, pg_temp._postseason_expected_assignments;
 select is(
   (select count(*) from public.match_codes where fixture_id = '71000000-0000-0000-0000-000000000028'),
   0::bigint,

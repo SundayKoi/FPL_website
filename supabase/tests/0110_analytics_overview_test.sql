@@ -41,7 +41,8 @@ select
 from (select public.analytics_overview(2) as j) r;
 
 insert into public.betting_profiles (discord_id, username, balance, patron_until)
-  values ('t_analytics_a', 'Analytics A', 100, now() + interval '30 days'), ('t_analytics_b', 'Analytics B', 250, null)
+  values ('t_analytics_a', 'Analytics A', 100, now() + interval '30 days'),
+         ('t_analytics_b', 'Analytics B', 250, null)
   on conflict (discord_id) do nothing;
 
 insert into public.card_pack_openings (request_id, discord_id, season, source, variant, status, created_at)
@@ -51,10 +52,11 @@ insert into public.card_pack_openings (request_id, discord_id, season, source, v
          -- A refunded open is not an open: the pack never happened.
          (gen_random_uuid(), 't_analytics_b', 'T', 'paid', 'standard', 'refunded',  now() - interval '1 day');
 
-insert into public.card_inventory (discord_id, season, slug, player_name, role, edition_week, overall, tier, foil, foil_type, signed, card, acquired_at)
-  values ('t_analytics_a', 'T', 'analytics-bronze', 'Analytics Bronze', 'Top', '2026-09-21', 50, 'bronze', false, null,     false, '{}'::jsonb,                          now() - interval '1 day'),
-         ('t_analytics_a', 'T', 'analytics-gold',   'Analytics Gold',   'Top', '2026-09-21', 90, 'gold',   true,  'prisma', false, '{"shiny": true}'::jsonb,             now() - interval '1 day'),
-         ('t_analytics_b', 'T', 'analytics-master', 'Analytics Master', 'Top', '2026-09-21', 99, 'master', true,  'ice',    true,  '{"stattrak": {"points": 3}}'::jsonb, now() - interval '1 day');
+insert into public.card_inventory
+    (discord_id, season, slug, player_name, role, edition_week, overall, tier, foil, foil_type, signed, card, acquired_at)
+  values ('t_analytics_a', 'T', 't-analytics-1', 'Analytics One',   'Mid', date '2026-08-24', 60, 'bronze', false, null,     false, '{}'::jsonb,                          now() - interval '1 day'),
+         ('t_analytics_a', 'T', 't-analytics-2', 'Analytics Two',   'Mid', date '2026-08-24', 75, 'gold',   true,  'prisma', false, '{"shiny": true}'::jsonb,             now() - interval '1 day'),
+         ('t_analytics_b', 'T', 't-analytics-3', 'Analytics Three', 'Mid', date '2026-08-24', 90, 'master', true,  'ice',    true,  '{"stattrak": {"points": 3}}'::jsonb, now() - interval '1 day');
 
 create temporary table after_fixtures as
 select
@@ -157,8 +159,10 @@ select is((select a.rolled - b.rolled from pack_bare a, pack_after b)::int, 0,
   'but it was never rolled for a God Pack, so it stays out of that denominator');
 
 -- The chase roll call names who holds each Dribb, in number order.
-insert into public.card_inventory (discord_id, season, slug, player_name, role, edition_week, overall, tier, foil, signed, card, acquired_at)
-  values ('t_analytics_b', 'T', 'analytics-dribb', 'Analytics Dribb', 'Top', '2026-09-21', 95, 'challenger', false, false, '{"dribb": {"number": 5, "of": 5}}'::jsonb, now() - interval '1 day');
+insert into public.card_inventory
+    (discord_id, season, slug, player_name, role, edition_week, overall, tier, foil, signed, card, acquired_at)
+  values ('t_analytics_b', 'T', 't-analytics-dribb', 'Analytics Dribb', 'Mid', date '2026-08-24', 99, 'challenger',
+          false, false, '{"dribb": {"number": 5, "of": 5}}'::jsonb, now() - interval '1 day');
 select is(
   (select (d ->> 'discord_id')
      from jsonb_array_elements(public.analytics_overview(2) -> 'pulls' -> 'dribb') d

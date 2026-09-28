@@ -35,6 +35,29 @@ export const MEASURE_LABELS: Record<MeasureKey, string> = {
 };
 
 /**
+ * The bars a STYLE-RATED card carries (S6 and A2 onward — styleRating.ts).
+ * A separate vocabulary rather than new MeasureKeys, because the rating
+ * above keeps scoring every season before those exactly as it always has.
+ *
+ * Four keys are shared with MeasureKey and keep their names, with meanings
+ * that moved: laning is now CS per minute plus CS/gold/XP difference at 10
+ * against the lane opponent, and survival is deaths per minute alone.
+ * "style" is labelled per card with the style the player mostly played
+ * ("Assassin", "Tank"); STYLE_MEASURE_LABELS.style is the neutral fallback.
+ */
+export type StyleMeasureKey = "style" | "laning" | "farming" | "teamplay" | "survival" | "vision" | "objectives";
+
+export const STYLE_MEASURE_LABELS: Record<StyleMeasureKey, string> = {
+  style: "Playstyle",
+  laning: "Laning",
+  farming: "Farming",
+  teamplay: "Teamplay",
+  survival: "Survival",
+  vision: "Vision",
+  objectives: "Objectives",
+};
+
+/**
  * Five bars per role. Combat leads everywhere so cards stay comparable at a
  * glance, Impact closes everywhere, and the middle three say what the role
  * is actually for. Keyed by raw_stats' role_mode spelling.
