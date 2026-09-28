@@ -4,6 +4,7 @@ import { Bangers, Chakra_Petch, Cinzel, Pinyon_Script, Saira } from "next/font/g
 import AuthButton from "@/components/AuthButton";
 import LeagueThemeScope from "@/components/LeagueThemeScope";
 import SiteNavigation from "@/components/SiteNavigation";
+import MobileTabBar from "@/components/MobileTabBar";
 import SupportDevButton from "@/components/SupportDevButton";
 import { ToastProvider } from "@/components/system/Toast";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -75,6 +76,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               />
               {children}
               <SupportDevButton />
+              <MobileTabBar />
             </div>
           }
         >
@@ -86,6 +88,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             />
             {children}
             <SupportDevButton />
+              <MobileTabBar />
           </LeagueThemeScope>
         </Suspense>
         </ToastProvider>

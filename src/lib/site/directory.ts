@@ -63,18 +63,29 @@ function cardsGroup(view: LeagueView): SiteGroup {
   const OPEN = new Set([`${base}/rarities`, `${base}/expeditions/ledger`]);
   for (const section of cardsSections(base)) {
     const gated = section.key !== "browse";
+    // The first sub-tab is the tab's own page, listed once as the tab — so
+    // its keywords (and its old name) ride on the tab's entry.
+    const ownPage = (section.children ?? []).find((child) => child.href === section.href);
+    const sectionKeywords = section.key === "home" ? ["player cards", "collect", "collection hub"] : section.key === "collection" ? ["binder", "my cards"] : section.key === "packs" ? ["open a pack", "rip", "daily rip"] : [];
+    const keywords = [...sectionKeywords, ...(ownPage?.keywords ?? [])];
     items.push({
       label: section.key === "home" ? "Cards" : section.label,
       href: section.href,
       blurb: section.blurb,
-      keywords: section.key === "home" ? ["player cards", "collect", "collection hub"] : section.key === "collection" ? ["binder", "my cards"] : section.key === "packs" ? ["open a pack", "rip", "daily rip"] : undefined,
+      ...(keywords.length ? { keywords } : {}),
       ...(gated ? { gated: true } : {}),
     });
     for (const child of section.children ?? []) {
-      // The first sub-tab is the tab's own page — already listed above.
       if (child.href === section.href) continue;
       const childGated = gated && !OPEN.has(child.href);
-      items.push({ label: child.label, href: child.href, blurb: child.blurb, nested: true, ...(childGated ? { gated: true } : {}) });
+      items.push({
+        label: child.label,
+        href: child.href,
+        blurb: child.blurb,
+        nested: true,
+        ...(child.keywords ? { keywords: child.keywords } : {}),
+        ...(childGated ? { gated: true } : {}),
+      });
     }
   }
   return {

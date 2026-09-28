@@ -43,3 +43,28 @@ export async function fetchAnalyticsOverview(service: SupabaseClient, weeks = DE
   }
   return { data: (data as AnalyticsOverview) ?? null, missing: false, error: null };
 }
+
+/** What people typed into site search (20261106000001). No identity is
+ *  stored; this is the list of things the navigation failed to put in
+ *  front of someone. */
+export interface SearchSummary {
+  days: number;
+  total: number;
+  top: { query: string; searches: number; found: boolean }[];
+  unfound: { query: string; searches: number }[];
+}
+
+export const SEARCH_SUMMARY_DAYS = 30;
+
+/** Null when the read is not there yet or fails: the rest of the dashboard
+ *  must not go down with it. */
+export async function fetchSearchSummary(service: SupabaseClient, days = SEARCH_SUMMARY_DAYS): Promise<SearchSummary | null> {
+  const { data, error } = await service.rpc("site_search_summary", { p_days: days });
+  if (error) {
+    if (error.code !== "42883" && error.code !== "PGRST202") {
+      console.error("analytics: search summary read failed", { code: error.code, message: error.message });
+    }
+    return null;
+  }
+  return (data as SearchSummary) ?? null;
+}

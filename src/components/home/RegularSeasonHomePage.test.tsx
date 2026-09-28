@@ -140,7 +140,7 @@ describe("RegularSeasonHomePage", () => {
     expect(screen.getByRole("region", { name: /homepage dashboard/i })).toHaveClass("space-y-6");
   });
 
-  it("opens on a real heading and a third door that follows who is looking", async () => {
+  it("opens on a real heading, then a door or shortcuts depending on who is looking", async () => {
     render(await RegularSeasonHomePage());
     expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/draft league/i);
     expect(screen.getByTestId("home-orientation").getAttribute("data-viewer")).toBe("signed-out");
@@ -151,12 +151,13 @@ describe("RegularSeasonHomePage", () => {
     cleanup();
     homeViewer.mockResolvedValue("member");
     render(await RegularSeasonHomePage());
-    expect(within(screen.getByTestId("home-third-door")).getByRole("link", { name: /what it is and how to get it/i }).getAttribute("href")).toBe("/membership");
+    expect(screen.queryByTestId("home-third-door")).toBeNull();
+    expect(within(screen.getByTestId("home-shortcuts")).getByRole("link", { name: /get/i }).getAttribute("href")).toBe("/membership");
 
     cleanup();
     homeViewer.mockResolvedValue("premium");
     render(await RegularSeasonHomePage());
-    expect(within(screen.getByTestId("home-third-door")).getByRole("link", { name: /premium hq/i }).getAttribute("href")).toBe("/premium");
+    expect(within(screen.getByTestId("home-shortcuts")).getByRole("link", { name: /open today's pack/i }).getAttribute("href")).toBe("/cards/packs");
   });
 
   it("keeps the homepage focused on league broadcasts", async () => {

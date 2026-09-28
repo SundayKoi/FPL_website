@@ -28,15 +28,17 @@ describe("SiteNavigation", () => {
     expect(screen.getByRole("button", { name: /fpl, premier division, choose league/i })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /premier menu/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /academy menu/i })).toBeNull();
-    // Four menus of four to six, and one personal page at the top level.
+    // Four menus, and one personal page at the top level. The header's
+    // menu is Games, not Play: "Play" is the cards tab, and one word
+    // meaning two places was a reported source of getting lost.
     expect(screen.queryByRole("link", { name: /^Stats$/ })).toBeNull();
     expect(screen.getByRole("link", { name: /^My Team$/ }).getAttribute("href")).toBe("/my-team");
     expect(screen.getByRole("button", { name: /league menu/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /cards menu/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /play menu/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /about menu/i })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /premium menu/i })).toBeNull();
-    expect(screen.queryByRole("button", { name: /info menu/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /games menu/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /help menu/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /play menu/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /about menu/i })).toBeNull();
     expect(screen.queryByRole("link", { name: /^Cards$/ })).toBeNull();
     expect(screen.queryByRole("link", { name: /^Premium$/ })).toBeNull();
     expect(screen.queryByRole("link", { name: /^Betting$/ })).toBeNull();
@@ -51,13 +53,14 @@ describe("SiteNavigation", () => {
 
     render(<SiteNavigation authSlot={<span>Account</span>} showAdmin />);
     expect(screen.getByRole("link", { name: /^Admin$/ }).getAttribute("href")).toBe("/admin");
-    fireEvent.click(screen.getByRole("button", { name: /about menu/i }));
+    fireEvent.click(screen.getByRole("button", { name: /help menu/i }));
     expect(screen.queryByRole("menuitem", { name: /^Admin$/ })).toBeNull();
   });
 
   it("shows Broadcaster inside League independently from Admin", () => {
     render(<SiteNavigation authSlot={<span>Account</span>} showBroadcaster />);
     fireEvent.click(screen.getByRole("button", { name: /league menu/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^More…$/ }));
     expect(screen.getByRole("menuitem", { name: /^Broadcaster$/ }).getAttribute("href")).toBe("/broadcaster");
     expect(screen.queryByRole("link", { name: /^Admin$/ })).toBeNull();
     cleanup();
@@ -65,6 +68,7 @@ describe("SiteNavigation", () => {
     render(<SiteNavigation authSlot={<span>Account</span>} showAdmin />);
     expect(screen.getByRole("link", { name: /^Admin$/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /league menu/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^More…$/ }));
     expect(screen.queryByRole("menuitem", { name: /^Broadcaster$/ })).toBeNull();
   });
 
@@ -75,58 +79,77 @@ describe("SiteNavigation", () => {
     expect(screen.getByRole("menuitem", { name: /^FPL, Premier division$/ }).getAttribute("aria-current")).toBe("page");
   });
 
-  it("marks FPL'dle as a Play page, not a League destination", () => {
+  it("marks FPL'dle as a Games page, not a League destination", () => {
     pathname.value = "/academy/fpldle";
     render(<SiteNavigation authSlot={<span>Account</span>} />);
 
-    expect(screen.getByRole("button", { name: /play menu/i }).getAttribute("aria-current")).toBe(
+    expect(screen.getByRole("button", { name: /games menu/i }).getAttribute("aria-current")).toBe(
       "page",
     );
     fireEvent.click(screen.getByRole("button", { name: /league menu/i }));
-    expect(screen.queryByRole("menuitem", { name: /^FPL'dle$/ })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: /FPL'dle/ })).toBeNull();
   });
 
-  it("opens the About dropdown with the how-it-works pages", () => {
+  it("lights a menu for a page it keeps behind More", () => {
+    pathname.value = "/cards/market/bounties";
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    expect(screen.getByRole("button", { name: /cards menu/i }).getAttribute("aria-current")).toBe("page");
+    cleanup();
+
+    pathname.value = "/draft";
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    expect(screen.getByRole("button", { name: /league menu/i }).getAttribute("aria-current")).toBe("page");
+  });
+
+  it("opens Help with the how-it-works pages first and the rest behind More", () => {
     render(<SiteNavigation authSlot={<span>Account</span>} />);
 
-    const infoMenu = screen.getByRole("button", { name: /about menu/i });
-    expect(infoMenu.getAttribute("aria-expanded")).toBe("false");
+    const helpMenu = screen.getByRole("button", { name: /help menu/i });
+    expect(helpMenu.getAttribute("aria-expanded")).toBe("false");
 
-    fireEvent.click(infoMenu);
+    fireEvent.click(helpMenu);
 
-    expect(infoMenu.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByRole("menuitem", { name: /^About the league$/ }).getAttribute("href")).toBe("/info");
-    // Where a visitor looks for "how do I get in" — and where it was missing.
-    expect(screen.getByRole("menuitem", { name: /^Premium & Patron$/ }).getAttribute("href")).toBe("/membership");
-    expect(screen.getByRole("menuitem", { name: /^Betting dollars$/ }).getAttribute("href")).toBe("/economy");
-    expect(screen.getByRole("menuitem", { name: /^Sign Up$/ }).getAttribute("href")).toBe("/signup");
-    expect(screen.getByRole("menuitem", { name: /^League Links$/ }).getAttribute("href")).toBe(
-      "/league-links",
-    );
-    expect(screen.getByRole("menuitem", { name: /^Rulebook$/ }).getAttribute("href")).toBe(
-      "/rulebook",
-    );
-    expect(screen.getByRole("menuitem", { name: /^Support the Devs$/ }).getAttribute("href")).toBe(
-      "/support-devs",
-    );
+    expect(helpMenu.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("menuitem", { name: /^How the league works$/ }).getAttribute("href")).toBe("/info");
+    // Where a visitor looks for "how do I get in" — in words that say so.
+    expect(screen.getByRole("menuitem", { name: /^How to get Premium$/ }).getAttribute("href")).toBe("/membership");
+    expect(screen.getByRole("menuitem", { name: /^Rulebook$/ }).getAttribute("href")).toBe("/rulebook");
+    expect(screen.getByRole("menuitem", { name: /^Sign up for next season$/ }).getAttribute("href")).toBe("/signup");
+    // The long tail waits one click away rather than crowding the menu.
+    expect(screen.queryByRole("menuitem", { name: /^Support the devs$/ })).toBeNull();
 
-    fireEvent.click(infoMenu);
-    expect(infoMenu.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(screen.getByRole("menuitem", { name: /^More…$/ }));
+    expect(screen.getByRole("menuitem", { name: /^How betting dollars work$/ }).getAttribute("href")).toBe("/economy");
+    expect(screen.getByRole("menuitem", { name: /^Discord, Twitch & links$/ }).getAttribute("href")).toBe("/league-links");
+    expect(screen.getByRole("menuitem", { name: /^What the card words mean$/ }).getAttribute("href")).toBe("/glossary");
+    expect(screen.getByRole("menuitem", { name: /^Support the devs$/ }).getAttribute("href")).toBe("/support-devs");
+    expect(screen.queryByRole("menuitem", { name: /^More…$/ })).toBeNull();
+
+    fireEvent.click(helpMenu);
+    expect(helpMenu.getAttribute("aria-expanded")).toBe("false");
+    // Reopening starts folded again.
+    fireEvent.click(helpMenu);
+    expect(screen.queryByRole("menuitem", { name: /^Support the devs$/ })).toBeNull();
   });
 
   it("opens League with the active league destinations", () => {
     render(<SiteNavigation authSlot={<span>Account</span>} />);
 
     fireEvent.click(screen.getByRole("button", { name: /league menu/i }));
-    expect(screen.getByRole("menuitem", { name: /^Players$/ }).getAttribute("href")).toBe("/players");
-    expect(screen.getByRole("menuitem", { name: /^Teams$/ }).getAttribute("href")).toBe("/teams");
-    expect(screen.getByRole("menuitem", { name: /^Schedule$/ }).getAttribute("href")).toBe("/schedule");
+    const items = screen.getAllByRole("menuitem").map((item) => item.textContent);
+    // Schedule and standings lead: what most visits come for.
+    expect(items.slice(0, 2)).toEqual(["Schedule & results", "Standings"]);
+    expect(screen.getByRole("menuitem", { name: /^Schedule & results$/ }).getAttribute("href")).toBe("/schedule");
     expect(screen.getByRole("menuitem", { name: /^Standings$/ }).getAttribute("href")).toBe("/standings");
+    expect(screen.getByRole("menuitem", { name: /^Teams$/ }).getAttribute("href")).toBe("/teams");
+    expect(screen.getByRole("menuitem", { name: /^Players$/ }).getAttribute("href")).toBe("/players");
     expect(screen.getByRole("menuitem", { name: /^Stats$/ }).getAttribute("href")).toBe("/stats");
-    // Both drafts under League: the auction that builds rosters and the pick/ban tool.
-    expect(screen.getByRole("menuitem", { name: /^Auction Draft$/ }).getAttribute("href")).toBe("/draft");
-    expect(screen.getByRole("menuitem", { name: /^Match Drafter$/ }).getAttribute("href")).toBe("/drafter");
-    expect(screen.queryByRole("menuitem", { name: /^FPL'dle$/ })).toBeNull();
+    // Both drafts are under League, one click further.
+    expect(screen.queryByRole("menuitem", { name: /^Auction draft$/ })).toBeNull();
+    fireEvent.click(screen.getByRole("menuitem", { name: /^More…$/ }));
+    expect(screen.getByRole("menuitem", { name: /^Auction draft$/ }).getAttribute("href")).toBe("/draft");
+    expect(screen.getByRole("menuitem", { name: /^Pick & ban drafter$/ }).getAttribute("href")).toBe("/drafter");
+    expect(screen.queryByRole("menuitem", { name: /FPL'dle/ })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: /^Broadcaster$/ })).toBeNull();
 
     cleanup();
@@ -134,14 +157,14 @@ describe("SiteNavigation", () => {
     render(<SiteNavigation authSlot={<span>Account</span>} showBroadcaster />);
     fireEvent.click(screen.getByRole("button", { name: /league menu/i }));
     expect(screen.getByRole("menuitem", { name: /^Players$/ }).getAttribute("href")).toBe("/academy/players");
-    expect(screen.queryByRole("menuitem", { name: /^FPL'dle$/ })).toBeNull();
+    fireEvent.click(screen.getByRole("menuitem", { name: /^More…$/ }));
     expect(screen.getByRole("menuitem", { name: /^Broadcaster$/ }).getAttribute("href")).toBe("/broadcaster");
   });
 
-  it("keeps the Premium HQ destination on the current league from the Play menu", () => {
+  it("keeps the Premium HQ destination on the current league from the Games menu", () => {
     pathname.value = "/academy/players";
     render(<SiteNavigation authSlot={<span>Account</span>} />);
-    fireEvent.click(screen.getByRole("button", { name: /play menu/i }));
+    fireEvent.click(screen.getByRole("button", { name: /games menu/i }));
     expect(screen.getByRole("menuitem", { name: /^Premium HQ$/ }).getAttribute("href")).toBe(
       "/premium?league=academy",
     );
@@ -150,7 +173,7 @@ describe("SiteNavigation", () => {
     pathname.value = "/premium";
     search.value = "league=academy";
     render(<SiteNavigation authSlot={<span>Account</span>} />);
-    fireEvent.click(screen.getByRole("button", { name: /play menu/i }));
+    fireEvent.click(screen.getByRole("button", { name: /games menu/i }));
     expect(screen.getByRole("menuitem", { name: /^Premium HQ$/ }).getAttribute("href")).toBe(
       "/premium?league=academy",
     );
@@ -204,26 +227,48 @@ describe("SiteNavigation", () => {
     expect(screen.getByRole("button", { name: /open menu/i })).toBeTruthy();
   });
 
-  it("lists the daily games as Premium destinations of their own, in the current league", () => {
+  it("lists the daily games as destinations of their own, in the current league", () => {
     render(<SiteNavigation authSlot={<span>Account</span>} />);
-    fireEvent.click(screen.getByRole("button", { name: /play menu/i }));
-    expect(screen.getByRole("menuitem", { name: /^FPL'dle$/ }).getAttribute("href")).toBe("/fpldle");
+    fireEvent.click(screen.getByRole("button", { name: /games menu/i }));
+    expect(screen.getByRole("menuitem", { name: /^FPL'dle \(daily\)$/ }).getAttribute("href")).toBe("/fpldle");
     expect(screen.getByRole("menuitem", { name: /^Higher or Lower$/ }).getAttribute("href")).toBe("/higher-lower");
+    expect(screen.getByRole("menuitem", { name: /^Betting$/ }).getAttribute("href")).toBe("/betting");
+    fireEvent.click(screen.getByRole("menuitem", { name: /^More…$/ }));
+    expect(screen.getByRole("menuitem", { name: /^The Daily Stu \(show\)$/ }).getAttribute("href")).toBe("/bangers");
     // Still in admin testing: a member must not be offered a game that
     // bounces them. Staff see it.
     expect(screen.queryByRole("menuitem", { name: /^Guess the Card$/ })).toBeNull();
-    expect(screen.queryByRole("menuitem", { name: /^Daily Games$/ })).toBeNull();
     cleanup();
 
     pathname.value = "/academy/schedule";
-    render(<SiteNavigation authSlot={<span>Account</span>} />);
-    fireEvent.click(screen.getByRole("button", { name: /play menu/i }));
-    expect(screen.getByRole("menuitem", { name: /^FPL'dle$/ }).getAttribute("href")).toBe("/academy/fpldle");
+    render(<SiteNavigation authSlot={<span>Account</span>} showAdmin />);
+    fireEvent.click(screen.getByRole("button", { name: /games menu/i }));
+    expect(screen.getByRole("menuitem", { name: /^FPL'dle \(daily\)$/ }).getAttribute("href")).toBe("/academy/fpldle");
+    fireEvent.click(screen.getByRole("menuitem", { name: /^More…$/ }));
+    expect(screen.getByRole("menuitem", { name: /^Guess the Card$/ }).getAttribute("href")).toBe("/academy/guess-the-card");
   });
 
-  it("puts Patrons in the Info menu", () => {
+  it("puts the core cards pages first, in the current league", () => {
+    pathname.value = "/academy/schedule";
     render(<SiteNavigation authSlot={<span>Account</span>} />);
-    fireEvent.click(screen.getByRole("button", { name: /about menu/i }));
+    fireEvent.click(screen.getByRole("button", { name: /cards menu/i }));
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+      "Cards home",
+      "My cards",
+      "Open packs",
+      "Browse all cards",
+      "More…",
+    ]);
+    expect(screen.getByRole("menuitem", { name: /^Open packs$/ }).getAttribute("href")).toBe("/academy/cards/packs");
+    fireEvent.click(screen.getByRole("menuitem", { name: /^More…$/ }));
+    expect(screen.getByRole("menuitem", { name: /^Buy, sell & trade$/ }).getAttribute("href")).toBe("/academy/cards/market");
+    expect(screen.getByRole("menuitem", { name: /^Fantasy & expeditions$/ }).getAttribute("href")).toBe("/academy/cards/play");
+  });
+
+  it("puts Patrons under Help", () => {
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    fireEvent.click(screen.getByRole("button", { name: /help menu/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^More…$/ }));
     expect(screen.getByRole("menuitem", { name: /^Patrons$/ }).getAttribute("href")).toBe("/supporters");
   });
 

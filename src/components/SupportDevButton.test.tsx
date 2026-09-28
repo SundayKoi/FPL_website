@@ -23,7 +23,9 @@ describe("SupportDevButton", () => {
 
     expect(link.getAttribute("href")).toBe("/support-devs");
     expect(link.className).toContain("fixed");
-    expect(link.className).toContain("bottom-4");
+    // Above the phone tab bar (MobileTabBar), back in the corner from md up.
+    expect(link.className).toContain("bottom-20");
+    expect(link.className).toContain("md:bottom-6");
     expect(link.className).toContain("left-4");
     expect(link.className).toContain("h-10");
     expect(link.className).toContain("w-10");

@@ -1,3 +1,4 @@
+import { createSearch } from "./search";
 import { describe, expect, it } from "vitest";
 import { siteDestinations, siteDirectory } from "./directory";
 
@@ -37,7 +38,7 @@ describe("siteDirectory", () => {
     for (const label of ["Packs", "My Collection", "Market", "Betting", "FPL'dle", "Match Drafter", "Expeditions"]) {
       expect(gated(label), label).toBe(true);
     }
-    for (const label of ["Browse", "The Vault", "Moments", "Rarities", "Premium HQ", "Schedule", "Glossary"]) {
+    for (const label of ["Browse", "Rarest cards", "Moments", "Pack odds", "Premium HQ", "Schedule", "Glossary"]) {
       expect(gated(label), label).toBe(false);
     }
   });
@@ -56,6 +57,20 @@ describe("siteDirectory", () => {
     const cards = siteDirectory("premier").find((group) => group.key === "cards")!;
     const top = cards.items.filter((item) => !item.nested).map((item) => item.label);
     expect(top).toEqual(["Cards", "My Collection", "Packs", "Browse", "Market", "Play"]);
-    expect(cards.items.find((item) => item.label === "The Vault")?.nested).toBe(true);
+    expect(cards.items.find((item) => item.label === "Rarest cards")?.nested).toBe(true);
+  });
+});
+
+describe("renamed pages in site search", () => {
+  it("still finds a page by the name it used to have", () => {
+    const search = createSearch(
+      siteDestinations("premier").map((item) => ({ kind: "page" as const, label: item.label, href: item.href, keywords: item.keywords })),
+    );
+    expect(search("bounties")[0]?.label).toBe("Wanted");
+    expect(search("vault")[0]?.label).toBe("Rarest cards");
+    expect(search("ledger")[0]?.label).toBe("Expedition log");
+    // A tab's own first sub-page ("Listings" -> "For sale") is listed once,
+    // as the tab, and carries the old name there.
+    expect(search("listings")[0]?.href).toBe("/cards/market");
   });
 });
