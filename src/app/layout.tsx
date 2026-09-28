@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Bangers, Chakra_Petch, Cinzel, Pinyon_Script, Saira } from "next/font/google";
+import { Anton, Bangers, Chakra_Petch, Cinzel, Pinyon_Script, Saira } from "next/font/google";
 import AuthButton from "@/components/AuthButton";
 import LeagueThemeScope from "@/components/LeagueThemeScope";
 import SiteNavigation from "@/components/SiteNavigation";
@@ -16,6 +16,12 @@ const chakra = Chakra_Petch({
   weight: ["600", "700"],
   style: ["normal", "italic"],
   variable: "--font-chakra",
+});
+// Homepage display headings only; the global display token and admin type stay Chakra Petch.
+const anton = Anton({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-anton",
 });
 const saira = Saira({
   subsets: ["latin"],
@@ -61,7 +67,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${chakra.variable} ${saira.variable} ${cinzel.variable} ${bangers.variable} ${pinyon.variable} h-full antialiased`}
+      className={`${chakra.variable} ${anton.variable} ${saira.variable} ${cinzel.variable} ${bangers.variable} ${pinyon.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-canvas text-content font-body antialiased">
         <ToastProvider>

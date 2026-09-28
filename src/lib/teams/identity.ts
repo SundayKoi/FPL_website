@@ -1,10 +1,12 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { teamSlug } from "./teamPage";
+import { normalizeBannerColor } from "./bannerColor";
 
 export interface TeamIdentity {
   name: string;
   abbreviation: string;
   imageUrl: string | null;
+  bannerColor?: string;
 }
 
 /** Crest and short name for each team of a league's draft, keyed by slug so a
@@ -26,15 +28,16 @@ export async function fetchTeamIdentities(
 
   const { data } = await supabase
     .from("teams")
-    .select("name, abbreviation, image_url")
+    .select("name, abbreviation, image_url, banner_color")
     .eq("draft_id", draftId);
 
   const out: Record<string, TeamIdentity> = {};
-  for (const row of (data as { name: string; abbreviation: string | null; image_url: string | null }[]) ?? []) {
+  for (const row of (data as { name: string; abbreviation: string | null; image_url: string | null; banner_color: string | null }[]) ?? []) {
     out[teamSlug(row.name)] = {
       name: row.name,
       abbreviation: row.abbreviation || row.name.slice(0, 3).toUpperCase(),
       imageUrl: row.image_url,
+      bannerColor: normalizeBannerColor(row.banner_color),
     };
   }
   return out;

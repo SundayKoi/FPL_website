@@ -28,7 +28,7 @@ const SUGGESTED = ["Players", "Teams", "Schedule", "Standings", "Stats", "Cards"
 
 const KIND_LABEL: Record<SearchItem["kind"], string> = { page: "Page", player: "Player", team: "Team" };
 
-export default function SiteSearch({ league }: { league: LeagueView }) {
+export default function SiteSearch({ league, touchTarget = false }: { league: LeagueView; touchTarget?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -106,7 +106,7 @@ export default function SiteSearch({ league }: { league: LeagueView }) {
         aria-label="Search the site"
         aria-keyshortcuts="Meta+K Control+K"
         title="Search players, teams and pages (⌘K)"
-        className="inline-flex h-9 items-center gap-2 rounded border border-line px-2 text-steel transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral lg:px-3"
+        className={`inline-flex items-center gap-2 rounded border border-line px-2 text-steel transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral lg:px-3 ${touchTarget ? "h-11" : "h-9"}`}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
           <circle cx="11" cy="11" r="7" />

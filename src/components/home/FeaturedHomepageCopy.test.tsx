@@ -34,6 +34,8 @@ vi.mock("@/lib/home/schedule", async (importOriginal) => ({
     isNewestSeason: true,
     activeStage: "week_1",
     fixtures: [fixture],
+    upcoming: [fixture],
+    seasonFixtures: [fixture],
   })),
 }));
 vi.mock("@/lib/home/awards", () => ({ fetchHomepageAwards: vi.fn(async () => ({})), PREMIER_SEASON: "S5" }));

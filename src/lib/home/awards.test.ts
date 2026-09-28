@@ -124,5 +124,15 @@ describe("deriveHomepageAwards", () => {
     expect(result.playerOfWeek.name).toBeNull();
     expect(result.teamOfWeek.teamName).toBeNull();
   });
-});
 
+  it("uses the same Eastern Monday period key as the weekly card pipeline", () => {
+    const result = deriveHomepageAwards(
+      [row({ game_date: "2026-04-27T01:00:00.000Z", season: "S5" })],
+      new Map(),
+    );
+
+    // Sunday at 9 PM in New York is still part of the week beginning Apr 20.
+    expect(result.periodKey).toBe("2026-04-20");
+    expect(result.periodLabel).toBe("Week of Apr 20");
+  });
+});

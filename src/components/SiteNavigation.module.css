@@ -1,0 +1,329 @@
+.siteHeader {
+  --header-accent: var(--color-premier-accent);
+  --header-accent-text: #8db6d2;
+  --color-league-accent: var(--header-accent-text);
+  --color-focus: #8db6d2;
+  border-color: color-mix(in srgb, var(--header-accent) 48%, transparent);
+}
+
+.siteHeader :global(a:hover),
+.siteHeader :global(button:hover),
+.siteHeader :global(a[aria-current="page"]),
+.siteHeader :global(button[aria-expanded="true"]) {
+  color: var(--header-accent-text) !important;
+}
+
+.siteHeader :global(a:hover),
+.siteHeader :global(button:hover) {
+  border-color: var(--header-accent);
+}
+
+.siteHeader :global(a:focus-visible),
+.siteHeader :global(button:focus-visible) {
+  outline-color: var(--color-focus) !important;
+}
+
+.homeHeader {
+  background: #14151a;
+}
+
+.homeHeaderInner {
+  min-height: 88px;
+  padding: 0 clamp(16px, 3vw, 44px);
+}
+
+.homeHeader :global(button[aria-label$="choose league"]) {
+  border-color: #514c5d;
+  background: #17151e;
+  padding-inline: 12px;
+  color: #f2f0f8;
+}
+
+.homeHeader :global(button[aria-label$="choose league"]:hover) {
+  border-color: var(--header-accent);
+  background: #211e29;
+}
+
+.homeNavigation {
+  min-height: 88px;
+  align-items: stretch !important;
+}
+
+.homeNavigation > div {
+  align-self: stretch;
+}
+
+.homeNavLink {
+  position: relative;
+  display: inline-flex;
+  min-height: 88px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 !important;
+  padding-inline: 10px !important;
+  color: #d2d4dc !important;
+  background: transparent !important;
+  text-decoration: none;
+}
+
+.homeNavLink:hover,
+.homeNavLink[aria-current="page"],
+.homeNavLink[aria-expanded="true"] {
+  color: var(--header-accent-text) !important;
+}
+
+.homeNavLink::after {
+  position: absolute;
+  right: 7px;
+  bottom: 0;
+  left: 7px;
+  height: 3px;
+  transform: scaleX(0);
+  transform-origin: center;
+  background: var(--header-accent);
+  content: "";
+  transition: transform 140ms ease;
+}
+
+.homeNavLink:hover::after,
+.homeNavLink[aria-current="page"]::after,
+.homeNavLink[aria-expanded="true"]::after {
+  transform: scaleX(1);
+}
+
+.homeHeader :global(a:focus-visible),
+.homeHeader :global(button:focus-visible) {
+  outline-color: var(--color-focus);
+  outline-offset: 3px;
+}
+
+@media (max-width: 767px) {
+  .homeHeaderInner {
+    min-height: 64px;
+    padding: 8px 16px;
+  }
+
+  .homeNavigation {
+    min-height: 0;
+    align-items: stretch !important;
+  }
+
+  .homeNavigation > div {
+    align-self: auto;
+  }
+
+  .homeNavLink {
+    min-height: 44px;
+    justify-content: flex-start;
+    padding-inline: 14px !important;
+  }
+
+  .homeNavLink::after {
+    right: auto;
+    bottom: 4px;
+    left: 14px;
+    width: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .homeNavLink::after {
+    transition: none;
+  }
+}
+
+/* The homepage shares the site's dark default; other routes keep their own masthead. */
+.homeHeader { color: #f2f0f8; background: #101018; backdrop-filter: none; }
+.homeHeaderInner { min-height: 72px; }
+.homeNavigation { min-height: 72px; }
+.homeNavLink { min-height: 72px; color: #d2d0dc !important; }
+.homeNavLink:hover, .homeNavLink[aria-current="page"], .homeNavLink[aria-expanded="true"] { color: var(--header-accent-text) !important; }
+.homeNavLink::after { background: var(--header-accent); }
+.homeHeader :global(button[aria-label="Open menu"]), .homeHeader :global(button[aria-label="Close menu"]) { color: #f2f0f8; border-color: #514c5d; }
+.homeHeader :global(a:focus-visible), .homeHeader :global(button:focus-visible) { outline-color: var(--color-focus); }
+@media (max-width: 767px) { .homeHeaderInner { min-height: 64px; } .homeNavigation { min-height: 0; } .homeNavLink { min-height: 44px; } }
+@media (max-width: 360px) { .homeHeaderInner { gap: 8px; padding-inline: 10px; } }
+
+@media (max-width: 390px) {
+  .siteHeader:not(.homeHeader) > div {
+    gap: 2px;
+    padding-inline: 6px;
+  }
+
+  .siteHeader:not(.homeHeader) > div > :global(.ml-auto) {
+    gap: 2px;
+  }
+
+  .siteHeader:not(.homeHeader) .brandAndLeague {
+    gap: 1px;
+  }
+
+  .siteHeader:not(.homeHeader) .brandSigil {
+    width: 26px;
+    height: 26px;
+  }
+
+  .siteHeader:not(.homeHeader) .brandName {
+    font-size: 1rem;
+  }
+
+  .siteHeader:not(.homeHeader) .brandDivider {
+    height: 24px;
+  }
+
+  .siteHeader:not(.homeHeader) .leagueSelectorTrigger {
+    min-height: 36px;
+    padding-inline: 5px;
+    font-size: 0.65rem;
+  }
+}
+
+.brandAndLeague {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.brandIdentity {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-content);
+  text-decoration: none;
+}
+
+.brandIdentity:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid var(--color-focus);
+  outline-offset: 4px;
+}
+
+.brandSigil {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+
+.brandName {
+  color: var(--color-content);
+  font-family: var(--font-anton), "Arial Narrow", sans-serif;
+  font-size: 1.5rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+
+.brandDivider {
+  width: 1px;
+  height: 30px;
+  flex: 0 0 auto;
+  background: var(--color-border-strong);
+}
+
+.leagueSelectorTrigger {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 4px;
+  background: var(--color-surface);
+  padding: 0 12px;
+  color: var(--color-content);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  text-transform: uppercase;
+  transition: border-color 120ms ease, background-color 120ms ease;
+  white-space: nowrap;
+}
+
+.leagueSelectorTrigger:hover,
+.leagueSelectorTrigger[aria-expanded="true"] {
+  border-color: var(--color-action-text);
+  background: var(--color-raised);
+}
+
+.leagueSelectorTrigger:focus-visible,
+.leagueMenuLink:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.selectorChevron {
+  margin-left: 2px;
+  color: var(--color-muted);
+  font-size: 0.68rem;
+}
+
+.leagueMenu {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  min-width: 196px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.leagueMenuLink {
+  display: flex;
+  min-height: 48px;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  border-radius: 3px;
+  padding: 7px 9px;
+  color: var(--color-content);
+  text-decoration: none;
+}
+
+.leagueMenuLink:hover,
+.leagueMenuLink:focus-visible {
+  background: var(--color-raised);
+}
+
+.leagueMenuCopy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.leagueMenuCopy > span:first-child {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.leagueMenuCopy > span:last-child {
+  color: var(--color-muted);
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.currentLeagueMark {
+  color: var(--color-league-accent);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+@media (max-width: 360px) {
+  .brandAndLeague { gap: 8px; }
+  .brandIdentity { gap: 5px; }
+  .brandSigil { width: 36px; height: 36px; }
+  .brandName { font-size: 1.25rem; }
+  .brandDivider { height: 26px; }
+  .leagueSelectorTrigger { min-height: 36px; gap: 6px; padding-inline: 8px; font-size: 0.66rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leagueSelectorTrigger { transition: none; }
+}

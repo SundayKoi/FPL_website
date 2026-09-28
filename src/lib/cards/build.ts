@@ -254,6 +254,9 @@ export interface PlayerCardData {
   winratePct: number;
   /** Card level — games played this season. */
   level: number;
+  /** Eastern-calendar week used by a live homepage/card-hub snapshot.
+   * Null means the reader fell back to a season-wide build. */
+  snapshotWeek?: string | null;
   pentas: number;
   season: string;
   /** Stamped on copies opened inside a Live Drops window — the label the

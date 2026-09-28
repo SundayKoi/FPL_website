@@ -1,12 +1,22 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
-import type { TwitchClip, TwitchStreamState } from "@/lib/twitch/status";
 import { formatKickoff } from "@/lib/schedule/format";
+import type { TwitchClip, TwitchStreamState } from "@/lib/twitch/status";
 import type { FixtureRow } from "@/lib/schedule/types";
+import type { TeamIdentity } from "@/lib/teams/identity";
+import type { HomeStandingTeam } from "@/lib/home/standings";
+import type { HomeAppearance } from "./appearance";
+import styles from "./HomeWorkspace.module.css";
+import HomeMatchupHero from "./HomeMatchupHero";
 
 type FeaturedMatchupProps = {
   fixture: FixtureRow | null;
+  identities?: Record<string, TeamIdentity>;
+  standings?: HomeStandingTeam[];
+  teamBasePath?: string | null;
+  scheduleHref?: string;
+  seasonLabel?: string;
   clips: TwitchClip[];
   streamState: TwitchStreamState;
   /** Live viewer count from the Twitch status check; null while offline. */
@@ -15,6 +25,7 @@ type FeaturedMatchupProps = {
   twitchUrl: string;
   title?: string;
   description?: string;
+  appearance?: HomeAppearance;
 };
 
 function getEmbedParent(): string | null {
@@ -28,15 +39,20 @@ function subscribeToEmbedParent() {
 
 export default function FeaturedMatchup({
   fixture,
+  identities = {},
+  teamBasePath = "/teams",
+  scheduleHref = "/schedule",
+  seasonLabel,
   clips,
   streamState,
   viewerCount = null,
   channelLogin,
   twitchUrl,
-  title = "The title race gets serious.",
-  description =
-    "Two teams meet under the lights. Follow the broadcast, watch the standings shift, and see who owns the next chapter.",
+  title,
+  description,
+  appearance = "legacy",
 }: FeaturedMatchupProps) {
+  const workspace = appearance === "workspace";
   const [previewOpen, setPreviewOpen] = useState(false);
   const embedParent = useSyncExternalStore(subscribeToEmbedParent, getEmbedParent, () => "localhost");
   const activeClip = clips[0] ?? null;
@@ -64,50 +80,59 @@ export default function FeaturedMatchup({
 
   const teamA = fixture?.team_a?.trim() || "TBD";
   const teamB = fixture?.team_b?.trim() || "TBD";
+  const legacyTitle = title?.trim() || "The title race gets serious.";
+  const legacyDescription = description?.trim() || "Two teams meet under the lights. Follow the broadcast, watch the standings shift, and see who owns the next chapter.";
+
+  if (workspace) return <HomeMatchupHero
+    fixture={fixture} identities={identities} clips={clips} streamState={streamState}
+    viewerCount={viewerCount} channelLogin={channelLogin} twitchUrl={twitchUrl}
+    title={title} description={description} scheduleHref={scheduleHref}
+    teamBasePath={teamBasePath} seasonLabel={seasonLabel}
+  />;
 
   return (
-    <article aria-label="Featured matchup and Franchise Premier League broadcast" className="card-brand card-featured overflow-hidden p-5 sm:p-6">
+    <article aria-label="Featured matchup and Franchise Premier League broadcast" className={workspace ? `${styles.panel} ${styles.broadcast} overflow-hidden p-5 sm:p-6` : "card-brand card-featured overflow-hidden p-5 sm:p-6"} data-appearance={appearance}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <span className="label-dash">FEATURED MATCHUP · {fixture?.stage?.replace("_", " ") ?? "NEXT"}</span>
-          <h2 id="featured-matchup-title" className="type-display mt-2 text-4xl sm:text-5xl">
-            {title}
+          <span className={workspace ? `${styles.eyebrow} ${styles.broadcastMuted}` : "label-dash"}>FEATURED MATCHUP · {fixture?.stage?.replace("_", " ") ?? "NEXT"}</span>
+          <h2 id="featured-matchup-title" className={workspace ? `${styles.broadcastTitle} mt-2 text-4xl sm:text-5xl` : "type-display mt-2 text-4xl sm:text-5xl"}>
+            {legacyTitle}
           </h2>
         </div>
         {isLive ? (
-          <span className="glow-pulse flex items-center gap-2 rounded-full border border-success/60 bg-success/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-success">
+          <span className={`glow-pulse flex items-center gap-2 rounded-full border border-success/60 bg-success/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] ${workspace ? "text-emerald-300" : "text-success"}`}>
             <span aria-hidden className="h-2 w-2 rounded-full bg-success" />
             Live{typeof viewerCount === "number" ? ` · ${Intl.NumberFormat("en", { notation: "compact" }).format(viewerCount)} watching` : ""}
           </span>
         ) : (
-          <span className="rounded-full border border-league-secondary/40 bg-league-secondary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-league-secondary">
+          <span className={`rounded-full border border-league-secondary/40 bg-league-secondary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${workspace ? "border-white/25 bg-white/10 text-gray-100" : "text-league-secondary"}`}>
             {fixture?.division ?? "FPL broadcast"}
           </span>
         )}
       </div>
 
-      <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
-        {description}
+      <p className={`mt-3 max-w-2xl text-sm leading-6 ${workspace ? styles.broadcastMuted : "text-muted"}`}>
+        {legacyDescription}
       </p>
 
       <div className="mt-5 grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
-        <div className="rounded-lg border border-border-subtle bg-canvas/60 p-4">
-          <span className="block text-[10px] uppercase tracking-[0.16em] text-muted">Team A</span>
+        <div className={`rounded-lg border border-border-subtle p-4 ${workspace ? styles.broadcastSoft : "bg-canvas/60"}`}>
+          <span className={`block text-[10px] uppercase tracking-[0.16em] ${workspace ? styles.broadcastMuted : "text-muted"}`}>Team A</span>
           <strong className="mt-2 block text-xl text-white">{teamA}</strong>
         </div>
         <span className="text-center font-mono text-sm font-bold tracking-[0.12em] text-league-accent">VS</span>
-        <div className="rounded-lg border border-border-subtle bg-canvas/60 p-4">
-          <span className="block text-[10px] uppercase tracking-[0.16em] text-muted">Team B</span>
+        <div className={`rounded-lg border border-border-subtle p-4 ${workspace ? styles.broadcastSoft : "bg-canvas/60"}`}>
+          <span className={`block text-[10px] uppercase tracking-[0.16em] ${workspace ? styles.broadcastMuted : "text-muted"}`}>Team B</span>
           <strong className="mt-2 block text-xl text-white">{teamB}</strong>
         </div>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs uppercase tracking-[0.12em]">
-        <span className={isLive ? "text-success" : "text-muted"}>{isLive ? "● On air now" : fixture?.scheduled_at ? formatKickoff(fixture.scheduled_at) : "Broadcast details coming soon"}</span>
-        {fixture ? <span className="text-muted">Best of {fixture.best_of}</span> : null}
+        <span className={isLive ? (workspace ? "text-emerald-300" : "text-success") : workspace ? styles.broadcastMuted : "text-muted"}>{isLive ? "● On air now" : fixture?.scheduled_at ? formatKickoff(fixture.scheduled_at) : "Broadcast details coming soon"}</span>
+        {fixture ? <span className={workspace ? styles.broadcastMuted : "text-muted"}>Best of {fixture.best_of}</span> : null}
       </div>
 
-      <div className="mt-4 rounded-lg border border-border-subtle bg-canvas/70">
+      <div className={`mt-4 rounded-lg border border-border-subtle ${workspace ? styles.broadcastSoft : "bg-canvas/70"}`}>
         <button
           type="button"
           aria-expanded={previewOpen}
@@ -118,15 +143,15 @@ export default function FeaturedMatchup({
             <span className="h-2 w-2 rounded-full bg-success shadow-[0_0_0_4px_rgb(46_230_168_/_0.12)]" />
             <span>
               <strong className="block text-xs uppercase tracking-[0.1em] text-white">Twitch broadcast preview</strong>
-              <span className="mt-1 block text-xs text-muted">Watch the desk, draft room, and live league coverage</span>
+            <span className={`mt-1 block text-xs ${workspace ? styles.broadcastMuted : "text-muted"}`}>Watch the desk, draft room, and live league coverage</span>
             </span>
           </span>
-          <span className="shrink-0 text-xs uppercase tracking-[0.12em] text-action-text">
+          <span className={`shrink-0 text-xs uppercase tracking-[0.12em] ${workspace ? "text-league-accent" : "text-action-text"}`}>
             {previewOpen ? "Hide preview −" : "Show preview ＋"}
           </span>
         </button>
         <div className="border-t border-border-subtle px-4 py-3 text-right">
-          <a href={twitchUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-action-text hover:text-white">
+          <a href={twitchUrl} target="_blank" rel="noreferrer" className={`text-xs font-semibold ${workspace ? "text-league-accent hover:text-white" : "text-action-text hover:text-white"}`}>
             Open Twitch channel →
           </a>
         </div>
@@ -142,12 +167,12 @@ export default function FeaturedMatchup({
                   title={isLive ? "Franchise Premier League live stream" : activeClip?.title ?? "Twitch broadcast preview"}
                 />
               ) : (
-                <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted">
+                <div className={`flex h-full items-center justify-center px-6 text-center text-sm ${workspace ? styles.broadcastMuted : "text-muted"}`}>
                   Clips will appear here after they are available on Twitch.
                 </div>
               )}
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 text-xs text-muted">
+            <div className={`flex flex-wrap items-center justify-between gap-3 pt-3 text-xs ${workspace ? styles.broadcastMuted : "text-muted"}`}>
               <span>
                 {isLive
                   ? `Streaming live from Twitch${typeof viewerCount === "number" ? ` · ${Intl.NumberFormat("en", { notation: "compact" }).format(viewerCount)} watching` : ""}`

@@ -24,7 +24,7 @@ describe("SiteNavigation", () => {
     render(<SiteNavigation authSlot={<span>Account</span>} />);
 
     expect(screen.queryByRole("link", { name: /^Home$/ })).toBeNull();
-    expect(screen.queryByRole("link", { name: /fpl home/i })).toBeNull();
+    expect(screen.getByRole("link", { name: /fpl home/i }).getAttribute("href")).toBe("/");
     expect(screen.getByRole("button", { name: /fpl, premier division, choose league/i })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /premier menu/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /academy menu/i })).toBeNull();
@@ -156,24 +156,16 @@ describe("SiteNavigation", () => {
     );
   });
 
-  it("uses the larger desktop header and brand treatment", () => {
+  it("scopes the redesigned masthead to Premier home", () => {
     const { container } = render(<SiteNavigation authSlot={<span>Account</span>} />);
+    expect(screen.getByRole("link", { name: /fpl home/i }).getAttribute("href")).toBe("/");
+    expect(container.querySelector("header > div")?.className).not.toContain("page-container");
 
-    const headerRow = container.querySelector("header > div");
-    expect(headerRow?.className).toContain("page-container");
-    expect(headerRow?.className).toContain("sm:py-4");
-    expect(headerRow?.className).not.toContain("sm:px-8");
-    expect(headerRow?.className).not.toContain("lg:px-10");
-
-    const brandButton = screen.getByRole("button", { name: /fpl, premier division, choose league/i });
-    expect(brandButton.className).toContain("gap-2");
-
-    const logo = brandButton.querySelector("img");
-    expect(logo?.getAttribute("width")).toBe("28");
-    expect(logo?.getAttribute("height")).toBe("28");
-
-    const leagueMenu = screen.getByRole("button", { name: /league menu/i });
-    expect(leagueMenu.className).toContain("sm:text-sm");
+    cleanup();
+    pathname.value = "/academy";
+    const academy = render(<SiteNavigation authSlot={<span>Account</span>} />);
+    expect(screen.queryByRole("link", { name: /fpl home/i })).toBeNull();
+    expect(academy.container.querySelector("header > div")?.className).toContain("page-container");
   });
 
   it("toggles the mobile menu open and closed via the hamburger button", () => {

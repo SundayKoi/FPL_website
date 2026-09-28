@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { deriveSeriesStandings, deriveStandingsRace, deriveTeamExtras, fetchHomepageStandings } from "./standings";
+import {
+  deriveHomepageOverallPlayoffSeeds,
+  deriveSeriesStandings,
+  deriveStandingsRace,
+  deriveTeamExtras,
+  fetchHomepageStandings,
+} from "./standings";
 
 const { createServerSupabase } = vi.hoisted(() => ({
   createServerSupabase: vi.fn(),
@@ -69,6 +75,7 @@ describe("fetchHomepageStandings", () => {
         { id: "team-2", name: "Bravo", abbreviation: "BR", nomination_position: 2, wins: 0, losses: 1, winrate_pct: 0, game_wins: 1, game_losses: 2, game_winrate_pct: 33.3, avg_win_minutes: undefined, form: ["L"], next_opponent: null },
       ],
       race: [],
+      playoffSeeds: { Solari: [], Lunari: [] },
     });
   });
 
@@ -87,6 +94,7 @@ describe("fetchHomepageStandings", () => {
         { id: "team-1", name: "Alpha", abbreviation: "AL", nomination_position: 1, wins: 0, losses: 0, winrate_pct: 0, game_wins: 0, game_losses: 0, game_winrate_pct: 0, avg_win_minutes: undefined, form: [], next_opponent: null },
       ],
       race: [],
+      playoffSeeds: { Solari: [], Lunari: [] },
     });
   });
 
@@ -166,6 +174,27 @@ describe("deriveStandingsRace", () => {
 
   it("returns no frames when nothing has been played", () => {
     expect(deriveStandingsRace([staged("Alpha", "Bravo", null, null, "week_1")], "S5", draftTeams)).toEqual([]);
+  });
+});
+
+describe("deriveHomepageOverallPlayoffSeeds", () => {
+  it("seeds a divisionless league from regular-season results and ignores playoff results", () => {
+    const teams = [
+      { id: "alpha", name: "Alpha", abbreviation: "AL", nomination_position: 1, division: null },
+      { id: "bravo", name: "Bravo", abbreviation: "BR", nomination_position: 2, division: null },
+      { id: "charlie", name: "Charlie", abbreviation: "CH", nomination_position: 3, division: null },
+    ];
+    const fixtures = [
+      { season: "A1", stage: "week_1" as const, sort_order: 0, team_a: "Alpha", team_b: "Bravo", score_a: 2, score_b: 0 },
+      { season: "A1", stage: "week_1" as const, sort_order: 1, team_a: "Charlie", team_b: "Bravo", score_a: 2, score_b: 1 },
+      { season: "A1", stage: "semifinals" as const, sort_order: 0, team_a: "Bravo", team_b: "Alpha", score_a: 3, score_b: 0 },
+    ];
+
+    expect(deriveHomepageOverallPlayoffSeeds(fixtures, "A1", teams)).toEqual([
+      { seed: 1, id: "alpha", name: "Alpha", abbreviation: "AL" },
+      { seed: 2, id: "charlie", name: "Charlie", abbreviation: "CH" },
+      { seed: 3, id: "bravo", name: "Bravo", abbreviation: "BR" },
+    ]);
   });
 });
 

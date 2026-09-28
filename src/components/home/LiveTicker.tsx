@@ -1,3 +1,6 @@
+import type { HomeAppearance } from "./appearance";
+import styles from "./HomeWorkspace.module.css";
+
 export type TickerTone = "coral" | "mint" | "gold" | "cyan" | "pink";
 
 export type TickerItem = {
@@ -20,13 +23,14 @@ const TONE_CLASS: Record<TickerTone, string> = {
  * marquee (see ticker-track in globals.css): the item list renders twice so
  * the loop is seamless; hover pauses it; reduced-motion shows it static.
  */
-export default function LiveTicker({ items }: { items: TickerItem[] }) {
+export default function LiveTicker({ items, appearance = "legacy" }: { items: TickerItem[]; appearance?: HomeAppearance }) {
   if (items.length === 0) return null;
+  const workspace = appearance === "workspace";
 
   const half = (copy: number) => (
     <div aria-hidden={copy === 1} className="flex w-max items-center">
       {items.map((item) => (
-        <span key={`${copy}-${item.key}`} className="flex items-center gap-2 pr-10 text-xs">
+        <span key={`${copy}-${item.key}`} className={workspace ? styles.statusItem : "flex items-center gap-2 pr-10 text-xs"}>
           <span
             className={`whitespace-nowrap font-semibold uppercase tracking-[0.18em] ${TONE_CLASS[item.tone ?? "coral"]}`}
           >
@@ -41,12 +45,29 @@ export default function LiveTicker({ items }: { items: TickerItem[] }) {
   return (
     <div
       aria-label="League ticker"
-    className="ticker-mask overflow-hidden rounded border border-league-accent/30 bg-canvas/85 py-2"
+      role={workspace ? "region" : undefined}
+      className={workspace ? styles.statusStrip : "ticker-mask overflow-hidden rounded border border-league-accent/30 bg-canvas/85 py-2"}
     >
-      <div className="ticker-track flex w-max motion-reduce:w-full motion-reduce:overflow-x-auto">
-        {half(0)}
-        {half(1)}
-      </div>
+      {workspace ? (
+        <div className={styles.tickerLine}>
+          <div className={styles.tickerViewport}>
+            <div className={styles.statusTrack}>
+              {half(0)}
+              {half(1)}
+            </div>
+          </div>
+          <label className={styles.tickerToggle}>
+            <input type="checkbox" aria-label="Pause the moving league ticker" />
+            <span className={styles.pauseLabel}>Pause</span>
+            <span className={styles.resumeLabel}>Resume</span>
+          </label>
+        </div>
+      ) : (
+        <div className="ticker-track flex w-max motion-reduce:w-full motion-reduce:overflow-x-auto">
+          {half(0)}
+          {half(1)}
+        </div>
+      )}
     </div>
   );
 }
