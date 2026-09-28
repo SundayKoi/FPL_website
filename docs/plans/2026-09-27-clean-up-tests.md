@@ -194,5 +194,5 @@ For the completed implementation, run typecheck, lint, retained Vitest, Python, 
 - `npm test` — 257 files and 2,738 tests passed.
 - `npm run test:python` — 25 tests passed.
 - `npm run test:infra` — fresh migrations, 157 pgTAP files / 2,433 assertions, production build, and seven real Chromium journeys passed; runner stopped and removed its disposable project in `finally`.
-- Migration history checker — exact replay-repair exceptions and adversarial regression tests are included; final base-to-commit check is recorded in the migration handoff after commit.
+- Migration history checker — exact replay-repair exceptions and adversarial regression tests are included; final `node scripts/check-migrations.mjs origin/develop HEAD` passed, with only the three documented pre-existing duplicate-version warnings.
 - Release path — focused PR to `develop`, then green `checks` on that exact commit; the release workflow merges it to `main`. No merge, cloud migration, or deployment was performed here.
