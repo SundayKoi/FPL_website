@@ -28,7 +28,7 @@ function client(drafts: Record<string, string | null>, rows: TeamRow[]) {
   const teamsEq = vi.fn(async (_column: string, draftId: string) => ({
     data: rows.filter((row) => row.draft_id === draftId),
   }));
-  const teamsSelect = vi.fn((_columns: string) => ({ eq: teamsEq }));
+  const teamsSelect = vi.fn(() => ({ eq: teamsEq }));
   const from = vi.fn((table: string) => table === "league_settings"
     ? { select: settingsSelect }
     : { select: teamsSelect });

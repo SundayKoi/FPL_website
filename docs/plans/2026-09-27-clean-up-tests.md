@@ -2,9 +2,9 @@
 
 Date: 2026-09-27
 
-Branch: `clean-up-tests`
+Branch: `feature/clean-up-tests-infra` (worktree: `.worktrees/develop`)
 
-Status: implementation and synced-tree verification complete. The refreshed CSV inventory has 634 assertion rows across 631 test paths. Final Vitest is 263 files / 2,820 tests; typecheck passes, ESLint has one existing `<img>` advisory, and Python passes (25 tests). After syncing with the current `develop` base, `npm run test:infra` passed: 245 migration sources staged as 242 versions; fresh replay and 157 pgTAP files / 2,433 assertions passed; the production build completed; all seven Chromium browser journeys passed; and the runner cleaned up its local project and temporary Next.js type paths. The updated source/test tree has 46,797 lines with 6,925 `expect()` calls, down from the original 431 files, 59,642 lines, and 8,805 calls. The 85–130 file target remains unmet; the remaining contracts and rationale are recorded below. Two exact, user-authorized repairs to already-applied migrations are pinned in the history checker and detailed in the [historical replay repair handoff](2026-09-27-historical-migration-replay-repair.md). The seven migration versions previously missing locally are present on `origin/develop` and confirmed applied remotely; no cloud history repair was needed.
+Status: review follow-ups and local verification complete as of 2026-09-28 on `feature/clean-up-tests-infra`, synced through `origin/develop` `c7369b4f`. The branch is local and unpushed. The inventory now has 647 assertion-group rows across 644 test paths, and all 447 current test artifacts are mapped. Final Vitest is 279 files / 2,916 tests; typecheck passes; lint passes with the pre-existing `<img>` advisory; Python passes (25 tests). `npm run test:infra` passed: 247 migration sources staged as 244 versions; all 159 pgTAP files / 2,455 planned assertions passed; the production build completed; all seven Chromium browser journeys passed; and the runner cleaned up its isolated project and temporary Next.js type paths. The reproducible source scan against the recorded branch-start commit `ff20e858` finds 453 files / 66,169 lines / 10,158 literal `expect()` calls / 174 files with `vi.mock()`; the final tree has 279 / 48,011 / 7,148 / 109 respectively. The 85–130 file target remains unmet, with the remaining contracts and maintenance cost recorded below. Both exact, user-authorized historical migration repairs are pinned in the checker and detailed in the [historical replay repair handoff](2026-09-27-historical-migration-replay-repair.md). A current read-only listing for the configured FPL Supabase project confirms the seven previously missing versions are applied; no remote history repair or cloud write was needed.
 
 ## Objective and decisions
 
@@ -16,7 +16,7 @@ The proposed exception to E2E-first coverage is a compact set of database contra
 
 Reduction targets, subject to the assertion audit below:
 
-- Remove approximately 70–80% of the 431 TypeScript test files: roughly 85–130 remain at most as an initial target, preferably fewer where justified. Reduce test code and assertions too; combining files without removing redundant coverage does not count.
+- Remove approximately 70–80% of the 453 TypeScript test files in the reproducible start-commit scan. The original 85–130 remaining-file range stays the explicit initial target, subject to the assertion-level safety review. Reduce test code and assertions too; combining files without removing redundant coverage does not count.
 - Remove most of the 196 app/component test files. Retain a DOM test only for a named consequential behavior that cannot be covered more directly and reliably elsewhere.
 - Keep about 7–9 independent infrastructure browser scenarios, Chromium only initially. No route-by-route, card-variant, screenshot, or cosmetic regression matrix.
 - Consolidate SQL tests around unique authorization, isolation, lifecycle, and money invariants. Do not impose an arbitrary SQL deletion quota: report the actual reduction and why each remaining contract matters.
@@ -26,20 +26,22 @@ These are planning targets, not permission to remove unique important coverage t
 
 ## Evidence from discovery
 
-The implementation branch `feature/clean-up-tests-infra` was started from `origin/develop` at `ff20e8582c61e6a43600bfed0eb38bbcb67a5d5d` and synced with the current base at `cbb73342d93a384e1e8da9e5678b445651ca3004` before final verification. It is isolated from the original `feature/redesign-UI` checkout, whose extensive unrelated tracked and untracked changes remain untouched and outside this branch.
+The implementation branch `feature/clean-up-tests-infra` started at `ff20e8582c61e6a43600bfed0eb38bbcb67a5d5d`; the final local candidate merges `origin/develop` through `c7369b4f7087ddf598a82f369d91623769b9e699`. It is isolated in `.worktrees/develop`. The primary checkout on `clean-up-tests` contains unrelated changes; they remain untouched and outside this branch.
 
 | Surface | Observed baseline | Implication |
 | --- | --- | --- |
-| TypeScript tests | 431 files, 59,642 lines | Largest reduction opportunity. |
-| Vitest projects | 225 Node files; 206 remaining files selected for jsdom by current globs | Pure logic under `src/app` can run in jsdom unnecessarily. |
-| TypeScript directories | 157 component, 39 app, 226 library, 4 hook, 5 script files | Classify assertions, not just directories. |
-| Mocking | 169 files contain `vi.mock(` | Review setup cost versus observable protection; a mock is not automatically bad. |
-| File-reading tests | 16 files contain `readFileSync` | Some inspect CSS/SQL text; migration-tool tests also read files legitimately. |
-| SQL | 150 numbered test files, 14,800 lines | Many are valuable real database contracts; consolidate carefully. |
+| TypeScript tests | 453 files, 66,169 lines, 10,158 literal `expect()` calls | Largest reduction opportunity. The exact source scan against the recorded start commit is described below. |
+| Vitest projects | 242 Node files; 211 files selected for jsdom by the recorded start commit’s globs | Pure logic under `src/app` can run in jsdom unnecessarily. |
+| TypeScript directories | 160 component, 41 app, 242 library, 4 hook, 6 script files | Classify assertions, not just directories. |
+| Mocking | 174 files contain 498 `vi.mock()` calls | Review setup cost versus observable protection; a mock is not automatically bad. |
+| File-reading tests | 23 files contain `readFileSync` | Some inspect CSS/SQL text; migration-tool tests also read files legitimately. |
+| SQL | 156 numbered test files, 15,903 lines | Many are valuable real database contracts; consolidate carefully. |
 | Python | 2 modules | Ingestion and settlement infrastructure. |
-| Playwright | 6 scenarios in 5 files | Baseline inventory only; seven journey groups now run against the production build and disposable local stack. |
+| Playwright | 13 test cases in 8 spec files | The final suite uses seven independent journeys against the production build and disposable local stack. |
 | CI | Migration history check, typecheck, lint, Vitest, Python | No production build, pgTAP, or browser run in current CI. |
 | Release | `.github/workflows/release.yml` waits for check run named `checks` on the exact `develop` commit | New verification must feed that gate. |
+
+The earlier discovery summary recorded 431 files / 59,642 lines / 8,805 expectations and 169 mock-bearing files. Recounting the exact recorded start commit with the same source-file scan gives 453 / 66,169 / 10,158 / 174; the reproducible committed-tree measurement is used for the reduction percentages below.
 
 Representative evidence, not a claim that every assertion has already been reviewed:
 
@@ -77,9 +79,13 @@ Before deleting a meaningful assertion, name where its failure would now be dete
 
 ### Final reduction audit
 
-The safe reduction stopped at 263 Vitest files (255 under `src/`, plus eight script contracts), not the initial 85–130 target. That is a 39.0% file reduction, with 21.5% fewer test lines, 21.4% fewer `expect()` calls, and 39.6% fewer files using `vi.mock()`. The 634-row inventory records 205 deletions, seven consolidations, four replacements, and 418 retained contract rows (some mixed files have more than one row).
+The earlier status used a 431-file / 59,642-line / 8,805-expectation baseline. Re-running the same `.test`/`.spec` TypeScript scan on an archive of the recorded branch-start commit `ff20e8582c61e6a43600bfed0eb38bbcb67a5d5d` gives 453 files / 66,169 lines / 10,158 literal `expect()` calls / 174 files containing 498 `vi.mock()` calls. The earlier figures cannot be reproduced from that commit, so the final comparison uses the archived, reproducible baseline. The current candidate has 279 files / 48,011 lines / 7,148 `expect()` calls / 109 mock-bearing files (349 mock calls): reductions of 174 files (38.4%), 18,158 lines (27.4%), 3,010 expectations (29.6%), 65 mock-bearing files (37.4%), and 149 mock calls (29.9%). Vitest collected all 279 files and passed 2,916 tests.
 
-The 255 remaining `src/` files cover 185 library, 38 component, 28 app, and four hook contracts. Their failure modes are spread across distinct authoritative systems that seven browser journeys cannot replace: money calculations and ledger/idempotency edges; ownership and league/season scoping; authentication, OAuth redirect and signed-provider verification; ingestion/identity normalization and duplicate handling; pagination and data-loss boundaries; and the rule/state machines for multiple independent games and card systems. The database suite supplies real RLS, grants, transaction, rollback, and RPC checks; Vitest keeps deterministic branch and malformed-input coverage that browser happy paths cannot establish. Removing another 133 files to hit the numeric target would delete unique protection without an equivalent passing replacement. The target is therefore recorded as unmet rather than met by grouping files or relabeling unrelated tests.
+The 85–130 target remains unmet by 149 files above its upper bound. The retained source suite comprises 195 library, 44 component, 28 app, four hook, and eight script files. The library contracts cover separate authorization and identity boundaries; league/season filtering, completeness, and pagination; ingestion and settlement; wallet, ownership, and idempotency rules; and independent game/card state machines. The route/page tests preserve server-access and selected-league behavior, while the component tests retained by the inventory cover named client-side validation or interaction. The database suite runs 159 pgTAP files / 2,455 planned assertions for grants, RLS, RPC rejection, state transitions, rollback, wallet accounting, and ownership. Seven browser journeys cover the critical user/server/database/realtime boundaries. This leaves 279 independently collected Vitest modules, 48,011 lines, and 109 mock-bearing files as the measured maintenance cost. Removing at least 149 more modules would require a new assertion-level review; file count alone does not identify safe deletions.
+
+The inventory has 647 assertion-group rows across 644 paths: 195 delete-only paths, three mixed delete/retain paths, nine consolidated paths, four replacements, and 433 retained-only paths. All 447 current test artifacts are mapped and there are no missing retained files. Seven tests added on the latest develop base were added to the inventory with their named contracts.
+
+The browser suite itself fell from 13 test cases / eight spec files / 978 lines to seven independent cases / seven spec files / 753 lines. Its support fixtures grew from six files / 733 lines to ten files / 999 lines so local authentication, isolated database seeding, request replay, and deterministic recovery are explicit; that is a 266-line fixture increase, not a fixture-code reduction. The pgTAP suite has 159 files at the final base; its contracts were kept because a browser test cannot replace database authorization and transaction assertions.
 
 ## Target E2E journeys
 
@@ -146,7 +152,7 @@ Exit: replacement behavior has been observed against the actual local app/DB. A 
 1. Remove pure visual/copy/source-string cases first. Do not add replacement tests for these deletions.
 2. For mixed files, extract the few high-value assertions before removing the expensive presentation harness. Explicitly review monetary, ownership, scope, pagination and authorization failures.
 3. Consolidate retained Node tests by contract where this reduces duplication. Move pure logic out of jsdom discovery when appropriate. Avoid one giant generic test file, fixture factory, or registry that is harder to diagnose than the original suite.
-4. Consolidate pgTAP by active contract, keeping each file's plan, `finish()`, and transaction rollback. Preserve meaningful negative-role tests and rejected-write state assertions. Use existing helper includes. Tests may be reorganized; historical migrations may not be edited. No production schema change is expected from this cleanup.
+4. Consolidate pgTAP by active contract, keeping each file's plan, `finish()`, and transaction rollback. Preserve meaningful negative-role tests and rejected-write state assertions. Use existing helper includes. Tests may be reorganized; historical migrations may not be edited. No schema change was expected in the original cleanup. The review follow-up adds one forward migration for request-UUID ownership and matching pgTAP coverage because that security contract must be enforced at the database boundary.
 5. Do not claim single-transaction pgTAP proves concurrent races. Retain/add a small real multi-session integration case only for a specific critical concurrent-write contract lacking coverage; sequential idempotency is a different guarantee.
 6. Remove dead test-only fixtures/matchers and dependencies only after searching their consumers. `src/lib/cards/samples.ts`, for example, is used by the E2E Season's End fixture; test-looking code is not automatically dead. Remove jsdom/Testing Library/plugin support only if no retained consumers require it.
 7. Reconcile `vitest.config.mts`, `src/test-utils/*`, `src/vitest-matchers.d.ts`, `package.json`, lockfile and `tsconfig.json` only as needed. Do not hide tests with exclusions, `.skip`, `.todo`, or `passWithNoTests` to make counts fall. Keep discovery simple.
@@ -189,10 +195,11 @@ For the completed implementation, run typecheck, lint, retained Vitest, Python, 
 
 ## Final verification record
 
-- `npm run typecheck` — passed.
-- `npm run lint` — passed with one existing `@next/next/no-img-element` warning in `src/components/captain/scouting/ChampionDatum.tsx`.
-- `npm test` — 263 files and 2,820 tests passed on the synced tree.
-- `npm run test:python` — 25 tests passed.
-- `npm run test:infra` — after syncing with current `develop`, fresh migrations, 157 pgTAP files / 2,433 assertions, production build, and seven real Chromium journeys passed; the runner stopped and removed its disposable project and restored Next.js type files.
-- Migration history checker — exact replay-repair exceptions and adversarial regression tests are included; `node scripts/check-migrations.mjs origin/develop HEAD` passed on the synced PR commit, with only the three documented pre-existing duplicate-version warnings.
-- Release path — focused PR to `develop`, then green `checks` on that exact commit; the release workflow merges it to `main`. No PR merge, cloud migration, or deployment was performed here.
+- `npm run typecheck` — passed on the final source tree (6.61 s).
+- `npm run lint` — passed (30.44 s) with the one pre-existing `@next/next/no-img-element` advisory in `src/components/captain/scouting/ChampionDatum.tsx`.
+- `npm test` — 279 files / 2,916 tests passed (Vitest 33.47 s; wall 34.41 s).
+- `npm run test:python` — 25 tests passed (0.79 s).
+- `npm run e2e:list` — seven tests in seven files discovered (2.12 s).
+- `npm run test:infra` — 247 migration sources staged as 244 versions; fresh replay and all 159 pgTAP files / 2,455 planned assertions passed; the production build passed; all seven Chromium journeys passed (Playwright reported 1.2 m). The runner stopped its isolated local project and restored `tsconfig.json` and `next-env.d.ts`.
+- Migration history — a read-only migration listing for project `tyywoneobreracfnujdk`, after confirming `supabase/.temp/project-ref`, shows `20261028000001`, `20261029000001`, and `20261101000001`–`20261105000001` applied. The two historical migration exceptions remain exact-blob pinned. Final checker command/result is recorded in the review-completion handoff.
+- CI/release status — PR #388 remains open, but its remote feature ref is older than this local candidate; CI has not run on the exact candidate. No push, PR merge, remote migration/history mutation, deployment, or release was performed.
