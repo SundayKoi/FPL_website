@@ -1,4 +1,5 @@
 import { createServerSupabase } from "@/lib/supabase/server";
+import { mondayOf } from "@/lib/packs/week";
 import { fetchDraftId } from "./fetchDraftId";
 import { powerRanking } from "@/lib/stats/formulas";
 import { aggregateWeeklyPlayerRows, WEEKLY_STAT_COLUMNS, type WeeklyRawStatRow } from "@/lib/stats/weekly";
@@ -37,6 +38,8 @@ export type HomepageAward = {
 export type HomepageAwardsData = {
   season: string;
   periodLabel: string;
+  /** Eastern-calendar Monday for the raw-stat period behind the honors. */
+  periodKey?: string | null;
   playerOfWeek: HomepageAward;
   teamOfWeek: HomepageAward;
   individualAwards: HomepageAward[];
@@ -70,7 +73,7 @@ const RAW_COLUMNS = [
   "team_first_tower",
 ].join(",");
 
-type Week = { start: number; label: string };
+type Week = { start: number; label: string; key: string };
 
 type TeamGame = {
   teamName: string;
@@ -117,14 +120,15 @@ function playerKey(name: string, tag: string): string {
 }
 
 function weekFor(date: string): Week {
-  const latest = new Date(date);
-  const daysSinceMonday = (latest.getUTCDay() + 6) % 7;
-  const start = new Date(latest);
-  start.setUTCDate(start.getUTCDate() - daysSinceMonday);
-  start.setUTCHours(0, 0, 0, 0);
+  // Cards and fantasy lineups use Monday-start weeks on the Eastern
+  // calendar. Keep awards on the same boundary, including Sunday-night
+  // games whose UTC timestamp has already crossed into Monday.
+  const key = mondayOf(new Date(date));
+  const start = new Date(`${key}T12:00:00.000Z`);
   return {
     start: start.getTime(),
-    label: `Week of ${start.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`,
+    label: `Week of ${new Date(`${key}T00:00:00.000Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`,
+    key,
   };
 }
 
@@ -367,6 +371,7 @@ export function deriveHomepageAwards(
   return {
     season,
     periodLabel: latest?.label ?? season,
+    periodKey: latest?.key ?? null,
     playerOfWeek: playerAward(
       "Player of the Week",
       playerOfWeek,

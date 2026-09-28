@@ -13,6 +13,9 @@
   --color-action-fill: #294fca;
   --color-action-text: #6f93ff;
   --color-focus: #6f93ff;
+  /* Premier redesign accent sampled from the FPL logo; scope it to redesigned
+     surfaces until the remaining pages are redesigned. */
+  --color-premier-accent: #1c5583;
   --color-success: #2ee6a8;
   --color-prestige: #f5b62e;
   --color-danger: #ff5c6c;

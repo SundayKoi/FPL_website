@@ -1,22 +1,25 @@
 import type { PreseasonPlayer } from "@/lib/home/preseason";
 import { ROLE_LABELS, ROLE_ORDER } from "@/lib/draft/types";
 import { rankValue, ROLE_TONES } from "@/lib/players/roleDisplay";
+import type { HomeAppearance } from "./appearance";
+import styles from "./HomeWorkspace.module.css";
 
-export default function PreseasonPlayerPool({ players }: { players: PreseasonPlayer[] }) {
+export default function PreseasonPlayerPool({ players, appearance = "legacy" }: { players: PreseasonPlayer[]; appearance?: HomeAppearance }) {
+  const workspace = appearance === "workspace";
   return (
-    <section aria-labelledby="preseason-player-pool-title" className="card-brand mt-6 overflow-hidden p-5 sm:p-6 xl:mt-8">
+    <section aria-labelledby="preseason-player-pool-title" className={workspace ? `${styles.panel} overflow-hidden p-5 sm:p-6` : "card-brand mt-6 overflow-hidden p-5 sm:p-6 xl:mt-8"} data-appearance={appearance}>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <span className="label-dash">PLAYER POOL · SEASON 5</span>
-          <h2 id="preseason-player-pool-title" className="type-display mt-2 text-4xl sm:text-5xl">Who is still on the board?</h2>
+          <span className={workspace ? styles.eyebrow : "label-dash"}>PLAYER POOL · SEASON 5</span>
+          <h2 id="preseason-player-pool-title" className={workspace ? `${styles.title} mt-2 text-4xl sm:text-5xl` : "type-display mt-2 text-4xl sm:text-5xl"}>Who is still on the board?</h2>
         </div>
-        <p className="max-w-md text-right text-sm leading-6 text-muted">
+        <p className={`max-w-md text-right text-sm leading-6 ${workspace ? styles.muted : "text-muted"}`}>
           Remaining players are open for the draft. Captains stay at the top, with every player ranked for quick scouting.
         </p>
       </div>
 
       {players.length === 0 ? (
-        <p className="mt-6 border-t border-border-subtle/60 pt-5 text-sm text-muted">
+        <p className={`mt-6 border-t border-border-subtle/60 pt-5 text-sm ${workspace ? styles.muted : "text-muted"}`}>
           The featured draft player pool has not been published yet.
         </p>
       ) : (
@@ -32,9 +35,9 @@ export default function PreseasonPlayerPool({ players }: { players: PreseasonPla
                 return rankValue(right.rank) - rankValue(left.rank) || left.displayName.localeCompare(right.displayName);
               });
             return (
-              <section key={role} className={`overflow-hidden rounded border ${ROLE_TONES[role]}`}>
-                <h3 className="px-4 py-3 text-lg font-bold uppercase tracking-wide">{ROLE_LABELS[role]}</h3>
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 bg-canvas px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted">
+              <section key={role} className={workspace ? styles.rolePanel : `overflow-hidden rounded border ${ROLE_TONES[role]}`}>
+                <h3 className={workspace ? styles.roleHeading : "px-4 py-3 text-lg font-bold uppercase tracking-wide"}>{ROLE_LABELS[role]}</h3>
+                <div className={`grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.14em] ${workspace ? "bg-white" : "bg-canvas"} ${workspace ? styles.muted : "text-muted"}`}>
                   <span>Player</span>
                   <span>Rank</span>
                 </div>
@@ -43,23 +46,21 @@ export default function PreseasonPlayerPool({ players }: { players: PreseasonPla
                     <li
                       key={player.id}
                       data-available={player.available ? "true" : "false"}
-                      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-current/15 px-4 py-3 text-sm ${
-                        player.available ? "bg-white/[0.02]" : "bg-black/35 opacity-55"
-                      }`}
+                      className={workspace ? `${styles.roleRow} text-sm ${player.available ? "" : "bg-gray-50"}` : `grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-current/15 px-4 py-3 text-sm ${player.available ? "bg-white/[0.02]" : "bg-black/35 opacity-55"}`}
                     >
                       {player.available ? (
                         <a
                           href={player.opggUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="min-w-0 break-words font-semibold text-white underline decoration-current/40 underline-offset-4 hover:text-action-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                          className={workspace ? `${styles.link} ${styles.playerName} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus` : "min-w-0 break-words font-semibold text-white underline decoration-current/40 underline-offset-4 hover:text-action-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"}
                         >
                           {player.displayName}
                         </a>
                       ) : (
                         <span
                           aria-label={`${player.displayName}, unavailable: ${player.lockLabel}`}
-                          className="min-w-0 truncate font-semibold text-white"
+                          className={workspace ? `${styles.playerName} inline-flex flex-wrap items-center gap-x-2` : "min-w-0 truncate font-semibold text-white"}
                         >
                           <span>{player.displayName}</span>
                           <span className="ml-2 rounded border border-border-subtle px-1.5 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted">{player.lockLabel}</span>
@@ -72,7 +73,7 @@ export default function PreseasonPlayerPool({ players }: { players: PreseasonPla
                     </li>
                   ))}
                   {rolePlayers.length === 0 ? (
-                    <li className="border-t border-current/15 px-4 py-3 text-sm text-muted">No players listed</li>
+                    <li className={`border-t border-current/15 px-4 py-3 text-sm ${workspace ? styles.muted : "text-muted"}`}>No players listed</li>
                   ) : null}
                 </ul>
               </section>
@@ -81,7 +82,7 @@ export default function PreseasonPlayerPool({ players }: { players: PreseasonPla
         </div>
       )}
 
-      <p className="mt-4 text-[10px] uppercase tracking-[0.1em] text-muted/70">
+      <p className={`mt-4 text-[10px] uppercase tracking-[0.1em] ${workspace ? styles.muted : "text-muted/70"}`}>
         Remaining players are sorted by rank. Committed players remain visible with their acquisition status.
       </p>
     </section>

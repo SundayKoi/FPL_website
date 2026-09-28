@@ -2,7 +2,7 @@ import HomeDashboard from "./HomeDashboard";
 import { homeViewer } from "@/lib/home/viewer";
 import { fetchHomepageTwitch, twitchChannelLoginFromUrl, type HomepageTwitchData } from "@/lib/home/twitch";
 import { fetchHomepageStandings, type HomeStandingsData } from "@/lib/home/standings";
-import { fetchHomepageSchedule, selectHomepageFeaturedFixture, type HomepageScheduleData } from "@/lib/home/schedule";
+import { alignFuturePremierHomeFixturesToMonday, fetchHomepageSchedule, selectHomepageFeaturedFixture, type HomepageScheduleData } from "@/lib/home/schedule";
 import { fetchHomepageAwards, PREMIER_SEASON, type HomepageAwardsData } from "@/lib/home/awards";
 import { fetchHomepageFeaturedSettings, type HomepageFeaturedSettings } from "@/lib/home/homepageSettings";
 import { fetchTeamIdentities } from "@/lib/teams/identity";
@@ -16,28 +16,31 @@ const fallbackTwitch: HomepageTwitchData = {
   clips: [],
 };
 
-const fallbackAwards: HomepageAwardsData = {
-  season: PREMIER_SEASON,
-  periodLabel: PREMIER_SEASON,
-  playerOfWeek: {
-    title: "Player of the Week",
-    name: null,
-    tag: null,
-    teamName: null,
-    detail: `${PREMIER_SEASON} player data unavailable`,
-    value: "—",
-  },
-  teamOfWeek: {
-    title: "Team of the Week",
-    name: null,
-    tag: null,
-    teamName: null,
-    detail: `${PREMIER_SEASON} team data unavailable`,
-    value: "—",
-  },
-  individualAwards: [],
-  teamAwards: [],
-};
+function fallbackAwards(season: string): HomepageAwardsData {
+  return {
+    season,
+    periodLabel: season,
+    periodKey: null,
+    playerOfWeek: {
+      title: "Player of the Week",
+      name: null,
+      tag: null,
+      teamName: null,
+      detail: `${season} player data unavailable`,
+      value: "—",
+    },
+    teamOfWeek: {
+      title: "Team of the Week",
+      name: null,
+      tag: null,
+      teamName: null,
+      detail: `${season} team data unavailable`,
+      value: "—",
+    },
+    individualAwards: [],
+    teamAwards: [],
+  };
+}
 
 const fallbackSchedule: HomepageScheduleData = {
   season: null,
@@ -64,21 +67,22 @@ async function fallbackTo<T>(load: Promise<T>, fallback: T): Promise<T> {
 
 /** The approved post-opening homepage, stored as the Regular Season Home Page. */
 export default async function RegularSeasonHomePage() {
+  const { supabase, season } = await (async () => {
+    try {
+      const client = await createServerSupabase();
+      return { supabase: client, season: (await fetchCardSeason(client, "premier")) ?? PREMIER_SEASON };
+    } catch {
+      return { supabase: null, season: PREMIER_SEASON };
+    }
+  })();
   const [awards, standingsData, schedule, identities, topCards, featuredSettings, viewer] = await Promise.all([
-    fallbackTo(fetchHomepageAwards(), fallbackAwards),
-    fallbackTo<HomeStandingsData>(fetchHomepageStandings(), { teams: [], race: [] }),
-    fallbackTo(fetchHomepageSchedule(), fallbackSchedule),
+    fallbackTo(fetchHomepageAwards(season), fallbackAwards(season)),
+    fallbackTo<HomeStandingsData>(fetchHomepageStandings(season), { teams: [], race: [] }),
+    fallbackTo(fetchHomepageSchedule((fixtures) => fixtures.filter((fixture) => fixture.season === season), season), fallbackSchedule),
     fallbackTo<Record<string, TeamIdentity>>(fetchTeamIdentities(), {}),
-    // The same build the card hub renders, so the homepage and the hub
-    // cannot disagree about who had the better week.
-    fallbackTo<PlayerCardData[]>(
-      (async () => {
-        const supabase = await createServerSupabase();
-        const season = await fetchCardSeason(supabase, "premier");
-        return season ? fetchCurrentWeekCards(supabase, season) : [];
-      })(),
-      [],
-    ),
+    // Use league_settings.current_season for every section so awards,
+    // standings, fixtures, and weekly cards stay on one real season.
+    supabase ? fallbackTo<PlayerCardData[]>(fetchCurrentWeekCards(supabase, season), []) : Promise.resolve([]),
     fallbackTo(fetchHomepageFeaturedSettings("premier"), fallbackFeaturedSettings),
     homeViewer(),
   ]);
@@ -86,7 +90,8 @@ export default async function RegularSeasonHomePage() {
     fetchHomepageTwitch(twitchChannelLoginFromUrl(featuredSettings.twitchUrl)),
     fallbackTwitch,
   );
-  const featuredFixture = selectHomepageFeaturedFixture(schedule.fixtures, featuredSettings.fixtureId);
+  const homepageSchedule = alignFuturePremierHomeFixturesToMonday(schedule);
+  const featuredFixture = selectHomepageFeaturedFixture(homepageSchedule.fixtures, featuredSettings.fixtureId, homepageSchedule.seasonFixtures ?? homepageSchedule.upcoming);
 
   return (
     <HomeDashboard
@@ -97,9 +102,11 @@ export default async function RegularSeasonHomePage() {
       awards={awards}
       standings={standingsData}
       topCards={topCards}
-      schedule={schedule}
+      schedule={homepageSchedule}
       identities={identities}
       viewer={viewer}
+      seasonLabel={season}
+      appearance="workspace"
     />
   );
 }

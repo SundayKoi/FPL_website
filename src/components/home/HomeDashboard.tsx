@@ -1,4 +1,6 @@
 import HomeOrientation from "./HomeOrientation";
+import HomeShortcutsBand from "./HomeShortcutsBand";
+import { homeShortcuts } from "@/lib/home/shortcuts";
 import SiteDirectoryGrid from "./SiteDirectoryGrid";
 import FeaturedMatchup from "./FeaturedMatchup";
 import HomeStandings from "./HomeStandings";
@@ -6,10 +8,17 @@ import AwardsDesk from "./AwardsDesk";
 import LiveTicker from "./LiveTicker";
 import StandingsRace from "./StandingsRace";
 import UpcomingSchedule from "./UpcomingSchedule";
+import HomeMatchStrip from "./HomeMatchStrip";
+import PlayerOfWeekSpotlight from "./PlayerOfWeekSpotlight";
 import TopCards from "./TopCards";
+import HomeCardsPromo from "./HomeCardsPromo";
+import HomeFooter from "./HomeFooter";
+import HomePlayoffBracket from "./HomePlayoffBracket";
 import { twitchChannelLoginFromUrl, twitchUrlFromUrl } from "@/lib/home/twitchChannels";
 import type { HomepageTwitchData } from "@/lib/home/twitch";
 import { buildTickerItems } from "@/lib/home/ticker";
+import { hasResult } from "@/lib/schedule/format";
+import { selectFutureHomepageFixtures } from "@/lib/home/schedule";
 import type { HomepageAwardsData } from "@/lib/home/awards";
 import type { HomeStandingsData } from "@/lib/home/standings";
 import type { HomepageScheduleData } from "@/lib/home/schedule";
@@ -18,6 +27,8 @@ import type { TeamIdentity } from "@/lib/teams/identity";
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { FixtureRow } from "@/lib/schedule/types";
 import type { HomeViewer } from "@/lib/home/viewer";
+import type { HomeAppearance } from "./appearance";
+import styles from "./HomeWorkspace.module.css";
 
 type HomeDashboardProps = {
   ariaLabel: string;
@@ -41,6 +52,7 @@ type HomeDashboardProps = {
   scheduleTeamBasePath?: string | null;
   /** Who is looking — decides the third door of the orientation block. */
   viewer?: HomeViewer;
+  appearance?: HomeAppearance;
 };
 
 /**
@@ -64,7 +76,9 @@ export default function HomeDashboard({
   scheduleBasePath,
   scheduleTeamBasePath,
   viewer = "signed-out",
+  appearance = "legacy",
 }: HomeDashboardProps) {
+  const workspace = appearance === "workspace";
   const league = cardsBasePath?.startsWith("/academy") ? "academy" : "premier";
   const isLive = twitch.status.state === "live";
   const tickerItems = buildTickerItems({
@@ -73,50 +87,184 @@ export default function HomeDashboard({
     standings: standings.teams,
     awards,
   });
+  const scheduleHref = scheduleBasePath ?? (league === "academy" ? "/academy/schedule" : "/schedule");
+  const standingsHref = league === "academy" ? "/academy/standings" : "/standings";
+  const teamBasePath = scheduleTeamBasePath === undefined
+    ? league === "academy" ? null : "/teams"
+    : scheduleTeamBasePath;
+  const upcomingFixtures = schedule.upcoming ?? [];
+  const stripFixtures = selectFutureHomepageFixtures(
+    upcomingFixtures.length > 0 ? upcomingFixtures : schedule.fixtures,
+    schedule.asOf ?? 0,
+  ).slice(0, 4);
+  const stripFixtureIds = new Set(stripFixtures.map((fixture) => fixture.id));
+  const matchCenterFixtures = upcomingFixtures
+    .filter((fixture) => hasResult(fixture) && !stripFixtureIds.has(fixture.id))
+    .slice(-4);
+
+  if (workspace) {
+    return <main className={`${styles.page} ${styles.identityHome}`} data-appearance="workspace">
+      <FeaturedMatchup
+        fixture={featuredFixture} identities={identities} teamBasePath={teamBasePath}
+        scheduleHref={scheduleHref} seasonLabel={seasonLabel ?? schedule.season ?? undefined}
+        channelLogin={twitchChannelLoginFromUrl(featuredSettings.twitchUrl)}
+        clips={twitch.clips} streamState={twitch.status.state}
+        viewerCount={twitch.status.state === "live" ? twitch.status.viewerCount : null}
+        twitchUrl={twitchUrlFromUrl(featuredSettings.twitchUrl)}
+        title={featuredSettings.title ?? undefined} description={featuredSettings.description ?? undefined}
+        appearance="workspace"
+      />
+      <HomeShortcutsBand shortcuts={homeShortcuts(league, viewer)} />
+      <div className={styles.newStripBand}>
+        <div className={styles.bandInner}>
+          <HomeMatchStrip
+            fixtures={stripFixtures}
+            identities={identities}
+            season={seasonLabel ?? schedule.season}
+            scheduleHref={scheduleHref}
+            channelState={twitch.status.state}
+          />
+        </div>
+      </div>
+      <div className={styles.bracketBand}>
+        <div className={styles.bandInner}>
+          <HomePlayoffBracket
+            season={seasonLabel ?? schedule.season}
+            activeStage={schedule.activeStage}
+            fixtures={schedule.seasonFixtures ?? schedule.upcoming ?? schedule.fixtures}
+            seeds={standings.playoffSeeds}
+            overallSeeds={standings.overallPlayoffSeeds}
+            seedMode={league === "academy" ? "league-wide" : "divisions"}
+            identities={identities}
+            scheduleHref={scheduleHref}
+            teamBasePath={teamBasePath}
+          />
+        </div>
+      </div>
+      <HomeCardsPromo cards={topCards} basePath={cardsBasePath} />
+      <div className={styles.secondaryLinks}><div className={styles.bandInner}><SiteDirectoryGrid league={league} appearance="workspace" /></div></div>
+      <HomeFooter />
+    </main>;
+  }
 
   return (
-    <main className="page-backdrop flex-1">
-      <div className="page-container page-spacing w-full">
-        <section aria-label={ariaLabel} className="space-y-6">
-          <HomeOrientation
-            league={league}
-            viewer={viewer}
-            fixture={featuredFixture}
-            seasonLabel={seasonLabel ?? schedule.season}
-          />
-          <LiveTicker items={tickerItems} />
-          <div className="grid gap-6 lg:grid-cols-[2fr_1fr] xl:gap-8">
-            <FeaturedMatchup
-              fixture={featuredFixture}
-              channelLogin={twitchChannelLoginFromUrl(featuredSettings.twitchUrl)}
-              clips={twitch.clips}
-              streamState={twitch.status.state}
-              viewerCount={twitch.status.state === "live" ? twitch.status.viewerCount : null}
-              twitchUrl={twitchUrlFromUrl(featuredSettings.twitchUrl)}
-              title={featuredSettings.title ?? undefined}
-              description={featuredSettings.description ?? undefined}
-            />
-            <HomeStandings teams={standings.teams} seasonLabel={seasonLabel} />
-          </div>
-          {/* The generated weekly write-up used to sit here. It kept asserting
-              things the data did not support, so the page shows the computed
-              award lists only. */}
-          <AwardsDesk awards={awards} />
+    <main className={workspace ? styles.page : "page-backdrop flex-1"} data-appearance={appearance}>
+      <div className={workspace ? styles.container : "page-container page-spacing w-full"}>
+        <section aria-label={ariaLabel} className={workspace ? styles.content : "space-y-6"}>
+          {workspace ? (
+            <>
+              <HomeMatchStrip
+                fixtures={stripFixtures}
+                identities={identities}
+                season={seasonLabel ?? schedule.season}
+                scheduleHref={scheduleHref}
+                channelState={twitch.status.state}
+              />
+              <HomeOrientation
+                league={league}
+                viewer={viewer}
+                fixture={featuredFixture}
+                seasonLabel={seasonLabel ?? schedule.season}
+                appearance={appearance}
+                workspacePart="intro"
+              />
+              <div className={styles.featureGrid}>
+                <FeaturedMatchup
+                  fixture={featuredFixture}
+                  identities={identities}
+                  standings={standings.teams}
+                  teamBasePath={teamBasePath}
+                  scheduleHref={scheduleHref}
+                  channelLogin={twitchChannelLoginFromUrl(featuredSettings.twitchUrl)}
+                  clips={twitch.clips}
+                  streamState={twitch.status.state}
+                  viewerCount={twitch.status.state === "live" ? twitch.status.viewerCount : null}
+                  twitchUrl={twitchUrlFromUrl(featuredSettings.twitchUrl)}
+                  title={featuredSettings.title ?? undefined}
+                  description={featuredSettings.description ?? undefined}
+                  appearance={appearance}
+                />
+                <PlayerOfWeekSpotlight awards={awards} cards={topCards} identities={identities} />
+              </div>
+              <HomeStandings
+                teams={standings.teams}
+                identities={identities}
+                standingsHref={standingsHref}
+                teamBasePath={teamBasePath}
+                seasonLabel={seasonLabel ?? schedule.season ?? undefined}
+                appearance={appearance}
+              />
+              <UpcomingSchedule
+                schedule={schedule}
+                identities={identities}
+                basePath={scheduleHref}
+                teamBasePath={teamBasePath}
+                appearance={appearance}
+              />
+              <HomeMatchStrip
+                fixtures={matchCenterFixtures}
+                identities={identities}
+                season={seasonLabel ?? schedule.season}
+                scheduleHref={scheduleHref}
+                title="MATCH CENTER"
+              />
+              <HomeOrientation
+                league={league}
+                viewer={viewer}
+                fixture={featuredFixture}
+                seasonLabel={seasonLabel ?? schedule.season}
+                appearance={appearance}
+                workspacePart="supporting"
+              />
+              {/* The awards desk keeps team and category honors below the
+                  promoted player spotlight. */}
+              <AwardsDesk awards={awards} appearance={appearance} omitPlayerOfWeekHero />
+            </>
+          ) : (
+            <>
+              <HomeOrientation
+                league={league}
+                viewer={viewer}
+                fixture={featuredFixture}
+                seasonLabel={seasonLabel ?? schedule.season}
+                appearance={appearance}
+              />
+              <LiveTicker items={tickerItems} appearance={appearance} />
+              <div className="grid gap-6 lg:grid-cols-[2fr_1fr] xl:gap-8">
+                <FeaturedMatchup
+                  fixture={featuredFixture}
+                  channelLogin={twitchChannelLoginFromUrl(featuredSettings.twitchUrl)}
+                  clips={twitch.clips}
+                  streamState={twitch.status.state}
+                  viewerCount={twitch.status.state === "live" ? twitch.status.viewerCount : null}
+                  twitchUrl={twitchUrlFromUrl(featuredSettings.twitchUrl)}
+                  title={featuredSettings.title ?? undefined}
+                  description={featuredSettings.description ?? undefined}
+                  appearance={appearance}
+                />
+                <HomeStandings teams={standings.teams} seasonLabel={seasonLabel} appearance={appearance} />
+              </div>
+              <UpcomingSchedule
+                schedule={schedule}
+                identities={identities}
+                basePath={scheduleBasePath}
+                teamBasePath={scheduleTeamBasePath}
+                appearance={appearance}
+              />
+              <AwardsDesk awards={awards} appearance={appearance} />
+            </>
+          )}
+          {/* The generated weekly write-up stays out of both versions: only
+              persisted, calculable awards are shown. */}
           {standings.race.length > 0 ? (
             <div className="grid gap-6 lg:grid-cols-2 xl:gap-8">
-              <StandingsRace race={standings.race} />
-              <TopCards cards={topCards} basePath={cardsBasePath} />
+              <StandingsRace race={standings.race} appearance={appearance} />
+              <TopCards cards={topCards} basePath={cardsBasePath} appearance={appearance} />
             </div>
           ) : (
-            <TopCards cards={topCards} basePath={cardsBasePath} />
+            <TopCards cards={topCards} basePath={cardsBasePath} appearance={appearance} />
           )}
-          <UpcomingSchedule
-            schedule={schedule}
-            identities={identities}
-            basePath={scheduleBasePath}
-            teamBasePath={scheduleTeamBasePath}
-          />
-          <SiteDirectoryGrid league={league} />
+          <SiteDirectoryGrid league={league} appearance={appearance} />
         </section>
       </div>
     </main>
