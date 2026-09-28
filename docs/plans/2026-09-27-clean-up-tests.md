@@ -194,5 +194,5 @@ For the completed implementation, run typecheck, lint, retained Vitest, Python, 
 - `npm test` — 263 files and 2,820 tests passed on the synced tree.
 - `npm run test:python` — 25 tests passed.
 - `npm run test:infra` — after syncing with current `develop`, fresh migrations, 157 pgTAP files / 2,433 assertions, production build, and seven real Chromium journeys passed; the runner stopped and removed its disposable project and restored Next.js type files.
-- Migration history checker — exact replay-repair exceptions and adversarial regression tests are included; final `node scripts/check-migrations.mjs origin/develop HEAD` is run against the synced PR commit.
+- Migration history checker — exact replay-repair exceptions and adversarial regression tests are included; `node scripts/check-migrations.mjs origin/develop HEAD` passed on the synced PR commit, with only the three documented pre-existing duplicate-version warnings.
 - Release path — focused PR to `develop`, then green `checks` on that exact commit; the release workflow merges it to `main`. No PR merge, cloud migration, or deployment was performed here.
