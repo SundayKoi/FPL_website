@@ -14,6 +14,7 @@ Date: 2026-09-28
 | Review requirement | Result and evidence |
 | --- | --- |
 | One candidate, latest base, no unrelated checkout work | Completed. The branch merges develop through `c7369b4f`; the local candidate includes the reviewed test, inventory, runner, migration, and documentation changes. The identity-test merge conflict now checks both league-specific draft identity and saved banner colors. The low-value layout metadata and mocked homepage-copy tests remain deleted per the original cleanup plan. |
+| Expedition page extraction | Reviewed separately as a route-boundary refactor. The 282-line `ExpeditionsPageView` function body moved unchanged into a shared module; the Premier route supplies the Premier league and query parameter, and the Academy route imports the shared module and supplies Academy. The app no longer imports a shared view from another route entrypoint. The production build passed; the seven browser journeys do not directly exercise Expeditions. |
 | Access and authorization journey | Passed. Password sessions, private reads, and staff-only mutation are exercised through the production app boundary; denied requests preserve state. |
 | Betting | Passed. Admin resolution uses the ordinary signed-in server action, repeats resolution, and reads exact market, payout, ledger, and balance state; no service-role mutation is the behavior under test. |
 | Auction | Passed. The two-captain journey checks the winner, price, budget change, persisted settlement, nomination turn, and ordinary duplicate-close behavior. |
