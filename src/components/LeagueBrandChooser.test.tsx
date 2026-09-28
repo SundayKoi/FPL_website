@@ -27,6 +27,19 @@ describe("LeagueBrandChooser", () => {
     );
   });
 
+  it("remembers the league chosen, so the home page opens there next time", () => {
+    document.cookie = "fpl_league=; path=/; max-age=0";
+    render(<LeagueBrandChooser pathname="/stats" search="" onNavigate={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /choose league/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^FPL Academy, Academy division$/ }));
+    expect(document.cookie).toContain("fpl_league=academy");
+
+    fireEvent.click(screen.getByRole("button", { name: /choose league/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^FPL, Premier division$/ }));
+    expect(document.cookie).toContain("fpl_league=premier");
+    document.cookie = "fpl_league=; path=/; max-age=0";
+  });
+
   it("closes on Escape and outside click", () => {
     render(<LeagueBrandChooser pathname="/academy/stats" search="" onNavigate={vi.fn()} />);
     const trigger = screen.getByRole("button", { name: /choose league/i });

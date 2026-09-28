@@ -6,6 +6,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { LeagueView } from "@/lib/league/context";
 import { siteDestinations } from "@/lib/site/directory";
 import { createSearch, type SearchItem } from "@/lib/site/search";
+import { logSiteSearchAction } from "@/lib/site/search-actions";
 
 /** Loaded once per visit, shared by every palette instance. */
 let indexPromise: Promise<SearchItem[]> | null = null;
@@ -26,6 +27,10 @@ function loadIndex(): Promise<SearchItem[]> {
 /** What the empty palette offers: the places most people are going. */
 const SUGGESTED = ["Players", "Teams", "Schedule", "Standings", "Stats", "Cards", "Packs", "Betting", "FPL'dle"];
 
+/** How long typing has to pause before a search counts as one someone
+ *  meant, rather than a word on its way to being typed. */
+export const SEARCH_LOG_DELAY_MS = 1500;
+
 const KIND_LABEL: Record<SearchItem["kind"], string> = { page: "Page", player: "Player", team: "Team" };
 
 export default function SiteSearch({ league }: { league: LeagueView }) {
@@ -36,6 +41,8 @@ export default function SiteSearch({ league }: { league: LeagueView }) {
   const [remote, setRemote] = useState<SearchItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  /** Queries already logged since the palette opened: once each. */
+  const loggedRef = useRef<Set<string>>(new Set());
   const listId = useId();
 
   const pages = useMemo<SearchItem[]>(
@@ -62,6 +69,7 @@ export default function SiteSearch({ league }: { league: LeagueView }) {
     setQuery("");
     setCursor(0);
     setOpen(true);
+    loggedRef.current = new Set();
     if (remote === null && !loading) {
       setLoading(true);
       void loadIndex().then((items) => {
@@ -97,6 +105,20 @@ export default function SiteSearch({ league }: { league: LeagueView }) {
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
+
+  // Tell staff what people look for — and what finds nothing — once the
+  // typing settles. Waits for players and teams to load so a name is not
+  // counted as a miss just because the index was still on its way.
+  const settled = query.trim().toLowerCase().replace(/\s+/g, " ");
+  const resultCount = results.length;
+  useEffect(() => {
+    if (!open || loading || settled.length < 2 || loggedRef.current.has(settled)) return;
+    const timer = window.setTimeout(() => {
+      loggedRef.current.add(settled);
+      void logSiteSearchAction(settled, resultCount, league).catch(() => {});
+    }, SEARCH_LOG_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [open, loading, settled, resultCount, league]);
 
   return (
     <>

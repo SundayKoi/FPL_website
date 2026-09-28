@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import { clampWeeks, DEFAULT_WEEKS, fetchAnalyticsOverview } from "@/lib/analytics/queries";
+import { clampWeeks, DEFAULT_WEEKS, fetchAnalyticsOverview, fetchSearchSummary } from "@/lib/analytics/queries";
+import SearchSection from "./SearchSection";
 import {
   cardsPerPack,
   classMix,
@@ -129,7 +130,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
 
   const params = await searchParams;
   const weeks = clampWeeks(params.weeks ?? DEFAULT_WEEKS);
-  const { data, missing, error } = await fetchAnalyticsOverview(createBettingServiceClient(), weeks);
+  const service = createBettingServiceClient();
+  const [{ data, missing, error }, searches] = await Promise.all([fetchAnalyticsOverview(service, weeks), fetchSearchSummary(service)]);
 
   if (missing || error || !data) {
     return (
@@ -408,6 +410,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           ))}
         </Table>
       </Section>
+
+      <SearchSection summary={searches} />
 
       <p className="text-xs text-muted">Read at {new Date(data.generated_at).toISOString().replace("T", " ").slice(0, 19)} UTC.</p>
     </main>
