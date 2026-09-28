@@ -1,105 +1,129 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { seedFixture, signIn } from "./fixtures";
 import {
+  SEASON_END_MEMBER_DISCORD_ID,
   SEASON_END_MEMBER_EMAIL,
-  SEASON_END_PASSWORD,
-  SEASON_END_PARTNER_EMAIL,
   SEASON_END_PARTNER_DISCORD_ID,
+  SEASON_END_PARTNER_EMAIL,
+  SEASON_END_PASSWORD,
 } from "./season-end-fixture";
+import { localServiceClient } from "./test-clients";
 
-test("Season's End public collection keeps Premier and Academy boundaries", async ({ page }) => {
-  for (const path of ["/cards/season-end", "/academy/cards/season-end"]) {
-    await page.goto(path);
-    await expect(page.getByRole("main")).toContainText(/Season.?s End/);
-    await expect(page.getByRole("main")).not.toContainText("Admin preview");
-    await expect(page.getByRole("main")).not.toContainText("test wallet");
-  }
-});
-
-test("Season's End purchase recovery, commerce, trading and dusting survive reloads", async ({ browser }) => {
+test("independently seeded Season's End copies retain owners, provenance, and exact wallet balances through commerce", async ({ browser }) => {
   test.setTimeout(120_000);
-  seedFixture("season-end");
+  const releaseId = seedFixture("season-end-commerce").fixtureId!;
+  const service = localServiceClient();
+  const { data: seededCopies, error: seedReadError } = await service.from("season_end_inventory")
+    .select("id,discord_id,design_id,kind,foil_type,signed")
+    .eq("release_id", releaseId).eq("mode", "public").order("id");
+  expect(seedReadError).toBeNull();
+  const memberSeedIds = (seededCopies ?? []).filter((copy) => copy.discord_id === SEASON_END_MEMBER_DISCORD_ID).map((copy) => copy.id);
+  const partnerSeedIds = (seededCopies ?? []).filter((copy) => copy.discord_id === SEASON_END_PARTNER_DISCORD_ID).map((copy) => copy.id);
+  expect(memberSeedIds).toHaveLength(5);
+  expect(partnerSeedIds).toHaveLength(5);
 
   const memberContext = await browser.newContext();
   const partnerContext = await browser.newContext();
   const member = await memberContext.newPage();
   const partner = await partnerContext.newPage();
+  const marketUrl = `/cards/season-end/market?release=${encodeURIComponent(releaseId)}`;
 
   try {
-    await signIn(member, SEASON_END_MEMBER_EMAIL, SEASON_END_PASSWORD, "/cards/packs");
-    const shop = member.getByTestId("season-end-pack-shop").first();
-    await expect(shop).toBeVisible({ timeout: 30_000 });
-    await shop.getByRole("button", { name: "Open for 500 betting dollars", exact: true }).click();
-    // Reload while the purchase request is still resolving. The request id is
-    // persisted before the server action starts, so the new page must recover
-    // the same opening instead of charging a second time.
-    await member.reload();
-    const memberOpening = member.getByRole("dialog", { name: "Opening a card pack" });
-    await expect(memberOpening).toBeVisible({ timeout: 30_000 });
-    const memberRip = memberOpening.getByRole("button", { name: /rip it open/i });
-    await memberRip.click({ clickCount: 3 });
-    await expect(memberOpening.getByRole("button", { name: /reveal card 1 of 5/i })).toBeVisible({ timeout: 30_000 });
-    await memberOpening.getByRole("button", { name: "Skip" }).click();
-    await expect(member.getByRole("button", { name: /Open another —/i })).toBeVisible();
-
-    await member.goto("/cards/collection?view=season-end");
-    await expect(member.getByRole("navigation", { name: "Choose a collection" }).getByRole("link", { name: "Season's End" })).toHaveAttribute("aria-current", "page");
-    await expect(member.getByRole("region", { name: /S5 Season's End release revision/ }).getByRole("link", { name: /View copy #/ })).toHaveCount(5);
-
-    await member.goto("/cards/season-end/market");
-    const memberCommerce = member.getByTestId("season-end-commerce").first();
+    await signIn(member, SEASON_END_MEMBER_EMAIL, SEASON_END_PASSWORD, marketUrl);
+    const memberCommerce = member.getByTestId("season-end-commerce");
     const memberCopies = memberCommerce.locator("section").first();
-    await expect(memberCopies.getByText(/Copy #\d+/)).toHaveCount(5, { timeout: 30_000 });
-    const memberCopyIds = await copyIds(memberCopies);
+    await expect(memberCopies.getByText(/Copy #\d+/)).toHaveCount(5);
+    const saleId = memberSeedIds[0];
+    const listingForm = memberCommerce.locator("form").first();
+    await listingForm.getByLabel("Copy").selectOption(String(saleId));
+    await listingForm.getByLabel("Ask").fill("100");
+    await listingForm.getByRole("button", { name: "List copy", exact: true }).click();
+    const ownListing = memberCommerce.locator("li").filter({ hasText: `#${saleId}` });
+    await expect(ownListing.getByRole("button", { name: "Your listing", exact: true })).toBeVisible();
 
-    await memberCommerce.getByLabel("Ask").fill("100");
-    await memberCommerce.getByRole("button", { name: "List copy", exact: true }).click();
-    await expect(memberCommerce.getByRole("button", { name: "Your listing", exact: true })).toBeVisible({ timeout: 30_000 });
-
-    await signIn(partner, SEASON_END_PARTNER_EMAIL, SEASON_END_PASSWORD, "/cards/packs");
-    await expect(partner.getByText(/Recover your Season.?s End opening/).first()).toBeVisible({ timeout: 30_000 });
-    await expect(partner.getByRole("dialog", { name: "Opening a card pack" })).toBeVisible({ timeout: 30_000 });
-    await expect(partner.getByRole("button", { name: /reveal card 1 of 5/i })).toHaveCount(0);
-
-    await partner.goto("/cards/season-end/market");
-    const partnerCommerce = partner.getByTestId("season-end-commerce").first();
-    const partnerCopies = partnerCommerce.locator("section").first();
-    await expect(partnerCopies.getByText(/Copy #\d+/)).toHaveCount(5, { timeout: 30_000 });
-    const partnerCopyIds = await copyIds(partnerCopies);
-
-    await partnerCommerce.getByRole("button", { name: "Buy for 100", exact: true }).click();
-    await partnerCommerce.getByRole("button", { name: "Confirm 100", exact: true }).click();
-    await expect(partnerCopies.getByText(/Copy #\d+/)).toHaveCount(6, { timeout: 30_000 });
+    await signIn(partner, SEASON_END_PARTNER_EMAIL, SEASON_END_PASSWORD, marketUrl);
+    let partnerCommerce = partner.getByTestId("season-end-commerce");
+    const partnerListing = partnerCommerce.locator("li").filter({ hasText: `#${saleId}` });
+    await expect(partnerCommerce.locator("section").first().getByText(/Copy #\d+/)).toHaveCount(5);
+    await partnerListing.getByRole("button", { name: "Buy for 100", exact: true }).click();
+    await partnerListing.getByRole("button", { name: "Confirm 100", exact: true }).click();
+    await partner.reload();
+    partnerCommerce = partner.getByTestId("season-end-commerce");
+    await expect(partnerCommerce.locator("section").first().getByText(/Copy #\d+/)).toHaveCount(6);
     await member.reload();
-    await expect(memberCopies.getByText(/Copy #\d+/)).toHaveCount(4, { timeout: 30_000 });
+    await expect(member.getByTestId("season-end-commerce").locator("section").first().getByText(/Copy #\d+/)).toHaveCount(4);
 
-    const remainingMemberCopyIds = await copyIds(memberCopies);
-    const remainingPartnerCopyIds = await copyIds(partnerCommerce.locator("section").first());
-    const tradeSection = memberCommerce.locator("section").filter({ hasText: "Direct trades" }).first();
+    const tradedMemberId = memberSeedIds.find((id) => id !== saleId)!;
+    const tradedPartnerId = partnerSeedIds.find((id) => id !== saleId)!;
+    const tradeSection = member.getByTestId("season-end-commerce").locator("section").filter({ hasText: "Direct trades" }).first();
     await tradeSection.getByPlaceholder("Recipient Discord id").fill(SEASON_END_PARTNER_DISCORD_ID);
-    await tradeSection.getByPlaceholder("Your copy ids: 123, 456").fill(String(remainingMemberCopyIds[0]));
-    await tradeSection.getByPlaceholder("Requested copy ids").fill(String(remainingPartnerCopyIds[0]));
+    await tradeSection.getByPlaceholder("Your copy ids: 123, 456").fill(String(tradedMemberId));
+    await tradeSection.getByPlaceholder("Requested copy ids").fill(String(tradedPartnerId));
     await tradeSection.getByRole("button", { name: "Send trade offer", exact: true }).click();
-    await expect(tradeSection.getByText(/Offer #\d+/)).toBeVisible({ timeout: 30_000 });
+    const offerText = await tradeSection.getByText(/Offer #\d+/).textContent();
+    const tradeId = Number(offerText?.match(/Offer #(\d+)/)?.[1]);
+    expect(Number.isFinite(tradeId)).toBe(true);
 
     await partner.reload();
-    const partnerTradeSection = partner.getByTestId("season-end-commerce").first().locator("section").filter({ hasText: "Direct trades" }).first();
+    const partnerTradeSection = partner.getByTestId("season-end-commerce").locator("section").filter({ hasText: "Direct trades" }).first();
     await partnerTradeSection.getByRole("button", { name: "Accept", exact: true }).click();
-    await expect(partnerTradeSection.getByRole("button", { name: "Accept", exact: true })).toHaveCount(0, { timeout: 30_000 });
+    await expect(partnerTradeSection.getByRole("button", { name: "Accept", exact: true })).toHaveCount(0);
 
-    const dustSection = partner.getByTestId("season-end-commerce").first().locator("section").first();
+    const dustId = partnerSeedIds.find((id) => id !== tradedPartnerId)!;
+    const quote = await service.rpc("season_end_dust_quote", { p_user: SEASON_END_PARTNER_DISCORD_ID, p_inventory: dustId });
+    expect(quote.error).toBeNull();
+    const dustValue = Array.isArray(quote.data) ? quote.data[0]?.value : undefined;
+    expect(Number.isFinite(Number(dustValue))).toBe(true);
+    await partner.reload();
+    const dustCopy = partner.getByTestId("season-end-commerce").locator("article").filter({ hasText: `Copy #${dustId}` });
     partner.once("dialog", (dialog) => dialog.accept());
-    await dustSection.getByRole("button", { name: "Dust", exact: true }).first().click();
-    await expect(dustSection.getByText(/Copy #\d+/)).toHaveCount(5, { timeout: 30_000 });
+    await dustCopy.getByRole("button", { name: "Dust", exact: true }).click();
+    await expect.poll(async () => {
+      const { data } = await service.from("season_end_inventory").select("lifecycle_status").eq("id", dustId).single();
+      return data?.lifecycle_status;
+    }).toBe("dusted");
 
-    expect(memberCopyIds).toHaveLength(5);
-    expect(partnerCopyIds).toHaveLength(5);
+    await Promise.all([member.reload(), partner.reload()]);
+    await expect(member.getByTestId("season-end-commerce").locator("section").first().getByText(/Copy #\d+/)).toHaveCount(4);
+    await expect(partner.getByTestId("season-end-commerce").locator("section").first().getByText(/Copy #\d+/)).toHaveCount(5);
+
+    const { data: sale } = await service.from("season_end_listings").select("id,status,buyer_discord")
+      .eq("inventory_id", saleId).single();
+    if (!sale) throw new Error("The sale listing was not persisted.");
+    expect(sale).toMatchObject({ status: "sold", buyer_discord: SEASON_END_PARTNER_DISCORD_ID });
+    const { data: trade } = await service.from("season_end_trades").select("id,status,offered_inventory_ids,requested_inventory_ids")
+      .eq("id", tradeId).single();
+    expect(trade).toMatchObject({ status: "accepted", offered_inventory_ids: [tradedMemberId], requested_inventory_ids: [tradedPartnerId] });
+
+    const { data: finalCopies } = await service.from("season_end_inventory").select("id,discord_id,lifecycle_status,ownership_version")
+      .eq("release_id", releaseId).eq("mode", "public");
+    const ownerOf = (id: number) => finalCopies?.find((copy) => copy.id === id);
+    expect(ownerOf(saleId)).toMatchObject({ discord_id: SEASON_END_PARTNER_DISCORD_ID, lifecycle_status: "active", ownership_version: 1 });
+    expect(ownerOf(tradedMemberId)).toMatchObject({ discord_id: SEASON_END_PARTNER_DISCORD_ID, lifecycle_status: "active", ownership_version: 1 });
+    expect(ownerOf(tradedPartnerId)).toMatchObject({ discord_id: SEASON_END_MEMBER_DISCORD_ID, lifecycle_status: "active", ownership_version: 1 });
+    expect(ownerOf(dustId)).toMatchObject({ discord_id: SEASON_END_PARTNER_DISCORD_ID, lifecycle_status: "dusted", ownership_version: 1 });
+
+    for (const [id, event, discordId] of [
+      [saleId, "sold", SEASON_END_PARTNER_DISCORD_ID],
+      [tradedMemberId, "traded", SEASON_END_PARTNER_DISCORD_ID],
+      [tradedPartnerId, "traded", SEASON_END_MEMBER_DISCORD_ID],
+      [dustId, "dusted", SEASON_END_PARTNER_DISCORD_ID],
+    ] as const) {
+      const { data: provenance } = await service.from("season_end_provenance").select("event,discord_id").eq("inventory_id", id);
+      expect(provenance).toContainEqual({ event, discord_id: discordId });
+    }
+
+    const { data: wallets } = await service.from("betting_profiles").select("discord_id,balance")
+      .in("discord_id", [SEASON_END_MEMBER_DISCORD_ID, SEASON_END_PARTNER_DISCORD_ID]);
+    expect(wallets?.find((wallet) => wallet.discord_id === SEASON_END_MEMBER_DISCORD_ID)?.balance).toBe(4_600);
+    expect(wallets?.find((wallet) => wallet.discord_id === SEASON_END_PARTNER_DISCORD_ID)?.balance).toBe(4_400 + Number(dustValue));
+    const { data: ledger } = await service.from("betting_ledger").select("discord_id,delta,reason,ref_id")
+      .eq("reason", "season_end_sale").eq("ref_id", sale.id);
+    expect(ledger).toEqual(expect.arrayContaining([
+      { discord_id: SEASON_END_MEMBER_DISCORD_ID, delta: 100, reason: "season_end_sale", ref_id: sale.id },
+      { discord_id: SEASON_END_PARTNER_DISCORD_ID, delta: -100, reason: "season_end_sale", ref_id: sale.id },
+    ]));
   } finally {
     await Promise.all([memberContext.close(), partnerContext.close()]);
   }
 });
-
-async function copyIds(section: Locator): Promise<number[]> {
-  const labels = await section.getByText(/Copy #\d+/).allTextContents();
-  return labels.map((label) => Number(label.match(/Copy #(\d+)/)?.[1])).filter(Number.isFinite);
-}

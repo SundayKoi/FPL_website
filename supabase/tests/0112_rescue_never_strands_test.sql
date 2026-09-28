@@ -20,18 +20,20 @@ select plan(11);
 insert into public.betting_profiles (discord_id, username, balance)
   values ('t_rescue', 'Rescue Test', 5000) on conflict (discord_id) do nothing;
 
-insert into public.card_inventory (discord_id, season, edition_week, slug, player_name, role, tier, card)
-  values ('t_rescue', 'T', '2026-08-24', 't-gone', 'Gone', 'Top', 'gold', '{}'::jsonb),
-         ('t_rescue', 'T', '2026-08-24', 't-home', 'Home', 'Top', 'gold', '{}'::jsonb);
+insert into public.card_inventory (discord_id, season, edition_week, slug, player_name, role, overall, tier, card)
+  values ('t_rescue', 'T', '2026-08-24', 't-gone', 'Gone', 'Top', 50, 'gold', '{}'::jsonb),
+         ('t_rescue', 'T', '2026-08-24', 't-home', 'Home', 'Top', 50, 'gold', '{}'::jsonb),
+         ('t_rescue', 'T', '2026-08-24', 't-rescuer', 'Rescuer', 'Top', 50, 'gold', '{}'::jsonb);
 
 -- ── A hold whose deadline has passed, with a rescue still in the field ──
-insert into public.expedition_runs (discord_id, season, tier, squad, resolves_at, target)
-  select 't_rescue', 'T', 'lost', array[ci.id], now() - interval '1 hour', null
+insert into public.expedition_runs (discord_id, season, tier, squad, shine, resolves_at, target)
+  select 't_rescue', 'T', 'lost', array[ci.id], 0, now() - interval '1 hour', null
     from public.card_inventory ci where ci.slug = 't-gone' and ci.discord_id = 't_rescue';
 
-insert into public.expedition_runs (discord_id, season, tier, squad, resolves_at, target)
-  select 't_rescue', 'T', 'rescue', '{}'::bigint[], now() + interval '2 hours', r.id
+insert into public.expedition_runs (discord_id, season, tier, squad, shine, resolves_at, target)
+  select 't_rescue', 'T', 'rescue', array[ci.id], 0, now() + interval '2 hours', r.id
     from public.expedition_runs r
+    join public.card_inventory ci on ci.slug = 't-rescuer' and ci.discord_id = 't_rescue'
    where r.discord_id = 't_rescue' and r.tier = 'lost';
 
 select is(
@@ -85,13 +87,14 @@ select is(
   'the outcome records that there was nothing left to bring home');
 
 -- ── The happy path is untouched ────────────────────────────────────────
-insert into public.expedition_runs (discord_id, season, tier, squad, resolves_at, target)
-  select 't_rescue', 'T', 'lost', array[ci.id], now() + interval '3 days', null
+insert into public.expedition_runs (discord_id, season, tier, squad, shine, resolves_at, target)
+  select 't_rescue', 'T', 'lost', array[ci.id], 0, now() + interval '3 days', null
     from public.card_inventory ci where ci.slug = 't-home' and ci.discord_id = 't_rescue';
 
-insert into public.expedition_runs (discord_id, season, tier, squad, resolves_at, target)
-  select 't_rescue', 'T', 'rescue', '{}'::bigint[], now() - interval '1 minute', r.id
+insert into public.expedition_runs (discord_id, season, tier, squad, shine, resolves_at, target)
+  select 't_rescue', 'T', 'rescue', array[ci.id], 0, now() - interval '1 minute', r.id
     from public.expedition_runs r
+    join public.card_inventory ci on ci.slug = 't-rescuer' and ci.discord_id = 't_rescue'
    where r.discord_id = 't_rescue' and r.tier = 'lost' and r.claimed_at is null;
 
 select public.resolve_expedition('t_rescue',

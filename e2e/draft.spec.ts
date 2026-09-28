@@ -1,6 +1,5 @@
 import { expect, type Page } from "@playwright/test";
 import { seedFixture, signIn, test } from "./fixtures";
-import { readFileSync } from "node:fs";
 
 /**
  * Two captains run one auction to settlement — the realtime auction loop,
@@ -18,8 +17,9 @@ import { readFileSync } from "node:fs";
  */
 
 test("two captains run one auction to settlement", async ({ captains: [cap1, cap2] }) => {
-  seedFixture("draft");
-  const draftId = readFileSync("e2e/.draft-id", "utf8").trim();
+  test.setTimeout(120_000);
+  const { fixtureId: draftId } = seedFixture("draft");
+  expect(draftId).toBeTruthy();
 
   await signIn(cap1, "e2e-cap1@test.local", "password123");
   await signIn(cap2, "e2e-cap2@test.local", "password123");
@@ -30,10 +30,11 @@ test("two captains run one auction to settlement", async ({ captains: [cap1, cap
   // Wait for the realtime subscription to settle and the initial board state
   // to load on both boards before doing anything — avoids nominating into a
   // client that hasn't subscribed yet.
-  await expect(cap1.getByText("You are")).toBeVisible();
-  await expect(cap2.getByText("You are")).toBeVisible();
+  await expect(cap1.getByText("Team E2E Alpha", { exact: true })).toBeVisible();
+  await expect(cap2.getByText("Team E2E Bravo", { exact: true })).toBeVisible();
   await expect(cap1.getByText(/Waiting for .* to nominate/)).toBeVisible();
   await expect(cap2.getByText(/Waiting for .* to nominate/)).toBeVisible();
+  await cap1.getByRole("dialog", { name: "Your nomination" }).getByRole("button", { name: "Pick my player" }).click();
 
   // Captain 1 (E2E Alpha, on the clock) nominates Mid1 explicitly — the
   // picker lists players alphabetically, so "first button" is not stable.
@@ -48,19 +49,24 @@ test("two captains run one auction to settlement", async ({ captains: [cap1, cap
   await expect(cap2.getByRole("heading", { name: "Mid1" })).toBeVisible();
   await expect(cap1.getByRole("heading", { name: "Mid1" })).toBeVisible();
 
-  // Captain 2 outbids via the quick-bid button (opening bid 10 -> quick-bid 11).
+  // Captain 1 disconnects while captain 2 bids. Reconnecting must fetch the
+  // missed authoritative state, even if the realtime event was dropped.
+  await cap1.context().setOffline(true);
+  await expect.poll(() => cap1.evaluate(() => navigator.onLine)).toBe(false);
   await cap2.getByRole("button", { name: "Bid 11" }).click();
+  await expect(cap2.getByText("E2E Bravo bid 11 on Mid1")).toBeVisible();
+  await cap1.context().setOffline(false);
+  await expect.poll(() => cap1.evaluate(() => navigator.onLine)).toBe(true);
 
-  // The new price propagates to captain 1's board WITHOUT a refresh. Match
-  // the bid feed's exact line copy (BidFeed.tsx: "{team} bid {amount} on
-  // {player}") rather than the center-stage price alone, so this can't be
-  // confused with the "Bid 11" quick-bid button text on cap1's own board.
+  // The new price catches up after reconnect without a page refresh.
   await expect(cap1.getByText("E2E Bravo bid 11 on Mid1")).toBeVisible();
 
   // Let the countdown run out -> the sale settles on both boards without a
   // refresh: center stage returns to "waiting to nominate" on both...
-  await expect(cap1.getByText(/Waiting for .* to nominate/)).toBeVisible({ timeout: 20_000 });
-  await expect(cap2.getByText(/Waiting for .* to nominate/)).toBeVisible({ timeout: 20_000 });
+  // The winning bid starts a fresh 30-second clock; allow the sale to settle
+  // after that authoritative server deadline plus its 2-second close poll.
+  await expect(cap1.getByText(/Waiting for .* to nominate/)).toBeVisible({ timeout: 45_000 });
+  await expect(cap2.getByText(/Waiting for .* to nominate/)).toBeVisible({ timeout: 45_000 });
 
   // ...and Mid1 now shows as sold to E2E Bravo in the player pool, visible
   // from both browsers (proves the DB write + realtime fan-out, not just

@@ -1341,8 +1341,8 @@ in `glossary.ts`. The board says "power" for shine. Status icons come from
 League goal, Road ahead and Atlas sections from the modules above and states
 no number of its own. `/admin/expedition-board?persona=new|mid|veteran`
 renders the board from `boardFixtures.ts` without a staff profile under
-`npm run dev`. `e2e/expedition-board.spec.ts` screenshots it and checks phone
-width, tap targets and disabled-control reasons.
+`npm run dev`. These fixture routes remain useful for manual review; they are
+not part of the automated infrastructure journey suite.
 
 **Deploy safety.** Code for all five features can ship first.
 

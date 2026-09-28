@@ -195,8 +195,9 @@ npm run typecheck        # generate Next.js route types, then check TypeScript
 npm test                 # Vitest unit/component suite
 npm run test:python      # Python mapper and settlement suites
 npm run build            # production Next.js build
-npm run test:db          # pgTAP suite; local Supabase must be running
-npm run e2e              # Playwright auction + betting smoke tests
+npm run test:db          # fresh local migration replay and pgTAP suite
+npm run e2e              # fresh local stack, production build, and browser journeys
+npm run test:infra       # pgTAP plus production build and all browser journeys
 ```
 
 Python tests require Python 3 with `requests` and `python-dotenv` installed
@@ -206,12 +207,7 @@ for test discovery, fixtures, cleanup conventions, and focused commands.
 Choose checks using [Testing](docs/testing.md#choose-checks-by-change).
 Documentation-only edits need link, command, and diff review; they do not need
 application tests or a production build. Browser tests use self-seeding local
-fixtures; see the [Playwright setup](docs/testing.md#playwright).
-The expedition screenshot specs, `e2e/expedition-board.spec.ts` and
-`e2e/expedition-map.spec.ts`, need no seed. They render fixtures on the
-dev-only `/admin/expedition-board` and `/admin/expedition-map` previews and
-write PNGs for review to the gitignored `e2e/screenshots/`. Run one with
-`npx playwright test e2e/expedition-board.spec.ts`.
+fixtures and the isolated runner; see the [Playwright setup](docs/testing.md#playwright).
 
 ### Branches and releases
 

@@ -41,6 +41,10 @@ export function stageMigrations(source, destination) {
     const sql = names.map(name => readFileSync(join(source, name), 'utf8')).join('\n\n');
     writeFileSync(join(destination, names[0]), sql);
   }
+  return {
+    sourceFiles: [...groups.values()].reduce((total, names) => total + names.length, 0),
+    stagedFiles: groups.size,
+  };
 }
 
 export function main(args) {

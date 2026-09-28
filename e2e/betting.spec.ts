@@ -1,6 +1,13 @@
 import { expect, type Page } from "@playwright/test";
 import { seedFixture, signIn, test } from "./fixtures";
-import { BETTING_MEMBER_EMAIL, BETTING_ADMIN_EMAIL, BETTING_PASSWORD } from "../scripts/betting-fixture";
+import {
+  BETTING_LOSER_DISCORD_ID,
+  BETTING_MEMBER_DISCORD_ID,
+  BETTING_MEMBER_EMAIL,
+  BETTING_ADMIN_EMAIL,
+  BETTING_PASSWORD,
+} from "../scripts/betting-fixture";
+import { localServiceClient } from "./test-clients";
 
 /**
  * Markets betting, end to end against the real running app + local
@@ -38,16 +45,16 @@ async function signOut(page: Page) {
 }
 
 test("member bets, admin resolves, member's profile shows the payout", async ({ page }) => {
-  seedFixture("betting");
+  const marketId = Number(seedFixture("betting").marketId);
+  const service = localServiceClient();
 
   // === Member: sign in, open the market, stake 100 on Betting FC ===========
   await signIn(page, MEMBER_EMAIL, PASSWORD, "/betting");
 
   // Signup-bonus balance from the seed, formatted by fmtPoints ("$1,000").
-  await expect(page.getByText("$1,000", { exact: true })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("link", { name: "Premium wallet balance $1,000" })).toBeVisible();
 
-  await page.getByRole("link").filter({ hasText: "Betting FC" }).click();
-  await page.waitForURL(/\/betting\/market\/\d+/);
+  await page.goto(`/betting/market/${marketId}`);
   await expect(page.getByRole("heading", { name: /Betting FC.*Wager United/ })).toBeVisible();
 
   // Team A (Betting FC) is BetPanel's default side already, but select it
@@ -58,7 +65,7 @@ test("member bets, admin resolves, member's profile shows the payout", async ({ 
 
   // Balance chip drops by the 100 stake ($1,000 -> $900) — proves the bet
   // actually posted (place_bet's balance write), not just an optimistic UI.
-  await expect(page.getByText("$900", { exact: true })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("link", { name: "Premium wallet balance $900" })).toBeVisible();
 
   await signOut(page);
 
@@ -98,4 +105,32 @@ test("member bets, admin resolves, member's profile shows the payout", async ({ 
   // Recent Settled row: "+$500" (unambiguous — nothing else on the page
   // renders a leading "+").
   await expect(page.getByText("+$500", { exact: true })).toBeVisible();
+
+  // Verify the authoritative rows after the page has reloaded with a fresh
+  // authenticated session. A matching profile summary alone could hide a
+  // duplicate payout or a market resolved for the wrong side.
+  const { data: market } = await service.from("betting_markets")
+    .select("status,winning_team_id,team_a_id,team_b_id").eq("id", marketId).single();
+  expect(market).toMatchObject({ status: "RESOLVED", winning_team_id: market?.team_a_id });
+  const { data: bets } = await service.from("betting_bets")
+    .select("id,discord_id,team_id,amount,payout,settled").eq("market_id", marketId).order("id");
+  expect(bets).toHaveLength(2);
+  const memberBet = bets?.find((bet) => bet.discord_id === BETTING_MEMBER_DISCORD_ID);
+  const losingBet = bets?.find((bet) => bet.discord_id === BETTING_LOSER_DISCORD_ID);
+  expect(memberBet).toMatchObject({ amount: 100, payout: 600, settled: true, team_id: market?.team_a_id });
+  expect(losingBet).toMatchObject({ amount: 500, payout: 0, settled: true, team_id: market?.team_b_id });
+
+  const repeatResolution = await service.rpc("_resolve_market", { p_market: marketId, p_winning_team: market!.team_a_id });
+  expect(repeatResolution.error).toBeNull();
+  const { data: memberLedger } = await service.from("betting_ledger")
+    .select("delta,reason,ref_table,ref_id").eq("discord_id", BETTING_MEMBER_DISCORD_ID)
+    .eq("ref_table", "betting_bets").eq("ref_id", memberBet!.id).order("delta");
+  expect(memberLedger).toEqual([
+    { delta: -100, reason: "bet_place", ref_table: "betting_bets", ref_id: memberBet!.id },
+    { delta: 600, reason: "bet_payout", ref_table: "betting_bets", ref_id: memberBet!.id },
+  ]);
+  const { data: wallets } = await service.from("betting_profiles").select("discord_id,balance")
+    .in("discord_id", [BETTING_MEMBER_DISCORD_ID, BETTING_LOSER_DISCORD_ID]);
+  expect(wallets?.find((wallet) => wallet.discord_id === BETTING_MEMBER_DISCORD_ID)?.balance).toBe(1_500);
+  expect(wallets?.find((wallet) => wallet.discord_id === BETTING_LOSER_DISCORD_ID)?.balance).toBe(500);
 });

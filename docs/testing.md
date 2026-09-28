@@ -76,11 +76,14 @@ requests and do not need Riot credentials or a Supabase connection.
 
 ## SQL
 
-Start the local Supabase stack as described in the README, with the database
-migrations required by the tests applied. Use `npm run test:db`: it selects
-the numbered `supabase/tests/[0-9]*_test.sql` files and excludes operational
-SQL scripts in the same directory. Shared SQL fixtures live in
+Use `npm run test:db`: the isolated runner creates a fresh disposable local
+Supabase project, stages the known migration collisions, replays the full
+history, then runs the numbered pgTAP contracts. It excludes operational SQL
+scripts in the same directory. Shared SQL fixtures live in
 `supabase/tests/helpers/*.sql.inc` and are included inside each transaction.
+The runner uses unique loopback ports and project identity, rejects ambient
+Supabase credential overrides, and cleans only the project it started. It does
+not read or rewrite `.env.local` or the cloud CLI link.
 
 Every test file declares a plan, calls `finish()`, and rolls back its
 transaction. Give fixtures test-specific names, supply required columns,
@@ -88,15 +91,35 @@ and keep permission and state-transition assertions intact. Missing RPCs,
 columns, or views indicate a schema prerequisite to investigate, not a
 reason to skip an assertion or mark a migration applied.
 
-## Playwright
+## Playwright and infrastructure runner
 
-Start local Supabase with `npx supabase start`. Playwright expects the app at
-`http://localhost:3000` and starts `npm run dev` if needed. No manual demo seed
-is required.
+`npm run e2e` creates an isolated local Supabase project, replays migrations,
+builds the production app with that stack's local URL and keys, starts
+`next start` on a free local port, and runs Chromium. It needs Docker and the
+Chromium browser installed. It creates no demo data and does not use an
+existing app server or edit `.env.local`. The stack and isolated build directory
+are removed on success or failure. Ambient Supabase settings cause an early
+failure so fixtures cannot write to a linked or mixed database.
 
-`npm run e2e` uses one worker against the local app and database. Auction,
-betting, and FPL'dle specs seed their scenarios through `e2e/fixtures.ts`;
-the color-system spec inspects the app without seeding. The same helper
-provides dev sign-in and two isolated captain contexts that close even on
-failure. Keep the worker count at one because the scenarios share the local
-database. `npm run e2e -- --list` checks discovery without starting the app.
+The full command `npm run test:infra` adds the entire pgTAP suite against that
+freshly replayed database before the production build and browser run. Use
+`npm run test:db` for fresh replay plus pgTAP without the build/browser step.
+`npm run e2e:list` checks Playwright discovery only; it does not prove any
+journey passes.
+
+The seven independently seeded journey groups cover:
+
+- password session persistence, sign-out, private-data denial, and authorized
+  staff access;
+- Premier, Academy, and historical-season row isolation;
+- auction bid propagation and reconnect catch-up;
+- match-draft propagation, stale-write rejection, and spectator denial;
+- persisted betting results, wallet balances, and duplicate-resolution safety;
+- recovery of a durable pending Season's End purchase; and
+- Season's End sale, copy trade, and dust outcomes with persisted ownership and
+  wallet readback.
+
+The suite uses one worker so fixtures remain deterministic. Test setup may use
+service credentials to create and inspect fixtures; browser actions exercise
+the ordinary user's server and database boundary. Live Discord, Riot, and
+OAuth-provider behavior is not exercised.

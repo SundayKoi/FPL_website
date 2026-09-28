@@ -67,8 +67,7 @@ select is(has_function_privilege('service_role', 'public.ensure_fpldle_daily_puz
 select public.ensure_fpldle_daily_puzzle(
   '2026-08-27', 'premier', 'S99', '2026-08-24',
   '[
-    {"player_slug":"repeat-player","player_name":"Repeat Player","player_tag":"NA1","team":"Alpha","position":"Top","champion":"Ahri","overall":80},
-    {"player_slug":"yesterday-only","player_name":"Yesterday Only","player_tag":"NA1","team":"Bravo","position":"Mid","champion":"Orianna","overall":81}
+    {"player_slug":"repeat-player","player_name":"Repeat Player","player_tag":"NA1","team":"Alpha","position":"Top","champion":"Ahri","overall":80}
   ]'::jsonb
 );
 

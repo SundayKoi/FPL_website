@@ -117,6 +117,7 @@ select
     where p.draft_id = (select id from trade_draft)
       and p.display_name = 'Mid2'
   ) as right_id;
+grant select on trade_players to authenticated;
 
 select tests.acting_as(tests.cap(3));
 set local role authenticated;

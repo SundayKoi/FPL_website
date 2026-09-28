@@ -25,11 +25,10 @@
  * Supabase install, but we still never hardcode it — it's read as config
  * either way, so a non-default local setup (custom JWT secret) keeps working.
  */
-import { execSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import { getLocalTestSupabase } from "./local-supabase";
 
-const DRAFT_NAME = "E2E Draft";
+const DRAFT_NAME = `FPL ${process.env.FPL_TEST_PROJECT_ID ?? "isolated"} Draft`;
 const CAP1_EMAIL = "e2e-cap1@test.local";
 const CAP2_EMAIL = "e2e-cap2@test.local";
 const PASSWORD = "password123";
@@ -38,29 +37,7 @@ const PASSWORD = "password123";
 // before the assertions around the nomination/outbid even run, and the lot
 // must still be open when they do. Still short enough to prove settlement
 // happens quickly and without a refresh.
-const COUNTDOWN_SECONDS = 12;
-
-function supabaseStatusJson(): Record<string, string> {
-  const out = execSync("npx supabase status -o json", { encoding: "utf8" });
-  return JSON.parse(out);
-}
-
-function resolveConfig(): { url: string; serviceKey: string } {
-  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const envKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (envUrl && envKey) return { url: envUrl, serviceKey: envKey };
-
-  const status = supabaseStatusJson();
-  const url = envUrl ?? status.API_URL;
-  const serviceKey = envKey ?? status.SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
-    throw new Error(
-      "Could not resolve Supabase URL / service_role key. Is `npx supabase start` running? " +
-        "Or set SUPABASE_SERVICE_ROLE_KEY (and optionally NEXT_PUBLIC_SUPABASE_URL) yourself."
-    );
-  }
-  return { url, serviceKey };
-}
+const COUNTDOWN_SECONDS = 30;
 
 async function ensureUser(
   admin: ReturnType<typeof createClient>["auth"]["admin"],
@@ -98,7 +75,7 @@ async function ensureUser(
 }
 
 async function main() {
-  const { url, serviceKey } = resolveConfig();
+  const { url, serviceRoleKey: serviceKey } = getLocalTestSupabase();
   const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
 
   const cap1Id = await ensureUser(supabase.auth.admin, CAP1_EMAIL, PASSWORD);
@@ -201,10 +178,7 @@ async function main() {
     .eq("id", draftId);
   if (liveErr) throw liveErr;
 
-  writeFileSync("e2e/.draft-id", draftId, "utf8");
-  console.log(`Seeded "${DRAFT_NAME}" -> ${draftId}`);
-  console.log(`  cap1: ${CAP1_EMAIL} (${cap1Id}) -> ${teamByPosition(1).name}`);
-  console.log(`  cap2: ${CAP2_EMAIL} (${cap2Id}) -> ${teamByPosition(2).name}`);
+  console.log(`FPL_TEST_FIXTURE_ID=${draftId}`);
 }
 
 main().catch((err) => {
