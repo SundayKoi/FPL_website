@@ -21,7 +21,6 @@ export type SeedResult = {
   academyFixtureId?: string;
   historicalFixtureId?: string;
   marketId?: string;
-  pendingRequestId?: string;
   academyReleaseId?: string;
   historicalReleaseId?: string;
   captainAProfileId?: string;
@@ -35,11 +34,17 @@ export function seedFixture(scenario: "draft" | "betting" | "season-end-recovery
   const script = scenario === "draft" ? "seed.ts" : scenario === "betting" ? "seed-betting.ts"
     : scenario.startsWith("season-end-") ? `seed-${scenario}.ts` : "seed-contracts.ts";
   const scriptArgs = contractSeed ? [scenario] : [];
+  const fixtureEnv = { ...process.env };
+  // Do not pass conflicting color controls into nested Node/Supabase CLI
+  // processes. Node's error formatting can fail before surfacing the actual
+  // seed error when both variables are inherited from a developer shell.
+  delete fixtureEnv.FORCE_COLOR;
+  delete fixtureEnv.NO_COLOR;
   try {
     const output = execFileSync(process.execPath, ["--import", "tsx", `e2e/${script}`, ...scriptArgs], {
       cwd: process.cwd(),
       encoding: "utf8",
-      env: process.env,
+      env: fixtureEnv,
       maxBuffer: 4 * 1024 * 1024,
     });
     const result: SeedResult = {};
@@ -48,7 +53,6 @@ export function seedFixture(scenario: "draft" | "betting" | "season-end-recovery
       ["academyFixtureId", "FPL_TEST_ACADEMY_FIXTURE_ID"],
       ["historicalFixtureId", "FPL_TEST_HISTORICAL_FIXTURE_ID"],
       ["marketId", "FPL_TEST_MARKET_ID"],
-      ["pendingRequestId", "FPL_TEST_PENDING_REQUEST_ID"],
       ["academyReleaseId", "FPL_TEST_ACADEMY_RELEASE_ID"],
       ["historicalReleaseId", "FPL_TEST_HISTORICAL_RELEASE_ID"],
       ["captainAProfileId", "FPL_TEST_CAPTAIN_A_PROFILE_ID"],

@@ -31,10 +31,10 @@ test("independently seeded Season's End copies retain owners, provenance, and ex
   try {
     await signIn(member, SEASON_END_MEMBER_EMAIL, SEASON_END_PASSWORD, marketUrl);
     const memberCommerce = member.getByTestId("season-end-commerce");
-    const memberCopies = memberCommerce.locator("section").first();
+    const memberCopies = memberCommerce.getByRole("region", { name: "Your public copies" });
     await expect(memberCopies.getByText(/Copy #\d+/)).toHaveCount(5);
     const saleId = memberSeedIds[0];
-    const listingForm = memberCommerce.locator("form").first();
+    const listingForm = memberCommerce.getByRole("region", { name: "Fixed-price listing" }).locator("form");
     await listingForm.getByLabel("Copy").selectOption(String(saleId));
     await listingForm.getByLabel("Ask").fill("100");
     await listingForm.getByRole("button", { name: "List copy", exact: true }).click();
@@ -44,18 +44,18 @@ test("independently seeded Season's End copies retain owners, provenance, and ex
     await signIn(partner, SEASON_END_PARTNER_EMAIL, SEASON_END_PASSWORD, marketUrl);
     let partnerCommerce = partner.getByTestId("season-end-commerce");
     const partnerListing = partnerCommerce.locator("li").filter({ hasText: `#${saleId}` });
-    await expect(partnerCommerce.locator("section").first().getByText(/Copy #\d+/)).toHaveCount(5);
+    await expect(partnerCommerce.getByRole("region", { name: "Your public copies" }).getByText(/Copy #\d+/)).toHaveCount(5);
     await partnerListing.getByRole("button", { name: "Buy for 100", exact: true }).click();
     await partnerListing.getByRole("button", { name: "Confirm 100", exact: true }).click();
     await partner.reload();
     partnerCommerce = partner.getByTestId("season-end-commerce");
-    await expect(partnerCommerce.locator("section").first().getByText(/Copy #\d+/)).toHaveCount(6);
+    await expect(partnerCommerce.getByRole("region", { name: "Your public copies" }).getByText(/Copy #\d+/)).toHaveCount(6);
     await member.reload();
-    await expect(member.getByTestId("season-end-commerce").locator("section").first().getByText(/Copy #\d+/)).toHaveCount(4);
+    await expect(member.getByTestId("season-end-commerce").getByRole("region", { name: "Your public copies" }).getByText(/Copy #\d+/)).toHaveCount(4);
 
     const tradedMemberId = memberSeedIds.find((id) => id !== saleId)!;
     const tradedPartnerId = partnerSeedIds.find((id) => id !== saleId)!;
-    const tradeSection = member.getByTestId("season-end-commerce").locator("section").filter({ hasText: "Direct trades" }).first();
+    const tradeSection = member.getByTestId("season-end-commerce").getByRole("region", { name: "Direct trades" });
     await tradeSection.getByPlaceholder("Recipient Discord id").fill(SEASON_END_PARTNER_DISCORD_ID);
     await tradeSection.getByPlaceholder("Your copy ids: 123, 456").fill(String(tradedMemberId));
     await tradeSection.getByPlaceholder("Requested copy ids").fill(String(tradedPartnerId));
@@ -65,7 +65,7 @@ test("independently seeded Season's End copies retain owners, provenance, and ex
     expect(Number.isFinite(tradeId)).toBe(true);
 
     await partner.reload();
-    const partnerTradeSection = partner.getByTestId("season-end-commerce").locator("section").filter({ hasText: "Direct trades" }).first();
+    const partnerTradeSection = partner.getByTestId("season-end-commerce").getByRole("region", { name: "Direct trades" });
     await partnerTradeSection.getByRole("button", { name: "Accept", exact: true }).click();
     await expect(partnerTradeSection.getByRole("button", { name: "Accept", exact: true })).toHaveCount(0);
 
@@ -84,8 +84,8 @@ test("independently seeded Season's End copies retain owners, provenance, and ex
     }).toBe("dusted");
 
     await Promise.all([member.reload(), partner.reload()]);
-    await expect(member.getByTestId("season-end-commerce").locator("section").first().getByText(/Copy #\d+/)).toHaveCount(4);
-    await expect(partner.getByTestId("season-end-commerce").locator("section").first().getByText(/Copy #\d+/)).toHaveCount(5);
+    await expect(member.getByTestId("season-end-commerce").getByRole("region", { name: "Your public copies" }).getByText(/Copy #\d+/)).toHaveCount(4);
+    await expect(partner.getByTestId("season-end-commerce").getByRole("region", { name: "Your public copies" }).getByText(/Copy #\d+/)).toHaveCount(5);
 
     const { data: sale } = await service.from("season_end_listings").select("id,status,buyer_discord")
       .eq("inventory_id", saleId).single();
@@ -109,8 +109,13 @@ test("independently seeded Season's End copies retain owners, provenance, and ex
       [tradedPartnerId, "traded", SEASON_END_MEMBER_DISCORD_ID],
       [dustId, "dusted", SEASON_END_PARTNER_DISCORD_ID],
     ] as const) {
-      const { data: provenance } = await service.from("season_end_provenance").select("event,discord_id").eq("inventory_id", id);
-      expect(provenance).toContainEqual({ event, discord_id: discordId });
+      const { data: provenance } = await service.from("season_end_provenance")
+        .select("event,discord_id").eq("inventory_id", id).order("id");
+      const mintedBy = id === saleId || id === tradedMemberId ? SEASON_END_MEMBER_DISCORD_ID : SEASON_END_PARTNER_DISCORD_ID;
+      expect(provenance).toEqual([
+        { event: "minted", discord_id: mintedBy },
+        { event, discord_id: discordId },
+      ]);
     }
 
     const { data: wallets } = await service.from("betting_profiles").select("discord_id,balance")
@@ -118,11 +123,22 @@ test("independently seeded Season's End copies retain owners, provenance, and ex
     expect(wallets?.find((wallet) => wallet.discord_id === SEASON_END_MEMBER_DISCORD_ID)?.balance).toBe(4_600);
     expect(wallets?.find((wallet) => wallet.discord_id === SEASON_END_PARTNER_DISCORD_ID)?.balance).toBe(4_400 + Number(dustValue));
     const { data: ledger } = await service.from("betting_ledger").select("discord_id,delta,reason,ref_id")
-      .eq("reason", "season_end_sale").eq("ref_id", sale.id);
-    expect(ledger).toEqual(expect.arrayContaining([
+      .eq("reason", "season_end_sale").eq("ref_table", "season_end_listings").eq("ref_id", sale.id).order("discord_id");
+    expect(ledger).toEqual([
       { discord_id: SEASON_END_MEMBER_DISCORD_ID, delta: 100, reason: "season_end_sale", ref_id: sale.id },
       { discord_id: SEASON_END_PARTNER_DISCORD_ID, delta: -100, reason: "season_end_sale", ref_id: sale.id },
-    ]));
+    ]);
+    const { data: dustLedger } = await service.from("betting_ledger")
+      .select("discord_id,delta,reason,ref_table,ref_id")
+      .eq("discord_id", SEASON_END_PARTNER_DISCORD_ID).eq("reason", "season_end_dust")
+      .eq("ref_table", "season_end_inventory").eq("ref_id", dustId);
+    expect(dustLedger).toEqual([{
+      discord_id: SEASON_END_PARTNER_DISCORD_ID,
+      delta: Number(dustValue),
+      reason: "season_end_dust",
+      ref_table: "season_end_inventory",
+      ref_id: dustId,
+    }]);
   } finally {
     await Promise.all([memberContext.close(), partnerContext.close()]);
   }

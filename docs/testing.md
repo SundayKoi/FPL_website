@@ -34,7 +34,7 @@ files under `src` run in jsdom. Worktrees and Playwright specs are excluded;
 scratch files outside these source directories are not collected.
 
 ```sh
-npm test -- src/components/teams/AdminTeamEditor.test.tsx
+npm test -- src/lib/teams/identity.test.ts
 npm test -- --project=node
 npm test -- --project=dom
 ```

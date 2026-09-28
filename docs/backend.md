@@ -1853,10 +1853,13 @@ historical recovery but cannot start new openings.
 The trusted server actions derive the Discord identity from the signed-in
 session and call service-only RPCs. `begin_season_end_opening` binds the
 request UUID, release revision, mode, price, signing book, rules, and economy
-before charging; recovery checks the existing owner/request first, so pause,
-membership loss, active-season rollover, or a newer revision cannot strand a
-paid opening. Preparation locks the opening and stores the canonical design
-payload; fulfillment mints five ordered rows plus provenance atomically.
+before charging. A request UUID is reserved globally: the same account can
+resume its receipt, while a different account reusing that UUID is denied
+before another opening or debit can be created. Recovery checks the existing
+owner/request first, so pause, membership loss, active-season rollover, or a
+newer revision cannot strand a paid opening. Preparation locks the opening and
+stores the canonical design payload; fulfillment mints five ordered rows plus
+provenance atomically.
 
 Public copies use `season_end_inventory` only. The market adapters page
 listings, wants, trades, and owned copies; settlement rechecks ownership,

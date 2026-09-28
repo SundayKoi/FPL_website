@@ -24,6 +24,35 @@ export const SEASON_END_PARTNER_EMAIL = "e2e-season-end-partner@test.local";
 export const SEASON_END_MEMBER_DISCORD_ID = "9000000000000011";
 export const SEASON_END_PARTNER_DISCORD_ID = "9000000000000012";
 
+const RECOVERY_FAULT_TRIGGER = "fpl_e2e_block_season_end_terminal";
+const RECOVERY_FAULT_FUNCTION = "fpl_e2e_block_season_end_terminal";
+
+export function suspendSeasonEndRecoveryCompletion(discordId: string): void {
+  if (!/^\d{8,20}$/.test(discordId)) throw new Error("Expected a fixture Discord id for the recovery interruption.");
+  runSql(`drop trigger if exists ${RECOVERY_FAULT_TRIGGER} on public.season_end_openings;`);
+  runSql(`drop function if exists public.${RECOVERY_FAULT_FUNCTION}();`);
+  runSql(`create function public.${RECOVERY_FAULT_FUNCTION}() returns trigger
+language plpgsql as $$
+begin
+  if old.discord_id = '${discordId}' and old.status = 'pending'
+     and new.status in ('fulfilled', 'refunded') then
+    raise exception 'E2E simulated interruption after purchase charge';
+  end if;
+  return new;
+end;
+$$;
+`);
+  runSql(`create trigger ${RECOVERY_FAULT_TRIGGER}
+before update of status on public.season_end_openings
+for each row execute function public.${RECOVERY_FAULT_FUNCTION}();
+`);
+}
+
+export function clearSeasonEndRecoveryCompletionInterruption(): void {
+  runSql(`drop trigger if exists ${RECOVERY_FAULT_TRIGGER} on public.season_end_openings;`);
+  runSql(`drop function if exists public.${RECOVERY_FAULT_FUNCTION}();`);
+}
+
 // Supabase's untyped service-role client is intentional for a local fixture;
 // the generated Database type does not include auth-admin or fixture-only rows.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -175,7 +204,7 @@ function accoladeDesign(releaseId: string, index: number): AccoladeCollectible {
   };
 }
 
-export async function seedSeasonEndFixture(scenario: "recovery" | "commerce"): Promise<{ releaseId: string; pendingRequestId?: string }> {
+export async function seedSeasonEndFixture(scenario: "recovery" | "commerce"): Promise<{ releaseId: string }> {
   const { url, serviceRoleKey: serviceKey } = getLocalTestSupabase();
   const service = createClient(url, serviceKey, { auth: { persistSession: false } });
   const memberId = await ensureUser(service.auth.admin, SEASON_END_MEMBER_EMAIL);
@@ -270,19 +299,11 @@ export async function seedSeasonEndFixture(scenario: "recovery" | "commerce"): P
   if (publishError) throw publishError;
 
   if (scenario === "recovery") {
-    // Persist the charged pending receipt through the same idempotent RPC the
-    // purchase action uses. Leaving it pending models a process interruption
-    // after debit and before outcome preparation.
-    const pendingRequestId = randomUUID();
-    const { data, error } = await service.rpc("begin_season_end_opening", {
-      p_request_id: pendingRequestId,
-      p_user: SEASON_END_PARTNER_DISCORD_ID,
-      p_release: releaseId,
-      p_mode: "public",
-    });
-    if (error) throw error;
-    if (!Array.isArray(data) || data[0]?.status !== "pending") throw new Error("Recovery opening was not persisted as pending.");
-    return { releaseId, pendingRequestId };
+    // The browser starts the paid request through the real signed-in shop.
+    // This targeted fault blocks fulfillment and its compensating refund so
+    // that the durable receipt remains charged and pending for a retry.
+    suspendSeasonEndRecoveryCompletion(SEASON_END_PARTNER_DISCORD_ID);
+    return { releaseId };
   }
 
   // Commerce gets its own release and two independently minted five-copy

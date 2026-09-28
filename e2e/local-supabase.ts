@@ -68,12 +68,15 @@ export function runLocalTestSql(sql: string): void {
   const sqlPath = join(tempDirectory, "fixture.sql");
   writeFileSync(sqlPath, sql, "utf8");
   try {
+    const cliEnv: NodeJS.ProcessEnv = { ...process.env, SUPABASE_TELEMETRY_DISABLED: "1" };
+    delete cliEnv.FORCE_COLOR;
+    delete cliEnv.NO_COLOR;
     execFileSync(join(ROOT, "node_modules", ".bin", "supabase"), [
       "db", "query", "--local", "--workdir", stack.workdir, "--file", sqlPath,
     ], {
       cwd: ROOT,
       stdio: "inherit",
-      env: { ...process.env, SUPABASE_TELEMETRY_DISABLED: "1" },
+      env: cliEnv,
     });
   } finally {
     unlinkSync(sqlPath);
