@@ -12,6 +12,8 @@
 
 import Link from "next/link";
 import type { PlayerCardData } from "@/lib/cards/build";
+import type { HomeAppearance } from "./appearance";
+import styles from "./HomeWorkspace.module.css";
 
 /** Tier accent, matching the card's own banner colours. */
 const TIER_COLORS: Record<string, string> = {
@@ -33,53 +35,57 @@ export default function TopCards({
   cards,
   basePath = "/cards",
   count = 5,
+  appearance = "legacy",
 }: {
   cards: PlayerCardData[];
   /** Where "all cards" points — the Academy homepage has its own hub. */
   basePath?: string;
   count?: number;
+  appearance?: HomeAppearance;
 }) {
+  const workspace = appearance === "workspace";
   // Already sorted best-first by the build, but the homepage should not
   // depend on a caller's ordering to be correct.
   const top = [...cards].sort((a, b) => b.overall - a.overall).slice(0, count);
-  if (top.length === 0) return null;
+  if (top.length === 0 && !workspace) return null;
 
   return (
-    <section aria-labelledby="top-cards-heading" className="card-brand flex flex-col gap-4 p-5 sm:p-6">
+    <section aria-labelledby="top-cards-heading" className={workspace ? `${styles.panel} flex flex-col gap-4 p-5 sm:p-6` : "card-brand flex flex-col gap-4 p-5 sm:p-6"} data-appearance={appearance}>
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
-          <span className="label-dash">This week</span>
-          <h2 id="top-cards-heading" className="font-display mt-2 text-2xl font-semibold text-white sm:text-3xl">
+          <span className={workspace ? styles.eyebrow : "label-dash"}>This week</span>
+          <h2 id="top-cards-heading" className={workspace ? `${styles.title} mt-2 text-2xl sm:text-3xl` : "font-display mt-2 text-2xl font-semibold text-white sm:text-3xl"}>
             Top Cards
           </h2>
         </div>
         <Link
           href={basePath}
-          className="text-xs font-semibold uppercase tracking-[0.16em] text-action-text underline-offset-4 hover:text-white hover:underline"
+          className={workspace ? `${styles.link} text-xs uppercase tracking-[0.12em]` : "text-xs font-semibold uppercase tracking-[0.16em] text-action-text underline-offset-4 hover:text-white hover:underline"}
         >
           All cards →
         </Link>
       </div>
 
-      <ol className="flex flex-col gap-2">
+      {top.length === 0 ? <p className={`border-t border-border-subtle pt-4 text-sm ${styles.muted}`}>No cards are available for this week yet.</p> : null}
+      {top.length > 0 ? <ol className="flex flex-col gap-2">
         {top.map((card, index) => {
           const tint = TIER_COLORS[card.tier.key] ?? "#a7c0d8";
           return (
             <li key={card.slug}>
               <Link
                 href={`/card/${card.slug}`}
-                className="flex items-center gap-3 rounded-xl border border-border-strong bg-canvas/60 px-3 py-2.5 transition hover:border-action-text/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                className={workspace ? `${styles.softPanel} flex items-center gap-3 px-3 py-2.5 transition hover:border-action-text/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus` : "flex items-center gap-3 rounded-xl border border-border-strong bg-canvas/60 px-3 py-2.5 transition hover:border-action-text/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"}
               >
                 <span className="w-5 shrink-0 text-center font-mono text-sm font-bold text-muted">{index + 1}</span>
                 <span
                   className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-full border-2 tabular-nums"
                   style={{ borderColor: tint }}
                 >
-                  <span className="text-sm font-black leading-none text-white">{card.overall}</span>
+                  <span className={`text-sm font-black leading-none ${workspace ? styles.ink : "text-white"}`}>{card.overall}</span>
                   <span className="text-[8px] uppercase tracking-[0.1em] text-muted">OVR</span>
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-display text-base font-semibold text-white">{card.name}</span>
+                  <span className={`block truncate font-display text-base font-semibold ${workspace ? styles.ink : "text-white"}`}>{card.name}</span>
                   <span className="block truncate text-[11px] uppercase tracking-[0.14em] text-muted">
                     {roleLabel(card.role)}
                     {card.teamAbbr || card.teamName ? ` · ${card.teamAbbr ?? card.teamName}` : ""}
@@ -95,7 +101,7 @@ export default function TopCards({
             </li>
           );
         })}
-      </ol>
+      </ol> : null}
     </section>
   );
 }

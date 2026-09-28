@@ -1,8 +1,10 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import RegularSeasonHomePage from "./RegularSeasonHomePage";
 
 const {
+  fetchCardSeason,
+  fetchCurrentWeekCards,
   fetchHomepageAwards,
   fetchHomepageSchedule,
   fetchHomepageStandings,
@@ -11,6 +13,8 @@ const {
   fetchTeamIdentities,
   homeViewer,
 } = vi.hoisted(() => ({
+  fetchCardSeason: vi.fn(),
+  fetchCurrentWeekCards: vi.fn(),
   fetchHomepageAwards: vi.fn(),
   fetchHomepageSchedule: vi.fn(),
   fetchHomepageStandings: vi.fn(),
@@ -20,240 +24,81 @@ const {
   homeViewer: vi.fn(),
 }));
 
-function resetMocks() {
-  homeViewer.mockResolvedValue("signed-out");
-  fetchHomepageTwitch.mockResolvedValue({
-    status: { state: "offline", title: null, viewerCount: null, startedAt: null },
-    clips: [],
-  });
-  fetchHomepageStandings.mockResolvedValue({
-    teams: [
-      {
-        id: "team-alpha",
-        name: "Alpha",
-        abbreviation: "AL",
-        nomination_position: 1,
-        wins: 0,
-        losses: 0,
-      },
-    ],
-    race: [],
-  });
-  fetchHomepageSchedule.mockResolvedValue({
-    season: "S5",
-    isNewestSeason: true,
-    activeStage: "week_1",
-    fixtures: [],
-  });
-  fetchTeamIdentities.mockResolvedValue({});
-  fetchHomepageAwards.mockResolvedValue({
-    season: "S5",
-    periodLabel: "Week of Apr 27",
-    playerOfWeek: {
-      title: "Player of the Week",
-      name: "Ace",
-      tag: "FPL",
-      teamName: "Alpha",
-      detail: "Alpha · MIDDLE · 2 games",
-      value: "91",
-    },
-    teamOfWeek: {
-      title: "Team of the Week",
-      name: null,
-      tag: null,
-      teamName: "Alpha",
-      detail: "100% weekly win rate",
-      value: "2–0",
-    },
-    individualAwards: [],
-    teamAwards: [],
-  });
-  fetchHomepageFeaturedSettings.mockResolvedValue({
-    fixtureId: null,
-    title: null,
-    description: null,
-    twitchUrl: null,
-  });
-}
-
+vi.mock("@/lib/supabase/server", () => ({ createServerSupabase: vi.fn(async () => ({})) }));
+vi.mock("@/lib/cards/queries", () => ({ fetchCardSeason, fetchCurrentWeekCards }));
 vi.mock("@/lib/home/twitch", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/home/twitch")>()),
   fetchHomepageTwitch,
 }));
-
-vi.mock("@/lib/home/standings", () => ({
-  fetchHomepageStandings,
-}));
-
-vi.mock("@/lib/home/homepageSettings", () => ({
-  fetchHomepageFeaturedSettings,
-}));
-
+vi.mock("@/lib/home/standings", () => ({ fetchHomepageStandings }));
+vi.mock("@/lib/home/homepageSettings", () => ({ fetchHomepageFeaturedSettings }));
 vi.mock("@/lib/home/schedule", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/home/schedule")>()),
   fetchHomepageSchedule,
 }));
-
-// Crest lookup is a server-side query; without a request scope it throws.
-vi.mock("@/lib/teams/identity", () => ({
-  fetchTeamIdentities,
-}));
-
-vi.mock("@/lib/home/awards", () => ({
-  fetchHomepageAwards,
-  PREMIER_SEASON: "S5",
-}));
-
-// Who is looking is a server read (session + Discord); the page must
-// never be the reason a wallet exists, so it is resolved read-only and
-// mocked here.
+vi.mock("@/lib/teams/identity", () => ({ fetchTeamIdentities }));
+vi.mock("@/lib/home/awards", () => ({ fetchHomepageAwards, PREMIER_SEASON: "S5" }));
 vi.mock("@/lib/home/viewer", () => ({ homeViewer }));
 
+const fixture = {
+  id: "fixture-1",
+  season: "S5",
+  stage: "week_1" as const,
+  division: "Solari",
+  team_a: "Alpha",
+  team_b: "Beta",
+  scheduled_at: "2026-10-01T00:00:00Z",
+  best_of: 3,
+  score_a: null,
+  score_b: null,
+  sort_order: 1,
+  created_at: "2026-08-01T00:00:00Z",
+};
 
-
-expect.extend({
-  toHaveClass(received: Element | null | undefined, ...classNames: string[]) {
-    const missing = classNames.filter((className) => !received?.classList.contains(className));
-
-    return {
-      pass: missing.length === 0,
-      message: () =>
-        `expected element class="${received?.getAttribute("class") ?? ""}" to include ${classNames.join(", ")}`,
-    };
-  },
-});
-
-afterEach(() => {
-  cleanup();
-  vi.clearAllMocks();
+beforeEach(() => {
+  fetchCardSeason.mockResolvedValue("S5");
+  fetchCurrentWeekCards.mockResolvedValue([]);
+  homeViewer.mockResolvedValue("signed-out");
+  fetchHomepageTwitch.mockResolvedValue({ status: { state: "offline" }, clips: [] });
+  fetchHomepageStandings.mockResolvedValue({ teams: [], race: [], playoffSeeds: { Solari: [], Lunari: [] } });
+  fetchHomepageSchedule.mockResolvedValue({
+    season: "S5", isNewestSeason: true, activeStage: "week_1",
+    fixtures: [fixture], upcoming: [fixture], seasonFixtures: [fixture],
+    asOf: Date.parse("2026-09-01T00:00:00Z"),
+  });
+  fetchTeamIdentities.mockResolvedValue({});
+  fetchHomepageAwards.mockResolvedValue({
+    season: "S5", periodLabel: "S5", periodKey: null,
+    playerOfWeek: { title: "Player of the Week", name: null, tag: null, teamName: null, detail: "—", value: "—" },
+    teamOfWeek: { title: "Team of the Week", name: null, tag: null, teamName: null, detail: "—", value: "—" },
+    individualAwards: [], teamAwards: [],
+  });
+  fetchHomepageFeaturedSettings.mockResolvedValue({ fixtureId: "fixture-1", title: "Premier spotlight", description: "Premier supporting copy", twitchUrl: "https://www.twitch.tv/jakeok1" });
 });
 
 describe("RegularSeasonHomePage", () => {
-  beforeEach(resetMocks);
-
-  it("uses the tightened dashboard spacing on desktop", async () => {
+  it("uses one saved Premier season for the homepage loaders and the configured broadcast", async () => {
     render(await RegularSeasonHomePage());
 
-    const main = screen.getByRole("main");
-    expect(main.firstElementChild).toHaveClass("page-container", "page-spacing");
-    expect(main.firstElementChild).not.toHaveClass("mx-auto", "max-w-[1800px]", "px-4", "sm:px-6", "py-8", "sm:py-10");
-    expect(screen.getByRole("region", { name: /homepage dashboard/i })).toHaveClass("space-y-6");
-  });
-
-  it("opens on a real heading, then a door or shortcuts depending on who is looking", async () => {
-    render(await RegularSeasonHomePage());
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/draft league/i);
-    expect(screen.getByTestId("home-orientation").getAttribute("data-viewer")).toBe("signed-out");
-    expect(within(screen.getByTestId("home-third-door")).getByRole("link", { name: /sign in/i }).getAttribute("href")).toBe("/login");
-    // The compact map at the top points at the full grid at the bottom.
-    expect(screen.getByRole("link", { name: /everything on the site/i }).getAttribute("href")).toBe("#site-directory-title");
-
-    cleanup();
-    homeViewer.mockResolvedValue("member");
-    render(await RegularSeasonHomePage());
-    expect(screen.queryByTestId("home-third-door")).toBeNull();
-    expect(within(screen.getByTestId("home-shortcuts")).getByRole("link", { name: /get/i }).getAttribute("href")).toBe("/membership");
-
-    cleanup();
-    homeViewer.mockResolvedValue("premium");
-    render(await RegularSeasonHomePage());
-    expect(within(screen.getByTestId("home-shortcuts")).getByRole("link", { name: /open today's pack/i }).getAttribute("href")).toBe("/cards/packs");
-  });
-
-  it("keeps the homepage focused on league broadcasts", async () => {
-    render(await RegularSeasonHomePage());
-
-    const twitchLinks = screen.getAllByRole("link", { name: /twitch/i });
-    expect(twitchLinks.length).toBeGreaterThanOrEqual(1);
-
-    for (const twitchLink of twitchLinks) {
-      expect(twitchLink.getAttribute("href")).toBe(
-        "https://www.twitch.tv/franchisepremierleague",
-      );
-      expect(twitchLink.getAttribute("target")).toBe("_blank");
-      expect(twitchLink.getAttribute("rel")).toBe("noreferrer");
-    }
-
-    expect(screen.queryByRole("heading", { name: /explore the league/i })).toBeNull();
-    expect(screen.queryByRole("heading", { name: /draft central/i })).toBeNull();
-    expect(screen.queryByRole("link", { name: /explore drafts/i })).toBeNull();
-  });
-
-  it("uses the saved Twitch channel for status loading and homepage links", async () => {
-    fetchHomepageFeaturedSettings.mockResolvedValue({
-      fixtureId: null,
-      title: null,
-      description: null,
-      twitchUrl: "https://www.twitch.tv/jakeok1",
-    });
-
-    render(await RegularSeasonHomePage());
-
+    expect(fetchHomepageAwards).toHaveBeenCalledWith("S5");
+    expect(fetchHomepageStandings).toHaveBeenCalledWith("S5");
+    expect(fetchHomepageSchedule).toHaveBeenCalledWith(expect.any(Function), "S5");
     expect(fetchHomepageTwitch).toHaveBeenCalledWith("jakeok1");
-    for (const twitchLink of screen.getAllByRole("link", { name: /twitch/i })) {
-      expect(twitchLink.getAttribute("href")).toBe("https://www.twitch.tv/jakeok1");
-    }
+    expect(screen.getByRole("heading", { level: 1, name: "Premier spotlight" })).toBeTruthy();
+    expect(screen.getByText("Premier supporting copy")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /open twitch channel/i }).getAttribute("href")).toBe("https://www.twitch.tv/jakeok1");
+    expect(screen.getByRole("link", { name: /view schedule/i }).getAttribute("href")).toBe("/schedule");
   });
 
-  it("adds the Twitch broadcast showcase to the landing page", async () => {
-    render(await RegularSeasonHomePage());
-
-    expect(
-      screen.getByRole("article", { name: /franchise premier league broadcast/i }),
-    ).not.toBeNull();
-  });
-
-  it("adds the awards desk to the landing page", async () => {
-    render(await RegularSeasonHomePage());
-
-    expect(screen.getByRole("region", { name: /awards desk/i })).not.toBeNull();
-  });
-
-  it("adds the team standings panel to the landing page", async () => {
-    render(await RegularSeasonHomePage());
-
-    expect(screen.getByRole("article", { name: /team standings/i })).not.toBeNull();
-    expect(screen.getAllByText("Alpha").length).toBeGreaterThan(0);
-  });
-
-  it("places the awards desk below standings and above the schedule", async () => {
-    render(await RegularSeasonHomePage());
-
-    const broadcast = screen.getByRole("article", {
-      name: /franchise premier league broadcast/i,
-    });
-    const schedule = screen.getByRole("article", { name: /upcoming schedule/i });
-    const standings = screen.getByRole("article", { name: /team standings/i });
-    const awards = screen.getByRole("region", { name: /awards desk/i });
-
-    expect(
-      broadcast.compareDocumentPosition(standings) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      standings.compareDocumentPosition(awards) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      awards.compareDocumentPosition(schedule) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    // Top Cards renders nothing when the week has no cards, which is this
-    // fixture's state — the awards/schedule ordering is what this asserts.
-  });
-
-  it("adds the upcoming schedule below the dashboard", async () => {
-    render(await RegularSeasonHomePage());
-
-    expect(screen.getByRole("article", { name: /upcoming schedule/i })).not.toBeNull();
-  });
-
-  it("renders the dashboard fallback when Supabase-backed homepage data is offline", async () => {
-    fetchHomepageStandings.mockRejectedValue(new Error("connect ECONNREFUSED 127.0.0.1:54321"));
-    fetchHomepageSchedule.mockRejectedValue(new Error("connect ECONNREFUSED 127.0.0.1:54321"));
-    fetchTeamIdentities.mockRejectedValue(new Error("connect ECONNREFUSED 127.0.0.1:54321"));
+  it("keeps the homepage available when its data loaders fail", async () => {
+    fetchHomepageStandings.mockRejectedValue(new Error("offline"));
+    fetchHomepageSchedule.mockRejectedValue(new Error("offline"));
+    fetchTeamIdentities.mockRejectedValue(new Error("offline"));
 
     render(await RegularSeasonHomePage());
 
-    expect(screen.getByRole("region", { name: /homepage dashboard/i })).not.toBeNull();
-    expect(screen.getByRole("article", { name: /upcoming schedule/i })).not.toBeNull();
-    expect(within(screen.getByRole("article", { name: /team standings/i })).queryByText("Alpha")).toBeNull();
+    expect(screen.getByRole("main")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Premier spotlight" })).toBeTruthy();
+    expect(screen.getByText("No upcoming fixtures are listed.")).toBeTruthy();
   });
 });

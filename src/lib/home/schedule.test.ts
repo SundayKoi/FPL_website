@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchHomepageSchedule, selectHomepageFeaturedFixture, selectHomepageStage } from "./schedule";
+import { fetchHomepageSchedule, selectFutureHomepageFixtures, selectHomepageFeaturedFixture, selectHomepageStage } from "./schedule";
 import type { FixtureRow } from "@/lib/schedule/types";
 
 const { createServerSupabase } = vi.hoisted(() => ({
@@ -145,13 +145,13 @@ describe("fetchHomepageSchedule", () => {
   it("starts at Week 1 when there are no fixtures", async () => {
     createServerSupabase.mockResolvedValue({ from: vi.fn(() => query({ data: [], error: null })) });
 
-    await expect(fetchHomepageSchedule()).resolves.toEqual({
+    await expect(fetchHomepageSchedule()).resolves.toEqual(expect.objectContaining({
       season: null,
       isNewestSeason: true,
       activeStage: "week_1",
       fixtures: [],
       upcoming: [],
-    });
+    }));
   });
 
   it("keeps an explicitly selected Premier season isolated even if no fixtures exist for it", async () => {
@@ -182,6 +182,31 @@ describe("selectHomepageFeaturedFixture", () => {
     expect(selectHomepageFeaturedFixture(fixtures, "fixture-from-another-schedule")).toEqual(
       fixtures[0],
     );
+  });
+
+  it("honors a configured later-stage fixture only within the scoped candidate set", () => {
+    const later = fixture({ id: "later", stage: "quarterfinals", season: "S5" });
+    expect(selectHomepageFeaturedFixture(fixtures, "later", [...fixtures, later])).toEqual(later);
+    expect(selectHomepageFeaturedFixture(fixtures, "academy", [...fixtures, later])).toEqual(fixtures[0]);
+  });
+
+  it("can keep a reported featured result after the active stage is complete", () => {
+    const reported = fixture({ id: "reported", score_a: 2, score_b: 1 });
+    expect(selectHomepageFeaturedFixture([], "reported", [reported])).toEqual(reported);
+  });
+});
+
+describe("selectFutureHomepageFixtures", () => {
+  it("excludes results and elapsed fixtures, orders by kickoff, and puts undated slots last", () => {
+    const rows = [
+      fixture({ id: "undated", scheduled_at: null }),
+      fixture({ id: "late", scheduled_at: "2026-10-10T00:00:00Z" }),
+      fixture({ id: "reported", scheduled_at: "2026-10-05T00:00:00Z", score_a: 2, score_b: 0 }),
+      fixture({ id: "past", scheduled_at: "2026-09-01T00:00:00Z" }),
+      fixture({ id: "early", scheduled_at: "2026-10-05T00:00:00Z" }),
+    ];
+    expect(selectFutureHomepageFixtures(rows, Date.parse("2026-09-26T00:00:00Z")).map((row) => row.id)).toEqual(["early", "late", "undated"]);
+    expect(rows[0].id).toBe("undated");
   });
 });
 
