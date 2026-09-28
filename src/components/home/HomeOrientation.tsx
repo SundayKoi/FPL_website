@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { homeShortcuts } from "@/lib/home/shortcuts";
 import type { HomeViewer } from "@/lib/home/viewer";
 import type { LeagueView } from "@/lib/league/context";
 import { leaguePath } from "@/lib/league/links";
@@ -99,23 +100,7 @@ export default function HomeOrientation({
             secondary: { href: "/membership", label: `What ${PREMIUM_NAME} is` },
           };
 
-  // A signed-in visitor already knows what FPL is; they came to do one of
-  // four things. People said the site was hard to find things on, so the
-  // things are the first buttons they see.
-  const shortcuts =
-    viewer === "premium"
-      ? [
-          { label: "My team", hint: "Roster, scouting, your week", href: leaguePath("my-team", league) },
-          { label: "This week's matches", hint: "Schedule and results", href: leaguePath("schedule", league) },
-          { label: "Open today's pack", hint: "Your free daily pack", href: `${cardsBase}/packs`, accent: true },
-          { label: "Today's FPL'dle", hint: "Guess the player of the day", href: academy ? "/academy/fpldle" : "/fpldle" },
-        ]
-      : [
-          { label: "My team", hint: "Roster, scouting, your week", href: leaguePath("my-team", league) },
-          { label: "This week's matches", hint: "Schedule and results", href: leaguePath("schedule", league) },
-          { label: "Browse the cards", hint: "Every player, rated from this season", href: `${cardsBase}/browse` },
-          { label: `Get ${PREMIUM_NAME}`, hint: `${PREMIUM_PRICE_LABEL} — opens packs, betting and daily games`, href: "/membership", accent: true },
-        ];
+  const shortcuts = homeShortcuts(league, viewer);
 
   const map = [
     { label: "League", href: leaguePath("players", league), blurb: "Players, teams, schedule, stats" },

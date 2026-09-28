@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import RegularSeasonHomePage from "./RegularSeasonHomePage";
 
@@ -100,5 +100,25 @@ describe("RegularSeasonHomePage", () => {
     expect(screen.getByRole("main")).toBeTruthy();
     expect(screen.getByRole("heading", { level: 1, name: "Premier spotlight" })).toBeTruthy();
     expect(screen.getByText("No upcoming fixtures are listed.")).toBeTruthy();
+  });
+
+  it("gives signed-in members four shortcuts under the hero, and visitors none", async () => {
+    render(await RegularSeasonHomePage());
+    expect(screen.queryByTestId("home-shortcuts")).toBeNull();
+
+    cleanup();
+    homeViewer.mockResolvedValue("member");
+    render(await RegularSeasonHomePage());
+    const member = within(screen.getByRole("navigation", { name: "Your shortcuts" }));
+    expect(member.getAllByRole("link")).toHaveLength(4);
+    expect(member.getByRole("link", { name: /get/i }).getAttribute("href")).toBe("/membership");
+    expect(member.queryByRole("link", { name: /today's pack/i })).toBeNull();
+
+    cleanup();
+    homeViewer.mockResolvedValue("premium");
+    render(await RegularSeasonHomePage());
+    const premium = within(screen.getByRole("navigation", { name: "Your shortcuts" }));
+    expect(premium.getByRole("link", { name: /open today's pack/i }).getAttribute("href")).toBe("/cards/packs");
+    expect(premium.getByRole("link", { name: /my team/i }).getAttribute("href")).toBe("/my-team");
   });
 });
