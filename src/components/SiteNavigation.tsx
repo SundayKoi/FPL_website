@@ -8,94 +8,10 @@ import LeagueBrandChooser from "./LeagueBrandChooser";
 import SiteSearch from "./SiteSearch";
 import styles from "./SiteNavigation.module.css";
 import { leagueNavigationLinks } from "@/lib/league/navigation";
-import { leaguePath, resolveLeagueFromPath } from "@/lib/league/links";
-import { cardsSections } from "@/lib/cards/sections";
-import type { LeagueView } from "@/lib/league/context";
+import { resolveLeagueFromPath } from "@/lib/league/links";
+import { headerMenus, type MenuKey } from "@/lib/site/menus";
 
-type DropdownLink = {
-  href: string;
-  label: string;
-  target?: "_blank";
-  rel?: "noopener noreferrer";
-};
-
-type DropdownKey = "league" | "cards" | "play" | "info";
-
-// Four menus of four to six, one per question a visitor asks: what is
-// the league doing (League), what can I collect (Cards), what can I play
-// (Play), how does this all work (About). The old header had 2 / 7 / 5 /
-// 6 — Stats at the top level while Players sat in a menu, the two drafts
-// under two different menus, and the daily games at the bottom of a
-// seven-item Premium menu.
-const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: readonly DropdownLink[] }[] = [
-  {
-    key: "info",
-    label: "About",
-    links: [
-      { href: "/info", label: "About the league" },
-      { href: "/rulebook", label: "Rulebook" },
-      { href: "/league-links", label: "League Links" },
-      { href: "/membership", label: "Premium & Patron" },
-      { href: "/economy", label: "Betting dollars" },
-      { href: "/supporters", label: "Patrons" },
-      { href: "/support-devs", label: "Support the Devs" },
-      { href: "/signup", label: "Sign Up" },
-    ],
-  },
-];
-
-function playDropdownLinks(premiumHref: string, view: LeagueView, showTesting: boolean): DropdownLink[] {
-  // The daily games are destinations of their own, not an anchor on the
-  // hub: "Daily Games" landed people half-way down a page and they had to
-  // find the game again from there.
-  const prefix = view === "academy" ? "/academy" : "";
-  return [
-    { href: premiumHref, label: "Premium HQ" },
-    { href: "/betting", label: "Betting" },
-    { href: "/bangers", label: "The Daily Stu" },
-    { href: `${prefix}/fpldle`, label: "FPL'dle" },
-    { href: `${prefix}/higher-lower`, label: "Higher or Lower" },
-    // Still in admin testing: a member who clicked it was bounced straight
-    // back to Premium HQ with no explanation.
-    ...(showTesting ? [{ href: `${prefix}/guess-the-card`, label: "Guess the Card" }] : []),
-  ];
-}
-
-// Cards hid sixteen pages behind one header word, and that word walled
-// non-members: a signed-out visitor could not reach the public Browse,
-// Moments or Vault from the menu at all. Browse first, because it is the
-// one door open to everyone; the hub and the five tabs after it.
-function cardsDropdownLinks(base: string): DropdownLink[] {
-  const sections = cardsSections(base);
-  const browse = sections.find((section) => section.key === "browse");
-  const rest = sections.filter((section) => section.key !== "browse");
-  return [
-    ...(browse ? [{ href: browse.href, label: browse.label }] : []),
-    ...rest.map((section) => ({ href: section.href, label: section.key === "home" ? "Cards home" : section.label })),
-  ];
-}
-
-function leagueDropdownLinks(view: LeagueView, showBroadcaster: boolean): DropdownLink[] {
-  const links = [
-    ["Players", "players"],
-    ["Teams", "teams"],
-    ["Schedule", "schedule"],
-    ["Standings", "standings"],
-    ["Stats", "stats"],
-  ].map(([label, page]) => ({
-    href: leaguePath(page as "players" | "teams" | "schedule" | "standings" | "stats", view),
-    label,
-  }));
-
-  // Both drafts live here: the auction that builds the rosters and the
-  // pick/ban tool for playing the games. They were under two menus.
-  return [
-    ...links,
-    { href: "/draft", label: "Auction Draft" },
-    { href: "/drafter", label: "Match Drafter" },
-    ...(showBroadcaster ? [{ href: "/broadcaster", label: "Broadcaster" }] : []),
-  ];
-}
+type DropdownKey = MenuKey;
 
 const linkBase =
   "whitespace-nowrap text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral sm:text-sm lg:text-base";
@@ -110,29 +26,6 @@ function isActive(pathname: string | null, href: string) {
   const path = href.split("?")[0];
   if (path === "/") return pathname === "/";
   return pathname === path || (pathname?.startsWith(`${path}/`) ?? false);
-}
-
-function isPlayActive(pathname: string | null) {
-  return PLAY_ACTIVE_PREFIXES.some((href) => isActive(pathname, href));
-}
-
-// Cards owns both leagues' collection hubs plus the single-card share page and
-// the public binder view, none of which live under a /cards prefix.
-const CARDS_ACTIVE_PREFIXES = ["/cards", "/academy/cards", "/card", "/binder"];
-const PLAY_ACTIVE_PREFIXES = [
-  "/premium",
-  "/betting",
-  "/bangers",
-  "/fpldle",
-  "/higher-lower",
-  "/guess-the-card",
-  "/academy/fpldle",
-  "/academy/higher-lower",
-  "/academy/guess-the-card",
-];
-
-function isCardsActive(pathname: string | null) {
-  return CARDS_ACTIVE_PREFIXES.some((href) => isActive(pathname, href));
 }
 
 export default function SiteNavigation({
@@ -157,24 +50,22 @@ export default function SiteNavigation({
     league === "academy" || (pathname === "/premium" && searchParams?.get("league") === "academy")
       ? "/premium?league=academy"
       : "/premium";
-  const cardsHref = league === "academy" ? "/academy/cards" : "/cards";
   // My Team stays at the top level: it is the one personal page, and the
-  // one a captain opens most. Everything else is in one of four menus.
+  // one a captain opens most. Everything else is in one of four menus
+  // (src/lib/site/menus.ts), each with its most-used pages first.
   const directLinks = leagueNavigationLinks(league).filter((link) => link.label === "My Team");
-  const dropdowns = [
-    { key: "league" as const, label: "League", links: leagueDropdownLinks(league, showBroadcaster) },
-    { key: "cards" as const, label: "Cards", links: cardsDropdownLinks(cardsHref) },
-    { key: "play" as const, label: "Play", links: playDropdownLinks(premiumHref, league, showAdmin) },
-    ...SHARED_DROPDOWNS,
-  ];
+  const dropdowns = headerMenus({ league, premiumHref, showBroadcaster, showTesting: showAdmin });
   const [open, setOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<DropdownKey | null>(null);
+  // Which open menu is showing its "More" pages. Closing a menu folds it.
+  const [expanded, setExpanded] = useState<DropdownKey | null>(null);
   const menuId = useId();
   const navRef = useRef<HTMLElement | null>(null);
 
   const closeMenus = () => {
     setOpen(false);
     setOpenDropdown(null);
+    setExpanded(null);
   };
 
   // Close the mobile menu whenever the route changes (e.g. browser
@@ -252,12 +143,10 @@ export default function SiteNavigation({
           {dropdowns.map((dropdown) => {
             const dropdownOpen = openDropdown === dropdown.key;
             const dropdownMenuId = `${menuId}-${dropdown.key}`;
+            const showMore = expanded === dropdown.key;
             const active =
-              dropdown.key === "play"
-                ? isPlayActive(pathname)
-                : dropdown.key === "cards"
-                  ? isCardsActive(pathname)
-                  : dropdown.links.some((link) => isActive(pathname, link.href));
+              dropdown.activePrefixes.some((href) => isActive(pathname, href)) ||
+              [...dropdown.links, ...dropdown.more].some((link) => isActive(pathname, link.href));
 
             return (
               <div key={dropdown.key} className="relative flex flex-col md:items-center">
@@ -268,9 +157,10 @@ export default function SiteNavigation({
                   aria-expanded={dropdownOpen}
                   aria-controls={dropdownMenuId}
                   aria-current={active ? "page" : undefined}
-                  onClick={() =>
-                    setOpenDropdown((current) => (current === dropdown.key ? null : dropdown.key))
-                  }
+                  onClick={() => {
+                    setExpanded(null);
+                    setOpenDropdown((current) => (current === dropdown.key ? null : dropdown.key));
+                  }}
                   className={`${topLinkClass(active || dropdownOpen, "inline-flex items-center gap-1", homepage)} ${homepage ? styles.homeNavLink : ""}`}
                 >
                   {dropdown.label}
@@ -284,13 +174,11 @@ export default function SiteNavigation({
                     role="menu"
                     className="flex flex-col gap-1 pl-3 pt-1 md:absolute md:left-1/2 md:top-full md:z-50 md:mt-3 md:min-w-40 md:-translate-x-1/2 md:rounded md:border md:border-line md:bg-navy md:p-2 md:shadow-lg"
                   >
-                    {dropdown.links.map((dropdownLink) => (
+                    {[...dropdown.links, ...(showMore ? dropdown.more : [])].map((dropdownLink) => (
                       <Link
                         key={dropdownLink.href}
                         href={dropdownLink.href}
                         role="menuitem"
-                        target={dropdownLink.target}
-                        rel={dropdownLink.rel}
                         aria-current={isActive(pathname, dropdownLink.href) ? "page" : undefined}
                         onClick={closeMenus}
                         className={`${linkBase} rounded px-3 py-2 text-steel hover:bg-line/40 hover:text-white sm:px-3 sm:py-2 sm:text-sm`}
@@ -298,6 +186,16 @@ export default function SiteNavigation({
                         {dropdownLink.label}
                       </Link>
                     ))}
+                    {dropdown.more.length && !showMore ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => setExpanded(dropdown.key)}
+                        className={`${linkBase} rounded px-3 py-2 text-left text-muted hover:bg-line/40 hover:text-white sm:px-3 sm:py-2 sm:text-sm`}
+                      >
+                        More…
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
               </div>

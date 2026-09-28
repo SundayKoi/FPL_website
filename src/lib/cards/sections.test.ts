@@ -32,8 +32,20 @@ describe("cardsSections", () => {
   it("offers the same Play tab in both leagues", () => {
     const labels = (base: string) =>
       cardsSections(base).find((section) => section.key === "play")!.children?.map((child) => child.label);
-    expect(labels("/cards")).toEqual(["Fantasy", "Expeditions", "The ledger", "Weekly Draw"]);
+    expect(labels("/cards")).toEqual(["Fantasy", "Expeditions", "Expedition log", "Weekly prize draw"]);
     expect(labels("/academy/cards")).toEqual(labels("/cards"));
+  });
+
+  it("names pages in plain words, and still answers to their old names", () => {
+    const children = cardsSections("/cards").flatMap((section) => section.children ?? []);
+    const byHref = (href: string) => children.find((child) => child.href === href)!;
+    expect(byHref("/cards/vault").label).toBe("Rarest cards");
+    expect(byHref("/cards/vault").keywords).toContain("vault");
+    expect(byHref("/cards/market/bounties").keywords).toContain("bounties");
+    expect(byHref("/cards/expeditions/ledger").keywords).toContain("ledger");
+    for (const jargon of ["Shelf", "Binder", "The Vault", "The ledger", "Bounties", "Trade offers"]) {
+      expect(children.map((child) => child.label)).not.toContain(jargon);
+    }
   });
 
   it("gives every tab and sub-tab a line saying what it is", () => {
@@ -55,19 +67,19 @@ describe("activeCardsSection", () => {
   it("lights the parent tab and the sub-tab a page sits under", () => {
     const trades = activeCardsSection(sections, "/cards/trades");
     expect(trades.section?.key).toBe("market");
-    expect(trades.child?.label).toBe("Trade offers");
+    expect(trades.child?.label).toBe("Trades");
 
     const vault = activeCardsSection(sections, "/cards/vault");
     expect(vault.section?.key).toBe("browse");
-    expect(vault.child?.label).toBe("The Vault");
-    expect(activeCardsSection(sections, "/cards/season-end").child?.label).toBe("Season's End");
+    expect(vault.child?.label).toBe("Rarest cards");
+    expect(activeCardsSection(sections, "/cards/season-end").child?.label).toBe("Season awards");
     expect(activeCardsSection(sections, "/cards/season-end/copy/42").section?.key).toBe("browse");
   });
 
   it("lights the first sub-tab on the tab's own page", () => {
     const market = activeCardsSection(sections, "/cards/market");
-    expect(market.child?.label).toBe("Listings");
-    expect(activeCardsSection(sections, "/cards/market/bounties").child?.label).toBe("Bounties");
+    expect(market.child?.label).toBe("For sale");
+    expect(activeCardsSection(sections, "/cards/market/bounties").child?.label).toBe("Wanted");
   });
 
   it("lights nothing on a page the map does not know", () => {

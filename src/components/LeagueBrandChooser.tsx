@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { pairedLeagueHref } from "@/lib/league/links";
+import { leagueChoiceCookie } from "@/lib/league/preference";
 import type { LeagueView } from "@/lib/league/context";
 import { resolveThemeLeague } from "@/lib/league/theme";
 import styles from "./SiteNavigation.module.css";
@@ -93,6 +94,9 @@ export default function LeagueBrandChooser({ pathname, search, onNavigate, homeS
                 aria-current={league === current ? "page" : undefined}
                 aria-label={`${LABELS[league]}, ${DIVISIONS[league]}`}
                 onClick={() => {
+                  // Remembered, so the home page opens in this league next
+                  // time (src/lib/league/preference.ts).
+                  document.cookie = leagueChoiceCookie(league);
                   setOpen(false);
                   onNavigate();
                 }}
@@ -148,6 +152,9 @@ export default function LeagueBrandChooser({ pathname, search, onNavigate, homeS
                 aria-current={league === current ? "page" : undefined}
                 aria-label={`${LABELS[league]}, ${DIVISIONS[league]}`}
                 onClick={() => {
+                  // Remembered, so the home page opens in this league next
+                  // time (src/lib/league/preference.ts).
+                  document.cookie = leagueChoiceCookie(league);
                   setOpen(false);
                   onNavigate();
                 }}

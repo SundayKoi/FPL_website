@@ -17,6 +17,10 @@ export interface CardsSubsection {
   label: string;
   href: string;
   blurb: string;
+  /** What the page used to be called, and other words people search for.
+   *  Labels went plain in 2026-09 ("The Vault" -> "Rarest cards"); the old
+   *  names still find the page in site search. */
+  keywords?: string[];
 }
 
 export interface CardsSection {
@@ -39,9 +43,9 @@ export function cardsSections(base: string): CardsSection[] {
       // Three sections on one page, so the sub-tabs are anchors: the tab
       // bar still says where you are and where you can go from here.
       children: [
-        { label: "Shelf", href: `${base}/collection`, blurb: "Every copy you own, one shelf per player" },
-        { label: "Roster sets", href: `${base}/collection#team-sets`, blurb: "Collect a whole roster from one week" },
-        { label: "Binder", href: `${base}/collection#binder`, blurb: "The copies you pin to show off" },
+        { label: "My cards", href: `${base}/collection`, blurb: "Every copy you own, one shelf per player", keywords: ["shelf", "collection", "inventory"] },
+        { label: "Team sets", href: `${base}/collection#team-sets`, blurb: "Collect a whole roster from one week", keywords: ["roster sets", "sets"] },
+        { label: "Showcase", href: `${base}/collection#binder`, blurb: "The copies you pin to show off", keywords: ["binder", "pinned"] },
       ],
     },
     {
@@ -51,7 +55,7 @@ export function cardsSections(base: string): CardsSection[] {
       blurb: "Open a pack from any week's edition",
       children: [
         { label: "Open packs", href: `${base}/packs`, blurb: "Open a pack from any week's edition" },
-        { label: "Rarities", href: `${base}/rarities`, blurb: "Every rarity a card can pull, with the real odds" },
+        { label: "Pack odds", href: `${base}/rarities`, blurb: "Every rarity a card can pull, with the real odds", keywords: ["rarities", "odds", "chances"] },
       ],
     },
     {
@@ -63,9 +67,9 @@ export function cardsSections(base: string): CardsSection[] {
         { label: "All cards", href: `${base}/browse`, blurb: "Every player's card, rated from this season's stats" },
         { label: "Team cards", href: `${base}/teams`, blurb: "Every roster as one composite card" },
         { label: "Compare", href: `${base}/compare`, blurb: "Two cards side by side" },
-        { label: "Moments", href: `${base}/moments`, blurb: "The rarest single games of the season" },
-        { label: "Season's End", href: `${base}/season-end`, blurb: "Every published Season's End award and season card" },
-        { label: "The Vault", href: `${base}/vault`, blurb: "Every one-of-one, who holds it, what's still out there" },
+        { label: "Moments", href: `${base}/moments`, blurb: "Cards for the season's best single games", keywords: ["best games", "highlights"] },
+        { label: "Season awards", href: `${base}/season-end`, blurb: "Every published Season's End award and season card", keywords: ["season's end", "awards"] },
+        { label: "Rarest cards", href: `${base}/vault`, blurb: "Every one-of-one, who holds it, what's still out there", keywords: ["vault", "one of one", "eclipse"] },
       ],
     },
     {
@@ -74,9 +78,9 @@ export function cardsSections(base: string): CardsSection[] {
       href: `${base}/market`,
       blurb: "Buy, sell, and swap copies with other collectors",
       children: [
-        { label: "Listings", href: `${base}/market`, blurb: "Copies for sale at a fixed price" },
-        { label: "Bounties", href: `${base}/market/bounties`, blurb: "Cards people are hunting, and what they'll pay" },
-        { label: "Trade offers", href: `${base}/trades`, blurb: "Swap copies one to one" },
+        { label: "For sale", href: `${base}/market`, blurb: "Copies for sale at a fixed price", keywords: ["listings", "buy", "sell"] },
+        { label: "Wanted", href: `${base}/market/bounties`, blurb: "Cards people are hunting, and what they'll pay", keywords: ["bounties", "bounty"] },
+        { label: "Trades", href: `${base}/trades`, blurb: "Swap copies one to one", keywords: ["trade offers", "swap"] },
       ],
     },
     {
@@ -87,8 +91,8 @@ export function cardsSections(base: string): CardsSection[] {
       children: [
         { label: "Fantasy", href: `${base}/fantasy`, blurb: "Field five cards under the salary cap each week" },
         { label: "Expeditions", href: `${base}/expeditions`, blurb: "Send three cards out; they come back changed" },
-        { label: "The ledger", href: `${base}/expeditions/ledger`, blurb: "Every card lost, found and buried, league-wide" },
-        { label: "Weekly Draw", href: `${base}/draw`, blurb: "Every copy is a ticket; one wins every week" },
+        { label: "Expedition log", href: `${base}/expeditions/ledger`, blurb: "Every card lost, found and buried, league-wide", keywords: ["ledger"] },
+        { label: "Weekly prize draw", href: `${base}/draw`, blurb: "Every copy is a ticket; one wins every week", keywords: ["weekly draw", "raffle", "draw"] },
       ],
     },
   ];

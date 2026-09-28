@@ -1,4 +1,6 @@
 import HomeOrientation from "./HomeOrientation";
+import HomeShortcutsBand from "./HomeShortcutsBand";
+import { homeShortcuts } from "@/lib/home/shortcuts";
 import SiteDirectoryGrid from "./SiteDirectoryGrid";
 import FeaturedMatchup from "./FeaturedMatchup";
 import HomeStandings from "./HomeStandings";
@@ -112,6 +114,7 @@ export default function HomeDashboard({
         title={featuredSettings.title ?? undefined} description={featuredSettings.description ?? undefined}
         appearance="workspace"
       />
+      <HomeShortcutsBand shortcuts={homeShortcuts(league, viewer)} />
       <div className={styles.newStripBand}>
         <div className={styles.bandInner}>
           <HomeMatchStrip
