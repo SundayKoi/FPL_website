@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { LeagueTeam, MatchReport, MatchReportGame } from "@/lib/matches/types";
-import { fixGameSide } from "@/lib/captain/queries";
+import { fixGameSide, purgeMatchStats } from "@/lib/captain/queries";
+import { friendlyErrorMessage } from "@/lib/captain/errors";
 import { FixtureChips, ForfeitLine, StatusBadge } from "./reportStatus";
 
 /**
@@ -70,24 +71,69 @@ export default function AdminReportsQueue({
     router.refresh();
   };
 
+  /**
+   * A deleted report takes its ingested stats with it. The raw_stats rows
+   * the ingester wrote carry this report's team names and phase; left
+   * behind, they keep that attribution on every stats page with no report
+   * to point at, and block the games from ever being reported again (the
+   * form refuses the match ids, the ingester skips them). raw_stats is the
+   * one record a captain cannot write, so it is asked directly rather than
+   * trusting each game's client-writable status.
+   */
   const handleDelete = async (report: MatchReport) => {
-    if (
-      !confirm(
-        `Delete the ${teamAbbr(report.team_a_id)} ${report.score_a}–${report.score_b} ${teamAbbr(
-          report.team_b_id
-        )} report? This also deletes its games.`
-      )
-    ) {
-      return;
-    }
+    const label = `${teamAbbr(report.team_a_id)} ${report.score_a}–${report.score_b} ${teamAbbr(report.team_b_id)}`;
+    const matchIds = gamesFor(report.id).map((g) => g.match_id);
     setBusyId(report.id);
     setError(null);
+
+    let ingestedIds: string[] = [];
+    if (matchIds.length > 0) {
+      const { data, error: statsError } = await supabase
+        .from("raw_stats")
+        .select("match_id")
+        .in("match_id", matchIds);
+      if (statsError) {
+        setBusyId(null);
+        setError(statsError.message);
+        return;
+      }
+      ingestedIds = Array.from(new Set(((data ?? []) as { match_id: string }[]).map((r) => r.match_id)));
+    }
+
+    const stats =
+      ingestedIds.length === 0
+        ? ""
+        : ` and the ingested stats for ${ingestedIds.length === 1 ? "its game" : `${ingestedIds.length} of its games`}, so the series can be reported again — run the ingest after re-reporting. Cards and editions already built from those stats keep their numbers until rebuilt.`;
+    if (!confirm(`Delete the ${label} report? This also deletes its games${stats || "."}`)) {
+      setBusyId(null);
+      return;
+    }
+
     const { error: deleteError } = await supabase.from("match_reports").delete().eq("id", report.id);
-    setBusyId(null);
     if (deleteError) {
+      setBusyId(null);
       setError(deleteError.message);
       return;
     }
+    // Report first, stats second: if this step fails the report is still
+    // gone (the admin's actual intent) and the leftover rows can be cleared
+    // from the reporting form when the games are re-filed.
+    if (ingestedIds.length > 0) {
+      try {
+        await purgeMatchStats(supabase, ingestedIds);
+      } catch (err) {
+        setBusyId(null);
+        setError(
+          `Report deleted, but its ingested stats could not be cleared: ${friendlyErrorMessage(
+            err,
+            "unknown error",
+          )}. Re-report the games and use "Clear ingested stats and submit".`,
+        );
+        router.refresh();
+        return;
+      }
+    }
+    setBusyId(null);
     router.refresh();
   };
 

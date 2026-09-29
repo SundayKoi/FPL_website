@@ -408,6 +408,39 @@ export async function fixGameSide(
   return { ok: true };
 }
 
+export interface PurgeMatchStatsResult {
+  /** raw_stats rows deleted. */
+  statsDeleted: number;
+  /** match_report_games rows put back to `pending`. */
+  gamesReset: number;
+  /** match_reports rows put back to `pending`. */
+  reportsReset: number;
+}
+
+/**
+ * Admin-only (the RPC checks; RLS never let a client touch raw_stats).
+ * Deletes every raw_stats row for the given Riot match ids and returns any
+ * report that still lists them to the ingest queue, so a series that was
+ * reported wrong can be reported and ingested again. Deleting a report on
+ * its own leaves its ingested rows behind, and from then on the form
+ * refuses the match ids and the ingester skips them — this is the way out.
+ * See migration 20261106000001_purge_match_stats.sql for what it does not
+ * undo (fixture scores, frozen card editions, settled markets).
+ */
+export async function purgeMatchStats(
+  supabase: SupabaseClient,
+  matchIds: string[],
+): Promise<PurgeMatchStatsResult> {
+  const { data, error } = await supabase.rpc("purge_match_stats", { p_match_ids: matchIds });
+  if (error) throw error;
+  const row = (data ?? {}) as { stats_deleted?: number; games_reset?: number; reports_reset?: number };
+  return {
+    statsDeleted: row.stats_deleted ?? 0,
+    gamesReset: row.games_reset ?? 0,
+    reportsReset: row.reports_reset ?? 0,
+  };
+}
+
 /**
  * Inserts a report then its games. If the games insert fails (e.g. a
  * duplicate match_id trips the unique index), the just-inserted report is

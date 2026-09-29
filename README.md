@@ -718,6 +718,17 @@ automatically (only `pending`/`needs_sides` are re-fetched), and the
 workflow run exits non-zero (so GitHub emails the repo owner) whenever
 any report ends `failed`.
 
+**Correcting a report that already ingested.** Deleting a report on
+`/admin` or `/my-team` also clears the `raw_stats` rows the ingester wrote
+for its games (the confirm says how many), so the series can be reported
+again — re-run "Ingest match reports" afterwards rather than waiting for
+Tuesday. If a report was deleted before this existed and its games still
+say "already ingested" on the form, an admin gets a "Clear ingested stats
+and submit" button there that does the same. Neither touches a fixture score
+the wrong report already filled (fix it on `/schedule`) or a card edition
+already archived (rebuild it with "Archive card edition") — see
+[Re-reporting an ingested series](docs/backend.md#re-reporting-an-ingested-series).
+
 ### Automatic betting settlement
 
 `scripts/settle-betting-from-stats.py` scans every linked, unsettled Premier

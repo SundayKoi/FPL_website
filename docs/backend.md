@@ -372,7 +372,7 @@ Postgres database and public schema:
 | Premier playoffs | `premier_playoff_config`, `premier_playoff_entrants`, `fixtures` | Season-scoped Premier bracket settings and frozen seeds; quarterfinals, semifinals, and finals remain stable rows in `fixtures`. Advancement is revalidated and written by narrow admin/owner RPCs. |
 | Auction draft | `drafts`, `players`, `lots`, `bids` | Nomination, bidding, countdown settlement, admin overrides, roster assignment, chat, and Nemesis picks are protected by RPCs and RLS. |
 | Canonical players and free agency | `player_pool`, `free_agency_avg_bids`, `signups`, `info_resources` | Cross-draft player metadata, free-agency data, signups, and editable information resources. |
-| Match reporting and stats | `match_reports`, `match_report_games`, `match_codes`, `raw_stats`, `stats_*` views | Captains report series; the Riot ingester writes raw rows; views provide player, team, champion, record, and game-log aggregates. A series that ended early carries `match_reports.forfeit_team_id` — see "Forfeits" below. |
+| Match reporting and stats | `match_reports`, `match_report_games`, `match_codes`, `raw_stats`, `stats_*` views | Captains report series; the Riot ingester writes raw rows; views provide player, team, champion, record, and game-log aggregates. A series that ended early carries `match_reports.forfeit_team_id` — see "Forfeits" below. `raw_stats` is service-role-only, so the admin `purge_match_stats` RPC is the one way a wrongly reported series' rows come back out — see "Re-reporting an ingested series". |
 | Betting | `betting_profiles`, `betting_teams`, `betting_events`, `betting_markets`, `betting_bets`, `betting_ledger`, pick'em/store/season tables | Service-role RPCs handle wallet, bet, lock, resolve, cancel, and audit transitions after app-layer Discord/staff checks. Schedule-linked events identify the reusable Premier/Academy season catalog entries; generated markets retain `fixture_id` for idempotent retries. |
 | Banger Board | `banger_posts`, `banger_votes`, `daily_banger_checks`, `daily_banger_votes` | Public tweet reads and aggregate ratings use definer RPCs; server actions derive the signed-in Discord wallet and call service-role vote/reward RPCs. Daily rewards are atomically ledgered and limited by `(UTC date, voter)`; `daily_banger_votes.reward_amount` records the amount actually paid. |
 | Banger Board settings | `banger_board_settings` | Public title reads; authenticated admin/owner-only updates enforced by RLS using `is_admin()` / `is_owner()`. |
@@ -2023,6 +2023,52 @@ series score, so a zero-game forfeit removes the last verifiable game rather
 than the first. The existing controls still apply — `sync_fixture_score` writes
 only while the fixture's score is null, and `/schedule`'s editor is the
 correction path.
+
+### Re-reporting an ingested series
+
+A report is a claim about which series a few Riot games belong to, and the
+ingester bakes that claim into `raw_stats`: `team_name` comes from the
+resolved side, `season` and `season_phase` from the report. When the claim was
+wrong — sides swapped, wrong phase, wrong teams — deleting the report is not
+enough. `match_reports` and its games go, `raw_stats` stays (no client below
+the service role may write it), and from then on every path treats the games
+as done: `ReportBox` refuses the match ids, `ingest_report` skips them without
+a Riot call, and the stats pages, cards and fantasy points keep the wrong
+attribution with no report to point at.
+
+`purge_match_stats(p_match_ids text[])` is the way out. Admin-only
+(`_require_admin()` inside a definer function; `anon` has no execute grant).
+It deletes the `raw_stats` rows for the given match ids and returns any
+report that still lists them to the queue — the games back to `pending` with
+their resolved side cleared, the report back to `pending` with its score
+warning and `ingested_at` cleared — so the next `--from-reports` run fetches
+them again under whatever report now claims them. Games that never ingested
+are left as they are, and an empty list is an error rather than a no-op. It
+returns `{stats_deleted, games_reset, reports_reset}`.
+
+Two callers, both through `purgeMatchStats` in `src/lib/captain/queries.ts`:
+
+- `AdminReportsQueue`'s Delete asks `raw_stats` which of the report's games
+  have rows (the one record a captain cannot write; game status is
+  client-writable) and, after the confirm names them, deletes the report and
+  then purges those ids. Report first: if the purge fails the report is still
+  gone, and the leftover rows are recoverable from the form.
+- `ReportBox` splits its "already reported" check in two. A match id another
+  report still lists is refused outright (the unique index would refuse it
+  anyway). One that is only in `raw_stats` — the state a deleted report leaves
+  behind — is explained, and an admin (`isAdmin`, presentation only) gets a
+  "Clear ingested stats and submit" button that purges and files in one go.
+
+What it deliberately does not undo, because each has its own path and none
+follows from a match id alone:
+
+- `fixtures.score_a`/`score_b`: `sync_fixture_score` only fills a null score,
+  so a fixture the wrong report already scored keeps that score until an
+  admin corrects it on `/schedule`.
+- `card_editions` and `card_inventory`: frozen by design. Rebuild the week's
+  edition with the "Archive card edition" workflow after the re-ingest;
+  minted cards stay as pulled.
+- Settled betting markets and daily-game puzzles frozen from the old rows.
 
 ## Verification and rollout
 

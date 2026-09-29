@@ -153,6 +153,7 @@ export async function MyTeamPageView({
             prefillTeamBId={captainData.prefill.prefillTeamBId}
             draftPrefill={captainData.prefill.draftPrefill}
             myReports={captainData.myReports}
+            isAdmin={dashboard.isAdmin}
           />
         </div>
       </section>

@@ -3,15 +3,23 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LeagueTeam } from "@/lib/matches/types";
 import ReportBox from "./ReportBox";
 
-const { submitReport } = vi.hoisted(() => ({ submitReport: vi.fn() }));
+const { submitReport, purgeMatchStats, tableRows } = vi.hoisted(() => ({
+  submitReport: vi.fn(),
+  purgeMatchStats: vi.fn(),
+  /** What the two pre-submit duplicate checks find, per table. */
+  tableRows: {} as Record<string, { match_id: string }[]>,
+}));
 
-vi.mock("@/lib/captain/queries", () => ({ submitReport }));
+vi.mock("@/lib/captain/queries", () => ({ submitReport, purgeMatchStats }));
 
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
-    // Both pre-submit duplicate checks come back empty, so the only thing
-    // that can block submission in these tests is form validation.
-    from: () => ({ select: () => ({ in: () => Promise.resolve({ data: [] }) }) }),
+    // Both pre-submit duplicate checks come back empty unless a test says
+    // otherwise, so by default the only thing that can block submission is
+    // form validation.
+    from: (table: string) => ({
+      select: () => ({ in: () => Promise.resolve({ data: tableRows[table] ?? [] }) }),
+    }),
   }),
 }));
 
@@ -22,7 +30,7 @@ const teams = [
   { id: "team-b", name: "Wildcats", abbreviation: "WLD", active: true },
 ] as unknown as LeagueTeam[];
 
-function renderBox() {
+function renderBox(props: { isAdmin?: boolean } = {}) {
   return render(
     <ReportBox
       teams={teams}
@@ -32,6 +40,7 @@ function renderBox() {
       prefillTeamAId="team-a"
       prefillTeamBId="team-b"
       myReports={[]}
+      {...props}
     />,
   );
 }
@@ -49,6 +58,8 @@ function fillValidReport() {
 afterEach(() => {
   cleanup();
   submitReport.mockReset();
+  purgeMatchStats.mockReset();
+  for (const table of Object.keys(tableRows)) delete tableRows[table];
 });
 
 describe("ReportBox blue-side requirement", () => {
@@ -197,5 +208,67 @@ describe("ReportBox forfeits", () => {
     expect((submitReport.mock.calls[0][1] as { forfeitNote: string | null }).forfeitNote).toBe(
       "roster ineligible",
     );
+  });
+});
+
+describe("ReportBox re-reporting an ingested game", () => {
+  // The state this exists for: a series was reported wrong, ingested, and the
+  // report deleted — which left its raw_stats rows behind. The form then
+  // refused the match ids forever, with nothing an admin could do about it.
+  const matchId = "NA1_5623487837";
+  const fillAndSubmit = () => {
+    fillValidReport();
+    fireEvent.change(screen.getByDisplayValue("Blue side?"), { target: { value: "team-b" } });
+    fireEvent.click(screen.getByRole("button", { name: /submit report/i }));
+  };
+
+  it("refuses a game another report still lists, with no purge on offer", async () => {
+    tableRows.match_report_games = [{ match_id: matchId }];
+    tableRows.raw_stats = [{ match_id: matchId }];
+    renderBox({ isAdmin: true });
+    fillAndSubmit();
+
+    expect(await screen.findByText(/already reported: NA1_5623487837\. the existing report has to be deleted/i)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /clear ingested stats/i })).toBeNull();
+    expect(submitReport).not.toHaveBeenCalled();
+    expect(purgeMatchStats).not.toHaveBeenCalled();
+  });
+
+  it("tells a captain to ask an admin when only the stats are left", async () => {
+    tableRows.raw_stats = [{ match_id: matchId }];
+    renderBox();
+    fillAndSubmit();
+
+    expect(await screen.findByText(/stats for NA1_5623487837 were already ingested.*ask an admin/i)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /clear ingested stats/i })).toBeNull();
+    expect(submitReport).not.toHaveBeenCalled();
+  });
+
+  it("lets an admin clear the leftover stats and file the report in one go", async () => {
+    tableRows.raw_stats = [{ match_id: matchId }];
+    purgeMatchStats.mockResolvedValue({ statsDeleted: 10, gamesReset: 0, reportsReset: 0 });
+    renderBox({ isAdmin: true });
+    fillAndSubmit();
+
+    expect(await screen.findByText(/stats for NA1_5623487837 were already ingested.*clear them/i)).toBeTruthy();
+    expect(submitReport).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /clear ingested stats and submit/i }));
+
+    await waitFor(() => expect(submitReport).toHaveBeenCalledTimes(1));
+    expect(purgeMatchStats).toHaveBeenCalledTimes(1);
+    expect(purgeMatchStats.mock.calls[0][1]).toEqual([matchId]);
+    expect(await screen.findByText(/report submitted\. the earlier stats for these games were cleared/i)).toBeTruthy();
+  });
+
+  it("shows a refused purge and does not file the report", async () => {
+    tableRows.raw_stats = [{ match_id: matchId }];
+    purgeMatchStats.mockRejectedValue(new Error("NOT_ADMIN: admin access required"));
+    renderBox({ isAdmin: true });
+    fillAndSubmit();
+    fireEvent.click(await screen.findByRole("button", { name: /clear ingested stats and submit/i }));
+
+    expect(await screen.findByText(/NOT_ADMIN: admin access required/)).toBeTruthy();
+    expect(submitReport).not.toHaveBeenCalled();
   });
 });

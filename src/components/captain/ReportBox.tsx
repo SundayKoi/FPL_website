@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { parseReport } from "@/lib/matches/parseReport";
 import type { LeagueTeam } from "@/lib/matches/types";
-import { submitReport, type MyReportRow } from "@/lib/captain/queries";
+import { purgeMatchStats, submitReport, type MyReportRow } from "@/lib/captain/queries";
 import { friendlyErrorMessage } from "@/lib/captain/errors";
 import MyReportsList from "./MyReportsList";
 
@@ -97,6 +97,7 @@ export default function ReportBox({
   prefillTeamBId,
   draftPrefill = null,
   myReports,
+  isAdmin = false,
 }: {
   teams: LeagueTeam[];
   defaultSeason: string;
@@ -108,6 +109,9 @@ export default function ReportBox({
    *  (blue sides), the draft URL, and the score from recorded winners. */
   draftPrefill?: DraftPrefill | null;
   myReports: MyReportRow[];
+  /** Whether to offer clearing the ingested stats of a game being re-filed
+   *  (see purgeMatchStats). Presentation only: the RPC checks for itself. */
+  isAdmin?: boolean;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -118,8 +122,11 @@ export default function ReportBox({
     emptyForm({ season: defaultSeason, phase: defaultPhase, teamAId: prefillTeamAId, teamBId: prefillTeamBId, draftPrefill })
   );
   const [errors, setErrors] = useState<string[]>([]);
+  /** Match ids whose stats are in raw_stats with no report behind them —
+   *  what an admin is offered to clear so the games can be filed again. */
+  const [purgeableIds, setPurgeableIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const teamName = (id: string | null) => teams.find((t) => t.id === id)?.name ?? "Unknown team";
 
@@ -143,7 +150,8 @@ export default function ReportBox({
     }));
     setParseWarnings(parsed.warnings);
     setErrors([]);
-    setSuccess(false);
+    setPurgeableIds([]);
+    setSuccess(null);
   };
 
   const updateGame = (key: string, patch: Partial<GameFormRow>) => {
@@ -164,8 +172,9 @@ export default function ReportBox({
     });
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async ({ purgeStats = false }: { purgeStats?: boolean } = {}) => {
     const problems: string[] = [];
+    setPurgeableIds([]);
     if (!form.teamAId || !form.teamBId) problems.push("Pick both teams.");
     else if (form.teamAId === form.teamBId) problems.push("Teams must be different.");
     // A forfeit is the one result with no games to report: nobody played.
@@ -221,21 +230,49 @@ export default function ReportBox({
       }
     }
 
+    let purged = false;
     if (problems.length === 0) {
       const [existingGames, existingStats] = await Promise.all([
         supabase.from("match_report_games").select("match_id").in("match_id", trimmedIds),
         supabase.from("raw_stats").select("match_id").in("match_id", trimmedIds),
       ]);
-      const already = new Set([
-        ...((existingGames.data ?? []) as { match_id: string }[]).map((r) => r.match_id),
-        ...((existingStats.data ?? []) as { match_id: string }[]).map((r) => r.match_id),
-      ]);
-      if (already.size > 0) problems.push(`Already reported: ${Array.from(already).join(", ")}.`);
+      const inReports = new Set(((existingGames.data ?? []) as { match_id: string }[]).map((r) => r.match_id));
+      // Stats rows with no report behind them. The report that put them
+      // there was deleted, but raw_stats is service-role-only, so deleting
+      // it could not take them along — and while they sit there the ingester
+      // skips these games and every stats page keeps the old attribution.
+      // Only an admin can take them back out, through purgeMatchStats.
+      const statsOnly = Array.from(
+        new Set(((existingStats.data ?? []) as { match_id: string }[]).map((r) => r.match_id)),
+      ).filter((id) => !inReports.has(id));
+
+      if (inReports.size > 0) {
+        problems.push(
+          `Already reported: ${Array.from(inReports).join(", ")}. The existing report has to be deleted before these games can be filed again.`,
+        );
+      } else if (statsOnly.length > 0) {
+        if (purgeStats && isAdmin) {
+          try {
+            await purgeMatchStats(supabase, statsOnly);
+            purged = true;
+          } catch (err) {
+            problems.push(friendlyErrorMessage(err, "Could not clear the ingested stats."));
+          }
+        } else {
+          problems.push(
+            `Stats for ${statsOnly.join(", ")} were already ingested from an earlier report. ` +
+              (isAdmin
+                ? "Clear them to report these games again."
+                : "Ask an admin to clear them before these games can be reported again."),
+          );
+          if (isAdmin) setPurgeableIds(statsOnly);
+        }
+      }
     }
 
     if (problems.length > 0) {
       setErrors(problems);
-      setSuccess(false);
+      setSuccess(null);
       return;
     }
 
@@ -262,11 +299,20 @@ export default function ReportBox({
       setPasteText("");
       setParseWarnings([]);
       setForm(emptyForm({ season: defaultSeason, phase: defaultPhase, teamAId: prefillTeamAId, teamBId: prefillTeamBId, draftPrefill }));
-      setSuccess(true);
+      setSuccess(
+        purged
+          ? "Report submitted. The earlier stats for these games were cleared; the next ingest run re-fetches them under this report."
+          : "Report submitted.",
+      );
       router.refresh();
     } catch (err) {
-      setSuccess(false);
-      setErrors([friendlyErrorMessage(err, "Could not submit the report.")]);
+      setSuccess(null);
+      setErrors([
+        friendlyErrorMessage(err, "Could not submit the report."),
+        // The purge is not undone by a failed insert: the stats are gone
+        // either way, so say so rather than leave the admin guessing.
+        ...(purged ? ["The earlier stats were cleared — submit again to file the report."] : []),
+      ]);
     } finally {
       setSubmitting(false);
     }
@@ -482,7 +528,24 @@ export default function ReportBox({
           ))}
         </ul>
       )}
-      {success && <p className="mt-3 text-sm font-semibold text-success">Report submitted.</p>}
+      {isAdmin && purgeableIds.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void handleSubmit({ purgeStats: true })}
+            disabled={submitting}
+            className="rounded-full border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-red-400 disabled:opacity-50"
+          >
+            Clear ingested stats and submit
+          </button>
+          <span className="text-xs text-muted">
+            Deletes the stats rows for {purgeableIds.length === 1 ? "that game" : "those games"} and files this
+            report; the next ingest run re-fetches them from Riot. Cards and editions already built from the old
+            rows keep their numbers until rebuilt.
+          </span>
+        </div>
+      )}
+      {success && <p className="mt-3 text-sm font-semibold text-success">{success}</p>}
 
       <button
         type="button"
