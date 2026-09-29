@@ -14,6 +14,8 @@ export interface PremiumAccess {
   inconclusive: boolean;
   /** Admin or owner — the only people who see what is still in testing. */
   staff: boolean;
+  /** True admin only; Guess the Card remains an admin test surface. */
+  isAdmin: boolean;
 }
 
 /**
@@ -34,25 +36,25 @@ export async function premiumAccess(): Promise<PremiumAccess> {
   const supabase = await createServerSupabase();
   const { data } = await supabase.auth.getUser();
   const user = data.user;
-  if (!user) return { signedIn: false, allowed: false, inconclusive: false, staff: false };
+  if (!user) return { signedIn: false, allowed: false, inconclusive: false, staff: false, isAdmin: false };
 
   const staffTier = await fetchStaffTier(supabase);
   if (staffTier.isAdmin || staffTier.isOwner) {
-    return { signedIn: true, allowed: true, inconclusive: false, staff: true };
+    return { signedIn: true, allowed: true, inconclusive: false, staff: true, isAdmin: staffTier.isAdmin };
   }
 
   const discordId = user.identities?.find((identity) => identity.provider === "discord")?.id;
-  if (!discordId) return { signedIn: true, allowed: false, inconclusive: false, staff: false };
+  if (!discordId) return { signedIn: true, allowed: false, inconclusive: false, staff: false, isAdmin: false };
 
   // Local development and test environments may intentionally omit Discord.
   if (!process.env.DISCORD_BOT_TOKEN) {
-    return { signedIn: true, allowed: true, inconclusive: false, staff: false };
+    return { signedIn: true, allowed: true, inconclusive: false, staff: false, isAdmin: false };
   }
 
   const member = await fetchGuildMember(discordId, premiumGuildId());
   if (member === null) {
     console.warn(`premiumAccess: Discord membership check inconclusive for ${discordId}`);
-    return { signedIn: true, allowed: true, inconclusive: true, staff: false };
+    return { signedIn: true, allowed: true, inconclusive: true, staff: false, isAdmin: false };
   }
 
   return {
@@ -60,5 +62,6 @@ export async function premiumAccess(): Promise<PremiumAccess> {
     allowed: member.inGuild && member.roles.includes(premiumRoleId()),
     inconclusive: false,
     staff: false,
+    isAdmin: false,
   };
 }

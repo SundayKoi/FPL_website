@@ -1,10 +1,10 @@
-import { createSearch } from "./search";
 import { describe, expect, it } from "vitest";
 import { siteDestinations, siteDirectory } from "./directory";
+import { createSearch } from "./search";
 
 describe("siteDirectory", () => {
   it("groups the site the way people ask for it", () => {
-    expect(siteDirectory("premier").map((group) => group.label)).toEqual(["League", "Cards", "Premium", "Daily games", "Info"]);
+    expect(siteDirectory("premier").map((group) => group.label)).toEqual(["League", "Cards", "Premium", "Daily games", "About"]);
   });
 
   it("gives every destination a line saying what it is, and no two the same href", () => {
@@ -27,7 +27,7 @@ describe("siteDirectory", () => {
 
   it("reaches the orphaned pages the audit found", () => {
     const hrefs = siteDestinations("premier").map((item) => item.href);
-    for (const href of ["/supporters", "/cards/trades", "/fpldle", "/higher-lower", "/cards/vault"]) {
+    for (const href of ["/membership#patrons", "/cards/trades", "/fpldle", "/higher-lower", "/cards/vault"]) {
       expect(hrefs).toContain(href);
     }
   });
@@ -38,14 +38,14 @@ describe("siteDirectory", () => {
     for (const label of ["Packs", "My Collection", "Market", "Betting", "FPL'dle", "Match Drafter", "Expeditions"]) {
       expect(gated(label), label).toBe(true);
     }
-    for (const label of ["Browse", "Rarest cards", "Moments", "Pack odds", "Premium HQ", "Schedule", "Glossary"]) {
+    for (const label of ["Browse", "The Vault", "Moments", "Rarities", "Premium HQ", "Schedule", "Card terms"]) {
       expect(gated(label), label).toBe(false);
     }
   });
 
-  it("reaches the pages the second audit found missing, and the three new ones", () => {
+  it("reaches the pages the second audit found missing and the consolidated destinations", () => {
     const hrefs = siteDestinations("premier").map((item) => item.href);
-    for (const href of ["/betting/profile", "/identity-claims", "/skin-lines", "/my-team/scouting", "/membership", "/economy", "/glossary"]) {
+    for (const href of ["/betting/profile", "/identity-claims", "/skin-lines", "/my-team/scouting", "/membership", "/economy", "/economy#glossary"]) {
       expect(hrefs).toContain(href);
     }
     // The leaderboard is a destination of its own, not a page under Betting.
@@ -59,18 +59,28 @@ describe("siteDirectory", () => {
     expect(top).toEqual(["Cards", "My Collection", "Packs", "Browse", "Market", "Play"]);
     expect(cards.items.find((item) => item.label === "Rarest cards")?.nested).toBe(true);
   });
-});
 
-describe("renamed pages in site search", () => {
-  it("still finds a page by the name it used to have", () => {
-    const search = createSearch(
-      siteDestinations("premier").map((item) => ({ kind: "page" as const, label: item.label, href: item.href, keywords: item.keywords })),
-    );
-    expect(search("bounties")[0]?.label).toBe("Wanted");
-    expect(search("vault")[0]?.label).toBe("Rarest cards");
-    expect(search("ledger")[0]?.label).toBe("Expedition log");
-    // A tab's own first sub-page ("Listings" -> "For sale") is listed once,
-    // as the tab, and carries the old name there.
-    expect(search("listings")[0]?.href).toBe("/cards/market");
+  it("keeps exactly four About destinations and resolves legacy search terms to surviving sections", () => {
+    const group = siteDirectory("premier").find((entry) => entry.key === "info")!;
+    expect(group.items.filter((item) => !item.nested).map((item) => item.href)).toEqual([
+      "/info",
+      "/rulebook",
+      "/membership",
+      "/economy",
+    ]);
+
+    const search = createSearch(siteDestinations("premier").map((item) => ({ ...item, kind: "page" as const, hint: item.group })));
+    const destinations: Record<string, string> = {
+      donate: "/membership#support-devs",
+      patrons: "/membership#patrons",
+      glossary: "/economy#glossary",
+      dust: "/economy#term-dust",
+      shine: "/economy#shine",
+      MasterDoc: "/info#league-resources",
+      "league links": "/info#league-resources",
+    };
+    for (const [query, expectedHref] of Object.entries(destinations)) {
+      expect(search(query)[0]?.href, query).toBe(expectedHref);
+    }
   });
 });

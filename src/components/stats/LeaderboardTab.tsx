@@ -474,8 +474,8 @@ export default function LeaderboardTab({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <span className="mono-label mr-1">Min games</span>
             {MIN_GAMES_OPTIONS.map((n) => (
               <FilterPill key={n} active={minGames === n} onClick={() => setMinGames(n)}>
@@ -484,7 +484,7 @@ export default function LeaderboardTab({
             ))}
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <span className="mono-label mr-1">Role</span>
             <FilterPill active={roleFilter === null} onClick={() => setRoleFilter(null)}>
               All

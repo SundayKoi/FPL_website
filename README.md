@@ -21,7 +21,7 @@ The site now also includes:
   team's split ended, rated on the whole split and stamped with how far they
   got — on sale for two weeks after the finals (see "The Send-off" in
   [docs/backend.md](docs/backend.md));
-- Premium daily games: FPL'dle, the 45-round Higher or Lower card run with unlimited attempts, and the admin-testing Guess the Card game share one daily betting-dollar reward.
+- Premium daily games: FPL'dle, the 45-round Higher or Lower card run with unlimited attempts, and admin-testing Guess the Card share one betting-dollar reward per member, league, and Eastern puzzle date. The Daily Stu vote reward is separate and follows a UTC check date.
 
 ## Documentation
 
@@ -55,15 +55,22 @@ menus are:
 - **Premium** — Premium HQ, Betting, The Daily Stu, Match Drafter, FPL'dle,
   Higher or Lower, and Guess the Card, with the league-aware entries pointing
   at the active league.
-- **Info** — Info, Sign Up, League Links, Rulebook, and Support the Devs.
+- **About** — About the league, Rules, Membership & support, and Cards & currency guide.
+
+Sign up is a prominent action on `/info`, not a fifth About destination. League
+resources live at `/info#league-resources`; the guide at `/economy` includes
+both the play-money ledger and the card glossary. Membership & support at
+`/membership` includes Premium access, developer payment options, and current
+patrons. Older League Links, Support the Devs, Patrons, and Glossary URLs keep
+redirecting to their surviving sections.
 
 Premium HQ remains the gated hub for Betting, The Daily Stu, Player Cards,
 Draft League, Match Drafter, and the card economy.
 
-Admin and Broadcaster appear as conditional Staff entries inside Info. Their
-visibility is only a presentation hint: `/admin` and `/broadcaster` retain
-their existing server-side access checks and redirect or deny unauthorized
-users regardless of what the header displays.
+Admin appears beside the avatar and Broadcaster is listed with League links
+for authorized staff. Their visibility is only a presentation hint: `/admin`
+and `/broadcaster` retain their existing server-side access checks and
+redirect or deny unauthorized users regardless of what the header displays.
 
 ## Roles and access
 
@@ -90,7 +97,8 @@ users regardless of what the header displays.
   workspace access, while admins do not.
 - **FPL Premium members** receive Premium HQ and premium feature access from
   the configured Discord guild role. The hub's locked state links to the
-  official payment resource from League Links.
+  official payment resource in the About page's league resources section
+  (`/info#league-resources`).
 
 ## Stack and repository map
 
@@ -232,27 +240,24 @@ npm run typecheck        # generate Next.js route types, then check TypeScript
 npm test                 # Vitest unit/component suite
 npm run test:python      # Python mapper and settlement suites
 npm run build            # production Next.js build
-npm run test:db          # pgTAP suite; restages, runs against the local stack
-npm run e2e              # Playwright auction + betting smoke tests
+npm run db:stage         # stage reviewed fresh-database migrations and pgTAP files
+npm run test:db          # fresh local migration replay and pgTAP suite
+npm run e2e              # fresh local stack, production build, and browser journeys
+npm run test:infra       # pgTAP plus production build and all browser journeys
 ```
 
 Python tests require Python 3 with `requests` and `python-dotenv` installed
-in an active virtual environment. `npm run test:db` restages
-`supabase/.staged` and runs `supabase test db --workdir supabase/.staged`
-against the local stack started from it (see [Local setup](#local-setup)).
-It tests the database as the last start or reset left it, so reset after
-migration changes. See [docs/testing.md](docs/testing.md) for test
+in an active virtual environment. `npm run test:db` replays migrations and
+runs pgTAP against its disposable local stack; `npm run test:infra` also builds
+the production app and runs all browser journeys. `npm run db:stage` is
+available for manual work with `supabase/.staged`. See
+[docs/testing.md](docs/testing.md) for test
 discovery, fixtures, cleanup conventions, and focused commands.
 
 Choose checks using [Testing](docs/testing.md#choose-checks-by-change).
 Documentation-only edits need link, command, and diff review; they do not need
 application tests or a production build. Browser tests use self-seeding local
-fixtures; see the [Playwright setup](docs/testing.md#playwright).
-The expedition screenshot specs, `e2e/expedition-board.spec.ts` and
-`e2e/expedition-map.spec.ts`, need no seed. They render fixtures on the
-dev-only `/admin/expedition-board` and `/admin/expedition-map` previews and
-write PNGs for review to the gitignored `e2e/screenshots/`. Run one with
-`npx playwright test e2e/expedition-board.spec.ts`.
+fixtures and the isolated runner; see the [Playwright setup](docs/testing.md#playwright).
 
 ### Branches and releases
 
@@ -299,16 +304,12 @@ A raw `supabase db push` still sees the duplicate and can incorrectly offer
 to replay God Packs. Do not use `--include-all` to get past that warning.
 The wrapper does not repair history or mark missing SQL applied.
 
-The wrapper also stages reviewed overrides from `supabase/migration-overrides/`
-under the original version and name. Each one is pinned in
+The wrapper stages reviewed overrides from `supabase/migration-overrides/`
+under the original version and name. Each is pinned in
 `scripts/supabase-migrations.mjs` to the git blob ids of the original and of
 the override, so a changed file fails staging (and `npm test`) instead of
 being replaced silently:
 
-- `20261018000001_card_art_champion_preferences.sql` has two `language sql`
-  function bodies without `select`, which no PostgreSQL accepts. Every stage
-  uses the corrected copy, so `push` applies it if the linked database lacks
-  that version and skips it if the version is recorded.
 - `20260922052204_rebuild_season_end_draft_after_hash_fix.sql` is a data
   repair restored after it was applied to the linked database. It sorts
   before the migration that creates `season_end_releases`, so only
@@ -316,13 +317,16 @@ being replaced silently:
   A fresh database has no draft to repair. `list` and `push` stage it
   unchanged.
 
+The card-art migration's `language sql` functions now have replayable
+`select case` bodies in tracked history. The migration-history checker pins
+the previously reviewed applied-history repair; staging needs no replacement.
 
-`.github/workflows/ci.yml` runs the type-check, ESLint and the Vitest suite
-on every pull request and every push to `develop` or `main`. Its separate
-`database` job stages the fresh-database project, starts only Postgres with
-`npx supabase db start --workdir supabase/.staged` (which applies every
-staged migration), and runs `npm run test:db`. The release workflow waits
-on the `checks` job only. The shared `npm run typecheck` command generates
+
+`.github/workflows/ci.yml` runs type-check, ESLint, Vitest, Python tests, and
+the complete `npm run test:infra` gate on every pull request and every push to
+`develop` or `main`. The infrastructure command covers fresh migration replay,
+pgTAP, a production build, and all browser journeys inside the existing
+`checks` job. The release workflow waits on that job. The shared `npm run typecheck` command generates
 Next.js route types before checking TypeScript, so it also works on a fresh
 checkout. Production builds retain Next.js type checking; `next.config.ts`
 does not enable `ignoreBuildErrors`.
@@ -486,8 +490,13 @@ service's dashboard in a browser.
 
 ## Schedule ops
 
-Owners get two generators in the admin strip on `/schedule`, above the
-fixtures editor:
+Staff open **Manage** on `/schedule` to browse and edit fixtures; owners also
+find the season, reward, and schedule tools there. The drawer starts closed and
+shows one selected tool at a time. Fixture edits open from the matching schedule
+row, and the fixture list defaults to the selected phase/week with an explicit
+All season filter.
+
+Owners can use two schedule generators from **Manage → Fixtures**:
 
 - **Generate regular season** draws the five intra-division weeks for the
   featured draft's teams — everyone plays everyone in their own division
@@ -799,8 +808,8 @@ place the card drop reads them):
 - `DISCORD_CARDS_WEBHOOK_URL` — only the announcement needs it; without it
   the draw still records, pays, and comps, it just says nothing.
 
-**Admin fallback**: `/schedule` has a **Run the draw** button for the Tuesday
-the cron doesn't fire. It draws the last completed week (the date isn't
+**Admin fallback**: `/schedule` → **Manage** → **Rewards** → **Weekly draw**
+has a **Run the draw** button for the Tuesday the cron doesn't fire. It draws the last completed week (the date isn't
 typeable there) and posts nothing to Discord. The RPC is idempotent, so a
 workflow run and a button press — in either order, or overlapping — still
 leave exactly one winner per week; the later one just reports who already
@@ -813,17 +822,18 @@ Drafter, the skin-line preview) renders one shared wall,
 `src/components/access/AccessWall.tsx`. A signed-out visitor gets "Sign in
 with Discord" back to the page they wanted; a signed-in visitor without the
 premium role gets "Join the Discord", "What FPL Premium is" (`/membership`,
-the page that puts the $10 role and the monthly patronage side by side),
+the page that explains the $10 role, monthly patronage, and developer support),
 and on a cards page the public Browse door. The invite comes from
 `NEXT_PUBLIC_DISCORD_INVITE_URL`; until it is set the button falls back to
-`/league-links`. Guess the Card is still in admin testing and is listed
+`/info#league-resources`. Guess the Card is still in admin testing and is listed
 only for staff (the header, Premium HQ and the site directory all hide it
 from members); every other refusal renders a wall rather than redirecting.
 
-Orientation lives in three public pages and two blocks: `/membership`
-(Premium vs Patron), `/economy` (every way betting dollars come in and go
-out — `src/lib/economy/ledger.ts`, every figure imported from the config
-that enforces it) and `/glossary` (`src/lib/site/glossary.ts`); the home
+Orientation lives across `/info` (the league and its resources),
+`/membership` (Premium, patronage, and support), and `/economy` (every way
+betting dollars come in and go out — `src/lib/economy/ledger.ts`, every
+figure imported from the config that enforces it — plus glossary terms from
+`src/lib/site/glossary.ts`); the home
 page opens on `HomeOrientation` (a real heading, this week's game, three
 doors — the third follows who is looking, resolved read-only by
 `src/lib/home/viewer.ts`); and Premium HQ shows `PremiumStartHere`, a
@@ -835,7 +845,7 @@ the top level and, for staff, Admin beside the avatar; it goes horizontal
 at `md`, not `sm`. Every money-moving surface (Fantasy, the Weekly Draw,
 Listings, Bounties, Trades, auto-dust) opens with a `RulesPanel` ("How
 this works", first section open); deep pages (a card, a public binder,
-scouting, the Rulebook, League Links) wear a `BackLink` to their parent.
+scouting, and the Rulebook) keep links back to their parent or About section.
 
 ## Card expeditions
 

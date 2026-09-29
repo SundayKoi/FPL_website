@@ -45,7 +45,7 @@ export default function IdentityClaimQueueRow({
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface px-4 py-3">
+    <div id={`identity-${linkId}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface px-4 py-3">
       <div className="min-w-0">
         <p className="font-semibold text-white">{playerName}</p>
         <p className="mt-0.5 text-xs text-muted">{teamName} · {SOURCE_LABELS[source]} · {requestedLabel}</p>

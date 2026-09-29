@@ -1,0 +1,144 @@
+.details {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.identity {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  border-top: 3px solid;
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding: 16px 0 20px;
+}
+
+.identity img,
+.abbreviation {
+  display: flex;
+  width: 68px;
+  height: 68px;
+  flex: 0 0 68px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+  object-fit: contain;
+}
+
+.abbreviation {
+  color: var(--color-action-text);
+  font-family: var(--font-anton), "Arial Narrow", sans-serif;
+  font-size: 1.6rem;
+}
+
+.record {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.record strong {
+  color: var(--color-content);
+  font-family: var(--font-anton), "Arial Narrow", sans-serif;
+  font-size: 1.7rem;
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.record span {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+
+.identityActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.primaryAction,
+.secondaryAction {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-action-text);
+  border-radius: 2px;
+  padding: 8px 12px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.primaryAction {
+  background: var(--color-action-fill);
+  color: var(--color-action-contrast);
+}
+
+.primaryAction:hover {
+  color: var(--color-action-contrast);
+  filter: brightness(0.95);
+}
+
+.secondaryAction {
+  color: var(--color-action-text);
+}
+
+.secondaryAction:hover {
+  background: var(--color-league-wash);
+}
+
+.primaryAction:focus-visible,
+.secondaryAction:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.columns {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+}
+
+.details :global(.text-white) {
+  color: var(--color-content);
+}
+
+.details :global(button.text-white),
+.details :global(a[class*="bg-action-fill"].text-white) {
+  color: var(--color-action-contrast);
+}
+
+.details :global(.card-brand) {
+  box-shadow: none;
+}
+
+.details :global(details > div) {
+  border-color: var(--color-border-subtle);
+  background: var(--color-surface);
+}
+
+@media (min-width: 960px) {
+  .columns {
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+    align-items: start;
+  }
+}
+
+@media (max-width: 540px) {
+  .identityActions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .primaryAction,
+  .secondaryAction {
+    flex: 1;
+  }
+}

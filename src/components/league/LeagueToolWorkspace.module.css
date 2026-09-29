@@ -1,0 +1,103 @@
+.workspace {
+  --color-canvas: #0c0b10;
+  --color-surface: #15131b;
+  --color-raised: #211e29;
+  --color-border-subtle: #34313f;
+  --color-border-strong: #514c5d;
+  --color-content: #f2f0f8;
+  --color-muted: #aaa6b7;
+  --color-action-fill: #1c5583;
+  --color-action-text: #9dc4dc;
+  --color-action-contrast: #ffffff;
+  --color-focus: #9dc4dc;
+  --color-success: #48c995;
+  --color-danger: #ff7a8b;
+  --workspace-ink: #f2f0f8;
+  --workspace-muted: #aaa6b7;
+  --workspace-line: #34313f;
+  --workspace-soft: #17151e;
+  --workspace-panel: #121018;
+  --workspace-track: #34313f;
+  --workspace-accent: #1c5583;
+  --workspace-accent-rgb: 28 85 131;
+  --workspace-accent-light: #9dc4dc;
+  --workspace-accent-fill: #1c5583;
+  --workspace-accent-contrast: #ffffff;
+  --workspace-accent-hover: #163f60;
+  min-width: 0;
+  background: #0c0b10;
+  color: #f2f0f8;
+  color-scheme: dark;
+}
+
+.workspace[data-league="academy"] {
+  --color-action-fill: #ff6b35;
+  --color-action-text: #ffb08f;
+  --color-action-contrast: #271108;
+  --color-focus: #ffb08f;
+  --workspace-accent: #ff6b35;
+  --workspace-accent-rgb: 255 107 53;
+  --workspace-accent-light: #ffb08f;
+  --workspace-accent-fill: #ff6b35;
+  --workspace-accent-contrast: #271108;
+  --workspace-accent-hover: #a63c19;
+}
+
+.workspace :global(.card-brand),
+.workspace :global(.card-neon) {
+  border-color: var(--color-border-subtle);
+  background-color: var(--color-surface);
+  box-shadow: none;
+  color: var(--color-content);
+}
+
+.workspace :global(.card-neon)::before {
+  display: none;
+}
+
+.workspace :global([aria-label$="banner"] .text-white),
+.workspace :global(button.text-white),
+.workspace :global([class*="bg-action-fill"].text-white),
+.workspace :global(a.btn-pill.text-white) {
+  color: var(--color-action-contrast);
+}
+
+.workspace :global(.text-gold) {
+  color: #e6bf61;
+}
+
+.workspace :global(.text-mint) {
+  color: #48c995;
+}
+
+.workspace :global(.text-red-400),
+.workspace :global(.text-red-300) {
+  color: #ff7a8b;
+}
+
+.workspace :global(.bg-canvas) {
+  background-color: #0c0b10;
+}
+
+.workspace :global(.bg-surface) {
+  background-color: #15131b;
+}
+
+.workspace :global(.bg-mint\/15) {
+  background-color: rgb(72 201 149 / 0.15);
+}
+
+.workspace :global(.bg-gold\/10),
+.workspace :global(.bg-gold\/15) {
+  background-color: rgb(230 191 97 / 0.12);
+}
+
+.workspace :global(.bg-red-500\/15) {
+  background-color: rgb(255 122 139 / 0.12);
+}
+
+.workspace :global(button:focus-visible),
+.workspace :global(a:focus-visible),
+.workspace :global(summary:focus-visible) {
+  outline-color: var(--color-focus);
+}

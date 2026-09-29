@@ -1,6 +1,5 @@
 import HomeOrientation from "./HomeOrientation";
 import HomeShortcutsBand from "./HomeShortcutsBand";
-import { homeShortcuts } from "@/lib/home/shortcuts";
 import SiteDirectoryGrid from "./SiteDirectoryGrid";
 import FeaturedMatchup from "./FeaturedMatchup";
 import HomeStandings from "./HomeStandings";
@@ -27,6 +26,7 @@ import type { TeamIdentity } from "@/lib/teams/identity";
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { FixtureRow } from "@/lib/schedule/types";
 import type { HomeViewer } from "@/lib/home/viewer";
+import { homeShortcuts } from "@/lib/home/shortcuts";
 import type { HomeAppearance } from "./appearance";
 import styles from "./HomeWorkspace.module.css";
 
@@ -105,6 +105,7 @@ export default function HomeDashboard({
   if (workspace) {
     return <main className={`${styles.page} ${styles.identityHome}`} data-appearance="workspace">
       <FeaturedMatchup
+        league={league}
         fixture={featuredFixture} identities={identities} teamBasePath={teamBasePath}
         scheduleHref={scheduleHref} seasonLabel={seasonLabel ?? schedule.season ?? undefined}
         channelLogin={twitchChannelLoginFromUrl(featuredSettings.twitchUrl)}
@@ -116,7 +117,7 @@ export default function HomeDashboard({
       />
       <HomeShortcutsBand shortcuts={homeShortcuts(league, viewer)} />
       <div className={styles.newStripBand}>
-        <div className={styles.bandInner}>
+        <div className={styles.bandInner} data-page-container>
           <HomeMatchStrip
             fixtures={stripFixtures}
             identities={identities}
@@ -127,7 +128,7 @@ export default function HomeDashboard({
         </div>
       </div>
       <div className={styles.bracketBand}>
-        <div className={styles.bandInner}>
+        <div className={styles.bandInner} data-page-container>
           <HomePlayoffBracket
             season={seasonLabel ?? schedule.season}
             activeStage={schedule.activeStage}
@@ -142,14 +143,14 @@ export default function HomeDashboard({
         </div>
       </div>
       <HomeCardsPromo cards={topCards} basePath={cardsBasePath} />
-      <div className={styles.secondaryLinks}><div className={styles.bandInner}><SiteDirectoryGrid league={league} appearance="workspace" /></div></div>
+      <div className={styles.secondaryLinks}><div className={styles.bandInner} data-page-container><SiteDirectoryGrid league={league} appearance="workspace" /></div></div>
       <HomeFooter />
     </main>;
   }
 
   return (
     <main className={workspace ? styles.page : "page-backdrop flex-1"} data-appearance={appearance}>
-      <div className={workspace ? styles.container : "page-container page-spacing w-full"}>
+      <div className={workspace ? styles.container : "mx-auto w-full max-w-[1800px] px-4 py-8 sm:px-6 sm:py-10"}>
         <section aria-label={ariaLabel} className={workspace ? styles.content : "space-y-6"}>
           {workspace ? (
             <>
@@ -170,6 +171,7 @@ export default function HomeDashboard({
               />
               <div className={styles.featureGrid}>
                 <FeaturedMatchup
+                  league={league}
                   fixture={featuredFixture}
                   identities={identities}
                   standings={standings.teams}
@@ -232,6 +234,7 @@ export default function HomeDashboard({
               <LiveTicker items={tickerItems} appearance={appearance} />
               <div className="grid gap-6 lg:grid-cols-[2fr_1fr] xl:gap-8">
                 <FeaturedMatchup
+                  league={league}
                   fixture={featuredFixture}
                   channelLogin={twitchChannelLoginFromUrl(featuredSettings.twitchUrl)}
                   clips={twitch.clips}

@@ -47,7 +47,7 @@ export default function DailyGameWall({
       body={
         signedOut
           ? `${game} is one of the daily games for FPL Premium members — sign in with Discord to check your access.`
-          : `${game} is one of the daily games that come with FPL Premium. One shared reward a day across all of them, reset at midnight Eastern.`
+          : `${game} is one of the daily games for FPL Premium members. FPL'dle and Higher or Lower share a $200 puzzle reward ($300 with an active patron flame) per league and Eastern puzzle date; the first eligible puzzle completion claims it. The admin-only Guess the Card test uses that claim too. The Daily Stu vote pays separately on its UTC check date.`
       }
       browse={signedOut ? "/premium" : undefined}
       browseLabel="What FPL Premium is, and how to get it →"

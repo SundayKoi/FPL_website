@@ -91,6 +91,9 @@ insert into public.match_report_games (id, report_id, game_number, match_id) val
   ('71000000-0000-0000-0000-000000000031', '71000000-0000-0000-0000-000000000030', 1, 'NA1_7100000000000000001');
 insert into public.raw_stats (match_id, summoner_name) values ('NA1_7100000000000000001', 'Reuse Player');
 
+drop table if exists pg_temp._postseason_expected_assignments;
+drop table if exists pg_temp._postseason_requested_assignments;
+drop table if exists pg_temp._postseason_target_fixtures;
 select throws_like($$
   select public.populate_postseason_match_codes(
     'premier', 'ZZ', 'gauntlet',

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import AccessWall from "@/components/access/AccessWall";
 import CreateLobbyForm from "@/components/match-draft/CreateLobbyForm";
 import { drafterAccess } from "@/lib/match-draft/access";
+import workspaceStyles from "@/components/league/LeagueToolWorkspace.module.css";
 
 export const metadata: Metadata = {
   title: "Drafter — FPL",
@@ -36,7 +37,7 @@ export default async function DrafterLandingPage() {
     );
   }
   return (
-    <main className="page-container page-spacing flex w-full flex-1 flex-col gap-6 page-backdrop text-white">
+    <main className={`${workspaceStyles.workspace} mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 page-backdrop px-4 py-10 text-white`}>
       <header>
         <span className="label-dash">Pick / ban tool</span>
         <h1 className="type-display mt-2 text-4xl text-white">Match Drafter</h1>

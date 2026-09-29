@@ -4,13 +4,13 @@
 // Shine gates every expedition route and appeared only as a bare number.
 // Card of the Week and the binder were never introduced. The rarities
 // page was the de-facto glossary and was filed under Packs only. This is
-// the short glossary the audit asked for, rendered at /glossary and
+// the short glossary the audit asked for, rendered at /economy#glossary and
 // linked from the places the words are used.
 
 import { BINDER_SLOTS, PATRON_BINDER_SLOTS } from "@/lib/binder/queries";
 
 export interface GlossaryTerm {
-  /** The anchor on /glossary — `/glossary#shine`. */
+  /** The stable term key; glossary anchors render at /economy#<key>. */
   key: string;
   term: string;
   /** One or two sentences, in the player's words. */

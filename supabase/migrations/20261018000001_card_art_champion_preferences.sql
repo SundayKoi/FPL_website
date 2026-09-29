@@ -14,7 +14,7 @@ language sql
 immutable
 set search_path = public
 as $$
-  case lower(trim(coalesce(p_champion, '')))
+  select case lower(trim(coalesce(p_champion, '')))
     when 'monkeyking' then 'wukong'
     when 'missfortune' then 'missfortune'
     when 'kaisa' then 'kaisa'
@@ -37,7 +37,7 @@ language sql
 immutable
 set search_path = public
 as $$
-  case regexp_replace(lower(trim(coalesce(p_champion, ''))), '[^a-z0-9]', '', 'g')
+  select case regexp_replace(lower(trim(coalesce(p_champion, ''))), '[^a-z0-9]', '', 'g')
     when 'monkeyking' then 'Wukong'
     when 'chogath' then 'Cho''Gath'
     when 'drmundo' then 'Dr. Mundo'

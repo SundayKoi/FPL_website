@@ -26,8 +26,8 @@ export function MyTeamHeader({
           )}
         </div>
         <div className="min-w-0">
-          <span className="label-dash">My Team · {season}</span>
-          <h1 className="type-display mt-1 text-3xl sm:text-4xl">{team.name}</h1>
+          <p className="label-dash">Current team · {season}</p>
+          <h2 className="type-display mt-1 text-2xl sm:text-3xl">{team.name}</h2>
         </div>
         <div className="ml-auto text-right">
           <p className="mono-label">Series record</p>

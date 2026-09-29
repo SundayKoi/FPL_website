@@ -1,0 +1,258 @@
+.page {
+  --cards-canvas: #0c0b10;
+  --cards-surface: #15131b;
+  --cards-raised: #211e29;
+  --cards-line: #34313f;
+  --cards-line-strong: #514c5d;
+  --cards-ink: #f2f0f8;
+  --cards-muted: #aaa6b7;
+  --cards-action: #1c5583;
+  --cards-action-text: #9dc4dc;
+  --cards-action-contrast: #fff;
+  --cards-focus: #9dc4dc;
+
+  --color-canvas: var(--cards-canvas);
+  --color-surface: var(--cards-surface);
+  --color-raised: var(--cards-raised);
+  --color-border-subtle: var(--cards-line);
+  --color-border-strong: var(--cards-line-strong);
+  --color-content: var(--cards-ink);
+  --color-muted: var(--cards-muted);
+  --color-action-fill: var(--cards-action);
+  --color-action-text: var(--cards-action-text);
+  --color-action-contrast: var(--cards-action-contrast);
+  --color-focus: var(--cards-focus);
+  --color-league-accent: var(--cards-action-text);
+  --color-league-wash: rgb(28 85 131 / 0.12);
+
+  display: flex;
+  min-width: 0;
+  flex: 1 0 auto;
+  flex-direction: column;
+  background: var(--cards-canvas);
+  color: var(--cards-ink);
+  color-scheme: dark;
+}
+
+.page[data-league="academy"] {
+  --cards-action: #ff6b35;
+  --cards-action-text: #ffb08f;
+  --cards-action-contrast: #271108;
+  --cards-focus: #ffb08f;
+  --color-league-accent: #ff6b35;
+  --color-league-wash: rgb(255 107 53 / 0.12);
+}
+
+.page[data-league="neutral"] {
+  --cards-action: #514c5d;
+  --cards-action-text: #d0cbd9;
+  --cards-action-contrast: #fff;
+  --cards-focus: #d0cbd9;
+  --color-league-accent: #aaa6b7;
+  --color-league-wash: rgb(170 166 183 / 0.1);
+}
+
+.page > :global(main) {
+  box-sizing: border-box;
+  width: min(100%, 1440px);
+  max-width: 1440px;
+  min-width: 0;
+  margin-inline: auto;
+  padding-inline: var(--page-gutter);
+}
+
+.page > :global(main) > :global(h1),
+.standalone > :global(h1),
+.standalone :global(section > h1) {
+  color: var(--cards-ink);
+  font-family: var(--font-anton), "Arial Narrow", sans-serif;
+  font-size: clamp(28px, 3.4vw, 40px);
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+  text-transform: none;
+}
+
+.eyebrow :global(a) {
+  color: var(--cards-action-text);
+}
+
+.standalone {
+  box-sizing: border-box;
+  width: min(100%, 1440px);
+  max-width: 1440px;
+  min-width: 0;
+  margin-inline: auto;
+  padding-inline: var(--page-gutter);
+  background-color: var(--cards-canvas);
+  color: var(--cards-ink);
+  color-scheme: dark;
+}
+
+.page :global(.card-brand) {
+  border-color: var(--cards-line);
+  border-radius: 4px;
+  background: var(--cards-surface);
+  color: var(--cards-ink);
+  box-shadow: none;
+}
+
+.page :global(.input-brand),
+.page :global(input:not([type="checkbox"]):not([type="radio"])),
+.page :global(textarea),
+.page :global(select) {
+  border-color: var(--cards-line-strong);
+  border-radius: 4px;
+  background-color: var(--cards-surface);
+  color: var(--cards-ink);
+  color-scheme: dark;
+}
+
+.page :global(.btn-primary),
+.page :global(.btn-pill),
+.page :global(.btn-coral) {
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: var(--cards-action);
+  color: var(--cards-action-contrast);
+  font-weight: 700;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+.page :global(.btn-primary:hover),
+.page :global(.btn-pill:hover),
+.page :global(.btn-coral:hover) {
+  border-color: var(--cards-action-text);
+  background: color-mix(in srgb, var(--cards-action) 82%, white);
+  color: var(--cards-action-contrast);
+  box-shadow: none;
+}
+
+.page :global(nav[aria-label="Choose a collection"] a[aria-current="page"]) {
+  border-color: var(--cards-action);
+  background: var(--cards-action);
+  color: var(--cards-action-contrast);
+}
+
+.page :global(nav[aria-label="Choose a collection"] a) {
+  border-radius: 4px;
+  color: var(--cards-muted);
+}
+
+.page :global(nav[aria-label="Choose a collection"] a:hover:not([aria-current])) {
+  border-color: var(--cards-action);
+  color: var(--cards-ink);
+}
+
+.page :global(nav[aria-label="Filter Season's End cards by family"] a[aria-current="page"]) {
+  border-color: var(--cards-action);
+  background: var(--cards-action);
+  color: var(--cards-action-contrast);
+}
+
+.page :global([role="group"][aria-label="Variant filter"] button[aria-pressed="true"]) {
+  background: var(--cards-action);
+  color: var(--cards-action-contrast);
+}
+
+.page :global(a.text-coral),
+.page :global(button.text-coral) {
+  color: var(--cards-action-text);
+}
+
+.page :global(a[class~="hover:text-coral"]:hover),
+.page :global(button[class~="hover:text-coral"]:hover) {
+  color: var(--cards-action-text);
+}
+
+.page :global(.group:hover [class~="group-hover:text-coral"]) {
+  color: var(--cards-action-text);
+}
+
+.page :global([class~="hover:border-coral"]:hover) {
+  border-color: var(--cards-action);
+}
+
+.page :global(a:focus-visible),
+.page :global(button:focus-visible),
+.page :global(input:focus-visible),
+.page :global(select:focus-visible),
+.page :global(textarea:focus-visible),
+.page :global(summary:focus-visible) {
+  outline: 2px solid var(--cards-focus);
+  outline-offset: 3px;
+}
+
+.pageHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 24px;
+}
+
+.headerCopy {
+  min-width: 0;
+}
+
+.eyebrow {
+  display: inline-block;
+  margin: 0;
+  color: var(--cards-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 8px 0 0;
+  color: var(--cards-ink);
+  font-family: var(--font-anton), "Arial Narrow", sans-serif;
+  font-size: clamp(28px, 3.4vw, 40px);
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+  text-transform: none;
+}
+
+.lede {
+  max-width: 68ch;
+  margin: 12px 0 0;
+  color: var(--cards-muted);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.glossaryLink {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--cards-action-text);
+  font-size: 0.8rem;
+  text-underline-offset: 4px;
+}
+
+.page :global(main[data-testid="access-wall"] > h1) {
+  color: var(--cards-ink);
+  font-family: var(--font-anton), "Arial Narrow", sans-serif;
+  font-size: clamp(28px, 4vw, 40px);
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+  text-transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+.page :global(.btn-primary),
+.page :global(.btn-pill),
+.page :global(.btn-coral) {
+  transition: none;
+}
+}

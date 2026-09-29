@@ -61,6 +61,7 @@ export default function AcademyPlayersDirectory({
 
   return (
     <PlayersDirectory
+      league="academy"
       profileLinks={false}
       seasons={{ "season-5": sections, "season-4": [], "academy-1": [] }}
       canonicalPlayers={canonicalPlayers}

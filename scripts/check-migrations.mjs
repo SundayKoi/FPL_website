@@ -37,6 +37,23 @@ const restoredApplied = new Map([
   ["supabase/migrations/20261026000001_repair_current_season_end_draft_hashes.sql", "100644 blob db141107626a78ad84a858a8bb70e0230bb1c8ab"],
 ]);
 
+// Reviewed replay repairs are permitted only for their exact previous/current
+// Git blob pairs. The first file references a table created later in migration
+// order, so fresh databases fail before reaching its missing-table guard. The
+// second file's deployed SQL functions have SELECT CASE bodies, while the
+// tracked migration omitted SELECT and could not replay. Pin both sides so
+// these remain narrow exceptions, not path-wide migration exemptions.
+const authorizedReplayRepairs = new Map([
+  ["supabase/migrations/20260922052204_rebuild_season_end_draft_after_hash_fix.sql", {
+    previous: "100644 blob 787088fc1e1a149e165de22cb592c09b26cd7144",
+    current: "100644 blob ced3709037e6667ec5894ada0fdb4be91d35adf7",
+  }],
+  ["supabase/migrations/20261018000001_card_art_champion_preferences.sql", {
+    previous: "100644 blob adbe558c876189cfefe2702c5792c608e77e1490",
+    current: "100644 blob 70cc593739bb010d65bc10d37a458cf17292aaa5",
+  }],
+]);
+
 try {
   const base = process.argv[2];
   const head = process.argv[3] || "HEAD";
@@ -49,13 +66,19 @@ try {
   const known = (path) => previous.has(path)
     || (onRelease.has(path) && onRelease.get(path) === current.get(path))
     || restoredApplied.get(path) === current.get(path);
+  const authorizedReplayRepair = (path) => {
+    const repair = authorizedReplayRepairs.get(path);
+    return repair !== undefined && previous.get(path) === repair.previous && current.get(path) === repair.current;
+  };
   const errors = [];
   const versions = new Map();
   const pattern = /^supabase\/migrations\/(\d{14})_[a-zA-Z0-9_-]+\.sql$/;
   const highest = [...previous.keys()].map((path) => path.match(pattern)?.[1] || "").sort().at(-1) || "";
 
   for (const [path, metadata] of previous) {
-    if (current.get(path) !== metadata) errors.push(`${path}: existing migrations must not be modified, renamed, or deleted; add a forward migration.`);
+    if (current.get(path) !== metadata && !authorizedReplayRepair(path)) {
+      errors.push(`${path}: existing migrations must not be modified, renamed, or deleted; add a forward migration.`);
+    }
   }
   for (const [path] of current) {
     if (!path.endsWith(".sql")) continue;

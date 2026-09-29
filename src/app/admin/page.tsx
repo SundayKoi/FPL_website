@@ -1,37 +1,41 @@
-import type { ReactElement } from "react";
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { fetchStaffTier, isMissingBroadcasterColumn } from "@/lib/auth/staffTier";
-import type { Draft } from "@/lib/draft/types";
-import DraftListClient from "@/components/admin/DraftListClient";
+import { fetchStaffTier } from "@/lib/auth/staffTier";
 import AdminConsole, { type AdminActivityItem, type AdminQueueItem } from "@/components/admin/AdminConsole";
-import AdminHomepageMode from "@/components/admin/AdminHomepageMode";
-import AdminStaff, { type StaffProfile } from "@/components/admin/AdminStaff";
-import AdminFeaturedMatchupEditor, { type FeaturedFixtureChoice } from "@/components/admin/AdminFeaturedMatchupEditor";
-import AdminBangerTitles from "@/components/admin/AdminBangerTitles";
-import AdminReportsQueue from "@/components/captain/AdminReportsQueue";
-import type { MatchReport, MatchReportGame, LeagueTeam } from "@/lib/matches/types";
 import type { HomepageMode } from "@/lib/home/seasonState";
 import { fetchHomepageFeaturedSettings } from "@/lib/home/homepageSettings";
-import { fetchBangerBoardSettings } from "@/lib/bangers/settings";
 import { fetchHomepageSchedule, selectHomepageFeaturedFixture } from "@/lib/home/schedule";
 import { fetchAcademyDraftData } from "@/lib/academy/draft";
 import { filterAcademyFixtures } from "@/lib/academy/filtering";
 import { academyTeamNames } from "@/lib/league/context";
-import { fetchLeagueSeasons, seasonBelongsToLeague } from "@/lib/league/season";
+import { resolveAdminLeagueSeason } from "@/lib/admin/scope";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
-import { FIXTURE_STAGES, type FixtureRow, type FixtureStage } from "@/lib/schedule/types";
+import { FIXTURE_STAGES } from "@/lib/schedule/types";
+import type { FixtureRow, FixtureStage } from "@/lib/schedule/types";
+import type { MatchReport } from "@/lib/matches/types";
 
-/** The whole bracket ahead, stage-labelled: staff pick playoff games here too,
- *  not just the active week's. */
-function featuredFixtureChoices(fixtures: FixtureRow[]): FeaturedFixtureChoice[] {
-  return fixtures.map((fixture) => ({
-    id: fixture.id,
-    label: `${stageMeta(fixture.stage).label}${fixture.division ? ` · ${fixture.division}` : ""} · ${fixture.team_a ?? "TBD"} vs ${fixture.team_b ?? "TBD"}`,
-  }));
+type AdminPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+type AdminSearchParams = Record<string, string | string[] | undefined>;
+type PendingIdentityRow = {
+  id: string;
+  player_pool_id: string;
+  league_team_id: string | null;
+  requested_at: string;
+};
+type RecentIdentityRow = {
+  id: string;
+  player_pool_id: string;
+  league_team_id: string | null;
+  decided_at: string | null;
+};
+
+function first(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
 }
 
-function timeAgo(value: string, now = Date.now()): string {
+function timeAgo(value: string, now = Date.now()) {
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) return "Time unavailable";
   const minutes = Math.max(0, Math.floor((now - timestamp) / 60_000));
@@ -44,357 +48,177 @@ function timeAgo(value: string, now = Date.now()): string {
   return new Date(timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
-function teamName(teamNames: Map<string, string>, id: string): string {
-  return teamNames.get(id) ?? "Unknown team";
+function teamName(teamNames: Map<string, string>, id: string | null) {
+  return id ? teamNames.get(id) ?? "Unknown team" : "Unknown team";
 }
 
-async function fetchStaffProfiles(supabase: Awaited<ReturnType<typeof createServerSupabase>>) {
-  const current = await supabase
-    .from("profiles")
-    .select("id, display_name, is_admin, is_owner, is_broadcaster")
-    .order("display_name");
-  if (!current.error) return (current.data as StaffProfile[]) ?? [];
-  if (!isMissingBroadcasterColumn(current.error)) return [];
-
-  const legacy = await supabase
-    .from("profiles")
-    .select("id, display_name, is_admin, is_owner")
-    .order("display_name");
-  if (legacy.error) return [];
-  return ((legacy.data as Omit<StaffProfile, "is_broadcaster">[]) ?? []).map((profile) => ({
-    ...profile,
-    is_broadcaster: false,
-  }));
+async function loadCurrentTime() {
+  return Date.now();
 }
 
-/** Staff overview with scoped schedule context and the existing admin workspaces. */
-type AdminPageProps = {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-};
-type PendingIdentityQueueRow = {
-  id: string;
-  player_pool_id: string;
-  league_team_id: string;
-  requested_at: string;
-};
-type PendingIdentityQueryRow = Omit<PendingIdentityQueueRow, "league_team_id"> & { league_team_id: string | null };
-type ApprovedIdentityActivity = Omit<PendingIdentityQueueRow, "requested_at"> & { decided_at: string };
-type ApprovedIdentityQueryRow = Omit<ApprovedIdentityActivity, "league_team_id" | "decided_at"> & {
-  league_team_id: string | null;
-  decided_at: string | null;
-};
-type ApprovedCardClaimActivity = {
-  season: string;
-  summoner_name: string;
-  tag: string;
-  decided_at: string;
-};
-
-function AdminPage(): Promise<ReactElement>;
-function AdminPage(props: AdminPageProps): Promise<ReactElement>;
-async function AdminPage(props?: AdminPageProps) {
+/** Concise staff dashboard. Full editors live on their route-backed workspaces. */
+export default async function AdminPage({
+  searchParams,
+}: AdminPageProps = {}) {
   const supabase = await createServerSupabase();
   const { isAdmin, isOwner, isBroadcaster } = await fetchStaffTier(supabase);
-  const canUseFullAdmin = isAdmin || isOwner;
-  if (!canUseFullAdmin && !isBroadcaster) redirect("/");
+  const isFullAdmin = isAdmin || isOwner;
+  if (!isFullAdmin && !isBroadcaster) redirect("/");
 
-  const params = await (
-    props?.searchParams ?? Promise.resolve<Record<string, string | string[] | undefined>>({})
-  );
-  const requestedLeague = Array.isArray(params.league) ? params.league[0] : params.league;
-  const league = requestedLeague === "academy" ? "academy" : "premier";
-  const requestedSeason = Array.isArray(params.season) ? params.season[0] : params.season;
-
-  // Owners see the staff panel. This gate is presentation only — set_profile_admin
-  // re-checks ownership server-side, so an admin who forges their way here can
-  // still change nothing.
-  const staffProfiles = isOwner
-    ? await fetchStaffProfiles(supabase)
-    : [];
-
-  const [draftsResult, settingsResult, fixtureSeasonsResult, leagueSeasons] = await Promise.all([
-    supabase.from("drafts").select("*").order("created_at", { ascending: false }),
-    supabase
-      .from("league_settings")
-      .select("current_season, academy_season, current_phase, signups_open, homepage_mode")
-      .eq("id", 1)
-      .single(),
-    supabase.from("fixtures").select("season"),
-    fetchLeagueSeasons(supabase),
+  const params: AdminSearchParams = await (searchParams ?? Promise.resolve({} as AdminSearchParams));
+  const requestedLeague = first(params.league);
+  const homepageLeague = requestedLeague === "academy" ? "academy" : "premier";
+  const [settingsResult, context, homepageSettings] = await Promise.all([
+    supabase.from("league_settings").select("current_season, current_phase, signups_open, homepage_mode").eq("id", 1).single(),
+    resolveAdminLeagueSeason(supabase, params),
+    fetchHomepageFeaturedSettings(homepageLeague),
   ]);
-
-  const drafts = (draftsResult.data as Draft[]) ?? [];
+  const { league, season, defaultSeasons, seasonOptions } = context;
   const settings = settingsResult.data as {
-    current_season: string;
-    academy_season: string;
-    current_phase: string;
-    signups_open: boolean;
-    homepage_mode: HomepageMode;
+    current_season?: string | null;
+    current_phase?: string | null;
+    signups_open?: boolean | null;
+    homepage_mode?: HomepageMode | null;
   } | null;
-  const [academyDraftData, premierSettings, academySettings, bangerTitles] = await Promise.all([
-    fetchAcademyDraftData(supabase),
-    fetchHomepageFeaturedSettings("premier"),
-    fetchHomepageFeaturedSettings("academy"),
-    fetchBangerBoardSettings(),
-  ]);
-  const academyTeamNameSet = academyTeamNames(academyDraftData.teams);
-  const [premierSchedule, academySchedule] = await Promise.all([
-    fetchHomepageSchedule(undefined, settings?.current_season),
-    fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, academyTeamNameSet), settings?.academy_season),
-  ]);
-  const latestSchedule = league === "academy" ? academySchedule : premierSchedule;
-  const defaultSeason = leagueSeasons[league] || (league === "academy" ? "A1" : settings?.current_season ?? "S5");
-  const fixtureSeasons = ((fixtureSeasonsResult.data as { season: string }[] | null) ?? [])
-    .map((row) => row.season)
-    .filter((season) => seasonBelongsToLeague(season, league));
-  const seasonOptions = [...new Set([defaultSeason, latestSchedule.season ?? "", ...fixtureSeasons].filter(Boolean))]
-    .sort((a, b) => {
-      if (a === defaultSeason) return -1;
-      if (b === defaultSeason) return 1;
-      return Number.parseInt(b.slice(1), 10) - Number.parseInt(a.slice(1), 10);
-    });
-  const season = requestedSeason && seasonOptions.includes(requestedSeason) ? requestedSeason : defaultSeason;
-  const displaySchedule = season === latestSchedule.season
-    ? latestSchedule
-    : await fetchHomepageSchedule(
-        league === "academy" ? (fixtures) => filterAcademyFixtures(fixtures, academyTeamNameSet) : undefined,
-        season,
-      );
-  const homepageSettings = league === "academy" ? academySettings : premierSettings;
+  const academyDraft = league === "academy" ? await fetchAcademyDraftData(supabase) : null;
+  const academyNames = academyDraft ? academyTeamNames(academyDraft.teams) : new Set<string>();
+  const scope = league === "academy"
+    ? (fixtures: FixtureRow[]) => filterAcademyFixtures(fixtures, academyNames)
+    : (fixtures: FixtureRow[]) => fixtures.filter((fixture) => /^[SA]\d+$/i.test(fixture.season) && fixture.season.toUpperCase().startsWith("S"));
+  const latestSchedule = await fetchHomepageSchedule(scope);
+  const displaySchedule = season === latestSchedule.season ? latestSchedule : await fetchHomepageSchedule(scope, season);
   const featuredFixture = selectHomepageFeaturedFixture(latestSchedule.upcoming, homepageSettings.fixtureId);
   const phase = displaySchedule.activeStage
     ? stageMeta(displaySchedule.activeStage).label
     : settings?.current_phase && FIXTURE_STAGES.includes(settings.current_phase as FixtureStage)
       ? stageMeta(settings.current_phase as FixtureStage).label
       : "Season setup";
-  const renderedAt = new Date();
-  const renderedAtMs = renderedAt.getTime();
+  const now = await loadCurrentTime();
   const upcomingFixtures = displaySchedule.upcoming.filter((fixture) =>
-    fixture.score_a === null &&
-    fixture.score_b === null &&
-    (!fixture.scheduled_at || new Date(fixture.scheduled_at).getTime() >= renderedAtMs),
+    fixture.score_a === null && fixture.score_b === null && (!fixture.scheduled_at || Date.parse(fixture.scheduled_at) >= now),
   );
   const upcoming = upcomingFixtures.slice(0, 4).map((fixture) => ({
     id: fixture.id,
     matchup: `${fixture.team_a ?? "TBD"} vs ${fixture.team_b ?? "TBD"}`,
     starts: formatKickoff(fixture.scheduled_at),
-    status: fixture.score_a !== null && fixture.score_b !== null ? "Completed" : "Scheduled",
+    status: "Scheduled",
   }));
   const today = new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    day: "2-digit",
-    month: "short",
-    timeZone: "America/Chicago",
-  }).format(renderedAt).toUpperCase();
+    weekday: "short", day: "2-digit", month: "short", timeZone: "America/Chicago",
+  }).format(new Date()).toUpperCase();
 
   let queueCounts = { reports: 0, claims: 0 };
   let queueItems: AdminQueueItem[] = [];
   let recentActivity: AdminActivityItem[] = [];
   let queueUnavailable = false;
-  let reportQueueUnavailable = false;
-  let reportQueue: ReactElement | undefined;
-
   if (isAdmin) {
-    const [reportsResult, pendingClaimsResult, approvedClaimsResult, pendingIdentityResult, approvedIdentityResult] = await Promise.all([
-      supabase.from("match_reports").select("*").eq("season", season).order("submitted_at", { ascending: false }),
-      supabase
-        .from("card_claims")
-        .select("season, summoner_name, tag, created_at", { count: "exact" })
-        .eq("season", season)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false })
-        .limit(8),
-      supabase
-        .from("card_claims")
-        .select("season, summoner_name, tag, decided_at")
-        .eq("season", season)
-        .eq("status", "approved")
-        .order("decided_at", { ascending: false })
-        .limit(8),
-      supabase
-        .from("player_identity_links")
-        .select("id, player_pool_id, league_team_id, requested_at")
-        .eq("league", league)
-        .eq("season", season)
-        .eq("status", "pending")
-        .order("requested_at", { ascending: false }),
-      supabase
-        .from("player_identity_links")
-        .select("id, player_pool_id, league_team_id, decided_at")
-        .eq("league", league)
-        .eq("season", season)
-        .eq("status", "approved")
-        .order("decided_at", { ascending: false })
-        .limit(8),
+    const [reportsResult, cardClaimsResult, identityClaimsResult, reportActivityResult, cardActivityResult, identityActivityResult] = await Promise.all([
+      supabase.from("match_reports").select("id, fixture_id, team_a_id, team_b_id, score_a, score_b, season, season_phase, status, submitted_at", { count: "exact" })
+        .eq("season", season).in("status", ["pending", "needs_sides", "failed"]).order("submitted_at", { ascending: false }).limit(6),
+      supabase.from("card_claims").select("season, summoner_name, tag, created_at", { count: "exact" })
+        .eq("season", season).eq("status", "pending").order("created_at", { ascending: false }).limit(6),
+      supabase.from("player_identity_links").select("id, player_pool_id, league_team_id, requested_at", { count: "exact" })
+        .eq("league", league).eq("season", season).eq("status", "pending").order("requested_at", { ascending: false }).limit(6),
+      supabase.from("match_reports").select("id, team_a_id, team_b_id, score_a, score_b, season, season_phase, submitted_at")
+        .eq("season", season).order("submitted_at", { ascending: false }).limit(8),
+      supabase.from("card_claims").select("season, summoner_name, tag, decided_at").eq("season", season).eq("status", "approved")
+        .order("decided_at", { ascending: false }).limit(8),
+      supabase.from("player_identity_links").select("id, player_pool_id, league_team_id, decided_at").eq("league", league).eq("season", season).eq("status", "approved")
+        .order("decided_at", { ascending: false }).limit(8),
     ]);
-
-    const reports = (reportsResult.data as MatchReport[] | null) ?? [];
-    const pendingClaims = (pendingClaimsResult.data as {
-      season: string;
-      summoner_name: string;
-      tag: string;
-      created_at: string;
-    }[] | null) ?? [];
-    const approvedClaims = ((approvedClaimsResult.data as {
-      season: string;
-      summoner_name: string;
-      tag: string;
-      decided_at: string | null;
-    }[] | null) ?? []).filter((claim): claim is ApprovedCardClaimActivity => claim.decided_at !== null);
-    const pendingIdentity = ((pendingIdentityResult.data as PendingIdentityQueryRow[] | null) ?? [])
-      .filter((claim): claim is PendingIdentityQueueRow => claim.league_team_id !== null);
-    const approvedIdentity = ((approvedIdentityResult.data as ApprovedIdentityQueryRow[] | null) ?? [])
-      .filter((claim): claim is ApprovedIdentityActivity => claim.league_team_id !== null && claim.decided_at !== null);
-    const unresolvedReports = reports.filter((report) =>
-      report.status === "pending" || report.status === "needs_sides" || report.status === "failed",
+    queueUnavailable = Boolean(
+      reportsResult.error || reportsResult.count === null || cardClaimsResult.error || cardClaimsResult.count === null
+      || identityClaimsResult.error || identityClaimsResult.count === null || reportActivityResult.error
+      || cardActivityResult.error || identityActivityResult.error,
     );
     queueCounts = {
-      reports: unresolvedReports.length,
-      claims: typeof pendingClaimsResult.count === "number"
-        ? pendingClaimsResult.count + pendingIdentity.length
-        : pendingClaims.length + pendingIdentity.length,
+      reports: reportsResult.count ?? 0,
+      claims: (cardClaimsResult.count ?? 0) + (identityClaimsResult.count ?? 0),
     };
-    reportQueueUnavailable = Boolean(reportsResult.error);
-    queueUnavailable = Boolean(
-      reportsResult.error
-      || pendingClaimsResult.error
-      || approvedClaimsResult.error
-      || pendingIdentityResult.error
-      || approvedIdentityResult.error,
+
+    const reports = (reportsResult.data as Array<Pick<MatchReport, "id" | "fixture_id" | "team_a_id" | "team_b_id" | "score_a" | "score_b" | "season" | "season_phase" | "status" | "submitted_at">> | null) ?? [];
+    const pendingClaims = (cardClaimsResult.data as { season: string; summoner_name: string; tag: string; created_at: string }[] | null) ?? [];
+    const pendingIdentity = ((identityClaimsResult.data as PendingIdentityRow[] | null) ?? []).filter((row): row is PendingIdentityRow & { league_team_id: string } => Boolean(row.league_team_id));
+    const approvedClaims = ((cardActivityResult.data as { season: string; summoner_name: string; tag: string; decided_at: string | null }[] | null) ?? []).filter(
+      (row): row is { season: string; summoner_name: string; tag: string; decided_at: string } => Boolean(row.decided_at),
     );
+    const approvedIdentity = ((identityActivityResult.data as RecentIdentityRow[] | null) ?? []).filter(
+      (row): row is RecentIdentityRow & { league_team_id: string; decided_at: string } => Boolean(row.league_team_id && row.decided_at),
+    );
+    const reportActivityRows = (reportActivityResult.data as Array<Pick<MatchReport, "id" | "team_a_id" | "team_b_id" | "score_a" | "score_b" | "season" | "season_phase" | "submitted_at">> | null) ?? [];
+    const activityNamesIds = [...new Set([
+      ...reports.flatMap((row) => [row.team_a_id, row.team_b_id]),
+      ...reportActivityRows.flatMap((row) => [row.team_a_id, row.team_b_id]),
+      ...pendingIdentity.map((row) => row.league_team_id),
+      ...approvedIdentity.map((row) => row.league_team_id),
+    ].filter((id): id is string => Boolean(id)))];
+    const playerIds = [...new Set([...pendingIdentity.map((row) => row.player_pool_id), ...approvedIdentity.map((row) => row.player_pool_id)])];
+    const [teamsResult, playersResult] = await Promise.all([
+      activityNamesIds.length ? supabase.from("league_teams").select("id, name").in("id", activityNamesIds) : Promise.resolve({ data: [], error: null }),
+      playerIds.length ? supabase.from("player_pool").select("id, display_name").in("id", playerIds) : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (teamsResult.error || playersResult.error) queueUnavailable = true;
+    const teamNames = new Map(((teamsResult.data as { id: string; name: string }[] | null) ?? []).map((row) => [row.id, row.name]));
+    const playerNames = new Map(((playersResult.data as { id: string; display_name: string }[] | null) ?? []).map((row) => [row.id, row.display_name]));
 
-    let reportGames: MatchReportGame[] = [];
-    let leagueTeams: LeagueTeam[] = [];
-    if (!reportsResult.error) {
-      const [gamesResult, teamsResult] = await Promise.all([
-        reports.length
-          ? supabase.from("match_report_games").select("*").in("report_id", reports.map((report) => report.id)).order("game_number")
-          : Promise.resolve({ data: [] as MatchReportGame[], error: null }),
-        supabase.from("league_teams").select("id, name, abbreviation, active").order("name"),
-      ]);
-      reportGames = (gamesResult.data as MatchReportGame[] | null) ?? [];
-      leagueTeams = (teamsResult.data as LeagueTeam[] | null) ?? [];
-      reportQueueUnavailable = Boolean(gamesResult.error || teamsResult.error);
-      queueUnavailable ||= reportQueueUnavailable;
-      if (!reportQueueUnavailable && reports.length > 0) {
-        reportQueue = <AdminReportsQueue reports={reports} games={reportGames} teams={leagueTeams} initiallyOpen />;
-      }
-    }
-
-    const names = new Map(leagueTeams.map((team) => [team.id, team.name]));
-    const identityPlayerIds = [...new Set([
-      ...pendingIdentity.map((claim) => claim.player_pool_id),
-      ...approvedIdentity.map((claim) => claim.player_pool_id),
-    ])];
-    const identityTeamIds = [...new Set([
-      ...pendingIdentity.map((claim) => claim.league_team_id),
-      ...approvedIdentity.map((claim) => claim.league_team_id),
-    ])];
-    let identityPlayerNames = new Map<string, string>();
-    let identityTeamNames = new Map<string, string>();
-    if (identityPlayerIds.length > 0 && identityTeamIds.length > 0) {
-      const [playersResult, identityTeamsResult] = await Promise.all([
-        supabase.from("player_pool").select("id, display_name").in("id", identityPlayerIds),
-        supabase.from("league_teams").select("id, name").in("id", identityTeamIds),
-      ]);
-      if (playersResult.error || identityTeamsResult.error) {
-        queueUnavailable = true;
-      } else {
-        identityPlayerNames = new Map(((playersResult.data as { id: string; display_name: string }[] | null) ?? [])
-          .map((player) => [player.id, player.display_name]));
-        identityTeamNames = new Map(((identityTeamsResult.data as { id: string; name: string }[] | null) ?? [])
-          .map((team) => [team.id, team.name]));
-      }
-    }
-    const reportItems: AdminQueueItem[] = unresolvedReports.map((report) => {
-      const statusDetail = report.status === "failed"
-        ? "Stats ingest failed"
-        : report.status === "needs_sides"
-          ? "Needs blue-side review"
-          : "Waiting for stats ingest";
-      return {
-        id: `report-${report.id}`,
-        title: `${teamName(names, report.team_a_id)} ${report.score_a}–${report.score_b} ${teamName(names, report.team_b_id)}`,
-        detail: `${statusDetail} · ${report.season} · ${timeAgo(report.submitted_at, renderedAtMs)}`,
-        href: `/admin?league=${league}&season=${encodeURIComponent(season)}#match-reports`,
-        action: "Review",
-        type: "reports",
-        icon: "file",
-        createdAt: report.submitted_at,
-      };
-    });
+    const reportItems: AdminQueueItem[] = reports.map((report) => ({
+      id: `report-${report.id}`,
+      title: `${teamName(teamNames, report.team_a_id)} ${report.score_a}–${report.score_b} ${teamName(teamNames, report.team_b_id)}`,
+      detail: `${report.status === "failed" ? "Stats ingest failed" : report.status === "needs_sides" ? "Needs blue-side review" : "Waiting for stats ingest"} · ${report.season} · ${timeAgo(report.submitted_at)}`,
+      href: `/admin/reviews?league=${league}&season=${encodeURIComponent(season)}&report=${encodeURIComponent(report.id)}#report-${encodeURIComponent(report.id)}`,
+      action: "Review", type: "reports", icon: "file", createdAt: report.submitted_at,
+    }));
     const claimItems: AdminQueueItem[] = pendingClaims.map((claim) => ({
       id: `claim-${claim.season}-${claim.summoner_name}-${claim.tag}`,
       title: `${claim.summoner_name}#${claim.tag}`,
-      detail: `Card ownership · ${timeAgo(claim.created_at, renderedAtMs)}`,
+      detail: `Card ownership · ${timeAgo(claim.created_at)}`,
       href: `/admin/claims?league=${league}&season=${encodeURIComponent(season)}`,
-      action: "Review",
-      type: "claims",
-      icon: "people",
-      createdAt: claim.created_at,
+      action: "Review", type: "claims", icon: "people", createdAt: claim.created_at,
     }));
     const identityItems: AdminQueueItem[] = pendingIdentity.map((claim) => ({
       id: `identity-${claim.id}`,
-      title: `${identityPlayerNames.get(claim.player_pool_id) ?? "Roster identity request"} · ${identityTeamNames.get(claim.league_team_id) ?? "Team"}`,
-      detail: `Roster identity · ${timeAgo(claim.requested_at, renderedAtMs)}`,
-      href: `/identity-claims?league=${league}&season=${encodeURIComponent(season)}`,
-      action: "Review",
-      type: "claims",
-      icon: "people",
-      createdAt: claim.requested_at,
+      title: `${playerNames.get(claim.player_pool_id) ?? "Roster identity request"} · ${teamNames.get(claim.league_team_id) ?? "Team"}`,
+      detail: `Roster identity · ${timeAgo(claim.requested_at)}`,
+      href: `/admin/reviews/identity?league=${league}&season=${encodeURIComponent(season)}&record=${encodeURIComponent(claim.id)}#identity-${encodeURIComponent(claim.id)}`,
+      action: "Review", type: "claims", icon: "people", createdAt: claim.requested_at,
     }));
-    queueItems = [
-      ...reportItems.slice(0, 6),
-      ...claimItems.slice(0, 6),
-      ...identityItems.slice(0, 6),
-    ]
+    queueItems = [...reportItems, ...claimItems, ...identityItems]
       .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
 
-    const activitySince = renderedAtMs - 14 * 24 * 60 * 60 * 1000;
-    const reportActivity: AdminActivityItem[] = reports
-      .filter((report) => Date.parse(report.submitted_at) >= activitySince)
-      .map((report) => ({
-        id: `report-${report.id}`,
-        title: "Match report submitted",
-        detail: `${teamName(names, report.team_a_id)} ${report.score_a}–${report.score_b} ${teamName(names, report.team_b_id)} · ${season} ${report.season_phase}`,
-        occurredAt: report.submitted_at,
-        timeLabel: timeAgo(report.submitted_at, renderedAtMs),
-        icon: "file",
+    const cutoff = now - 14 * 24 * 60 * 60 * 1000;
+    const recentReports: AdminActivityItem[] = reportActivityRows
+      .filter((row) => Date.parse(row.submitted_at) >= cutoff)
+      .map((row) => ({
+        id: `report-${row.id}`, title: "Match report submitted",
+        detail: `${teamName(teamNames, row.team_a_id)} ${row.score_a}–${row.score_b} ${teamName(teamNames, row.team_b_id)} · ${row.season} ${row.season_phase}`,
+        occurredAt: row.submitted_at, timeLabel: timeAgo(row.submitted_at), icon: "file",
       }));
     const claimActivity: AdminActivityItem[] = approvedClaims
-      .filter((claim) => Date.parse(claim.decided_at) >= activitySince)
-      .map((claim) => ({
-        id: `claim-${claim.season}-${claim.summoner_name}-${claim.tag}`,
-        title: "Player card claim approved",
-        detail: `${claim.summoner_name}#${claim.tag} · ${season}`,
-        occurredAt: claim.decided_at,
-        timeLabel: timeAgo(claim.decided_at, renderedAtMs),
-        icon: "people",
+      .filter((row) => Date.parse(row.decided_at) >= cutoff)
+      .map((row) => ({
+        id: `claim-${row.season}-${row.summoner_name}-${row.tag}`, title: "Player card claim approved",
+        detail: `${row.summoner_name}#${row.tag} · ${row.season}`, occurredAt: row.decided_at, timeLabel: timeAgo(row.decided_at), icon: "people",
       }));
     const identityActivity: AdminActivityItem[] = approvedIdentity
-      .filter((claim) => Date.parse(claim.decided_at) >= activitySince)
-      .map((claim) => ({
-        id: `identity-${claim.id}`,
-        title: "Roster identity approved",
-        detail: `${identityPlayerNames.get(claim.player_pool_id) ?? "Player"} · ${identityTeamNames.get(claim.league_team_id) ?? "Team"} · ${season}`,
-        occurredAt: claim.decided_at,
-        timeLabel: timeAgo(claim.decided_at, renderedAtMs),
-        icon: "people",
+      .filter((row) => Date.parse(row.decided_at) >= cutoff)
+      .map((row) => ({
+        id: `identity-${row.id}`, title: "Roster identity approved",
+        detail: `${playerNames.get(row.player_pool_id) ?? "Player"} · ${teamNames.get(row.league_team_id) ?? "Team"} · ${season}`,
+        occurredAt: row.decided_at, timeLabel: timeAgo(row.decided_at), icon: "people",
       }));
-    recentActivity = [...reportActivity, ...claimActivity, ...identityActivity]
-      .sort((left, right) => Date.parse(right.occurredAt) - Date.parse(left.occurredAt))
-      .slice(0, 5);
+    recentActivity = [...recentReports, ...claimActivity, ...identityActivity]
+      .sort((left, right) => Date.parse(right.occurredAt) - Date.parse(left.occurredAt)).slice(0, 5);
   }
 
   return (
     <AdminConsole
       view="overview"
       isOwner={isOwner}
-      isFullAdmin={canUseFullAdmin}
+      isFullAdmin={isFullAdmin}
       league={league}
       season={season}
-      featuredSeason={latestSchedule.season ?? defaultSeason}
-      defaultSeasons={{ premier: leagueSeasons.premier || "S5", academy: leagueSeasons.academy || "A1" }}
+      featuredSeason={latestSchedule.season ?? defaultSeasons[league]}
+      defaultSeasons={defaultSeasons}
       seasonOptions={seasonOptions}
       phase={phase}
       upcomingCount={upcomingFixtures.length}
@@ -413,47 +237,6 @@ async function AdminPage(props?: AdminPageProps) {
       queueItems={queueItems}
       queueUnavailable={queueUnavailable}
       recentActivity={recentActivity}
-      reportQueue={reportQueue}
-      reportQueueUnavailable={reportQueueUnavailable}
-    >
-      <section id="homepage-controls" aria-labelledby="homepage-control-title" className="flex flex-col gap-3">
-        <h2 id="homepage-control-title" className="type-display text-2xl">Homepage &amp; broadcast</h2>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <AdminFeaturedMatchupEditor
-            homepage="premier"
-            fixtures={featuredFixtureChoices(premierSchedule.upcoming)}
-            settings={premierSettings}
-          />
-          <AdminFeaturedMatchupEditor
-            homepage="academy"
-            fixtures={featuredFixtureChoices(academySchedule.upcoming)}
-            settings={academySettings}
-          />
-        </div>
-        {isOwner ? (
-          <AdminHomepageMode homepageMode={settings?.homepage_mode ?? "auto"} />
-        ) : (
-          <p className="text-sm text-muted">Some league configuration is owner-only.</p>
-        )}
-      </section>
-
-      {canUseFullAdmin ? <section id="daily-stu-controls" aria-labelledby="banger-control-title" className="flex flex-col gap-3">
-        <h2 id="banger-control-title" className="type-display text-2xl">The Daily Stu</h2>
-        <AdminBangerTitles initial={bangerTitles} />
-      </section> : null}
-
-      {canUseFullAdmin ? <section id="drafts" aria-label="Drafts" className="flex flex-col gap-4">
-        <h2 className="type-display text-2xl">Drafts</h2>
-        {isOwner ? (
-          <DraftListClient initialDrafts={drafts} />
-        ) : (
-          <p className="text-sm text-muted">Draft management is owner-only.</p>
-        )}
-      </section> : null}
-
-      {isOwner ? <section id="staff-controls" aria-label="Staff controls"><AdminStaff profiles={staffProfiles} /></section> : null}
-    </AdminConsole>
+    />
   );
 }
-
-export default AdminPage;

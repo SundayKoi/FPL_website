@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import styles from "./CardsPageShell.module.css";
 
 /**
  * The header every page under a cards tab wears: where you are (the tab,
@@ -36,9 +37,9 @@ export default function CardsPageHeader({
 }) {
   const [tab, ...rest] = eyebrow.split(" · ");
   return (
-    <header className="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <span className="label-dash">
+    <header className={styles.pageHeader}>
+      <div className={styles.headerCopy}>
+        <span className={styles.eyebrow}>
           {tabHref ? (
             <>
               <Link href={tabHref} className="underline-offset-4 hover:text-white hover:underline">
@@ -50,12 +51,12 @@ export default function CardsPageHeader({
             eyebrow
           )}
         </span>
-        <h1 className="type-display mt-2 text-4xl sm:text-5xl">{title}</h1>
-        {children ? <p className="mt-3 max-w-2xl text-sm text-steel">{children}</p> : null}
+        <h1 className={styles.title}>{title}</h1>
+        {children ? <p className={styles.lede}>{children}</p> : null}
         {below}
         {glossary ? <GlossaryLink /> : null}
       </div>
-      {aside}
+      {aside ? <div>{aside}</div> : null}
     </header>
   );
 }
@@ -64,7 +65,7 @@ export default function CardsPageHeader({
  *  page can offer the glossary without a paragraph about it. */
 export function GlossaryLink({ className = "mt-2" }: { className?: string }) {
   return (
-    <Link href="/glossary" className={`inline-block text-xs text-muted underline-offset-4 hover:text-coral hover:underline ${className}`}>
+    <Link href="/economy#glossary" className={[styles.glossaryLink, className].join(" ")}>
       Shine, dust, relic, binder — the words, explained →
     </Link>
   );

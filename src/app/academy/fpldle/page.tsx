@@ -4,6 +4,7 @@ import FpldleBoard from "@/components/fpldle/FpldleBoard";
 import FpldleUnavailable from "@/components/fpldle/FpldleUnavailable";
 import { resetFpldlePuzzleAction, revealFpldleAnswerAction, submitFpldleGuessAction } from "@/lib/fpldle/actions";
 import { FpldleError, getFpldleGame } from "@/lib/fpldle/server";
+import PlayPageShell from "@/components/play/PlayPageShell";
 
 export const metadata: Metadata = {
   title: "Academy FPL'dle — FPL",
@@ -16,9 +17,9 @@ export default async function AcademyFpldlePage() {
     game = await getFpldleGame("academy");
   } catch (error) {
     if (error instanceof FpldleError && error.code === "FORBIDDEN") {
-      return <DailyGameWall league="Academy" game="FPL'dle" redirect="/academy/fpldle" message={error.message} />;
+      return <PlayPageShell league="academy" active="fpldle"><DailyGameWall league="Academy" game="FPL'dle" redirect="/academy/fpldle" message={error.message} /></PlayPageShell>;
     }
-    return <FpldleUnavailable league="Academy" />;
+    return <PlayPageShell league="academy" active="fpldle"><FpldleUnavailable league="Academy" /></PlayPageShell>;
   }
-  return <FpldleBoard key={game.date} game={game} league="academy" submitGuess={submitFpldleGuessAction} revealAnswer={revealFpldleAnswerAction} resetPuzzle={resetFpldlePuzzleAction} />;
+  return <PlayPageShell league="academy" active="fpldle" isAdmin={game.canReset}><FpldleBoard key={game.date} game={game} league="academy" submitGuess={submitFpldleGuessAction} revealAnswer={revealFpldleAnswerAction} resetPuzzle={resetFpldlePuzzleAction} /></PlayPageShell>;
 }

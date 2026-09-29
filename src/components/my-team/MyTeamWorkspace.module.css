@@ -1,0 +1,57 @@
+.teamSwitcher {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+
+.teamSwitcher label {
+  display: flex;
+  min-width: min(100%, 240px);
+  flex-direction: column;
+  gap: 5px;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.teamSwitcher select {
+  min-height: 40px;
+}
+
+.primaryButton {
+  min-height: 40px;
+  border-radius: 2px;
+  background: var(--color-action-fill);
+  padding: 8px 14px;
+  color: var(--color-action-contrast);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.primaryButton:hover {
+  background: var(--color-action-hover, var(--color-action-fill));
+}
+
+.primaryButton:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.adminDisclosure {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: 18px;
+}
+
+.adminDisclosure summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--color-action-text);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.adminDisclosure summary:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 4px;
+}

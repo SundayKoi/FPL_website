@@ -21,7 +21,7 @@ export default function PatronPerks({
         <span className="label-dash">{compact ? "The Patron Flame" : "What patrons carry"}</span>
         {compact ? (
           <Link
-            href="/support-devs"
+            href="/membership#support-devs"
             className="text-xs text-muted underline-offset-4 hover:text-action-text hover:underline"
           >
             All {PATRON_PERKS.length} perks →
@@ -60,11 +60,11 @@ export default function PatronPerks({
 
       {compact ? (
         <div className="mt-3 flex flex-wrap gap-3">
-          <Link href="/support-devs" className="btn-pill px-4 py-1.5 text-xs">
+          <Link href="/membership#support-devs" className="btn-pill px-4 py-1.5 text-xs">
             Become a patron
           </Link>
           <Link
-            href="/supporters"
+            href="/membership#patrons"
             className="text-xs text-muted underline-offset-4 hover:text-action-text hover:underline"
           >
             See the Flame Holders →

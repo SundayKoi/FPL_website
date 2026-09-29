@@ -1,0 +1,189 @@
+.page {
+  --play-canvas: #0c0b10;
+  --play-surface: #15131b;
+  --play-raised: #211e29;
+  --play-line: #34313f;
+  --play-line-strong: #514c5d;
+  --play-ink: #f2f0f8;
+  --play-muted: #aaa6b7;
+  --play-action: #1c5583;
+  --play-action-text: #9dc4dc;
+  --play-action-contrast: #fff;
+  --play-focus: #9dc4dc;
+  --play-success: #48c995;
+  --play-danger: #ff7a8b;
+  --play-prestige: #e6bf61;
+  --play-accent: #9dc4dc;
+
+  min-width: 0;
+  flex: 1;
+  color: var(--play-ink);
+  background: var(--play-canvas);
+  color-scheme: dark;
+
+  --color-canvas: var(--play-canvas);
+  --color-surface: var(--play-surface);
+  --color-raised: var(--play-raised);
+  --color-border-subtle: var(--play-line);
+  --color-border-strong: var(--play-line-strong);
+  --color-content: var(--play-ink);
+  --color-muted: var(--play-muted);
+  --color-action-fill: var(--play-action);
+  --color-action-text: var(--play-action-text);
+  --color-focus: var(--play-focus);
+  --color-success: var(--play-success);
+  --color-danger: var(--play-danger);
+  --color-prestige: var(--play-prestige);
+  --color-league-accent: var(--play-accent);
+  --color-jungle: var(--play-canvas);
+  --color-jungle-card: var(--play-surface);
+  --color-banana: var(--play-prestige);
+}
+
+.page[data-league="academy"] {
+  --play-action: #ff6b35;
+  --play-action-text: #ffb08f;
+  --play-action-contrast: #271108;
+  --play-focus: #ffb08f;
+  --play-accent: #ff6b35;
+}
+
+.page :global(.card-brand) {
+  border-color: var(--play-line);
+  background: var(--play-surface);
+  color: var(--play-ink);
+  box-shadow: none;
+}
+
+.page :global(.type-display) {
+  color: var(--play-ink);
+  font-family: var(--font-anton), "Arial Narrow", sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.page :global(.label-dash) {
+  color: var(--play-muted);
+  letter-spacing: 0.1em;
+}
+
+.page :global(.input-brand),
+.page :global(input[type="number"]),
+.page :global(textarea),
+.page :global(select) {
+  border-color: var(--play-line-strong);
+  background-color: var(--play-surface);
+  color: var(--play-ink);
+  color-scheme: dark;
+}
+
+.page :global(.grid-neon) {
+  background: transparent;
+}
+
+.page :global(.card-neon) {
+  border-color: var(--play-line);
+  background: var(--play-surface);
+  box-shadow: none;
+  color: var(--play-ink);
+}
+
+.page :global(.card-neon)::before {
+  display: none;
+}
+
+.page :global(.btn-primary) {
+  min-height: 44px;
+  border-radius: 4px;
+  background: var(--play-action);
+  padding: 10px 16px;
+  color: var(--play-action-contrast);
+  font-weight: 700;
+}
+
+.page :global(.btn-pill) {
+  min-height: 44px;
+  border-radius: 4px;
+  background: var(--play-action);
+  color: var(--play-action-contrast);
+}
+
+.page :global(.btn-pill:hover) {
+  background: color-mix(in srgb, var(--play-action) 82%, white);
+  box-shadow: none;
+}
+
+.page :global(button.text-white),
+.page :global([class*="bg-action-fill"].text-white) {
+  color: var(--play-action-contrast);
+}
+
+.sectionNav {
+  overflow-x: auto;
+  border-bottom: 1px solid var(--play-line);
+  scrollbar-color: var(--play-line-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.sectionNavInner {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  align-items: center;
+  gap: clamp(16px, 2.6vw, 32px);
+  padding: 0 clamp(16px, 3vw, 40px);
+}
+
+.sectionLink {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 3px solid transparent;
+  padding: 0 2px;
+  color: var(--play-muted);
+  font-size: 0.85rem;
+  font-weight: 650;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.sectionLink:hover,
+.sectionLink[aria-current="page"] {
+  border-bottom-color: var(--play-accent);
+  color: var(--play-ink);
+}
+
+.sectionLink:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid var(--play-focus);
+  outline-offset: 2px;
+}
+
+.badge {
+  border: 1px solid var(--play-prestige);
+  border-radius: 3px;
+  padding: 2px 5px;
+  color: var(--play-prestige);
+  font-size: 0.58rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sectionNav,
+  .page :global([tabindex="0"]) {
+    scroll-behavior: auto;
+  }
+
+  .page :global(a),
+  .page :global(button),
+  .page :global([role="button"]) {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

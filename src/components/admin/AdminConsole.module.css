@@ -1,18 +1,24 @@
 .console {
-  --admin-ink: #14151a;
-  --admin-muted: #5b6170;
-  --admin-faint: #7c8290;
-  --admin-line: #dfe1e7;
-  --admin-soft: #f5f6f8;
-  --admin-violet: #6d3df5;
-  display: grid;
-  grid-template-columns: 230px minmax(0, 1fr);
+  --admin-ink: #f2f0f8;
+  --admin-muted: #aaa6b7;
+  --admin-faint: #aaa6b7;
+  --admin-line: #34313f;
+  --admin-soft: #15131b;
+  --admin-violet: #1c5583;
+  --admin-focus: #9dc4dc;
+  display: block;
   flex: 1;
-  min-height: calc(100vh - 5.5rem);
+  min-width: 0;
+  min-height: 0;
   color: var(--admin-ink);
-  background: #fff;
-  color-scheme: light;
+  background: transparent;
+  color-scheme: dark;
   font-family: var(--font-body), "Segoe UI", sans-serif;
+}
+
+:global([data-league="academy"]) .console {
+  --admin-violet: #ff6b35;
+  --admin-focus: #ffb08f;
 }
 
 .console a {
@@ -27,7 +33,7 @@
 }
 
 .console :focus-visible {
-  outline: 2px solid var(--admin-violet);
+  outline: 2px solid var(--admin-focus);
   outline-offset: 3px;
 }
 
@@ -141,6 +147,12 @@
   min-width: 0;
   width: 100%;
   padding: 0 24px 16px;
+}
+
+.console :global(input),
+.console :global(select),
+.console :global(textarea) {
+  color-scheme: dark;
 }
 
 .toolbar {
@@ -1648,4 +1660,170 @@
   .designLab {
     padding: 14px 13px;
   }
+}
+
+/* The overview and tool directory share the dark workspace palette. */
+.console .toolbar,
+.console .statusStrip,
+.console .statusStrip > div + div,
+.console .queueTabs,
+.console .queueRow,
+.console .scheduleTable td,
+.console .activityRow,
+.console .consoleFooter,
+.console .toolFilters,
+.console .toolGroup h2,
+.console .toolRow {
+  border-color: var(--admin-line);
+}
+
+.console .leagueSwitch,
+.console .seasonSelect,
+.console .toolSearch,
+.console .outlineButton {
+  border-color: var(--admin-line);
+  background: var(--admin-soft);
+  color: var(--admin-ink);
+}
+
+.console .leagueSwitch button,
+.console .seasonSelect select,
+.console .toolSearch input,
+.console .queueTabs button,
+.console .toolFilters button,
+.console .quickGrid a,
+.console .scheduleTable,
+.console .toolRow,
+.console .activityRow,
+.console .activityRow strong,
+.console .managementWorkspaces h2 {
+  color: var(--admin-ink);
+}
+
+.console .leagueSwitch button + button,
+.console .contextDivider {
+  border-color: var(--admin-line);
+  background-color: var(--admin-line);
+}
+
+.console .leagueSwitch button[aria-pressed="true"] {
+  background: var(--admin-violet);
+  color: #fff;
+}
+
+.console .seasonSelect select,
+.console .toolSearch input {
+  background: transparent;
+}
+
+.console .toolSearch:focus-within {
+  border-color: var(--admin-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--admin-focus) 18%, transparent);
+}
+
+.console .toolSearch input::placeholder,
+.console .scopeNote,
+.console .headerActions,
+.console .pageHeader p,
+.console .statusStrip small,
+.console .queueEmpty,
+.console .activityEmpty,
+.console .rowCopy small,
+.console .queueFooter,
+.console .scheduleTable th,
+.console .activityRow small,
+.console .activityRow time,
+.console .workspaceEyebrow,
+.console .broadcasterWelcome p,
+.console .toolRow small,
+.console .restrictedTool > svg,
+.console .restrictedTool strong,
+.console .restrictedTool small,
+.console .lockMark {
+  color: var(--admin-muted);
+}
+
+.console .toolSearch kbd,
+.console .count,
+.console .queueTabs button span,
+.console .toolGroup h2 > span {
+  border-color: var(--admin-line);
+  background: #211e29;
+  color: var(--admin-muted);
+}
+
+.console .pageHeader h1,
+.console .sectionHeading h2,
+.console .tableHeading h2,
+.console .activity > h2,
+.console .quickActions h2,
+.console .broadcasterWelcome h2,
+.console .toolGroup h2,
+.console .toolRow strong {
+  color: var(--admin-ink);
+}
+
+.console .outlineButton:hover,
+.console .quickGrid a:hover,
+.console .toolFilters button[aria-pressed="true"],
+.console .queueTabs button[aria-pressed="true"],
+.console .toolRow > a,
+.console .rowAction,
+.console .queueFooter a,
+.console .tableHeading a {
+  color: var(--admin-focus) !important;
+}
+
+.console .statusStrip strong,
+.console .scheduleTable td:first-child,
+.console .rowCopy strong,
+.console .rowIcon,
+.console .activityRow > svg,
+.console .toolRow > svg {
+  color: var(--admin-ink);
+}
+
+.console .attention,
+.console .quickActions,
+.console .weekSection,
+.console .activity,
+.console .toolGroup,
+.console .broadcasterWelcome {
+  border-color: var(--admin-line);
+  background: var(--admin-soft);
+}
+
+.console .broadcast {
+  border-color: #514c5d;
+  background: #211e29;
+}
+
+.console .statusStrip svg,
+.console .quickGrid a span,
+.console .toolRow > a,
+.console .toolRow > .lockMark {
+  color: var(--admin-focus) !important;
+}
+
+.console .statusGood {
+  color: #69d6a0 !important;
+}
+
+.console .statusClosed {
+  color: #ff8b8b !important;
+}
+
+.console .emptySchedule {
+  color: var(--admin-muted) !important;
+}
+
+.console .designLab {
+  border-color: var(--admin-line);
+  background: #211e29;
+}
+
+.console .designTitle,
+.console .designTitle h2,
+.console .designTitle span {
+  color: var(--admin-ink);
 }

@@ -10,7 +10,7 @@ import { findFreeAgencyPlayer, isPlayerAvailableToCaptain } from "@/lib/players/
 import { FREE_AGENCY_CAPTAINS, type FreeAgencyCaptain } from "@/lib/players/freeAgencyData";
 import type { RoleSection, SeasonKey } from "@/lib/players/seasonData";
 import { SEASON_OPTIONS } from "@/lib/players/seasonData";
-import { rankValue, ROLE_TONES } from "@/lib/players/roleDisplay";
+import { rankValue } from "@/lib/players/roleDisplay";
 import type { LeagueKey } from "@/lib/players/identity";
 import type {
   PlayerIdentityLinkRow,
@@ -18,11 +18,15 @@ import type {
 } from "@/components/players/PlayerIdentityAdmin";
 import PlayerRosterClaim from "@/components/teams/PlayerRosterClaim";
 import type { RosterClaimTarget } from "@/lib/teams/rosterClaims";
+import LeaguePageShell, { LeagueEmptyState, LeagueToolbar } from "@/components/league/LeaguePageShell";
+import type { LeagueView } from "@/lib/league/context";
+import styles from "./PlayersDirectory.module.css";
 
 type DirectorySection = "player-list" | "free-agency";
 type SortOption = "name" | "rank" | "value";
 
 type Props = {
+  league?: LeagueView;
   /** Link each name to its profile on this site. The academy has no stats
    *  profiles yet, so its directory keeps names on op.gg. */
   profileLinks?: boolean;
@@ -65,6 +69,7 @@ function profileHref(name: string): string {
 }
 
 export default function PlayersDirectory({
+  league = "premier",
   seasons,
   profileLinks = true,
   canonicalPlayers = [],
@@ -87,6 +92,8 @@ export default function PlayersDirectory({
   const [selectedSection, setSelectedSection] = useState<DirectorySection>("player-list");
   const [sortOption, setSortOption] = useState<SortOption>(showMinSort ? "value" : "rank");
   const [selectedCaptain, setSelectedCaptain] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedRole, setSelectedRole] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [avgBids, setAvgBids] = useState(initialAvgBids);
   const [savingPlayer, setSavingPlayer] = useState<string | null>(null);
@@ -131,6 +138,26 @@ export default function PlayersDirectory({
       return (rightValue ?? -1) - (leftValue ?? -1) || left.name.localeCompare(right.name);
     }),
   }));
+  const filteredSections = displaySections
+    .filter((section) => !selectedRole || section.key === selectedRole)
+    .map((section) => ({
+      ...section,
+      players: section.players.filter((player) =>
+        displayName(player.name).toLocaleLowerCase().includes(searchQuery.trim().toLocaleLowerCase()),
+      ),
+    }))
+    .filter((section) => section.players.length > 0);
+  const resultCount = filteredSections.reduce((count, section) => count + section.players.length, 0);
+  const hasDirectoryFilters = Boolean(searchQuery || selectedRole || selectedCaptain);
+  const seasonLabel = league === "academy"
+    ? "Season 1"
+    : SEASON_OPTIONS.find((option) => option.value === selectedSeason)?.label ?? selectedSeason;
+
+  const clearDirectoryFilters = () => {
+    setSearchQuery("");
+    setSelectedRole("");
+    setSelectedCaptain("");
+  };
 
 
   const handleSectionChange = (value: DirectorySection) => {
@@ -166,205 +193,130 @@ export default function PlayersDirectory({
   };
 
   return (
-    <main className="page-backdrop flex-1">
-      <div className="page-container page-spacing w-full">
-        <header className="flex flex-col gap-6 border-b border-border-subtle pb-8 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <span className="label-dash">PLAYER POOL</span>
-            <h1 className="type-display mt-3 text-5xl sm:text-6xl">Players</h1>
-            <hr className="accent-rule mt-5 w-48 sm:w-64" />
-            <p className="mt-4 max-w-2xl text-lg leading-8 text-muted">
-              Browse each role&apos;s available players, ranked and sorted by minimum bid.
-            </p>
+    <LeaguePageShell
+      league={league}
+      title="Players"
+      season={seasonLabel}
+      activeSection="players"
+      description="Browse player pools by role, search names, and compare the available ranks and values."
+    >
+      <LeagueToolbar label="Player filters" className={styles.filters}>
+        <label className={styles.searchFilter} htmlFor="player-search">
+          <span>Search players</span>
+          <input
+            id="player-search"
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search by name"
+            className="input-brand px-3 py-2 text-sm"
+          />
+        </label>
+
+        {league !== "academy" ? (
+          <label className={styles.filter} htmlFor="player-season">
+            <span>Season</span>
+            <select id="player-season" value={selectedSeason} onChange={(event) => setSelectedSeason(event.target.value as SeasonKey)} className="input-brand px-3 py-2 text-sm">
+              {SEASON_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+        ) : null}
+
+        <label className={styles.filter} htmlFor="player-role">
+          <span>Role</span>
+          <select id="player-role" value={selectedRole} onChange={(event) => setSelectedRole(event.target.value)} className="input-brand px-3 py-2 text-sm">
+            <option value="">All roles</option>
+            {sections.map((section) => <option key={section.key} value={section.key}>{section.label}</option>)}
+          </select>
+        </label>
+
+        <label className={styles.filter} htmlFor="player-sort">
+          <span>Sort by</span>
+          <select id="player-sort" value={sortOption} onChange={(event) => setSortOption(event.target.value as SortOption)} className="input-brand px-3 py-2 text-sm">
+            {showMinSort ? <option value="value">{isFreeAgency ? "Avg Bid" : "Min"}</option> : null}
+            <option value="name">Name</option>
+            <option value="rank">Rank</option>
+          </select>
+        </label>
+
+        <label className={styles.filter} htmlFor="player-section">
+            <span>Section</span>
+          <select id="player-section" value={selectedSection} onChange={(event) => handleSectionChange(event.target.value as DirectorySection)} className="input-brand px-3 py-2 text-sm">
+            <option value="player-list">Player list</option>
+            {showFreeAgency ? <option value="free-agency">Free Agency</option> : null}
+          </select>
+        </label>
+
+        {isFreeAgency ? (
+          <label className={styles.filter} htmlFor="player-captain">
+            <span>Captain</span>
+            <select id="player-captain" value={selectedCaptain} onChange={(event) => setSelectedCaptain(event.target.value)} className="input-brand px-3 py-2 text-sm">
+              <option value="">No captain</option>
+              {freeAgencyCaptains.map((captain) => <option key={captain.name} value={captain.name}>{captain.name}</option>)}
+            </select>
+          </label>
+        ) : null}
+
+        {isOwner && isFreeAgency ? (
+          <button type="button" onClick={() => setEditMode((editing) => !editing)} className={styles.actionButton}>
+            {editMode ? "Done Editing" : "Edit Avg Bids"}
+          </button>
+        ) : null}
+      </LeagueToolbar>
+
+      {!hasPlayers ? (
+        <LeagueEmptyState title="Player data unavailable">
+          {emptyStateMessage}
+        </LeagueEmptyState>
+      ) : (
+        <section className={styles.results} aria-label="Player directory">
+          <div className={styles.resultSummary}>
+            <p aria-live="polite">{resultCount} {resultCount === 1 ? "player" : "players"}</p>
+            {hasDirectoryFilters ? <button type="button" onClick={clearDirectoryFilters} className={styles.clearButton}>Clear filters</button> : null}
           </div>
+          {saveError && isOwner && isFreeAgency ? <p className={styles.saveError} role="alert">{saveError}</p> : null}
 
-          <div className="flex w-full flex-col gap-4 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
-            <div className="flex w-full flex-col gap-2 sm:w-auto">
-              <label htmlFor="player-season" className="label-dash">
-                Season
-              </label>
-              <select
-                id="player-season"
-                value={selectedSeason}
-                onChange={(event) => setSelectedSeason(event.target.value as SeasonKey)}
-                className="w-full input-brand px-3 py-2 text-sm font-semibold sm:w-44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-              >
-                {SEASON_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex w-full flex-col gap-2 sm:w-auto">
-              <label htmlFor="player-sort" className="label-dash">
-                Sort by
-              </label>
-              <select
-                id="player-sort"
-                value={sortOption}
-                onChange={(event) => setSortOption(event.target.value as SortOption)}
-                className="w-full input-brand px-3 py-2 text-sm font-semibold sm:w-44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-              >
-                {showMinSort ? <option value="value">{isFreeAgency ? "Avg Bid" : "Min"}</option> : null}
-                <option value="name">Name</option>
-                <option value="rank">Rank</option>
-              </select>
-            </div>
-
-            <div className="flex w-full flex-col gap-2 sm:w-auto">
-              <label htmlFor="player-section" className="label-dash">
-                Section
-              </label>
-              <select
-                id="player-section"
-                value={selectedSection}
-                onChange={(event) => handleSectionChange(event.target.value as DirectorySection)}
-                className="w-full input-brand px-3 py-2 text-sm font-semibold sm:w-44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-              >
-                <option value="player-list">Player List</option>
-                {showFreeAgency ? <option value="free-agency">Free Agency</option> : null}
-              </select>
-            </div>
-
-            {isFreeAgency ? (
-              <div className="flex w-full flex-col gap-2 sm:w-auto">
-                <label htmlFor="player-captain" className="label-dash">
-                  Captain
-                </label>
-                <select
-                  id="player-captain"
-                  value={selectedCaptain}
-                  onChange={(event) => setSelectedCaptain(event.target.value)}
-                  className="w-full input-brand px-3 py-2 text-sm font-semibold sm:w-44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-                >
-                  <option value="">No captain</option>
-                  {freeAgencyCaptains.map((captain) => (
-                    <option key={captain.name} value={captain.name}>
-                      {captain.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-            {isOwner && isFreeAgency ? (
-              <button
-                type="button"
-                onClick={() => setEditMode((editing) => !editing)}
-                className="rounded border border-action-text px-3 py-2 text-sm font-semibold text-action-text transition hover:bg-action-fill/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-              >
-                {editMode ? "Done Editing" : "Edit Avg Bids"}
-              </button>
-            ) : null}
-          </div>
-        </header>
-
-        <section aria-label="Player directory" className="card-brand mt-10 min-w-0 p-4 sm:p-6">
-          {!hasPlayers ? (
-            <p className="text-muted">{emptyStateMessage}</p>
+          {resultCount === 0 ? (
+            <LeagueEmptyState title="No players match these filters">
+              Try a different name or role.
+              <button type="button" onClick={clearDirectoryFilters} className={styles.inlineClear}>Clear filters</button>
+            </LeagueEmptyState>
           ) : (
-            <>
-            {saveError && isOwner && isFreeAgency ? <p className="mb-4 text-sm text-red-400">{saveError}</p> : null}
-            <div className="player-role-grid">
-              {displaySections.map((section) => (
-                <section
-                  key={section.key}
-                  className={`overflow-hidden rounded border ${ROLE_TONES[section.key]}`}
-                >
-                  <h2 className="px-4 py-3 text-lg font-bold uppercase tracking-wide">{section.label}</h2>
-                  <div className={`grid ${rowColumns} gap-3 bg-canvas px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted`}>
-                    <span>Player Name</span>
-                    <span>Rank</span>
-                    {hasValueColumn ? <span>{isFreeAgency ? "Avg Bid" : "Min"}</span> : null}
+            <div className={styles.playerPanels}>
+              {filteredSections.map((section) => (
+                <section key={section.key} data-role={section.key} className={styles.rolePanel} aria-labelledby={`player-role-${section.key}`}>
+                  <h2 id={`player-role-${section.key}`}>{section.label}</h2>
+                  <div className={`grid ${rowColumns} gap-2 px-3 py-2 text-[0.64rem] font-bold uppercase tracking-wide text-muted`}>
+                    <span>Player</span><span>Rank</span>
+                  {hasValueColumn ? <span>{isFreeAgency ? "Avg Bid" : "Min"}</span> : null}
                     {hasClaimColumn ? <span>Claim</span> : null}
                   </div>
                   <ul>
                     {section.players.map((player) => {
-                      const isAvailable =
-                        !isFreeAgency ||
-                        isPlayerAvailableToCaptain(
-                          player.name,
-                          selectedCaptain ? selectedCaptain : null,
-                          freeAgencyCaptains,
-                        );
-                      const freeAgencyPlayer = isFreeAgency
-                        ? findFreeAgencyPlayer(player.name, freeAgencyCaptains)
-                        : undefined;
-
+                      const isAvailable = !isFreeAgency || isPlayerAvailableToCaptain(player.name, selectedCaptain || null, freeAgencyCaptains);
+                      const freeAgencyPlayer = isFreeAgency ? findFreeAgencyPlayer(player.name, freeAgencyCaptains) : undefined;
+                      const nameClass = `min-w-0 break-words underline decoration-current/40 underline-offset-4 hover:text-action-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${isFreeAgency && selectedCaptain && isAvailable ? "font-extrabold" : "font-semibold"}`;
                       return (
-                        <li
-                          key={player.name}
-                          data-available={isAvailable ? "true" : "false"}
-                          className={`grid ${rowColumns} gap-3 border-t border-current/15 px-4 py-3 text-sm transition-opacity ${
-                            isAvailable ? "opacity-100" : "opacity-50"
-                          }`}
-                        >
+                        <li key={player.name} data-available={isAvailable ? "true" : "false"} className={`grid ${rowColumns} gap-2 border-t border-border-subtle px-3 py-2.5 text-sm ${isAvailable ? "" : "opacity-50"}`}>
                           {profileLinks ? (
-                            <span className="flex min-w-0 items-baseline gap-2">
-                              <Link
-                                href={profileHref(player.name)}
-                                data-player=""
-                                title={`${displayName(player.name)}'s profile`}
-                                className={`min-w-0 break-words whitespace-nowrap underline decoration-current/40 underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-                                  isFreeAgency && selectedCaptain && isAvailable
-                                    ? "font-extrabold text-white decoration-white/70"
-                                    : "font-semibold"
-                                }`}
-                              >
-                                {player.name}
-                              </Link>
-                              {player.opggUrl ? (
-                                <a
-                                  href={player.opggUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  aria-label={`${player.name} on op.gg`}
-                                  className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted hover:text-white"
-                                >
-                                  op.gg ↗
-                                </a>
-                              ) : null}
+                            <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                              <Link href={profileHref(player.name)} data-player="" title={`${displayName(player.name)}'s profile`} className={nameClass}>{player.name}</Link>
+                              {player.opggUrl ? <a href={player.opggUrl} target="_blank" rel="noopener noreferrer" aria-label={`${player.name} on op.gg`} className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted hover:text-action-text">op.gg ↗</a> : null}
                             </span>
                           ) : player.opggUrl ? (
-                            <a
-                              href={player.opggUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              data-player=""
-                              className={`min-w-0 break-words whitespace-nowrap underline decoration-current/40 underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-                                isFreeAgency && selectedCaptain && isAvailable
-                                  ? "font-extrabold text-white decoration-white/70"
-                                  : "font-semibold"
-                              }`}
-                            >
-                              {player.name}
-                            </a>
+                            <a href={player.opggUrl} target="_blank" rel="noopener noreferrer" data-player="" className={nameClass}>{player.name}</a>
                           ) : (
-                            <span data-player="" className="min-w-0 break-words whitespace-nowrap font-semibold">
-                              {player.name}
-                            </span>
+                            <span data-player="" className="min-w-0 break-words font-semibold">{player.name}</span>
                           )}
                           <span className="font-medium">{player.rank}</span>
-                          {hasValueColumn ? <span className="font-medium">
-                            {isFreeAgency && isOwner && editMode ? (
-                              <input
-                                aria-label={`Avg Bid for ${player.name}`}
-                                type="number"
-                                min="0"
-                                step="1"
-                                defaultValue={avgBidFor(player.name) ?? ""}
-                                disabled={savingPlayer === (freeAgencyPlayer?.name ?? player.name)}
-                                onBlur={(event) => void saveAvgBid(freeAgencyPlayer?.name ?? player.name, event.target.value)}
-                                className="w-16 rounded border border-border-strong bg-canvas px-1 text-right font-medium text-white focus:border-action-text focus:outline-none"
-                              />
-                            ) : isFreeAgency ? (avgBidFor(player.name) ?? "—") : player.min}
-                          </span> : null}
-                          {hasClaimColumn ? (
-                            player.playerPoolId && playerClaims[player.playerPoolId] ? (
-                              <PlayerRosterClaim {...playerClaims[player.playerPoolId]} />
-                            ) : <span aria-hidden="true" />
+                          {hasValueColumn ? (
+                            <span className="font-medium">
+                              {isFreeAgency && isOwner && editMode ? (
+                                <input aria-label={`Avg Bid for ${player.name}`} type="number" min="0" step="1" defaultValue={avgBidFor(player.name) ?? ""} disabled={savingPlayer === (freeAgencyPlayer?.name ?? player.name)} onBlur={(event) => void saveAvgBid(freeAgencyPlayer?.name ?? player.name, event.target.value)} className="w-16 rounded border border-border-strong bg-surface px-1 text-right font-medium text-content focus:border-action-text focus:outline-none" />
+                              ) : isFreeAgency ? (avgBidFor(player.name) ?? "—") : player.min}
+                            </span>
                           ) : null}
+                          {hasClaimColumn ? (player.playerPoolId && playerClaims[player.playerPoolId] ? <PlayerRosterClaim {...playerClaims[player.playerPoolId]} /> : <span aria-hidden="true" />) : null}
                         </li>
                       );
                     })}
@@ -372,20 +324,22 @@ export default function PlayersDirectory({
                 </section>
               ))}
             </div>
-            {isFreeAgency ? <BidBoard /> : null}
-            </>
           )}
+          {isFreeAgency ? <BidBoard /> : null}
         </section>
+      )}
 
-        {isAdmin && !isFreeAgency ? (
-          <>
-            <button type="button" onClick={() => setPoolEditMode((editing) => !editing)} className="rounded border border-action-text px-3 py-2 text-sm font-semibold text-action-text">
+      {isAdmin && !isFreeAgency ? (
+        <details className={styles.management}>
+          <summary>Player pool management</summary>
+          <div className={styles.managementControls}>
+            <button type="button" onClick={() => setPoolEditMode((editing) => !editing)} className={styles.actionButton}>
               {poolEditMode ? "Done Editing Players" : "Edit Player Pool"}
             </button>
             {poolEditMode ? <PlayerPoolAdmin seasonKey={activePoolSeasonKey} players={adminPlayers} onPlayersChange={handlePoolPlayersChange} identityLeague={identityLeague} identitySeason={identitySeason} identityLinks={identityLinks} identityProfiles={identityProfiles} /> : null}
-          </>
-        ) : null}
-      </div>
-    </main>
+          </div>
+        </details>
+      ) : null}
+    </LeaguePageShell>
   );
 }

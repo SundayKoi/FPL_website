@@ -20,40 +20,43 @@
  *   resolving for Team A pays the member 100 + (100 * 500) / 100 = 600
  *   (stake back + 100% of the losing pool, pro-rata over a solo winner).
  */
-import { execSync } from "node:child_process";
-import { writeFileSync, unlinkSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { runLocalTestSql } from "../e2e/local-supabase";
 
 export const BETTING_PASSWORD = "password123";
 export const BETTING_MEMBER_EMAIL = "e2e-betting-member@test.local";
 export const BETTING_ADMIN_EMAIL = "e2e-betting-admin@test.local";
+export const BETTING_MEMBER_DISCORD_ID = "9000000000000001";
+export const BETTING_LOSER_DISCORD_ID = "9000000000000003";
 
-const BETTING_EVENT_NAME = "E2E Betting Night";
+const BETTING_EVENT_NAME = `FPL ${process.env.FPL_TEST_PROJECT_ID ?? "isolated"} Betting Night`;
 const BETTING_TEAM_A = { name: "Betting FC", short_code: "BFC", color: "#f5b62e" };
 const BETTING_TEAM_B = { name: "Wager United", short_code: "WUN", color: "#4c9be8" };
 // Fixed, fake Discord ids (dev-login users never actually authenticate with
 // Discord) — see linkDiscordIdentity() below for why these need a real row
 // in auth.identities rather than just a betting_profiles wallet.
-const BETTING_MEMBER_DISCORD_ID = "9000000000000001";
 const BETTING_ADMIN_DISCORD_ID = "9000000000000002";
-const BETTING_LOSER_DISCORD_ID = "9000000000000003";
 const BETTING_SIGNUP_BONUS = 1000;
 const BETTING_LOSER_BET_AMOUNT = 500;
 
-/** Runs a SQL statement against the local Postgres instance directly (via
- * the Supabase CLI, which already resolves the local connection for us —
- * same local-only assumption as the callers' `npx supabase status`
- * shell-outs). Used only to reach `auth.identities`, a table
- * PostgREST/supabase-js never exposes (it's not under `public`), so there's
- * no supabase-js call that can do this insert for us. Values interpolated
- * into `sql` here are always our own fixed constants/uuids, never user
- * input. */
+/** Writes a Discord identity used by the seeded fixture. E2E uses the
+ * isolated workdir-aware helper; the standalone demo seed remains explicitly
+ * local through `supabase db query --local`. */
 function runSql(sql: string): void {
+  if (process.env.FPL_TEST_STACK_DIR) {
+    runLocalTestSql(sql);
+    return;
+  }
   const file = join(tmpdir(), `betting-fixture-${Date.now()}-${Math.random().toString(36).slice(2)}.sql`);
   writeFileSync(file, sql, "utf8");
   try {
-    execSync(`npx supabase db query --local --file "${file}"`, { stdio: "inherit" });
+    execFileSync(resolve("node_modules/.bin/supabase"), ["db", "query", "--local", "--file", file], {
+      stdio: "inherit",
+      env: { ...process.env, SUPABASE_TELEMETRY_DISABLED: "1" },
+    });
   } finally {
     unlinkSync(file);
   }
@@ -88,14 +91,15 @@ on conflict (provider_id, provider) do nothing;
 // "whatever the caller's supabase client is" without re-deriving its exact
 // generic instantiation.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function seedBettingFixture(supabase: any, memberUserId: string, adminUserId: string): Promise<void> {
+export async function seedBettingFixture(supabase: any, memberUserId: string, adminUserId: string): Promise<string> {
   linkDiscordIdentity(memberUserId, BETTING_MEMBER_DISCORD_ID);
   linkDiscordIdentity(adminUserId, BETTING_ADMIN_DISCORD_ID);
 
-  // requireBettingStaff()'s Discord-staff-role check will fail locally (no
-  // DISCORD_STAFF_ROLE_ID / real guild membership) — its is_admin fallback
-  // is what actually authorizes the seeded admin for /admin/betting.
-  const { error: adminFlagErr } = await supabase.from("profiles").update({ is_admin: true }).eq("id", adminUserId);
+  // The Markets resolver intentionally requires the site owner. Local dev
+  // login has no Discord staff membership, so seed both trusted role flags
+  // for the isolated owner account used by this journey.
+  const { error: adminFlagErr } = await supabase.from("profiles")
+    .update({ is_admin: true, is_owner: true }).eq("id", adminUserId);
   if (adminFlagErr) throw adminFlagErr;
 
   // Idempotent re-seed: bets/ledger -> markets -> teams/event -> profiles
@@ -198,6 +202,5 @@ export async function seedBettingFixture(supabase: any, memberUserId: string, ad
   if (loserBetErr) throw loserBetErr;
 
   console.log(`Seeded betting fixture: market ${marketId} (${BETTING_TEAM_A.name} vs ${BETTING_TEAM_B.name})`);
-  console.log(`  member: ${BETTING_MEMBER_EMAIL} / ${BETTING_PASSWORD} (discord ${BETTING_MEMBER_DISCORD_ID})`);
-  console.log(`  admin:  ${BETTING_ADMIN_EMAIL} / ${BETTING_PASSWORD} (discord ${BETTING_ADMIN_DISCORD_ID}, is_admin)`);
+  return String(marketId);
 }

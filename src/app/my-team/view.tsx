@@ -18,6 +18,8 @@ import type { FixtureRow } from "@/lib/schedule/types";
 import { isPostseasonStage } from "@/lib/captain/codeImport";
 import { createServerSupabase } from "@/lib/supabase/server";
 import TeamAccentPanel from "@/components/my-team/TeamAccentPanel";
+import LeaguePageShell, { LeagueToolbar } from "@/components/league/LeaguePageShell";
+import styles from "@/components/my-team/MyTeamWorkspace.module.css";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -25,18 +27,15 @@ function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function Unavailable({ message }: { message: string }) {
+function Unavailable({ message, league }: { message: string; league: LeagueKey }) {
   return (
-    <main className="page-backdrop flex-1">
-      <div className="page-container page-spacing w-full">
-        <section className="card-brand mx-auto w-full max-w-3xl p-6 sm:p-8" aria-label="My Team unavailable">
-          <span className="label-dash">My Team</span>
-          <h1 className="type-display mt-3 text-3xl sm:text-4xl">Temporarily unavailable</h1>
-          <p className="mt-3 text-sm leading-6 text-muted">{message}</p>
-          <p className="mt-2 text-sm leading-6 text-muted">Please refresh and try again.</p>
-        </section>
-      </div>
-    </main>
+    <LeaguePageShell league={league} title="My Team" description="Your roster, next fixture, and league tools.">
+      <section className="card-brand mx-auto w-full max-w-3xl p-6 sm:p-8" aria-label="My Team unavailable">
+        <h2 className="type-display text-2xl sm:text-3xl">Temporarily unavailable</h2>
+        <p className="mt-3 text-sm leading-6 text-muted">{message}</p>
+        <p className="mt-2 text-sm leading-6 text-muted">Please refresh and try again.</p>
+      </section>
+    </LeaguePageShell>
   );
 }
 
@@ -98,11 +97,20 @@ export async function MyTeamPageView({
     dashboard = await loadMyTeamDashboard(supabase, league, requestedTeamId);
   } catch (error) {
     console.error("Unable to load My Team", error);
-    return <Unavailable message="My Team is temporarily unavailable." />;
+    return <Unavailable message="My Team is temporarily unavailable." league={league} />;
   }
 
   if (dashboard.kind !== "ready") {
-    return <MyTeamGate dashboard={dashboard} league={league} />;
+    return (
+      <LeaguePageShell
+        league={league}
+        title="My Team"
+        season={dashboard.kind === "signed-out" ? undefined : dashboard.season}
+        description="Your roster, next fixture, and league tools."
+      >
+        <MyTeamGate dashboard={dashboard} league={league} />
+      </LeaguePageShell>
+    );
   }
 
   const canReport = dashboard.isCaptain || dashboard.isAdmin;
@@ -255,36 +263,39 @@ export async function MyTeamPageView({
   ) : null;
 
   return (
-    <>
-      <MyTeamGate dashboard={dashboard} league={league} teamReports={teamReports} teamReportsUnavailable={teamReportsUnavailable} />
-      {(dashboard.isAdmin || captainTools) ? (
-        <div className="page-backdrop pb-12 sm:pb-16">
-          <div className="page-container flex w-full min-w-0 flex-col gap-6">
-            {dashboard.isAdmin && dashboard.activeTeams.length > 1 ? (
-              <form action={leaguePath("my-team", league)} method="get" className="flex flex-wrap items-end gap-2">
-                <label htmlFor="my-team-switch" className="flex flex-col gap-1 text-xs text-muted">
-                  Viewing team (admin)
-                  <select
-                    id="my-team-switch"
-                    name="team"
-                    defaultValue={dashboard.team.id}
-                    className="input-brand px-2 py-1.5 text-sm"
-                  >
-                    {dashboard.activeTeams.map((team) => (
-                      <option key={team.id} value={team.id}>{team.name}</option>
-                    ))}
-                  </select>
-                </label>
-                <button type="submit" className="rounded-full bg-action-fill px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white">
-                  Switch
-                </button>
-              </form>
-            ) : null}
-            {captainTools}
-            {adminTools}
-          </div>
-        </div>
+    <LeaguePageShell
+      league={league}
+      title="My Team"
+      season={dashboard.season}
+      description={`Your roster, next fixture, and league actions for ${dashboard.team.name}.`}
+    >
+      {dashboard.isAdmin && dashboard.activeTeams.length > 1 ? (
+        <LeagueToolbar label="Admin team view">
+          <form action={leaguePath("my-team", league)} method="get" className={styles.teamSwitcher}>
+            <label htmlFor="my-team-switch">Viewing team (admin)
+              <select id="my-team-switch" name="team" defaultValue={dashboard.team.id} className="input-brand px-2 py-1.5 text-sm">
+                {dashboard.activeTeams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+              </select>
+            </label>
+            <button type="submit" className={styles.primaryButton}>Switch</button>
+          </form>
+        </LeagueToolbar>
       ) : null}
-    </>
+
+      <MyTeamGate
+        dashboard={dashboard}
+        league={league}
+        captainTools={captainTools}
+        teamReports={teamReports}
+        teamReportsUnavailable={teamReportsUnavailable}
+      />
+
+      {dashboard.isAdmin && adminTools ? (
+        <details className={styles.adminDisclosure}>
+          <summary>League management</summary>
+          {adminTools}
+        </details>
+      ) : null}
+    </LeaguePageShell>
   );
 }

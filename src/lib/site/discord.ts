@@ -7,7 +7,7 @@
 // is set, the button falls back to the league links page, which is at least
 // a page a person can act from rather than a sentence they cannot.
 
-export const DISCORD_INVITE_URL: string = process.env.NEXT_PUBLIC_DISCORD_INVITE_URL?.trim() || "/league-links";
+export const DISCORD_INVITE_URL: string = process.env.NEXT_PUBLIC_DISCORD_INVITE_URL?.trim() || "/info#league-resources";
 
 /** Whether the invite is a real external link (opens in a new tab) or the
  *  in-site fallback. */

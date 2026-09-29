@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { adminInputClass } from "@/components/matches/CollapsibleAdminSection";
 import { armChaseAction } from "@/lib/packs/admin-actions";
 import { CHASE_PRESETS, CHASE_ROLES, type ChasePreset } from "@/lib/packs/chase";
+import { useScheduleManagement } from "./ScheduleManagementContext";
 
 const PRESET_LABELS: Record<ChasePreset, string> = {
   any: "First pull of the week — anything",
@@ -30,6 +31,7 @@ export default function AdminChase({
   current: { title: string; claimedBy: string | null } | null;
 }) {
   const router = useRouter();
+  const management = useScheduleManagement();
   const [title, setTitle] = useState("");
   const [bounty, setBounty] = useState("500");
   const [preset, setPreset] = useState<ChasePreset>("foil");
@@ -39,6 +41,7 @@ export default function AdminChase({
   const [error, setError] = useState<string | null>(null);
 
   const arm = async () => {
+    if (management?.scopeMismatch) return;
     setBusy(true);
     setError(null);
     const result = await armChaseAction({ title, bounty: Number(bounty) || 0, preset, parameter, role });
@@ -48,6 +51,7 @@ export default function AdminChase({
       return;
     }
     setTitle("");
+    management?.markClean();
     router.refresh();
   };
 
@@ -73,7 +77,7 @@ export default function AdminChase({
               id="chase-title"
               type="text"
               value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              onChange={(event) => { setTitle(event.target.value); management?.markDirty(true); }}
               placeholder="Any foil jungle card"
               className={adminInputClass}
             />
@@ -85,7 +89,7 @@ export default function AdminChase({
             <select
               id="chase-preset"
               value={preset}
-              onChange={(event) => setPreset(event.target.value as ChasePreset)}
+              onChange={(event) => { setPreset(event.target.value as ChasePreset); management?.markDirty(true); }}
               className={adminInputClass}
             >
               {CHASE_PRESETS.map((key) => (
@@ -104,7 +108,7 @@ export default function AdminChase({
                 id="chase-player"
                 type="text"
                 value={parameter}
-                onChange={(event) => setParameter(event.target.value)}
+                onChange={(event) => { setParameter(event.target.value); management?.markDirty(true); }}
                 placeholder="doug-na1"
                 className={adminInputClass}
               />
@@ -118,7 +122,7 @@ export default function AdminChase({
               <select
                 id="chase-tier"
                 value={parameter}
-                onChange={(event) => setParameter(event.target.value)}
+                onChange={(event) => { setParameter(event.target.value); management?.markDirty(true); }}
                 className={adminInputClass}
               >
                 <option value="">Pick a tier</option>
@@ -137,7 +141,7 @@ export default function AdminChase({
             <select
               id="chase-role"
               value={role}
-              onChange={(event) => setRole(event.target.value)}
+              onChange={(event) => { setRole(event.target.value); management?.markDirty(true); }}
               className={adminInputClass}
             >
               <option value="">Any role</option>
@@ -158,13 +162,13 @@ export default function AdminChase({
               min={0}
               max={10000}
               value={bounty}
-              onChange={(event) => setBounty(event.target.value)}
+              onChange={(event) => { setBounty(event.target.value); management?.markDirty(true); }}
               className={`${adminInputClass} w-24`}
             />
           </div>
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || Boolean(management?.scopeMismatch)}
             onClick={() => void arm()}
             className="rounded-full border border-prestige/60 bg-prestige/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-prestige disabled:opacity-50"
           >

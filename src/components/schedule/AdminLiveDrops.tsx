@@ -10,6 +10,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminInputClass } from "@/components/matches/CollapsibleAdminSection";
 import { setLiveWindowAction } from "@/lib/packs/admin-actions";
+import { useScheduleManagement } from "./ScheduleManagementContext";
 
 const HOURS = [2, 3, 4] as const;
 
@@ -26,6 +27,7 @@ export default function AdminLiveDrops({
   active: boolean;
 }) {
   const router = useRouter();
+  const management = useScheduleManagement();
   const [label, setLabel] = useState(liveLabel ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +35,7 @@ export default function AdminLiveDrops({
   // A server action rather than the strip's usual client write: going live
   // ANNOUNCES to Discord, and the webhook/bot secret only exists server-side.
   const write = async (input: Parameters<typeof setLiveWindowAction>[0]) => {
+    if (management?.scopeMismatch) return;
     setBusy(true);
     setError(null);
     const result = await setLiveWindowAction(input);
@@ -41,6 +44,7 @@ export default function AdminLiveDrops({
       setError(result.error);
       return;
     }
+    management?.markClean();
     router.refresh();
   };
 
@@ -62,7 +66,7 @@ export default function AdminLiveDrops({
           id="live-label"
           type="text"
           value={label}
-          onChange={(event) => setLabel(event.target.value)}
+          onChange={(event) => { setLabel(event.target.value); management?.markDirty(true); }}
           placeholder="Week 3 broadcast"
           className={adminInputClass}
         />
@@ -71,7 +75,7 @@ export default function AdminLiveDrops({
         <button
           key={hours}
           type="button"
-          disabled={busy}
+          disabled={busy || Boolean(management?.scopeMismatch)}
           onClick={() => void write({ hours, label })}
           className="rounded-full border border-red-400/60 bg-red-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-red-300 disabled:opacity-50"
         >
@@ -81,7 +85,7 @@ export default function AdminLiveDrops({
       {active ? (
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || Boolean(management?.scopeMismatch)}
           onClick={() => void write({ end: true })}
           className="rounded-full border border-border-subtle px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted disabled:opacity-50"
         >

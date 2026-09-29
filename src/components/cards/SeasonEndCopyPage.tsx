@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import CollectibleRenderer from "@/components/cards/CollectibleRenderer";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchSeasonEndPublicCopy } from "@/lib/season-end/release-queries";
+import styles from "./CardsPageShell.module.css";
 
 export async function SeasonEndCopyView({ id, league }: { id: string; league: "premier" | "academy" }) {
   const inventoryId = Number(id);
@@ -11,9 +12,9 @@ export async function SeasonEndCopyView({ id, league }: { id: string; league: "p
   if (!copy || copy.payload.league !== league) notFound();
   const base = league === "academy" ? "/academy/cards" : "/cards";
   return (
-    <main className="page-container page-spacing flex w-full flex-1 flex-col gap-5 text-white">
+    <main className={styles.page + " " + styles.standalone} data-league={league}>
       <p className="label-dash text-gold">Season&apos;s End · public copy</p>
-      <h1 className="type-display text-4xl">{copy.payload.display.title}</h1>
+      <h1 className={styles.title}>{copy.payload.display.title}</h1>
       <p className="text-sm text-steel">Release {copy.payload.season} · copy #{copy.inventoryId} · slot {copy.slotPosition} · {copy.lifecycleStatus === "active" ? "currently held" : `historical · ${copy.lifecycleStatus}`}</p>
       <div className="max-w-sm"><CollectibleRenderer pull={{ design: copy.payload, foil: copy.foil, foilType: copy.foilType as never, signed: copy.signed, autograph: copy.autograph, guaranteedFoil: copy.slotPosition === 5, inventoryId: copy.inventoryId }} /></div>
       <p className="text-sm text-steel">This page reads the frozen artwork, autograph and finish saved on the owned copy. It never re-queries live award results.</p>

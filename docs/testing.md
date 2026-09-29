@@ -34,7 +34,7 @@ files under `src` run in jsdom. Worktrees and Playwright specs are excluded;
 scratch files outside these source directories are not collected.
 
 ```sh
-npm test -- src/components/teams/AdminTeamEditor.test.tsx
+npm test -- src/lib/teams/identity.test.ts
 npm test -- --project=node
 npm test -- --project=dom
 ```
@@ -79,31 +79,30 @@ requests and do not need Riot credentials or a Supabase connection.
 ## SQL
 
 The database under test is built from the staged fresh-database project,
-not from `supabase/` directly: two immutable migrations cannot run on an
-empty database as written, and the migration wrapper stages reviewed
-replacements for them (see the
+not from `supabase/` directly: one immutable data-repair migration cannot
+run on an empty database as written, and the migration wrapper stages a
+reviewed stand-down for it (see the
 [README](../README.md#ci-and-what-vercel-builds)).
 
 ```sh
-npm run db:stage                                   # writes supabase/.staged
-npx supabase start --workdir supabase/.staged      # or `db start` for Postgres only
-npm run test:db
+npm run test:db                                    # isolated fresh replay + pgTAP
+npm run db:stage                                   # optional manual project at supabase/.staged
+npx supabase start --workdir supabase/.staged      # for manual database work
+npx supabase test db --workdir supabase/.staged
 ```
 
 `npm run db:stage` runs
 `node scripts/supabase-migrations.mjs stage supabase/.staged --fresh`. It
-writes the config, edge functions, staged migrations, and the numbered
-`supabase/tests/[0-9]*_test.sql` files with their helpers, leaving out the
-operational SQL scripts in the same directory. `npm run test:db` restages
-(so edited tests are picked up) and runs
-`supabase test db --workdir supabase/.staged`. It does not reapply
-migrations; after adding or changing one, restage and run
-`npx supabase db reset --workdir supabase/.staged` first. A new volume
-applies every staged migration and fails on the first that errors. The CI
-`database` job relies on that: it runs
-`npx supabase db start --workdir supabase/.staged`, then `npm run test:db`.
-Shared SQL fixtures live in `supabase/tests/helpers/*.sql.inc` and are
-included inside each transaction.
+writes the config, edge functions, staged migrations, and numbered pgTAP
+files with their helpers, leaving out operational SQL scripts. This staged
+project is useful for manual database work. For verification, `npm run
+test:db` creates a fresh disposable local Supabase project, stages the
+reviewed migration collisions and fresh-only stand-down, replays the full
+history, and runs every numbered pgTAP contract in one command. It uses unique loopback ports and
+project identity, rejects ambient Supabase credential overrides, and cleans
+only the project it started. It does not read or rewrite `.env.local` or the
+cloud CLI link. Shared SQL fixtures live in
+`supabase/tests/helpers/*.sql.inc` and are included inside each transaction.
 
 Every test file declares a plan, calls `finish()`, and rolls back its
 transaction. Give fixtures test-specific names, supply required columns,
@@ -111,16 +110,36 @@ and keep permission and state-transition assertions intact. Missing RPCs,
 columns, or views indicate a schema prerequisite to investigate, not a
 reason to skip an assertion or mark a migration applied.
 
-## Playwright
+## Playwright and infrastructure runner
 
-Start local Supabase from the staged project (`npm run db:stage`, then
-`npx supabase start --workdir supabase/.staged`). Playwright expects the app at
-`http://localhost:3000` and starts `npm run dev` if needed. No manual demo seed
-is required.
+`npm run e2e` creates an isolated local Supabase project, replays migrations,
+builds the production app with that stack's local URL and keys, starts
+`next start` on a free local port, and runs Chromium. It needs Docker and the
+Chromium browser installed. It creates no demo data and does not use an
+existing app server or edit `.env.local`. The stack and isolated build directory
+are removed on success or failure. Ambient Supabase settings cause an early
+failure so fixtures cannot write to a linked or mixed database.
 
-`npm run e2e` uses one worker against the local app and database. Auction,
-betting, and FPL'dle specs seed their scenarios through `e2e/fixtures.ts`;
-the color-system spec inspects the app without seeding. The same helper
-provides dev sign-in and two isolated captain contexts that close even on
-failure. Keep the worker count at one because the scenarios share the local
-database. `npm run e2e -- --list` checks discovery without starting the app.
+The full command `npm run test:infra` adds the entire pgTAP suite against that
+freshly replayed database before the production build and browser run. CI
+runs this command inside the existing required `checks` job. Use
+`npm run test:db` for fresh replay plus pgTAP without the build/browser step.
+`npm run e2e:list` checks Playwright discovery only; it does not prove any
+journey passes.
+
+The seven independently seeded journey groups cover:
+
+- password session persistence, sign-out, private-data denial, and authorized
+  staff access;
+- Premier, Academy, and historical-season row isolation;
+- auction bid propagation and reconnect catch-up;
+- match-draft propagation, stale-write rejection, and spectator denial;
+- persisted betting results, wallet balances, and duplicate-resolution safety;
+- recovery of a durable pending Season's End purchase; and
+- Season's End sale, copy trade, and dust outcomes with persisted ownership and
+  wallet readback.
+
+The suite uses one worker so fixtures remain deterministic. Test setup may use
+service credentials to create and inspect fixtures; browser actions exercise
+the ordinary user's server and database boundary. Live Discord, Riot, and
+OAuth-provider behavior is not exercised.

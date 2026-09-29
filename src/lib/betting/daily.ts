@@ -28,10 +28,10 @@ export const SIGNUP_BONUS_AMOUNT = 1000;
 /** What /weekly pays on a fresh streak — see claim_weekly_streak. */
 export const WEEKLY_AMOUNT = 1000;
 
-/** What one daily game pays — FPL'dle, Higher or Lower, The Daily Stu —
- *  and it is ONE reward across all of them: the first game finished in a
- *  day claims it. Mirrors the literal in the daily-game RPCs
- *  (supabase/migrations/20260831175655_daily_game_shared_reward.sql). */
+/** What the shared puzzle reward pays — FPL'dle, Higher or Lower and the
+ *  admin-only Guess the Card test. Their completion RPCs claim at most one
+ *  reward per member, puzzle date and league. The Daily Stu has a separate
+ *  vote reward and is deliberately not included here. */
 export const DAILY_GAME_REWARD = 200;
 
 /** The patron flame's cut on recurring rewards: /daily, /weekly, the daily
@@ -47,6 +47,10 @@ export function patronRecurring(base: number): number {
 /** The one sentence about the daily reward. Four surfaces described it
  *  four ways, and The Daily Stu's read as a fifth, separate pot. */
 export const DAILY_REWARD_SENTENCE =
-  `One shared reward a day: the first daily game you finish — FPL'dle, Higher or Lower or The Daily Stu — ` +
+  `One shared reward per league and puzzle date: the first eligible puzzle you finish — FPL'dle, Higher or Lower, or the admin test Guess the Card — ` +
   `pays $${DAILY_GAME_REWARD} betting dollars, or $${patronRecurring(DAILY_GAME_REWARD)} while your patron flame is active. ` +
-  `Resets at midnight Eastern.`;
+  `The puzzle date resets at midnight Eastern.`;
+
+export const DAILY_STU_REWARD_SENTENCE =
+  `Vote on today's Daily Stu check for a separate $200 betting-dollar reward, or $300 while your patron flame is active. ` +
+  `The check resets at midnight UTC.`;

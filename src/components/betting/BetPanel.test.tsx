@@ -47,7 +47,7 @@ describe("BetPanel", () => {
     expect(buyButton().disabled).toBe(true);
   });
 
-  it("shows a live win-payout projection that updates with the amount", () => {
+  it("shows a live net-profit estimate that updates with the amount", () => {
     setup();
     const input = screen.getByLabelText(/amount/i);
     fireEvent.change(input, { target: { value: "1000" } });

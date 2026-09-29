@@ -128,27 +128,24 @@ test('refuses an override file nobody pinned', () => {
 const cardArt = '20261018000001_card_art_champion_preferences.sql';
 const draftRepair = '20260922052204_rebuild_season_end_draft_after_hash_fix.sql';
 const repoFile = (path: string) => readFileSync(join(repo, path), 'utf8');
-test('the linked database gets the corrected card-art migration and the draft repair unchanged', () => {
+test('the linked database gets the fixed card-art migration and the draft repair unchanged', () => {
   const destination = join(scratch(), 'linked');
   stageMigrations(join(repo, 'supabase/migrations'), destination);
-  expect(readFileSync(join(destination, cardArt), 'utf8')).toBe(repoFile(`supabase/migration-overrides/${cardArt}`));
+  expect(readFileSync(join(destination, cardArt), 'utf8')).toBe(repoFile(`supabase/migrations/${cardArt}`));
   expect(readFileSync(join(destination, draftRepair), 'utf8')).toBe(repoFile(`supabase/migrations/${draftRepair}`));
 });
-test('the card-art override differs from its original only by its header and the two `select`s', () => {
-  const original = repoFile(`supabase/migrations/${cardArt}`);
-  const override = repoFile(`supabase/migration-overrides/${cardArt}`);
-  const body = override.slice(override.indexOf('\n\n') + 2);
-  expect(original).toMatch(/as \$\$\n {2}case /);
-  expect(body).not.toMatch(/as \$\$\n {2}case /);
-  expect(body.split('as $$\n  select case ').join('as $$\n  case ')).toBe(original);
+test('the applied card-art migration has replayable SQL CASE bodies', () => {
+  const source = repoFile(`supabase/migrations/${cardArt}`);
+  expect(source.match(/as \$\$\n  select case /g)).toHaveLength(2);
+  expect(source).not.toMatch(/as \$\$\n {2}case /);
 });
-test('stage --fresh writes a complete project with both fixes and only the numbered pgTAP suite', () => {
+test('stage --fresh writes a complete project with the fresh-only draft repair and numbered pgTAP suite', () => {
   const destination = join(scratch(), 'project');
   expect(main(['stage', destination, '--fresh'])).toBe(0);
   const project = join(destination, 'supabase');
   expect(readFileSync(join(project, 'config.toml'), 'utf8')).toBe(repoFile('supabase/config.toml'));
   expect(existsSync(join(project, 'functions/discord-announcer/index.ts'))).toBe(true);
-  expect(readFileSync(join(project, 'migrations', cardArt), 'utf8')).toBe(repoFile(`supabase/migration-overrides/${cardArt}`));
+  expect(readFileSync(join(project, 'migrations', cardArt), 'utf8')).toBe(repoFile(`supabase/migrations/${cardArt}`));
   expect(readFileSync(join(project, 'migrations', draftRepair), 'utf8'))
     .toBe(repoFile(`supabase/migration-overrides/fresh/${draftRepair}`));
   const suite = readdirSync(join(repo, 'supabase/tests')).filter(name => /^[0-9].*_test\.sql$/.test(name)).sort();

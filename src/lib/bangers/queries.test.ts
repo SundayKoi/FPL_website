@@ -85,6 +85,28 @@ describe("public Banger Board queries", () => {
     });
   });
 
+  it("throws when the verified archive read fails instead of reporting an empty archive", async () => {
+    const databaseError = new Error("posts table unavailable");
+    createServerSupabase.mockResolvedValue({
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({ order: vi.fn().mockResolvedValue({ data: null, error: databaseError }) })),
+        })),
+      })),
+      rpc: serverRpc,
+    });
+    serverRpc.mockResolvedValue({ data: [], error: null });
+
+    await expect(fetchBangerPosts()).rejects.toBe(databaseError);
+  });
+
+  it("throws when today's check cannot be read instead of claiming no check exists", async () => {
+    const databaseError = new Error("daily check unavailable");
+    serverRpc.mockResolvedValue({ data: null, error: databaseError });
+
+    await expect(fetchDailyBanger()).rejects.toBe(databaseError);
+  });
+
   it("falls back to the saved vote when reward_amount is not deployed yet", async () => {
     const selections: string[] = [];
     const from = vi.fn((table: string) => ({

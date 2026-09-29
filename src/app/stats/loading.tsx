@@ -1,5 +1,5 @@
-import SectionLoading from "@/components/system/SectionLoading";
+import LeaguePageLoading from "@/components/league/LeaguePageLoading";
 
 export default function Loading() {
-  return <SectionLoading label="Loading stats…" rows={3} />;
+  return <LeaguePageLoading league="premier" title="Stats" activeSection="stats" />;
 }

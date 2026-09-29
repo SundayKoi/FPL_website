@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PlayersPage from "./page";
 
@@ -113,18 +113,7 @@ describe("PlayersPage", () => {
     expect(from).not.toHaveBeenCalledWith("player_identity_links");
   });
 
-  it("loads active-season identity links and verified profiles only for player-pool admins", async () => {
-    const identityQuery = orderableQuery({
-      data: [
-        {
-          id: "link-1",
-          player_pool_id: "player-1",
-          profile_id: "profile-2",
-          status: "approved",
-        },
-      ],
-      error: null,
-    });
+  it("links player-pool admins to the dedicated workspace without loading edit data publicly", async () => {
     const from = vi.fn((table: string) => {
       if (table === "player_pool") {
         return orderableQuery({
@@ -150,7 +139,6 @@ describe("PlayersPage", () => {
           error: null,
         });
       }
-      if (table === "player_identity_links") return identityQuery;
       if (table === "profiles") {
         return {
           select: (columns: string) => {
@@ -176,12 +164,10 @@ describe("PlayersPage", () => {
     });
 
     render(await PlayersPage());
-    fireEvent.click(screen.getByRole("button", { name: "Edit Player Pool" }));
 
-    expect(from).toHaveBeenCalledWith("player_identity_links");
-    expect(identityQuery.eq).toHaveBeenCalledWith("league", "premier");
-    expect(identityQuery.eq).toHaveBeenCalledWith("season", "S5");
-    expect(screen.getByText("Linked — Verified Bravo")).toBeTruthy();
-    expect(screen.getByRole("option", { name: /Verified Bravo.*222222/ })).toBeTruthy();
+    expect(from).not.toHaveBeenCalledWith("player_identity_links");
+    expect(screen.getByRole("link", { name: /manage the player pool in admin/i }).getAttribute("href"))
+      .toBe("/admin/league/players?league=premier");
+    expect(screen.queryByRole("button", { name: "Edit Player Pool" })).toBeNull();
   });
 });

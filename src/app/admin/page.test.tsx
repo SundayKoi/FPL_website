@@ -1,20 +1,12 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FixtureRow } from "@/lib/schedule/types";
 import AdminPage from "./page";
 
-const { redirect, fetchStaffTier, editor, fetchHomepageSchedule, selectHomepageFeaturedFixture, fetchHomepageFeaturedSettings, fetchAcademyDraftData, fetchLeagueSeasons, routerPush, routerReplace } = vi.hoisted(() => ({
+const { redirect, fetchStaffTier, fetchHomepageSchedule, fetchHomepageFeaturedSettings, fetchAcademyDraftData, fetchLeagueSeasons } = vi.hoisted(() => ({
   redirect: vi.fn(),
   fetchStaffTier: vi.fn(),
-  routerPush: vi.fn(),
-  routerReplace: vi.fn(),
-  editor: vi.fn(({ homepage, fixtures, settings }) => (
-    <div data-testid={`${homepage}-featured-editor`}>
-      {settings.title ?? "Default copy"} · {fixtures.map((fixture: { id: string }) => fixture.id).join(",")}
-    </div>
-  )),
   fetchHomepageSchedule: vi.fn(),
-  selectHomepageFeaturedFixture: vi.fn(),
   fetchHomepageFeaturedSettings: vi.fn(),
   fetchAcademyDraftData: vi.fn(),
   fetchLeagueSeasons: vi.fn(),
@@ -23,25 +15,47 @@ const { redirect, fetchStaffTier, editor, fetchHomepageSchedule, selectHomepageF
 vi.mock("next/navigation", () => ({
   redirect,
   usePathname: () => "/admin",
-  useRouter: () => ({ push: routerPush, replace: routerReplace }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
 }));
-vi.mock("@/lib/auth/staffTier", () => ({
-  fetchStaffTier,
-  isMissingBroadcasterColumn: (error: { code?: string; message?: string } | null) =>
-    (error?.code === "PGRST204" || error?.code === "42703") && error.message?.includes("is_broadcaster"),
+vi.mock("@/lib/auth/staffTier", () => ({ fetchStaffTier }));
+vi.mock("@/lib/home/schedule", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/home/schedule")>()),
+  fetchHomepageSchedule,
 }));
-vi.mock("@/lib/home/schedule", () => ({ fetchHomepageSchedule, selectHomepageFeaturedFixture }));
 vi.mock("@/lib/home/homepageSettings", () => ({ fetchHomepageFeaturedSettings }));
 vi.mock("@/lib/academy/draft", () => ({ fetchAcademyDraftData }));
-vi.mock("@/lib/league/season", () => ({ fetchLeagueSeasons }));
-vi.mock("@/components/admin/AdminFeaturedMatchupEditor", () => ({ default: editor }));
-vi.mock("@/components/admin/DraftListClient", () => ({ default: () => <div /> }));
-vi.mock("@/components/admin/AdminHomepageMode", () => ({ default: () => <div /> }));
-vi.mock("@/components/admin/AdminStaff", () => ({ default: ({ profiles }: { profiles: { display_name: string }[] }) => <div data-testid="admin-staff">{profiles.map((profile) => profile.display_name).join(",")}</div> }));
-// Renders a browser Supabase client at mount — mocked like every other
-// admin child so the page test needs no NEXT_PUBLIC_SUPABASE_* env.
-vi.mock("@/components/admin/AdminBangerTitles", () => ({ default: () => <div /> }));
+vi.mock("@/lib/league/season", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/league/season")>()),
+  fetchLeagueSeasons,
+}));
+
+function chain(result: unknown) {
+  const query = {
+    select: vi.fn(() => query),
+    order: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    in: vi.fn(() => query),
+    single: vi.fn().mockResolvedValue(result),
+    limit: vi.fn().mockResolvedValue(result),
+    then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve),
+  };
+  return query;
+}
+
+function defaultFrom(table: string) {
+  if (table === "league_settings") {
+    return chain({ data: { current_season: "S5", current_phase: "week_1", signups_open: true, homepage_mode: "auto" }, error: null });
+  }
+  if (table === "fixtures") return chain({ data: [{ season: "S5" }, { season: "A1" }], error: null });
+  if (table === "match_reports" || table === "card_claims" || table === "player_identity_links") {
+    return chain({ data: [], count: 0, error: null });
+  }
+  return chain({ data: [], error: null });
+}
+
+const supabase = { from: vi.fn(defaultFrom) };
+vi.mock("@/lib/supabase/server", () => ({ createServerSupabase: vi.fn(async () => supabase) }));
 
 const fixture = (id: string, teamA: string, teamB: string | null): FixtureRow => ({
   id,
@@ -58,156 +72,75 @@ const fixture = (id: string, teamA: string, teamB: string | null): FixtureRow =>
   created_at: "2026-08-01T00:00:00Z",
 });
 
-function chain(result: unknown) {
-  const query = {
-    select: vi.fn(() => query),
-    order: vi.fn(() => query),
-    eq: vi.fn(() => query),
-    single: vi.fn().mockResolvedValue(result),
-    limit: vi.fn().mockResolvedValue(result),
-    then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve),
-  };
-  return query;
-}
-
-function defaultFrom(table: string) {
-    if (table === "league_settings") {
-      return chain({ data: { current_season: "S5", academy_season: "A1", current_phase: "week_1", signups_open: true, homepage_mode: "auto" } });
-    }
-    if (table === "signups") return chain({ count: 3 });
-    if (table === "fixtures") return chain({ count: 8 });
-    if (table === "homepage_briefs") return chain({ data: [] });
-    return chain({ data: [] });
-}
-
-const supabase = {
-  from: vi.fn(defaultFrom),
-};
-
-vi.mock("@/lib/supabase/server", () => ({
-  createServerSupabase: vi.fn(async () => supabase),
-}));
-
 beforeEach(() => {
+  cleanup();
   vi.clearAllMocks();
   fetchStaffTier.mockResolvedValue({ isAdmin: true, isOwner: false, isBroadcaster: false });
   fetchHomepageSchedule.mockResolvedValue({
+    season: "S5",
     upcoming: [fixture("premier-fixture", "Premier A", "Premier B")],
+    activeStage: "week_1",
   });
-  selectHomepageFeaturedFixture.mockImplementation((fixtures: FixtureRow[]) => fixtures[0] ?? null);
-  fetchHomepageFeaturedSettings.mockImplementation(async (homepage: string) =>
-    homepage === "premier"
-      ? { fixtureId: "premier-fixture", title: "Premier spotlight", description: "Premier copy", twitchUrl: null }
-      : { fixtureId: "academy-fixture", title: "Academy spotlight", description: "Academy copy", twitchUrl: null },
-  );
+  fetchHomepageFeaturedSettings.mockResolvedValue({ fixtureId: "premier-fixture", title: "Spotlight", description: "Copy", twitchUrl: null });
   fetchAcademyDraftData.mockResolvedValue({ teams: [{ name: "Academy A" }, { name: "Academy B" }] });
   fetchLeagueSeasons.mockResolvedValue({ premier: "S5", academy: "A1" });
+  supabase.from.mockImplementation(defaultFrom);
 });
 
 describe("AdminPage", () => {
-  it("does not render the removed homepage write-up section", async () => {
+  it("shows the concise overview and links editors to dedicated workspaces", async () => {
     render(await AdminPage());
 
-    expect(screen.queryByRole("region", { name: "Homepage write-up" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "League operations" })).not.toBeNull();
+    expect(screen.getByRole("link", { name: /edit featured matchup/i }).getAttribute("href")).toBe("/admin/content");
+    expect(screen.getByRole("link", { name: /view schedule/i }).getAttribute("href")).toContain("/admin/league/schedule?league=premier&season=S5");
+    expect(screen.queryByTestId("premier-featured-editor")).toBeNull();
   });
 
-  it("shows Premier and Academy featured editors to staff with their scoped settings and fixtures", async () => {
-    fetchHomepageSchedule
-      .mockResolvedValueOnce({ upcoming: [fixture("premier-fixture", "Premier A", "Premier B")] })
-      .mockResolvedValueOnce({ upcoming: [fixture("academy-fixture", "Academy A", "Academy B")] });
+  it("keeps the season selection inside the requested league", async () => {
+    render(await AdminPage({ searchParams: Promise.resolve({ league: "premier", season: "A1" }) }));
 
+    expect((screen.getByRole("combobox", { name: "Season" }) as HTMLSelectElement).value).toBe("S5");
+  });
+
+  it("keeps Premier filtering separate from Academy even when team names overlap", async () => {
     render(await AdminPage());
 
-    expect(screen.getByTestId("premier-featured-editor").textContent).toContain("Premier spotlight · premier-fixture");
-    expect(screen.getByTestId("academy-featured-editor").textContent).toContain("Academy spotlight · academy-fixture");
-    expect(fetchHomepageFeaturedSettings).toHaveBeenCalledWith("premier");
-    expect(fetchHomepageFeaturedSettings).toHaveBeenCalledWith("academy");
+    const scope = fetchHomepageSchedule.mock.calls[0][0] as (fixtures: { season: string; id: string }[]) => { id: string }[];
+    expect(scope([
+      { season: "S5", id: "premier" },
+      { season: "A1", id: "academy" },
+    ]).map((row) => row.id)).toEqual(["premier"]);
   });
 
-  it("links staff to the dedicated player claims fixture", async () => {
-    render(await AdminPage());
-
-    expect(screen.getByRole("link", { name: /player claims/i }).getAttribute("href"))
-      .toBe("/admin/claims");
-  });
-
-  it("uses the same unfiltered Premier schedule scope as the homepage", async () => {
-    render(await AdminPage());
-
-    expect(fetchHomepageSchedule).toHaveBeenNthCalledWith(1, undefined, "S5");
-    expect(fetchHomepageSchedule).toHaveBeenNthCalledWith(2, expect.any(Function), "A1");
-  });
-
-  it("labels the bracket ahead with its stage so staff can feature a playoff game", async () => {
-    fetchHomepageSchedule.mockResolvedValue({
-      upcoming: [
-        fixture("week-1-fixture", "Premier A", "Premier B"),
-        { ...fixture("semi-fixture", "Premier A", null), stage: "semifinals" as const, division: null },
-      ],
-    });
-
-    render(await AdminPage());
-
-    const premierProps = editor.mock.calls
-      .map(([props]) => props as { homepage: string; fixtures: { label: string }[] })
-      .find((props) => props.homepage === "premier");
-    expect(premierProps?.fixtures.map((choice) => choice.label)).toEqual([
-      "Week 1 · Solari · Premier A vs Premier B",
-      "Semifinals · Premier A vs TBD",
-    ]);
-  });
-
-  it("allows an owner who is not an admin to access the admin page", async () => {
+  it("keeps owner-only draft access available to an owner without admin access", async () => {
     fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: true, isBroadcaster: false });
 
     render(await AdminPage());
 
     expect(redirect).not.toHaveBeenCalled();
-    expect(screen.getByTestId("premier-featured-editor")).not.toBeNull();
-    expect(screen.getByTestId("academy-featured-editor")).not.toBeNull();
+    expect(screen.getByRole("link", { name: /open draft room/i }).getAttribute("href")).toBe("/admin/league/drafts");
+    expect(screen.getByText("Review queues are available to admins.")).not.toBeNull();
   });
 
-  it("keeps the owner staff list visible while the broadcaster migration is pending", async () => {
-    let profileQuery = 0;
-    supabase.from.mockImplementation((table: string) => {
-      if (table === "profiles") {
-        profileQuery += 1;
-        return profileQuery === 1
-          ? chain({ data: null, error: { code: "PGRST204", message: "Column is_broadcaster not found" } })
-          : chain({ data: [{ id: "owner-1", display_name: "Owner One", is_admin: true, is_owner: true }], error: null });
-      }
-      return defaultFrom(table);
-    });
-    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: true, isBroadcaster: false });
-
-    render(await AdminPage());
-
-    expect(screen.getByTestId("admin-staff").textContent).toBe("Owner One");
-  });
-
-  it("shows broadcasters the admin header and homepage controls only", async () => {
+  it("keeps broadcasters limited to the broadcast workspace", async () => {
     fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: true });
 
     render(await AdminPage());
 
     expect(redirect).not.toHaveBeenCalled();
     expect(screen.getByRole("heading", { name: "League operations" })).not.toBeNull();
-    expect(screen.getByTestId("premier-featured-editor")).not.toBeNull();
-    expect(screen.getByTestId("academy-featured-editor")).not.toBeNull();
-    expect(screen.queryByRole("region", { name: "League controls" })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "The Daily Stu" })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Drafts" })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Staff" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Homepage controls" })).not.toBeNull();
+    expect(screen.queryByRole("region", { name: "League status" })).toBeNull();
+    expect(screen.queryByRole("link", { name: /open draft room/i })).toBeNull();
   });
 
-  it("keeps the existing redirect for a non-staff visitor", async () => {
+  it("redirects visitors without staff access", async () => {
     fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: false });
-    redirect.mockImplementation(() => {
-      throw new Error("redirected");
-    });
+    redirect.mockImplementation(() => { throw new Error("redirected"); });
 
     await expect(AdminPage()).rejects.toThrow("redirected");
     expect(redirect).toHaveBeenCalledWith("/");
-    expect(editor).not.toHaveBeenCalled();
+    expect(fetchHomepageSchedule).not.toHaveBeenCalled();
   });
 });

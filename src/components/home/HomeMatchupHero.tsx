@@ -7,6 +7,7 @@ import { teamSlug } from "@/lib/teams/teamPage";
 import { teamPresentation } from "@/lib/teams/presentation";
 import type { FixtureRow } from "@/lib/schedule/types";
 import type { TeamIdentity } from "@/lib/teams/identity";
+import type { LeagueView } from "@/lib/league/context";
 import type { TwitchClip, TwitchStreamState } from "@/lib/twitch/status";
 import TeamLogo from "./TeamLogo";
 import styles from "./HomeWorkspace.module.css";
@@ -14,7 +15,8 @@ import styles from "./HomeWorkspace.module.css";
 function embedParent() { return typeof window === "undefined" ? null : window.location.hostname; }
 function subscribe() { return () => {}; }
 
-export default function HomeMatchupHero({ fixture, identities, clips, streamState, viewerCount, channelLogin, twitchUrl, title, description, scheduleHref, teamBasePath, seasonLabel }: {
+export default function HomeMatchupHero({ league, fixture, identities, clips, streamState, viewerCount, channelLogin, twitchUrl, title, description, scheduleHref, teamBasePath, seasonLabel }: {
+  league: LeagueView;
   fixture: FixtureRow | null;
   identities: Record<string, TeamIdentity>;
   clips: TwitchClip[];
@@ -56,7 +58,7 @@ export default function HomeMatchupHero({ fixture, identities, clips, streamStat
   const status = isLive
     ? `Channel live${viewerCount === null ? "" : ` · ${Intl.NumberFormat("en", { notation: "compact" }).format(viewerCount)} viewers`}`
     : streamState === "offline" ? "Channel offline" : "Channel status unknown";
-  const heading = title?.trim() || (fixture ? "Pick a side." : "Franchise Premier League");
+  const heading = title?.trim() || (fixture ? "Pick a side." : league === "academy" ? "FPL Academy" : "Franchise Premier League");
   const detail = description?.trim();
   const toggle = () => {
     setPreviewOpen((open) => !open);

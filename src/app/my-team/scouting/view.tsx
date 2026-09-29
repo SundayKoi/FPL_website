@@ -9,6 +9,7 @@ import { fetchIngestedScoutingGames, fetchInhousePlayerStats, fetchScoutingHisto
 import type { ScoutFixtureRow, ScoutRosterPlayer } from "@/lib/scouting/types";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { normalizeName } from "@/lib/captain/teamNames";
+import LeaguePageShell, { LeagueToolbar } from "@/components/league/LeaguePageShell";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -40,19 +41,16 @@ function scoutingRoster(roster: Awaited<ReturnType<typeof fetchMyRoster>>): Scou
   }));
 }
 
-function ScoutingUnavailable({ core = false }: { core?: boolean }) {
+function ScoutingUnavailable({ core = false, league }: { core?: boolean; league: LeagueKey }) {
   return (
-    <main className="page-backdrop flex-1">
-      <div className="page-container page-spacing w-full">
-        <section className="card-brand p-5" aria-label={core ? "My Team unavailable" : "Scouting unavailable"}>
-          <span className="label-dash text-prestige">My Team · Scouting</span>
-          <p className="mt-2 text-sm text-muted">
-            {core ? "My Team is temporarily unavailable." : "Scouting data is temporarily unavailable."}
-          </p>
-          <p className="mt-2 text-sm text-muted">Please refresh and try again.</p>
-        </section>
-      </div>
-    </main>
+    <LeaguePageShell league={league} title="Scouting" description="Review a team roster and the available draft evidence.">
+      <section className="card-brand p-5" aria-label={core ? "My Team unavailable" : "Scouting unavailable"}>
+        <p className="text-sm text-muted">
+          {core ? "My Team is temporarily unavailable." : "Scouting data is temporarily unavailable."}
+        </p>
+        <p className="mt-2 text-sm text-muted">Please refresh and try again.</p>
+      </section>
+    </LeaguePageShell>
   );
 }
 
@@ -74,7 +72,7 @@ export async function MyTeamScoutingPageView({
     dashboard = await loadMyTeamDashboard(supabase, league, requestedTeamId);
   } catch (error) {
     console.error("Unable to load My Team scouting identity", error);
-    return <ScoutingUnavailable core />;
+    return <ScoutingUnavailable core league={league} />;
   }
 
   if (dashboard.kind !== "ready") {
@@ -82,7 +80,16 @@ export async function MyTeamScoutingPageView({
     if (requestedTeamId) query.set("team", requestedTeamId);
     if (requestedScoutId) query.set("scout", requestedScoutId);
     const path = `${leaguePath("scouting", league)}${query.toString() ? `?${query.toString()}` : ""}`;
-    return <MyTeamGate dashboard={dashboard} league={league} redirectPath={path} />;
+    return (
+      <LeaguePageShell
+        league={league}
+        title="Scouting"
+        season={dashboard.kind === "signed-out" ? undefined : dashboard.season}
+        description="Review a team roster and the available draft evidence."
+      >
+        <MyTeamGate dashboard={dashboard} league={league} redirectPath={path} />
+      </LeaguePageShell>
+    );
   }
 
   const requestedScoutTeam = hasScoutTarget
@@ -155,19 +162,18 @@ export async function MyTeamScoutingPageView({
   const teamQuery = dashboard.isAdmin ? dashboard.team.id : undefined;
 
   return (
-    <main className="page-backdrop flex-1">
-      <div className="page-container page-spacing w-full">
-        <BackLink href={leaguePath("my-team", league)} label="My Team" className="mb-5" />
-        <header className="border-b border-border-subtle pb-8">
-          <div>
-            <span className="label-dash">My Team · {dashboard.season}</span>
-            <h1 className="type-display mt-3 text-5xl sm:text-6xl">Scouting</h1>
-            <p className="mt-4 text-lg leading-8 text-muted">Review a team&apos;s draft history, roster, and player pools.</p>
-          </div>
-        </header>
+    <LeaguePageShell
+      league={league}
+      title="Scouting"
+      season={dashboard.season}
+      description="Review a team roster, champion evidence, and recent draft patterns."
+    >
+      <BackLink href={leaguePath("my-team", league)} label="My Team" />
 
+      {dashboard.activeTeams.length > 0 || (dashboard.isAdmin && dashboard.activeTeams.length > 1) ? (
+        <LeagueToolbar label="Scouting team selection">
         {dashboard.activeTeams.length > 0 ? (
-          <form action={leaguePath("scouting", league)} method="get" className="mt-6 flex flex-wrap items-end gap-2">
+          <form action={leaguePath("scouting", league)} method="get" className="flex flex-wrap items-end gap-2">
             {teamQuery ? <input type="hidden" name="team" value={teamQuery} /> : null}
             <label htmlFor="scouting-target" className="flex flex-col gap-1 text-xs text-muted">
               Team to scout
@@ -190,7 +196,7 @@ export async function MyTeamScoutingPageView({
         ) : null}
 
         {dashboard.isAdmin && dashboard.activeTeams.length > 1 ? (
-          <form action={leaguePath("scouting", league)} method="get" className="mt-6 flex flex-wrap items-end gap-2">
+          <form action={leaguePath("scouting", league)} method="get" className="flex flex-wrap items-end gap-2">
             {requestedScoutId ? <input type="hidden" name="scout" value={requestedScoutId} /> : null}
             <label htmlFor="scouting-team-switch" className="flex flex-col gap-1 text-xs text-muted">
               Viewing team (admin)
@@ -210,6 +216,8 @@ export async function MyTeamScoutingPageView({
             </button>
           </form>
         ) : null}
+        </LeagueToolbar>
+      ) : null}
 
         {invalidScoutTarget ? (
           <section className="card-brand mt-8 p-5" aria-label="Scouting target unavailable">
@@ -230,7 +238,6 @@ export async function MyTeamScoutingPageView({
             <p className="mt-2 text-sm text-muted">The report for {scoutTeam.name} could not be loaded.</p>
           </section>
         ) : null}
-      </div>
-    </main>
+    </LeaguePageShell>
   );
 }

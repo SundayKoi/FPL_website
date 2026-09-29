@@ -4,24 +4,18 @@ import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import PatronSupportModal from "@/components/premium/PatronSupportModal";
 import PremiumStartHere from "@/components/premium/PremiumStartHere";
 import { fmtPoints } from "@/lib/betting/format";
-import { DAILY_REWARD_SENTENCE } from "@/lib/betting/daily";
+import { DAILY_GAME_REWARD, DAILY_STU_REWARD_SENTENCE, patronRecurring } from "@/lib/betting/daily";
 import { americanOdds, displayedShareA } from "@/lib/betting/parimutuel";
 import type { MarketCardData } from "@/lib/betting/types";
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { CardLeague } from "@/lib/cards/queries";
 import type { PremiumHubSnapshot, PreviewResult } from "@/lib/premium/preview";
+import { playDestinationHref } from "@/lib/play/destinations";
 
 const LEAGUES: { key: CardLeague; label: string }[] = [
   { key: "premier", label: "Premier" },
   { key: "academy", label: "Academy" },
 ];
-
-const PREMIUM_LINKS = [
-  { label: "Cards", href: "/cards", note: "Your collection, packs, market and games" },
-  { label: "Betting", href: "/betting", note: "Markets, pick'em, and wallet" },
-  { label: "The Daily Stu", href: "/bangers", note: "Judge the league's hottest takes" },
-  { label: "Match Drafter", href: "/drafter", note: "Run a private pick / ban lobby" },
-] as const;
 
 type PreviewFailure<T> = Extract<PreviewResult<T>, { status: "empty" | "unavailable" }>;
 
@@ -230,25 +224,17 @@ function HigherLowerPreview({ referenceCard, challengerCard }: { referenceCard: 
   );
 }
 
-export default function PremiumHub({ snapshot, staff = false }: { snapshot: PremiumHubSnapshot; staff?: boolean }) {
+export default function PremiumHub({ snapshot, isAdmin = false }: { snapshot: PremiumHubSnapshot; isAdmin?: boolean }) {
   const base = snapshot.league === "academy" ? "/academy/cards" : "/cards";
   const leagueLabel = snapshot.league === "academy" ? "Academy" : "Premier";
-  const higherLowerHref = snapshot.league === "academy" ? "/academy/higher-lower" : "/higher-lower";
-  const guessTheCardHref = snapshot.league === "academy" ? "/academy/guess-the-card" : "/guess-the-card";
+  const higherLowerHref = playDestinationHref("higher-lower", snapshot.league);
+  const guessTheCardHref = playDestinationHref("guess-the-card", snapshot.league);
   const higherLowerPreviewCards = snapshot.cards.status === "ready"
     ? { referenceCard: snapshot.cards.data.card, challengerCard: snapshot.cards.data.challengerCard }
     : { referenceCard: null, challengerCard: null };
 
   return (
-    <main className="page-container page-spacing page-backdrop flex w-full flex-1 flex-col gap-10 text-white">
-      <nav aria-label="Premium destinations" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {PREMIUM_LINKS.map((link) => (
-          <Link key={link.href} href={link.href} className="rounded-lg border border-border-strong bg-surface/60 p-4 transition hover:border-action-text/60">
-            <span className="block text-sm font-semibold text-white">{link.label}</span>
-            <span className="mt-1 block text-xs text-muted">{link.note}</span>
-          </Link>
-        ))}
-      </nav>
+    <main className="page-backdrop mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-10 px-4 py-10 text-white sm:px-6 lg:px-8">
       <header className="flex flex-wrap items-end justify-between gap-5">
         <div>
           <span className="label-dash">FPL Premium · {leagueLabel}</span>
@@ -261,6 +247,70 @@ export default function PremiumHub({ snapshot, staff = false }: { snapshot: Prem
       </header>
 
       {snapshot.start ? <PremiumStartHere start={snapshot.start} base={base} /> : null}
+
+      <section id="daily-games" aria-labelledby="daily-games-heading" className="scroll-mt-24 flex flex-col gap-5">
+        <SectionHeading eyebrow="Play today" title="Daily games" description={`FPL'dle and Higher or Lower share one $${DAILY_GAME_REWARD} reward per league and Eastern puzzle date ($${patronRecurring(DAILY_GAME_REWARD)} with an active patron flame). The Daily Stu pays a separate $${DAILY_GAME_REWARD} vote reward on its UTC check date.${isAdmin ? " Guess the Card is an admin test surface." : ""}`} />
+        <h2 id="daily-games-heading" className="sr-only">Daily games</h2>
+        <div className="grid gap-5 lg:grid-cols-12">
+          <FeatureCard
+            eyebrow="Daily puzzle"
+            title="FPL'dle"
+            description={`Find today's ${leagueLabel} player in five guesses.`}
+            href={playDestinationHref("fpldle", snapshot.league)}
+            className={isAdmin ? "lg:col-span-3" : "lg:col-span-4"}
+          >
+            <div className="flex min-h-28 items-center rounded-lg border border-border-subtle bg-gradient-to-br from-league-accent/15 via-canvas/70 to-league-secondary/10 p-5">
+              <p className="text-sm leading-6 text-muted">
+                One {leagueLabel} puzzle per day. Solve within five guesses to claim its share of today&apos;s reward.
+              </p>
+            </div>
+          </FeatureCard>
+          <FeatureCard
+            eyebrow="Daily puzzle"
+            title="Higher or Lower"
+            description={`Read the ${leagueLabel} card, then call the challenger's OVR.`}
+            href={higherLowerHref}
+            className={isAdmin ? "lg:col-span-3" : "lg:col-span-4"}
+          >
+            <HigherLowerPreview {...higherLowerPreviewCards} />
+          </FeatureCard>
+          {isAdmin ? (
+            // Still in admin testing: advertising it to members sent them
+            // to a page that bounced them straight back here.
+          <FeatureCard
+              eyebrow="Daily puzzle · admin test"
+              title="Guess the Card"
+              description={`Reconstruct the ${leagueLabel} carry from five player guesses.`}
+              href={guessTheCardHref}
+              className="lg:col-span-3"
+            >
+              <div className="flex min-h-28 flex-col justify-between rounded-lg border border-border-subtle bg-gradient-to-br from-league-secondary/10 via-canvas/70 to-league-accent/10 p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-display text-lg font-bold text-white">?????#????</span>
+                  <span className="rounded-full border border-gold/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold">Admin test</span>
+                </div>
+                <p className="mt-5 text-sm leading-6 text-muted">Role first. Misses unlock the champion, combat, damage, and economy rails.</p>
+              </div>
+            </FeatureCard>
+          ) : null}
+          <FeatureCard
+            eyebrow="Today's community vote"
+            title="The Daily Stu"
+            description={DAILY_STU_REWARD_SENTENCE}
+            href={playDestinationHref("daily-stu", snapshot.league)}
+            className={isAdmin ? "lg:col-span-3" : "lg:col-span-4"}
+          >
+            {snapshot.banger.status === "ready" ? (
+              <div className="rounded border border-border-subtle bg-canvas/50 p-4">
+                <blockquote className="line-clamp-4 text-sm leading-6 text-white">“{snapshot.banger.data.post.text}”</blockquote>
+                <p className="mt-3 text-xs text-muted">{snapshot.banger.data.score}% Banger · {snapshot.banger.data.post.bangerVotes + snapshot.banger.data.post.midVotes + snapshot.banger.data.post.stinkerVotes} votes</p>
+              </div>
+            ) : <PreviewFallback result={snapshot.banger} />}
+            <p className="mt-3 text-xs leading-5 text-muted">FPL does not condone or endorse any posts made by Stu.</p>
+          </FeatureCard>
+        </div>
+      </section>
+
 
       <section aria-labelledby="premium-featured-heading">
         <SectionHeading
@@ -308,7 +358,7 @@ export default function PremiumHub({ snapshot, staff = false }: { snapshot: Prem
                 <BettingGamePreview market={snapshot.betting.data.market} />
                 <div className="mt-5 border-t border-gold/20 pt-3">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs uppercase tracking-[0.16em] text-muted">Wallet</span>
+                    <span className="text-xs uppercase tracking-[0.16em] text-muted">Betting dollars</span>
                     <p className="font-display text-2xl font-bold text-gold">
                       {snapshot.betting.data.balance === null ? "—" : fmtPoints(snapshot.betting.data.balance)}
                     </p>
@@ -319,34 +369,6 @@ export default function PremiumHub({ snapshot, staff = false }: { snapshot: Prem
                 </div>
               </div>
             ) : <PreviewFallback result={snapshot.betting} />}
-          </FeatureCard>
-
-          <FeatureCard
-            eyebrow="Community read"
-            title="The Daily Stu"
-            description={`Rate the latest take and vote once a day. ${DAILY_REWARD_SENTENCE}`}
-            href="/bangers"
-            className="lg:col-span-3"
-          >
-            <>
-              {snapshot.banger.status === "ready" ? (
-                <div className="rounded-lg border border-border-subtle bg-canvas/60 p-4">
-                  <blockquote className="line-clamp-4 text-sm leading-6 text-white">“{snapshot.banger.data.post.text}”</blockquote>
-                  <div className="mt-5">
-                    <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
-                      <span className="text-mint">{snapshot.banger.data.score}% banger</span>
-                      <span className="text-muted">{snapshot.banger.data.post.bangerVotes + snapshot.banger.data.post.midVotes + snapshot.banger.data.post.stinkerVotes} votes</span>
-                    </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-border-subtle">
-                      <div className="h-full rounded-full bg-mint" style={{ width: `${snapshot.banger.data.score}%` }} />
-                    </div>
-                  </div>
-                </div>
-              ) : <PreviewFallback result={snapshot.banger} />}
-              <p className="mt-3 text-[10px] leading-4 text-muted">
-                FPL does not condone or endorse any tweets made by Stu.
-              </p>
-            </>
           </FeatureCard>
 
           <FeatureCard
@@ -374,58 +396,6 @@ export default function PremiumHub({ snapshot, staff = false }: { snapshot: Prem
           >
             <DraftLeaguePreview />
           </FeatureCard>
-        </div>
-      </section>
-
-      <section id="daily-games" aria-labelledby="daily-games-heading" className="scroll-mt-24 flex flex-col gap-5">
-        <SectionHeading
-          eyebrow="Daily games"
-          title="Daily games"
-          description={`${staff ? "Three" : "Two"} daily games and The Daily Stu, one shared reward a day, reset at midnight Eastern.`}
-        />
-        <h2 id="daily-games-heading" className="sr-only">Daily games</h2>
-        <div className="grid gap-5 lg:grid-cols-12">
-          <FeatureCard
-            eyebrow="Daily puzzle"
-            title="FPL'dle"
-            description={`Find today's ${leagueLabel} player in five guesses.`}
-            href={snapshot.league === "academy" ? "/academy/fpldle" : "/fpldle"}
-            className="lg:col-span-4"
-          >
-            <div className="flex min-h-28 items-center rounded-lg border border-border-subtle bg-gradient-to-br from-league-accent/15 via-canvas/70 to-league-secondary/10 p-5">
-              <p className="text-sm leading-6 text-muted">
-                One shared puzzle for every {leagueLabel} Premium member, reset at midnight Eastern.
-              </p>
-            </div>
-          </FeatureCard>
-          <FeatureCard
-            eyebrow="Daily card game"
-            title="Higher or Lower"
-            description={`Read the ${leagueLabel} card, then call the challenger's OVR.`}
-            href={higherLowerHref}
-            className="lg:col-span-4"
-          >
-            <HigherLowerPreview {...higherLowerPreviewCards} />
-          </FeatureCard>
-          {staff ? (
-            // Still in admin testing: advertising it to members sent them
-            // to a page that bounced them straight back here.
-          <FeatureCard
-              eyebrow="Daily Guess the Card"
-              title="Guess the Card"
-              description={`Reconstruct the ${leagueLabel} carry from five player guesses.`}
-              href={guessTheCardHref}
-              className="lg:col-span-4"
-            >
-              <div className="flex min-h-28 flex-col justify-between rounded-lg border border-border-subtle bg-gradient-to-br from-league-secondary/10 via-canvas/70 to-league-accent/10 p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-display text-lg font-bold text-white">?????#????</span>
-                  <span className="rounded-full border border-gold/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold">Admin test</span>
-                </div>
-                <p className="mt-5 text-sm leading-6 text-muted">Role first. Misses unlock the champion, combat, damage, and economy rails.</p>
-              </div>
-            </FeatureCard>
-          ) : null}
         </div>
       </section>
 

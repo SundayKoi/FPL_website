@@ -17,7 +17,7 @@ function isMissingDailyRewardColumn(error: unknown): boolean {
 
 export async function fetchBangerPosts(): Promise<BangerPost[]> {
   const supabase = await createServerSupabase();
-  const [{ data, error }, { data: counts }] = await Promise.all([
+  const [{ data, error }, { data: counts, error: countsError }] = await Promise.all([
     supabase
     .from("banger_posts")
     .select("id, body, published_at, x_url")
@@ -26,7 +26,9 @@ export async function fetchBangerPosts(): Promise<BangerPost[]> {
     supabase.rpc("get_banger_vote_counts"),
   ]);
 
-  if (error || !data) return [];
+  if (error) throw error;
+  if (countsError) throw countsError;
+  if (!data) throw new Error("Daily Stu posts are unavailable.");
 
   const countByPost = new Map(((counts as { post_id: string; banger_votes: number; mid_votes: number; stinker_votes: number }[] | null) ?? []).map((row) => [row.post_id, row]));
   return data.map((post) => ({
@@ -73,9 +75,11 @@ export async function fetchBangerViewerVotes(dailyCheckDate?: string): Promise<B
         .eq("voter_id", user.id)
         .maybeSingle();
     })()
-    : Promise.resolve({ data: null });
+    : Promise.resolve({ data: null, error: null });
 
-  const [{ data: postRows }, { data: dailyRow }] = await Promise.all([postVotesPromise, dailyVotePromise]);
+  const [{ data: postRows, error: postVotesError }, { data: dailyRow, error: dailyVoteError }] = await Promise.all([postVotesPromise, dailyVotePromise]);
+  if (postVotesError) throw postVotesError;
+  if (dailyVoteError) throw dailyVoteError;
   const postVotes = Object.fromEntries(
     ((postRows as { post_id: string; vote: string }[] | null) ?? []).flatMap((row) => {
       const vote = parseBangerVote(row.vote);
@@ -93,7 +97,8 @@ export type DailyBanger = BangerPost & { checkDate: string; startsAt: string; en
 export async function fetchDailyBanger(): Promise<DailyBanger | null> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.rpc("get_or_create_daily_banger");
-  if (error || !data?.[0]) return null;
+  if (error) throw error;
+  if (!data?.[0]) return null;
   const row = data[0] as { check_date: string; post_id: string; body: string; published_at: string; x_url: string; starts_at: string; ends_at: string; banger_votes: number; mid_votes: number; stinker_votes: number };
   return { id: row.post_id, text: sanitizeTweetText(row.body), publishedAt: row.published_at, url: row.x_url, checkDate: row.check_date, startsAt: row.starts_at, endsAt: row.ends_at, bangerVotes: row.banger_votes, midVotes: row.mid_votes, stinkerVotes: row.stinker_votes };
 }

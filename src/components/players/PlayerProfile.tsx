@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import PlayerDetail from "@/components/stats/PlayerDetail";
 import { ALL_SEASONS } from "@/components/stats/SeasonSelect";
+import LeaguePageShell from "@/components/league/LeaguePageShell";
 
 /**
  * Standalone, shareable player profile (/players/[player]) — the same
@@ -14,8 +15,13 @@ import { ALL_SEASONS } from "@/components/stats/SeasonSelect";
 export default function PlayerProfile({ summonerName, tag }: { summonerName: string; tag: string }) {
   const router = useRouter();
   return (
-    <main className="grid-neon flex-1">
-      <div className="page-container page-spacing w-full">
+    <LeaguePageShell
+      league="premier"
+      title="Player profile"
+      season={ALL_SEASONS}
+      activeSection="players"
+      description="Career performance and recent games from the league stats record."
+    >
         <PlayerDetail
           summonerName={summonerName}
           tag={tag}
@@ -23,7 +29,6 @@ export default function PlayerProfile({ summonerName, tag }: { summonerName: str
           phase="All"
           onBack={() => router.push("/players")}
         />
-      </div>
-    </main>
+    </LeaguePageShell>
   );
 }
