@@ -347,6 +347,7 @@ export default function MatchDraftBoard({
   const [clockOffsetMs, setClockOffsetMs] = useState(0);
   const [syncError, setSyncError] = useState<string | null>(null);
   const catchupInFlightRef = useRef<Promise<void> | null>(null);
+  const catchupRequestedRef = useRef(false);
   const deletedRevisionsRef = useRef<Record<number, number>>({});
   const latestSettingsRevisionRef = useRef<number | undefined>(undefined);
   const [connectionStatus, setConnectionStatus] = useState<LiveConnectionStatus>(
@@ -440,60 +441,69 @@ export default function MatchDraftBoard({
   };
 
   const refreshSnapshot = useCallback(async () => {
-    if (!supabase || catchupInFlightRef.current) return catchupInFlightRef.current;
-    const startedAt = Date.now();
-    const table = lobby ? "open_drafts" : "match_drafts";
-    const scopeColumn = lobby ? "lobby_id" : "fixture_id";
-    const scopeValue = lobby?.lobbyId ?? initialState.fixtureId;
+    if (!supabase) return;
+    if (catchupInFlightRef.current) {
+      catchupRequestedRef.current = true;
+      return catchupInFlightRef.current;
+    }
     const request = (async () => {
       try {
-        const rowsPromise = supabase.from(table).select("*").eq(scopeColumn, scopeValue).order("game_number");
-        const settingsPromise = lobby
-          ? Promise.resolve({ data: null, error: null })
-          : supabase.from("match_draft_settings").select("fixture_id, best_of, fearless, revision").eq("fixture_id", initialState.fixtureId).maybeSingle();
-        const serverTimePromise = supabase.rpc("match_draft_server_time");
-        const [{ data: rows, error: rowsError }, { data: settings, error: settingsError }, { data: serverTime }] = await Promise.all([
-          rowsPromise,
-          settingsPromise,
-          serverTimePromise,
-        ]);
-        if (rowsError) throw rowsError;
-        if (settingsError) throw settingsError;
-        const serverMs = typeof serverTime === "string" ? Date.parse(serverTime) : NaN;
-        if (Number.isFinite(serverMs)) setClockOffsetMs(serverMs - (startedAt + (Date.now() - startedAt) / 2));
+        do {
+          catchupRequestedRef.current = false;
+          const startedAt = Date.now();
+          const table = lobby ? "open_drafts" : "match_drafts";
+          const scopeColumn = lobby ? "lobby_id" : "fixture_id";
+          const scopeValue = lobby?.lobbyId ?? initialState.fixtureId;
+          try {
+            const rowsPromise = supabase.from(table).select("*").eq(scopeColumn, scopeValue).order("game_number");
+            const settingsPromise = lobby
+              ? Promise.resolve({ data: null, error: null })
+              : supabase.from("match_draft_settings").select("fixture_id, best_of, fearless, revision").eq("fixture_id", initialState.fixtureId).maybeSingle();
+            const serverTimePromise = supabase.rpc("match_draft_server_time");
+            const [{ data: rows, error: rowsError }, { data: settings, error: settingsError }, { data: serverTime }] = await Promise.all([
+              rowsPromise,
+              settingsPromise,
+              serverTimePromise,
+            ]);
+            if (rowsError) throw rowsError;
+            if (settingsError) throw settingsError;
+            const serverMs = typeof serverTime === "string" ? Date.parse(serverTime) : NaN;
+            if (Number.isFinite(serverMs)) setClockOffsetMs(serverMs - (startedAt + (Date.now() - startedAt) / 2));
 
-        const settingsRow = settings as { best_of?: number; fearless?: boolean; revision?: number } | null;
-        if (settingsRow && (latestSettingsRevisionRef.current === undefined || (settingsRow.revision ?? 0) >= latestSettingsRevisionRef.current)) {
-          latestSettingsRevisionRef.current = settingsRow.revision;
-          setLiveSeriesFormat((current) => formatFromSettings(current, settingsRow));
-        }
+            const settingsRow = settings as { best_of?: number; fearless?: boolean; revision?: number } | null;
+            if (settingsRow && (latestSettingsRevisionRef.current === undefined || (settingsRow.revision ?? 0) >= latestSettingsRevisionRef.current)) {
+              latestSettingsRevisionRef.current = settingsRow.revision;
+              setLiveSeriesFormat((current) => formatFromSettings(current, settingsRow));
+            }
 
-        const snapshotRows = (rows ?? []) as MatchDraftRow[];
-        setStatesByGame((current) => {
-          const next = { ...current };
-          const expectedBestOf = settingsRow?.best_of === 1 || settingsRow?.best_of === 5 || settingsRow?.best_of === 3
-            ? settingsRow.best_of
-            : seriesFormatRef.current.bestOf;
-          const rowByGame = new Map(snapshotRows.map((row) => [row.game_number, row]));
-          const base = current[1] ?? initialState;
-          for (let number = 1; number <= expectedBestOf; number += 1) {
-            const existing = current[number] ?? emptyDraftState({ ...base, gameNumber: number });
-            const snapshotRow = rowByGame.get(number);
-            const deletedRevision = deletedRevisionsRef.current[number];
-            const isNewerThanDelete = snapshotRow?.revision === undefined || deletedRevision === undefined || snapshotRow.revision > deletedRevision;
-            const reconciled = snapshotRow && isNewerThanDelete
-              ? stateFromDraftRow(existing, snapshotRow)
-              : deletedRevision !== undefined
-                ? emptyDraftState(existing)
-                : existing;
-            if (reconciled) next[number] = reconciled;
+            const snapshotRows = (rows ?? []) as MatchDraftRow[];
+            setStatesByGame((current) => {
+              const next = { ...current };
+              const expectedBestOf = settingsRow?.best_of === 1 || settingsRow?.best_of === 5 || settingsRow?.best_of === 3
+                ? settingsRow.best_of
+                : seriesFormatRef.current.bestOf;
+              const rowByGame = new Map(snapshotRows.map((row) => [row.game_number, row]));
+              const base = current[1] ?? initialState;
+              for (let number = 1; number <= expectedBestOf; number += 1) {
+                const existing = current[number] ?? emptyDraftState({ ...base, gameNumber: number });
+                const snapshotRow = rowByGame.get(number);
+                const deletedRevision = deletedRevisionsRef.current[number];
+                const isNewerThanDelete = snapshotRow?.revision === undefined || deletedRevision === undefined || snapshotRow.revision > deletedRevision;
+                const reconciled = snapshotRow && isNewerThanDelete
+                  ? stateFromDraftRow(existing, snapshotRow)
+                  : deletedRevision !== undefined
+                    ? emptyDraftState(existing)
+                    : existing;
+                if (reconciled) next[number] = reconciled;
+              }
+              return next;
+            });
+            setSyncError(null);
+          } catch (err) {
+            setConnectionStatus("reconnecting");
+            setSyncError(saveErrorMessage(err, "Live state is temporarily stale."));
           }
-          return next;
-        });
-        setSyncError(null);
-      } catch (err) {
-        setConnectionStatus("reconnecting");
-        setSyncError(saveErrorMessage(err, "Live state is temporarily stale."));
+        } while (catchupRequestedRef.current);
       } finally {
         catchupInFlightRef.current = null;
       }
@@ -501,6 +511,12 @@ export default function MatchDraftBoard({
     catchupInFlightRef.current = request;
     return request;
   }, [initialState, lobby, supabase]);
+
+  const announceDraftChange = useCallback(() => {
+    // Keep the notification payload-free: subscribers refetch through their
+    // own RLS-protected client instead of trusting room messages as state.
+    void channelRef.current?.send({ type: "broadcast", event: "draft-changed", payload: {} });
+  }, []);
 
   // Live sync: subscribe first, then reconcile a snapshot. Realtime rows and
   // snapshots share the revision merge rule, so neither ordering can regress
@@ -524,6 +540,9 @@ export default function MatchDraftBoard({
         const intent = payload as { gameNumber: number; revision?: number; stepIndex: number; champion: string | null };
         if (!Number.isInteger(intent.gameNumber) || !Number.isInteger(intent.stepIndex) || (intent.champion !== null && typeof intent.champion !== "string")) return;
         setRemoteIntents((current) => ({ ...current, [intent.gameNumber]: intent }));
+      })
+      .on("broadcast", { event: "draft-changed" }, () => {
+        void refreshSnapshot();
       })
       .on(
         "postgres_changes",
@@ -654,11 +673,14 @@ export default function MatchDraftBoard({
    *  lobbies call their token-checked open_draft_* twins (same names with
    *  "match_draft" swapped for "open_draft", p_token instead of p_fixture). */
   const draftRpc = useCallback(
-    (client: NonNullable<typeof supabase>, name: string, params: Record<string, unknown>) =>
-      lobby
+    async (client: NonNullable<typeof supabase>, name: string, params: Record<string, unknown>) => {
+      const result = await (lobby
         ? client.rpc(name.replace("match_draft", "open_draft"), { p_token: lobby.token, ...params })
-        : client.rpc(name, { p_fixture: state.fixtureId, ...params }),
-    [lobby, state.fixtureId],
+        : client.rpc(name, { p_fixture: state.fixtureId, ...params }));
+      if (!result.error) announceDraftChange();
+      return result;
+    },
+    [announceDraftChange, lobby, state.fixtureId],
   );
 
   const sendIntent = (champion: string | null) => {
@@ -1031,6 +1053,7 @@ export default function MatchDraftBoard({
         p_game: state.gameNumber,
       });
       if (rpcError) throw rpcError;
+      announceDraftChange();
       void refreshSnapshot();
     } catch (err) {
       setError(saveErrorMessage(err, "Undo failed."));
@@ -1147,6 +1170,7 @@ export default function MatchDraftBoard({
       if (saveError) throw saveError;
       // The settings change is delivered to every viewer on the same channel;
       // the next snapshot creates/removes game tabs and recomputes fearless.
+      announceDraftChange();
       await refreshSnapshot();
     } catch (err) {
       setError(saveErrorMessage(err, "Format could not be saved."));
@@ -1174,6 +1198,7 @@ export default function MatchDraftBoard({
         });
         if (resetError) throw resetError;
       }
+      announceDraftChange();
       // Realtime delivers the scoped delete; the snapshot also catches a
       // delete committed during the subscription gap.
       await refreshSnapshot();

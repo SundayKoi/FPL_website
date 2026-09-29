@@ -185,7 +185,7 @@
   outline-offset: 3px;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .homeHeaderInner {
     min-height: 64px;
     padding: 8px 16px;
@@ -229,7 +229,7 @@
 .homeNavLink::after { background: var(--header-accent); }
 .homeHeader :global(button[aria-label="Open menu"]), .homeHeader :global(button[aria-label="Close menu"]) { color: #f2f0f8; border-color: #514c5d; }
 .homeHeader :global(a:focus-visible), .homeHeader :global(button:focus-visible) { outline-color: var(--color-focus); }
-@media (max-width: 767px) { .homeHeaderInner { min-height: 64px; } .homeNavigation { min-height: 0; } .homeNavLink { min-height: 44px; } }
+@media (max-width: 1023px) { .homeHeaderInner { min-height: 64px; } .homeNavigation { min-height: 0; } .homeNavLink { min-height: 44px; } }
 @media (max-width: 390px) {
   .homeHeaderInner { gap: 8px; padding-inline: 10px; }
   .homeHeader .brandName,

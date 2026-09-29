@@ -36,6 +36,12 @@ test("two captains run one auction to settlement", async ({ captains: [cap1, cap
   await expect(cap2.getByText("Team E2E Bravo", { exact: true })).toBeVisible();
   await expect(cap1.getByText(/Waiting for .* to nominate/)).toBeVisible();
   await expect(cap2.getByText(/Waiting for .* to nominate/)).toBeVisible();
+  // Don't nominate until both clients have completed their initial realtime
+  // subscription; otherwise the second board can miss the INSERT entirely.
+  await expect(cap1.getByRole("status", { name: "Connecting to live updates…" })).toHaveCount(0);
+  await expect(cap2.getByRole("status", { name: "Connecting to live updates…" })).toHaveCount(0);
+  await expect(cap1.getByText("Live updates interrupted. The page may be stale while we reconnect.")).toHaveCount(0);
+  await expect(cap2.getByText("Live updates interrupted. The page may be stale while we reconnect.")).toHaveCount(0);
   await cap1.getByRole("dialog", { name: "Your nomination" }).getByRole("button", { name: "Pick my player" }).click();
 
   // Captain 1 (E2E Alpha, on the clock) nominates Mid1 explicitly — the
@@ -46,7 +52,15 @@ test("two captains run one auction to settlement", async ({ captains: [cap1, cap
     await nominationAlert.getByRole("button", { name: "Pick my player" }).click();
   }
   await cap1.getByRole("button", { name: /^Nominate Mid1/ }).click();
-  await cap1.getByRole("dialog").getByRole("button", { name: "Nominate", exact: true }).click();
+  await cap1.getByRole("dialog", { name: "Confirm nomination" }).getByRole("button", { name: "Nominate", exact: true }).click();
+
+  // The application RPC returns only after the lot is committed. Check that
+  // source of truth separately from the next assertions, which exercise live
+  // propagation to the already-open opposing board.
+  await expect.poll(async () => {
+    const { data } = await service.from("lots").select("id,status").eq("draft_id", draftId).maybeSingle();
+    return data;
+  }).toMatchObject({ status: "open" });
 
   // cap1's own click already updates its own board locally; the interesting
   // assertion is that the lot appears on captain 2's board too, WITHOUT a

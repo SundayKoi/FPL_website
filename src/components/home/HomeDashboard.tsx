@@ -105,6 +105,7 @@ export default function HomeDashboard({
   if (workspace) {
     return <main className={`${styles.page} ${styles.identityHome}`} data-appearance="workspace">
       <FeaturedMatchup
+        league={league}
         fixture={featuredFixture} identities={identities} teamBasePath={teamBasePath}
         scheduleHref={scheduleHref} seasonLabel={seasonLabel ?? schedule.season ?? undefined}
         channelLogin={twitchChannelLoginFromUrl(featuredSettings.twitchUrl)}
@@ -170,6 +171,7 @@ export default function HomeDashboard({
               />
               <div className={styles.featureGrid}>
                 <FeaturedMatchup
+                  league={league}
                   fixture={featuredFixture}
                   identities={identities}
                   standings={standings.teams}
@@ -232,6 +234,7 @@ export default function HomeDashboard({
               <LiveTicker items={tickerItems} appearance={appearance} />
               <div className="grid gap-6 lg:grid-cols-[2fr_1fr] xl:gap-8">
                 <FeaturedMatchup
+                  league={league}
                   fixture={featuredFixture}
                   channelLogin={twitchChannelLoginFromUrl(featuredSettings.twitchUrl)}
                   clips={twitch.clips}

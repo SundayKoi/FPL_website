@@ -13,12 +13,11 @@ test("Premier, Academy, and historical rows stay inside the captain's league and
 
   // Exercise the real shared Next.js schedule read: S5 is the current Premier
   // season in this fixture, while Academy and S4 rows share the same table.
-  // Expanding Finals makes the seeded fixture a visible user-facing result.
-  await page.goto("/schedule?season=S5&stages=finals");
-  await expect(page.getByRole("link", { name: "Premier Isolation Alpha" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Premier Isolation Beta" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Academy Isolation Alpha" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "History Isolation Alpha" })).toHaveCount(0);
+  // Select the playoff phase so the seeded fixture is a visible user-facing result.
+  await page.goto("/schedule?season=S5&phase=playoffs");
+  await expect(page.getByRole("article", { name: /Premier Isolation Alpha versus Premier Isolation Beta/ })).toBeVisible();
+  await expect(page.getByRole("article", { name: /Academy Isolation Alpha/ })).toHaveCount(0);
+  await expect(page.getByRole("article", { name: /History Isolation Alpha/ })).toHaveCount(0);
 
   const captain = await signedInLocalClient(ISOLATION_CAPTAIN_EMAIL, CONTRACT_PASSWORD);
   const fixtures = await captain.from("fixtures").select("id,season").in("id", [premierId, academyId, historicalId]);

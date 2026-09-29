@@ -83,8 +83,8 @@ const linkBase =
   "whitespace-nowrap text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 sm:text-sm lg:text-base";
 
 function topLinkClass(active: boolean, extra = "", roomy = false) {
-  return `${linkBase} ${extra ? `${extra} ` : ""}rounded px-3 ${roomy ? "py-[14px]" : "py-2"} md:px-0 md:py-1 ${
-    active ? "text-white md:text-coral" : "text-steel hover:text-gold hover:bg-line/40 md:hover:bg-transparent"
+  return `${linkBase} ${extra ? `${extra} ` : ""}rounded px-3 ${roomy ? "py-[14px]" : "py-2"} lg:px-0 lg:py-1 ${
+    active ? "text-white lg:text-coral" : "text-steel hover:text-gold hover:bg-line/40 lg:hover:bg-transparent"
   }`;
 }
 
@@ -212,7 +212,7 @@ export default function SiteNavigation({
           data-open={open}
           className={`${homepage ? styles.homeNavigation : ""} ${
             open ? "flex" : "hidden"
-          } absolute inset-x-0 top-full flex-col gap-1 border-b border-line px-2 py-2 shadow-lg backdrop-blur md:static md:flex md:min-w-0 md:flex-1 md:flex-row md:items-center md:justify-evenly md:gap-2 md:border-0 md:p-0 md:shadow-none md:backdrop-blur-0 lg:gap-6`}
+          } absolute inset-x-0 top-full flex-col gap-1 border-b border-line px-2 py-2 shadow-lg backdrop-blur lg:static lg:flex lg:min-w-0 lg:flex-1 lg:flex-row lg:items-center lg:justify-evenly lg:gap-2 lg:border-0 lg:p-0 lg:shadow-none lg:backdrop-blur-0 xl:gap-6`}
           style={{ backgroundColor: homepage ? "#101018" : aboutSection ? "rgba(21,19,27,0.99)" : "rgba(0,18,31,0.97)" }}
         >
           {directLinks.map((link) => {
@@ -242,7 +242,7 @@ export default function SiteNavigation({
                   : dropdown.links.some((link) => isActive(pathname, link.href));
 
             return (
-              <div key={dropdown.key} className="relative flex flex-col md:items-center">
+              <div key={dropdown.key} className="relative flex flex-col lg:items-center">
                 <button
                   type="button"
                   aria-label={`${dropdown.label} menu`}
@@ -264,7 +264,7 @@ export default function SiteNavigation({
                   <div
                     id={dropdownMenuId}
                     role="menu"
-                    className="flex flex-col gap-1 pl-3 pt-1 md:absolute md:left-1/2 md:top-full md:z-50 md:mt-3 md:min-w-40 md:-translate-x-1/2 md:rounded md:border md:border-line md:bg-navy md:p-2 md:shadow-lg"
+                    className="flex flex-col gap-1 pl-3 pt-1 lg:absolute lg:left-1/2 lg:top-full lg:z-50 lg:mt-3 lg:min-w-40 lg:-translate-x-1/2 lg:rounded lg:border lg:border-line lg:bg-navy lg:p-2 lg:shadow-lg"
                   >
                     {dropdown.links.map((dropdownLink) => (
                       <Link
@@ -298,7 +298,7 @@ export default function SiteNavigation({
             <Link
               href="/admin"
               aria-current={isActive(pathname, "/admin") ? "page" : undefined}
-              className={`hidden rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide transition md:inline-flex ${
+              className={`hidden rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide transition lg:inline-flex ${
                 adminSection ? styles.adminLinkActive : "border-border-strong text-muted hover:border-action-text hover:text-white"
               }`}
             >
@@ -315,7 +315,7 @@ export default function SiteNavigation({
             aria-expanded={open}
             aria-controls={menuId}
             aria-label={open ? "Close menu" : "Open menu"}
-            className={`inline-flex items-center justify-center rounded border border-line text-steel transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 md:hidden ${homepage ? "h-11 w-11" : "h-9 w-9"}`}
+            className={`inline-flex items-center justify-center rounded border border-line text-steel transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 lg:hidden ${homepage ? "h-11 w-11" : "h-9 w-9"}`}
           >
             {open ? (
               <svg

@@ -7,10 +7,12 @@ import type { FixtureRow } from "@/lib/schedule/types";
 import type { TeamIdentity } from "@/lib/teams/identity";
 import type { HomeStandingTeam } from "@/lib/home/standings";
 import type { HomeAppearance } from "./appearance";
+import type { LeagueView } from "@/lib/league/context";
 import styles from "./HomeWorkspace.module.css";
 import HomeMatchupHero from "./HomeMatchupHero";
 
 type FeaturedMatchupProps = {
+  league: LeagueView;
   fixture: FixtureRow | null;
   identities?: Record<string, TeamIdentity>;
   standings?: HomeStandingTeam[];
@@ -38,6 +40,7 @@ function subscribeToEmbedParent() {
 }
 
 export default function FeaturedMatchup({
+  league,
   fixture,
   identities = {},
   teamBasePath = "/teams",
@@ -84,6 +87,7 @@ export default function FeaturedMatchup({
   const legacyDescription = description?.trim() || "Two teams meet under the lights. Follow the broadcast, watch the standings shift, and see who owns the next chapter.";
 
   if (workspace) return <HomeMatchupHero
+    league={league}
     fixture={fixture} identities={identities} clips={clips} streamState={streamState}
     viewerCount={viewerCount} channelLogin={channelLogin} twitchUrl={twitchUrl}
     title={title} description={description} scheduleHref={scheduleHref}
