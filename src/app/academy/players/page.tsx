@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import AcademyPlayersDirectory from "@/components/academy/AcademyPlayersDirectory";
-import type { PlayerPoolRow } from "@/components/players/PlayerPoolAdmin";
 import { fetchAcademyDraftData } from "@/lib/academy/draft";
 import { fetchAcademyPlayers, mergeAcademyPlayers } from "@/lib/academy/playerSheet";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -10,10 +10,7 @@ import {
   fetchRosterClaimTargets,
   type RosterClaimTarget,
 } from "@/lib/teams/rosterClaims";
-import type {
-  PlayerIdentityLinkRow,
-  VerifiedProfileOption,
-} from "@/components/players/PlayerIdentityAdmin";
+import { fetchStaffTier } from "@/lib/auth/staffTier";
 
 export const metadata: Metadata = {
   title: "Players — FPL Academy",
@@ -25,65 +22,19 @@ export default async function AcademyPlayersPage() {
     { data: userData },
     draftData,
     sheetPlayers,
-    { data: canonicalPlayers },
     leagueSeasons,
     { data: activeLeagueTeams },
+    staffTier,
   ] = await Promise.all([
     supabase.auth.getUser(),
     fetchAcademyDraftData(supabase),
     fetchAcademyPlayers(),
-    supabase
-      .from("player_pool")
-      .select("id, season_key, display_name, role, rank, opgg_url")
-      .eq("season_key", "academy-1"),
     fetchLeagueSeasons(supabase),
     supabase.from("league_teams").select("id, name").eq("active", true),
+    fetchStaffTier(supabase),
   ]);
 
-  let isAdmin = false;
-  if (userData.user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", userData.user.id)
-      .single();
-    isAdmin = profile?.is_admin ?? false;
-  }
-
-  const [profileResult, identityResult] = isAdmin && leagueSeasons.academy
-    ? await Promise.all([
-        supabase.from("profiles").select("id, display_name, discord_id"),
-        supabase
-          .from("player_identity_links")
-          .select("id, player_pool_id, profile_id, status")
-          .eq("league", "academy")
-          .eq("season", leagueSeasons.academy),
-      ])
-    : [{ data: [] }, { data: [] }];
-  const identityProfiles: VerifiedProfileOption[] = (profileResult.data ?? [])
-    .map((profile) => ({
-      id: profile.id,
-      displayName: profile.display_name,
-      discordId: profile.discord_id,
-    }))
-    .sort((left, right) => left.displayName.localeCompare(right.displayName));
-  const identityLinks: PlayerIdentityLinkRow[] = (identityResult.data ?? []).map((link) => ({
-    id: link.id,
-    playerPoolId: link.player_pool_id,
-    profileId: link.profile_id,
-    status: link.status,
-  }));
-
   const players = draftData.draft ? mergeAcademyPlayers(draftData.players, sheetPlayers) : [];
-  const canonicalAdminRows: PlayerPoolRow[] = (canonicalPlayers ?? []).map((player) => ({
-    id: player.id,
-    season_key: player.season_key,
-    display_name: player.display_name,
-    role: player.role,
-    rank: player.rank,
-    opgg_url: player.opgg_url,
-  }));
-
   const activeTeamByName = new Map(
     (((activeLeagueTeams as { id: string; name: string }[] | null) ?? [])).map((team) => [
       team.name.trim().toLowerCase(),
@@ -133,15 +84,18 @@ export default async function AcademyPlayersPage() {
   }
 
   return (
+    <>
+    {staffTier.isAdmin || staffTier.isOwner ? (
+      <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6 lg:px-8">
+        <Link href="/admin/league/players?league=academy" className="text-sm font-semibold text-action-text underline underline-offset-4">Manage the Academy player pool in Admin →</Link>
+      </div>
+    ) : null}
     <AcademyPlayersDirectory
       players={players}
-      canonicalPlayers={canonicalAdminRows}
-      isAdmin={isAdmin}
+      isAdmin={false}
       poolSeasonKey="academy-1"
-      identitySeason={isAdmin ? leagueSeasons.academy : undefined}
-      identityLinks={isAdmin ? identityLinks : undefined}
-      identityProfiles={isAdmin ? identityProfiles : undefined}
       playerClaims={playerClaims}
     />
+    </>
   );
 }

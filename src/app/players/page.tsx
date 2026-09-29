@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import PlayersDirectory from "@/components/players/PlayersDirectory";
-import type { PlayerPoolRow } from "@/components/players/PlayerPoolAdmin";
 import { FREE_AGENCY_PLAYER_SUMMARIES } from "@/lib/players/freeAgencyData";
 import { adaptCanonicalPlayerPool } from "@/lib/players/freeAgency";
 import { primaryLinkedAccountUrl } from "@/lib/players/linkedAccounts";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
-import { fetchLeagueSeasons } from "@/lib/league/season";
-import type {
-  PlayerIdentityLinkRow,
-  VerifiedProfileOption,
-} from "@/components/players/PlayerIdentityAdmin";
 
 export const metadata: Metadata = {
   title: "Players — FPL",
@@ -18,67 +13,18 @@ export const metadata: Metadata = {
 
 export default async function PlayersPage() {
   const supabase = await createServerSupabase();
-  const [
-    { isAdmin, isOwner },
-    { data: bids },
-    { data: canonicalPlayers, error: canonicalPlayersError },
-    leagueSeasons,
-  ] = await Promise.all([
+  const [{ isAdmin, isOwner }, { data: bids }, { data: canonicalPlayers, error: canonicalPlayersError }] = await Promise.all([
     fetchStaffTier(supabase),
     supabase.from("free_agency_avg_bids").select("player_name, avg_bid"),
-    supabase
-      .from("player_pool")
-      .select("id, season_key, display_name, role, rank, opgg_url")
-      .eq("season_key", "season-5"),
-    fetchLeagueSeasons(supabase),
+    supabase.from("player_pool").select("id, season_key, display_name, role, rank, opgg_url").eq("season_key", "season-5"),
   ]);
 
-  const [profileResult, identityResult] = isAdmin && leagueSeasons.premier
-    ? await Promise.all([
-        supabase.from("profiles").select("id, display_name, discord_id"),
-        supabase
-          .from("player_identity_links")
-          .select("id, player_pool_id, profile_id, status")
-          .eq("league", "premier")
-          .eq("season", leagueSeasons.premier),
-      ])
-    : [{ data: [] }, { data: [] }];
-  const identityProfiles: VerifiedProfileOption[] = (profileResult.data ?? [])
-    .map((profile) => ({
-      id: profile.id,
-      displayName: profile.display_name,
-      discordId: profile.discord_id,
-    }))
-    .sort((left, right) => left.displayName.localeCompare(right.displayName));
-  const identityLinks: PlayerIdentityLinkRow[] = (identityResult.data ?? []).map((link) => ({
-    id: link.id,
-    playerPoolId: link.player_pool_id,
-    profileId: link.profile_id,
-    status: link.status,
-  }));
-
-  const initialAvgBids = Object.fromEntries(
-    (bids ?? []).map((bid) => [bid.player_name, bid.avg_bid]),
-  );
-  // Rows without a stored op.gg link fall back to the league's linked
-  // accounts sheet, so player names in the directory link somewhere useful.
-  // The account sheet wins over the pool's stored link: the sheet's
-  // multisearch covers ALL of a player's accounts, while stored links are
-  // often a single (stale) account. Pool links only fill sheet gaps.
   const linkedPlayers = (canonicalPlayers ?? []).map((player) => ({
     ...player,
-    opgg_url:
-      primaryLinkedAccountUrl(player.display_name) ?? (player.opgg_url?.trim() ? player.opgg_url : null),
+    opgg_url: primaryLinkedAccountUrl(player.display_name) ?? (player.opgg_url?.trim() ? player.opgg_url : null),
   }));
   const seasons = adaptCanonicalPlayerPool(linkedPlayers);
-  const canonicalAdminRows = (canonicalPlayers ?? []).map((player) => ({
-    id: player.id,
-    season_key: player.season_key,
-    display_name: player.display_name,
-    role: player.role,
-    rank: player.rank,
-    opgg_url: player.opgg_url,
-  }));
+  const initialAvgBids = Object.fromEntries((bids ?? []).map((bid) => [bid.player_name, bid.avg_bid]));
   const emptyStateMessages = {
     "season-4": "Season 4 player data has not been added yet.",
     ...(canonicalPlayersError || seasons["season-5"].every((section) => section.players.length === 0)
@@ -87,18 +33,23 @@ export default async function PlayersPage() {
   };
 
   return (
-    <PlayersDirectory
-      seasons={seasons}
-      canonicalPlayers={canonicalAdminRows as PlayerPoolRow[]}
-      isAdmin={isAdmin}
-      isOwner={isOwner}
-      initialAvgBids={initialAvgBids}
-      freeAgencyPlayers={FREE_AGENCY_PLAYER_SUMMARIES}
-      emptyStateMessages={emptyStateMessages}
-      identityLeague={isAdmin ? "premier" : undefined}
-      identitySeason={isAdmin ? leagueSeasons.premier : undefined}
-      identityLinks={isAdmin ? identityLinks : undefined}
-      identityProfiles={isAdmin ? identityProfiles : undefined}
-    />
+    <>
+      {isAdmin || isOwner ? (
+        <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6 lg:px-8">
+          <Link href="/admin/league/players?league=premier" className="text-sm font-semibold text-action-text underline underline-offset-4">
+            Manage the player pool in Admin →
+          </Link>
+        </div>
+      ) : null}
+      <PlayersDirectory
+        seasons={seasons}
+        canonicalPlayers={[]}
+        isAdmin={false}
+        isOwner={false}
+        initialAvgBids={initialAvgBids}
+        freeAgencyPlayers={FREE_AGENCY_PLAYER_SUMMARIES}
+        emptyStateMessages={emptyStateMessages}
+      />
+    </>
   );
 }

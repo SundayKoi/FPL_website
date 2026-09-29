@@ -45,8 +45,8 @@ describe("TeamsDirectory", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "Premier Teams" })).toBeTruthy();
-    expect(screen.getByText("PREVIEW DATA")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Premier teams" })).toBeTruthy();
+    expect(screen.getByText(/Preview data/i)).toBeTruthy();
 
     const cards = screen.getAllByRole("article");
     expect(cards).toHaveLength(12);
@@ -73,7 +73,7 @@ describe("TeamsDirectory", () => {
       />,
     );
 
-    expect(screen.getByText("Split 5")).toBeTruthy();
+    expect(screen.getByRole("main").textContent).toContain("Split 5");
     expect(screen.queryByText("PREVIEW DATA")).toBeNull();
     expect(screen.getByText("Display draft")).toBeTruthy();
     expect(screen.getByText("Editing enabled")).toBeTruthy();
@@ -89,6 +89,6 @@ describe("TeamsDirectory", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "Academy Teams" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Academy teams" })).toBeTruthy();
   });
 });

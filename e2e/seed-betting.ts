@@ -72,6 +72,8 @@ async function main() {
   const memberId = await ensureUser(supabase.auth.admin, BETTING_MEMBER_EMAIL);
   const adminId = await ensureUser(supabase.auth.admin, BETTING_ADMIN_EMAIL);
   await seedBettingFixture(supabase, memberId, adminId);
+  const { error: ownerFlagError } = await supabase.from("profiles").update({ is_owner: true }).eq("id", adminId);
+  if (ownerFlagError) throw ownerFlagError;
 }
 
 main().catch((err) => {

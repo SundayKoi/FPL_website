@@ -21,7 +21,7 @@ describe("SupportDevButton", () => {
 
     const link = screen.getByRole("link", { name: /support the devs/i });
 
-    expect(link.getAttribute("href")).toBe("/support-devs");
+    expect(link.getAttribute("href")).toBe("/membership#support-devs");
     expect(link.className).toContain("fixed");
     // Above the phone tab bar (MobileTabBar), back in the corner from md up.
     expect(link.className).toContain("bottom-20");

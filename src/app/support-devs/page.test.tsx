@@ -1,65 +1,43 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import SupportDevsPage from "./page";
+const redirectMock = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
-describe("SupportDevsPage", () => {
+import SupportDevSection from "@/components/info/SupportDevSection";
+import SupportDevsRedirect from "./page";
 
-  it("renders the standalone support page and PayPal destination", () => {
-    render(<SupportDevsPage />);
+describe("developer support consolidation", () => {
+  beforeEach(() => redirectMock.mockClear());
 
-    expect(screen.getByRole("heading", { name: "Support the Devs", level: 1 })).toBeTruthy();
-    expect(screen.getByAltText("PayPal QR code for Zachari Bultman")).toBeTruthy();
-    const paypalLink = screen.getByRole("link", { name: /support via paypal/i });
-    expect(paypalLink.getAttribute("href")).toBe("https://www.paypal.com/paypalme/ZBultman");
-    expect(paypalLink.getAttribute("target")).toBe("_blank");
+  it("redirects the old route to the support section", () => {
+    SupportDevsRedirect();
+    expect(redirectMock).toHaveBeenCalledWith("/membership#support-devs");
   });
 
-  it("keeps each Venmo link under its developer card", () => {
-    render(<SupportDevsPage />);
+  it("preserves developer identities, payment destinations, and the optional QR image", () => {
+    render(<SupportDevSection />);
 
-    const zachari = within(screen.getByAltText("Dribb avatar").closest("article")!).getByRole("link", {
-      name: "Venmo Zachari Bultman",
-    });
-    expect(zachari.getAttribute("href")).toBe("https://venmo.com/u/Zachari-Bultman");
-    const matthew = within(screen.getByAltText("Spies avatar").closest("article")!).getByRole("link", {
-      name: "Venmo Matthew Wolanski",
-    });
-    expect(matthew.getAttribute("href")).toBe("https://venmo.com/u/Mwolanski1");
-    // target=_blank without noopener hands the new tab a window.opener
-    // handle back to us.
-    for (const link of [zachari, matthew]) {
-      expect(link.getAttribute("rel")).toContain("noopener");
-    }
-    expect(screen.queryByRole("link", { name: "Venmo Zachari" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "Venmo Matthew" })).toBeNull();
-  });
-
-  it("italicises what the donations pay for", () => {
-    const { container } = render(<SupportDevsPage />);
-
-    const note = [...container.querySelectorAll("p")].find((paragraph) =>
-      /donations will be used to cover website costs/i.test(paragraph.textContent ?? ""),
-    );
-    expect(note).toBeTruthy();
-    expect(note?.className).toContain("italic");
-  });
-
-  it("shows the developers with their Discord handles and avatars", () => {
-    render(<SupportDevsPage />);
-
-    expect(screen.getByRole("heading", { name: "Meet the Devs", level: 2 })).toBeTruthy();
     expect(screen.getByText("Dribb")).toBeTruthy();
     expect(screen.getByText("@dribb")).toBeTruthy();
-    expect(screen.getByAltText("Dribb avatar")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Venmo Zachari Bultman" }).getAttribute("href")).toBe(
-      "https://venmo.com/u/Zachari-Bultman",
-    );
     expect(screen.getByText("Spies")).toBeTruthy();
     expect(screen.getByText("@spiesss")).toBeTruthy();
-    expect(screen.getByAltText("Spies avatar")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Venmo Matthew Wolanski" }).getAttribute("href")).toBe(
-      "https://venmo.com/u/Mwolanski1",
-    );
+
+    const paypal = screen.getByRole("link", { name: "PayPal · Zachari ↗" });
+    expect(paypal.getAttribute("href")).toBe("https://www.paypal.com/paypalme/ZBultman");
+    for (const [name, href] of [
+      ["Zachari Bultman", "https://venmo.com/u/Zachari-Bultman"],
+      ["Matthew Wolanski", "https://venmo.com/u/Mwolanski1"],
+    ]) {
+      const link = screen.getByRole("link", { name: `Venmo · ${name} ↗` });
+      expect(link.getAttribute("href")).toBe(href);
+      expect(link.getAttribute("rel")).toContain("noopener");
+    }
+
+    const qrDisclosure = screen.getByText("Show PayPal QR code").closest("details");
+    expect(qrDisclosure).toBeTruthy();
+    expect(qrDisclosure?.hasAttribute("open")).toBe(false);
+    expect(within(qrDisclosure!).getByAltText("PayPal QR code for Zachari Bultman")).toBeTruthy();
+    expect(screen.getByText(/do not register you for league play or assign the separate FPL Premium role/i)).toBeTruthy();
   });
 });

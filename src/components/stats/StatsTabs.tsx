@@ -9,6 +9,7 @@ import { resolvePlayerParam } from "@/lib/stats/resolvePlayer";
 import LeaderboardTab from "./LeaderboardTab";
 import type { SelectedPlayer } from "./PlayersTab";
 import SeasonSelect, { ALL_SEASONS, type PhaseFilter } from "./SeasonSelect";
+import styles from "./StatsTabs.module.css";
 
 const loading = () => <LoadingCard label="stats" />;
 const ChampionsTab = dynamic(() => import("./ChampionsTab"), { loading });
@@ -179,9 +180,10 @@ export default function StatsTabs({
   }, [seasonsLoaded, deepLinkPending, activeTab, season, phase, selectedPlayer, selectedTeamName, seasons]);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border-subtle/70">
-        <nav aria-label="Stats sections" className="flex flex-wrap gap-x-5 gap-y-1">
+    <div className={styles.statsTabs}>
+      <div className={styles.controls}>
+        <nav aria-label="Stats views" className={styles.tabViewport}>
+          <div className={styles.tabList}>
           {TABS.map((tab) => {
             const active = activeTab === tab;
             return (
@@ -189,21 +191,19 @@ export default function StatsTabs({
                 key={tab}
                 type="button"
                 aria-pressed={active}
+                aria-label={tab === "Fantasy Pts" ? "Fantasy points" : tab}
                 onClick={() => {
                   setActiveTab(tab);
                   setSelectedPlayer(null);
                   setSelectedTeamName(null);
                 }}
-                className={`relative -mb-px border-b-2 px-1 pb-2.5 pt-1 text-xs font-semibold uppercase tracking-[0.14em] transition ${
-                  active
-                    ? "border-action-text text-action-text"
-                    : "border-transparent text-muted hover:text-white"
-                }`}
+                className={styles.tab}
               >
-                {tab}
+                {tab === "Fantasy Pts" ? "Fantasy points" : tab}
               </button>
             );
           })}
+          </div>
         </nav>
 
         <SeasonSelect
@@ -216,6 +216,7 @@ export default function StatsTabs({
         />
       </div>
 
+      <div className={styles.results}>
       {!seasonsLoaded ? (
         <div className="card-brand p-8 text-center text-muted" role="status">
           Loading…
@@ -272,6 +273,7 @@ export default function StatsTabs({
           teamNames={teamNames}
         />
       ) : null}
+      </div>
     </div>
   );
 }

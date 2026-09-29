@@ -1,0 +1,12 @@
+.profile { display: flex; flex-direction: column; gap: 22px; }
+.header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.listHeading { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.betRow { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--play-line, #34313f); padding: 10px 14px; font-size: 0.85rem; }
+.betRow:last-child { border-bottom: 0; }
+.profile :global(.rounded-lg.border) { border-radius: 3px; }
+.stats > div { padding: 12px; }
+.stats > div > div:first-child { font-size: 0.65rem; line-height: 1.35; }
+.stats > div > div:last-child { font-size: clamp(1.15rem, 2.5vw, 1.6rem); }
+@media (min-width: 640px) { .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }

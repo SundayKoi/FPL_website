@@ -1,0 +1,203 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  flex: 1;
+  background: #0c0b10;
+  color: #f2f0f8;
+  color-scheme: dark;
+}
+
+.content {
+  display: flex;
+  width: min(100%, 1240px);
+  flex-direction: column;
+  gap: 28px;
+  margin: 0 auto;
+  padding: 32px clamp(16px, 3vw, 40px) 64px;
+}
+
+.header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid #34313f;
+  padding: 12px 0 24px;
+}
+
+.context {
+  margin: 0;
+  color: #aaa6b7;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.header h1 {
+  margin: 8px 0 0;
+  color: #f2f0f8;
+  font-family: var(--font-anton), "Arial Narrow", sans-serif;
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 400;
+  line-height: 1.08;
+}
+
+.description {
+  margin: 10px 0 0;
+  color: #aaa6b7;
+  font-size: 0.95rem;
+}
+
+.adminLink {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  border-bottom: 1px solid #514c5d;
+  color: #aaa6b7;
+  font-size: 0.86rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.adminLink:hover {
+  border-color: #9dc4dc;
+  color: #9dc4dc;
+}
+
+.adminLink:focus-visible,
+.draftLink:focus-visible {
+  outline: 2px solid #9dc4dc;
+  outline-offset: 3px;
+}
+
+.section {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionHeading h2 {
+  margin: 0;
+  color: #f2f0f8;
+  font-size: 1.1rem;
+  font-weight: 750;
+}
+
+.sectionHeading p {
+  margin: 4px 0 0;
+  color: #aaa6b7;
+  font-size: 0.82rem;
+}
+
+.upcomingGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 14px;
+}
+
+.draftList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.draftLink {
+  display: flex;
+  min-height: 74px;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #34313f;
+  background: #15131b;
+  padding: 13px 15px;
+  color: #f2f0f8;
+  text-decoration: none;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.draftLink:hover {
+  border-color: #9dc4dc;
+  background: #211e29;
+}
+
+.draftName {
+  min-width: 0;
+  flex: 1;
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
+.draftStatus {
+  border: 1px solid #514c5d;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #aaa6b7;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.draftStatus[data-status="live"] {
+  border-color: #48c995;
+  background: rgb(72 201 149 / 0.12);
+  color: #72d9ae;
+}
+
+.draftStatus[data-status="paused"] {
+  border-color: #e6bf61;
+  background: rgb(230 191 97 / 0.12);
+  color: #e6bf61;
+}
+
+.draftStatus[data-status="complete"] {
+  background: #211e29;
+}
+
+.openLink {
+  color: #9dc4dc;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.empty {
+  border-left: 3px solid #1c5583;
+  background: #15131b;
+  padding: 14px 16px;
+  color: #aaa6b7;
+}
+
+.upcomingGrid :global(.card-brand) {
+  border-color: #34313f;
+  background: #15131b;
+  box-shadow: none;
+}
+
+.upcomingGrid :global(.text-gold) {
+  color: #e6bf61;
+}
+
+.upcomingGrid :global([class*="bg-gradient-to-br"]) {
+  background-image: none;
+}
+
+@media (max-width: 600px) {
+  .content {
+    padding-top: 20px;
+    padding-bottom: 40px;
+  }
+
+  .header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .draftLink {
+    flex-wrap: wrap;
+  }
+}

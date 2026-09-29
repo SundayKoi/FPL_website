@@ -39,17 +39,19 @@ describe("StandingsPageView", () => {
     render(await StandingsPageView({ league: "premier" }));
 
     expect(screen.getByRole("heading", { name: "Standings", level: 1 })).toBeTruthy();
-    expect(screen.getByText(/Franchise Premier League · S5/)).toBeTruthy();
+    expect(screen.getByText("Franchise Premier League")).toBeTruthy();
+    expect(screen.getByRole("main").textContent).toContain("S5");
     expect(screen.getByText("Alpha")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Schedule" }).getAttribute("href")).toBe("/schedule");
-    expect(fetchHomepageStandings).toHaveBeenCalledWith();
+    expect(fetchHomepageStandings).toHaveBeenCalledWith("S5", undefined, "featured_draft_id", "divisions", true);
   });
 
   it("reads the academy's own draft and season", async () => {
     render(await StandingsPageView({ league: "academy" }));
 
-    expect(screen.getByText(/FPL Academy · A1/)).toBeTruthy();
-    expect(fetchHomepageStandings).toHaveBeenCalledWith("A1", ["Alpha"], "academy_draft_id");
+    expect(screen.getByText("FPL Academy")).toBeTruthy();
+    expect(screen.getByRole("main").textContent).toContain("A1");
+    expect(fetchHomepageStandings).toHaveBeenCalledWith("A1", ["Alpha"], "academy_draft_id", "divisions", true);
     expect(screen.getByRole("link", { name: "Schedule" }).getAttribute("href")).toBe("/academy/schedule");
   });
 
@@ -57,6 +59,7 @@ describe("StandingsPageView", () => {
     fetchHomepageStandings.mockResolvedValue({ teams: [], race: [] });
     render(await StandingsPageView({ league: "premier" }));
 
-    expect(screen.getByTestId("standings-empty").textContent).toContain("No results yet");
+    expect(screen.getByRole("region", { name: "No standings for S5 yet" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open schedule" }).getAttribute("href")).toBe("/schedule");
   });
 });

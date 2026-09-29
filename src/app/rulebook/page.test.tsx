@@ -17,21 +17,18 @@ import RulebookPage from "./page";
 
 describe("RulebookPage", () => {
 
-  it("renders the standalone Rulebook document", async () => {
+  it("renders the Rules page, responsive contents links, and source document", async () => {
     render(await RulebookPage());
 
-    expect(screen.getByRole("heading", { name: "Rulebook", level: 1 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Rules", level: 1 })).toBeTruthy();
     expect(screen.getByRole("navigation", { name: "Rulebook sections" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "League Structure" }).getAttribute("href")).toBe(
+    expect(screen.getAllByRole("link", { name: "League Structure" }).map((link) => link.getAttribute("href"))).toEqual([
       "#league-structure",
-    );
+      "#league-structure",
+    ]);
     expect(screen.getByRole("link", { name: /open source google doc/i }).getAttribute("href")).toBe(
       "https://docs.google.com/document/d/1rtYs_uhNwp7lwMaUfprRLKlOy0UuXWTs/edit#heading=h.k95um6blnxq7",
     );
-    expect(
-      screen
-        .getByRole("link", { name: /back to rulebook sections/i })
-        .getAttribute("href"),
-    ).toBe("#rulebook-sections");
+    expect(screen.getByText("Rulebook sections").closest("details")).toBeTruthy();
   });
 });

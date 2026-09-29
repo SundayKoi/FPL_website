@@ -1,0 +1,32 @@
+.nav {
+  display: flex;
+  overflow-x: auto;
+  min-height: 44px;
+  align-items: center;
+  gap: 18px;
+  border-bottom: 1px solid #34313f;
+  scrollbar-width: thin;
+}
+
+.link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  border-bottom: 2px solid transparent;
+  color: #aaa6b7;
+  font-size: 0.8rem;
+  font-weight: 650;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.link:hover,
+.link[aria-current="page"] {
+  border-bottom-color: var(--play-accent, #9dc4dc);
+  color: #f2f0f8;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--play-focus, #9dc4dc);
+  outline-offset: 2px;
+}

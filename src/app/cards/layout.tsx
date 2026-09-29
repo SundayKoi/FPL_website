@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import CardsTabs from "@/components/cards/CardsTabs";
+import styles from "@/components/cards/CardsPageShell.module.css";
 import { cardsShelfStatus } from "@/lib/cards/shelfStatus";
 
 /** Every premier cards page wears the same tab bar, so the section can be
@@ -10,7 +11,7 @@ export default async function CardsLayout({ children }: { children: ReactNode })
   // four of them, and an offer waiting is worth a badge wherever you are.
   const status = await cardsShelfStatus("premier");
   return (
-    <div className="flex flex-1 flex-col">
+    <div className={styles.page} data-league="premier">
       <CardsTabs league="premier" balance={status.balance} offers={status.offers} forks={status.forks} />
       {children}
     </div>

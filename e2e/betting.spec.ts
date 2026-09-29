@@ -44,8 +44,10 @@ test("member bets, admin resolves, member's profile shows the payout", async ({ 
   await signIn(page, MEMBER_EMAIL, PASSWORD, "/betting");
 
   // Signup-bonus balance from the seed, formatted by fmtPoints ("$1,000").
-  await expect(page.getByText("$1,000", { exact: true })).toBeVisible();
+  const balanceChip = page.locator('a[aria-label^="Betting dollars balance"]').last();
+  await expect(balanceChip).toHaveText("$1,000");
 
+  await page.getByRole("link").filter({ hasText: "E2E Betting Night" }).click();
   await page.getByRole("link").filter({ hasText: "Betting FC" }).click();
   await page.waitForURL(/\/betting\/market\/\d+/);
   await expect(page.getByRole("heading", { name: /Betting FC.*Wager United/ })).toBeVisible();
@@ -58,14 +60,14 @@ test("member bets, admin resolves, member's profile shows the payout", async ({ 
 
   // Balance chip drops by the 100 stake ($1,000 -> $900) — proves the bet
   // actually posted (place_bet's balance write), not just an optimistic UI.
-  await expect(page.getByText("$900", { exact: true })).toBeVisible();
+  await expect(balanceChip).toHaveText("$900");
 
   await signOut(page);
 
   // === Admin: sign in, resolve the market for the team the member backed ===
   await signIn(page, ADMIN_EMAIL, PASSWORD, "/admin/betting");
 
-  const marketRow = page.locator("li", { hasText: MARKET_TITLE });
+  const marketRow = page.getByText(MARKET_TITLE, { exact: true }).last().locator("xpath=ancestor::li[1]");
   await expect(marketRow).toBeVisible();
 
   page.once("dialog", (dialog) => dialog.accept());
@@ -86,16 +88,15 @@ test("member bets, admin resolves, member's profile shows the payout", async ({ 
   // collide: "$1,500" also sits in the nav's balance chip, and "$500" (Net
   // profit) equals biggest_win's own "$500" (only one graded, winning bet).
   function statValue(label: string) {
-    return page.getByText(label, { exact: true }).locator("xpath=following-sibling::div[1]");
+    return page.getByText(label, { exact: true }).locator("xpath=following-sibling::div[1]").first();
   }
 
-  // Balance: $1,000 - 100 (stake) + 600 (payout) = $1,500.
-  await expect(statValue("Balance")).toHaveText("$1,500");
+  // The layout keeps one labelled balance chip; the profile does not repeat it.
+  await expect(page.locator('a[aria-label^="Betting dollars balance"]').last()).toHaveText("$1,500");
   // Record: one graded bet, and it won (payout 600 > stake 100).
   await expect(statValue("Record")).toHaveText("1W / 0L");
   // Net profit, from the ledger (bet_place -100, bet_payout +600): $500.
   await expect(statValue("Net profit")).toHaveText("$500");
-  // Recent Settled row: "+$500" (unambiguous — nothing else on the page
-  // renders a leading "+").
-  await expect(page.getByText("+$500", { exact: true })).toBeVisible();
+  // Recent Settled reports net profit separately from a returned stake.
+  await expect(page.getByText("+$500 net", { exact: true }).first()).toBeVisible();
 });

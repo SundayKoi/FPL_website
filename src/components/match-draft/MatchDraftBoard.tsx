@@ -18,6 +18,8 @@ import { draftMatchupViewFromState, type DraftMatchupPickView } from "@/lib/matc
 import { DraftMatchupBoard, DraftPickSlot } from "@/components/match-draft/DraftMatchupBoard";
 import { MATCH_DRAFT_IMAGE_SIZES, MATCH_DRAFT_IMAGE_SIZE_ORDER } from "@/components/match-draft/matchDraftSizes";
 import type { DraftSide, MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftLayout, MatchDraftRow, MatchDraftSeriesFormat, MatchDraftState, OpenDraftLobbyHandle } from "@/lib/match-draft/types";
+import type { LeagueView } from "@/lib/league/context";
+import styles from "@/components/league/LeagueToolWorkspace.module.css";
 
 const sideClass: Record<DraftSide, string> = {
   blue: "border-cyan/50 bg-cyan/10 text-cyan",
@@ -233,6 +235,8 @@ export default function MatchDraftBoard({
   overlaySlotWidth = DEFAULT_OVERLAY_SLOT_WIDTH,
   tourneyCodes = {},
   reportHref = null,
+  league,
+  season,
   onSave,
 }: {
   initialState: MatchDraftState;
@@ -276,6 +280,9 @@ export default function MatchDraftBoard({
   /** Fixture drafts: where "Report this result" points once the series is
    *  decided — the fixture's league's captain page. */
   reportHref?: string | null;
+  /** Resolved from the fixture season; token lobbies omit league context. */
+  league?: LeagueView;
+  season?: string;
   onSave?: (state: MatchDraftState) => void | Promise<void>;
 }) {
   const supabase = useMemo(() => (onSave ? null : createClient()), [onSave]);
@@ -1802,9 +1809,10 @@ export default function MatchDraftBoard({
   }
 
   return (
-    <main className="page-container page-spacing-compact flex w-full flex-1 flex-col gap-4 page-backdrop text-white">
+    <main data-league={league} className={`${styles.workspace} mx-auto flex w-full max-w-[2400px] flex-1 flex-col gap-4 page-backdrop px-4 py-6 text-white md:px-6 lg:px-8`}>
       <header className="card-brand flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div>
+          {league ? <span className="label-dash">{league === "academy" ? "FPL Academy" : "Premier League"}{season ? ` · ${season}` : ""}</span> : null}
           <span className="label-dash">
             Bo{liveSeriesFormat.bestOf}{liveSeriesFormat.fearless ? " fearless" : ""} · Game {state.gameNumber}
             {lobby && winsA + winsB > 0

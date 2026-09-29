@@ -191,12 +191,12 @@ describe("FpldleBoard", () => {
     expect(currentRow.className).toContain("bg-coral/10");
   });
 
-  it("shows the substitute reminder at the top of the page", () => {
+  it("shows the substitute reminder after the player chooser", () => {
     render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
 
     expect(screen.getByRole("note").textContent).toContain("Possible players include substitutes (subs)");
     const reward = screen.getByRole("complementary", { name: "FPL'dle reward" }).textContent;
-    expect(reward).toContain("One shared reward a day");
+    expect(reward).toContain("per league and puzzle date");
     expect(reward).toContain("$200");
     expect(reward).toContain("$300");
     expect(screen.queryByRole("complementary", { name: "New feature announcement" })).toBeNull();
@@ -206,7 +206,7 @@ describe("FpldleBoard", () => {
     render(<FpldleBoard game={{ ...game(), patron: true }} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
 
     const reward = screen.getByRole("complementary", { name: "FPL'dle reward" }).textContent;
-    expect(reward).toContain("One shared reward a day");
+    expect(reward).toContain("per league and puzzle date");
     expect(reward).toContain("$200");
     expect(reward).toContain("$300");
   });
@@ -219,14 +219,15 @@ describe("FpldleBoard", () => {
     expect(sections[1]?.querySelector('[aria-label="FPL\'dle guesses"]')).toBeTruthy();
   });
 
-  it("uses a wide aligned board without horizontal overflow", () => {
+  it("keeps the clue table readable in a labelled horizontal scroll region", () => {
     render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
 
     const main = screen.getByRole("main");
     const header = screen.getByText("Team").parentElement;
     const firstRow = screen.getByLabelText("FPL'dle guesses").firstElementChild;
-    expect(main.className).toContain("page-container");
-    expect(main.querySelector(".overflow-x-auto")).toBeNull();
+    expect(main.className).toContain("max-w-[1800px]");
+    expect(screen.getByRole("region", { name: "Guess history; scroll horizontally to read every clue" })).toBeTruthy();
+    expect(main.querySelector(".overflow-x-auto")).toBeTruthy();
     expect(header?.className).toContain("grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))]");
     expect(firstRow?.className).toContain("grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))]");
   });

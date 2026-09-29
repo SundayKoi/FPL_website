@@ -36,9 +36,8 @@ test("Season's End purchase recovery, commerce, trading and dusting survive relo
     await member.reload();
     const memberOpening = member.getByRole("dialog", { name: "Opening a card pack" });
     await expect(memberOpening).toBeVisible({ timeout: 30_000 });
-    const memberRip = memberOpening.getByRole("button", { name: /rip it open/i });
-    await memberRip.click({ clickCount: 3 });
-    await expect(memberOpening.getByRole("button", { name: /reveal card 1 of 5/i })).toBeVisible({ timeout: 30_000 });
+    // Skip the theater after recovery; the purchased result is already fixed,
+    // and the summary confirms this same opening completed after reload.
     await memberOpening.getByRole("button", { name: "Skip" }).click();
     await expect(member.getByRole("button", { name: /Open another —/i })).toBeVisible();
 

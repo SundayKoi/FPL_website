@@ -17,6 +17,7 @@ import { fetchChampionSkinCatalog, type ChampionSkin } from "@/lib/packs/skins";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { patronActive } from "@/lib/patron/flames";
+import styles from "@/components/cards/CardsPageShell.module.css";
 
 /** The card's recorded weekly readings — the season arc. Tier changes get a
  *  highlighted marker. Hidden until two points exist.
@@ -280,14 +281,14 @@ export default async function CardSharePage({
 
   if (!card) {
     return (
-      <main className="page-container page-spacing page-backdrop flex flex-1 flex-col items-center justify-center gap-4 text-center">
+      <main className={styles.page + " " + styles.standalone + " items-center justify-center gap-4 px-6 py-24 text-center page-backdrop"} data-league="neutral">
         <span className="label-dash">Player cards</span>
-        <h1 className="type-display text-3xl">Card not found</h1>
+        <h1 className={styles.title}>Card not found</h1>
         <p className="max-w-md text-sm text-muted">
           No rated player matches this link for the current season — cards exist once a player has
           ingested games.
         </p>
-        <Link href="/" className="btn-pill mt-2">Back to FPL</Link>
+        <Link href="/cards/browse" className="btn-pill mt-2">Browse cards</Link>
       </main>
     );
   }
@@ -324,13 +325,13 @@ export default async function CardSharePage({
   const collectionBase = collectionHref;
 
   return (
-    <main className="page-container page-spacing page-backdrop flex flex-1 flex-col items-center gap-6 text-white">
+    <main className={styles.page + " " + styles.standalone + " items-center gap-6 px-4 py-12 text-white page-backdrop"} data-league={loaded?.league ?? "neutral"}>
       <div className="w-full max-w-4xl">
         <BackLink href={`${collectionHref}/browse`} label="All cards" />
       </div>
       <header className="text-center">
         <span className="label-dash">FPL player card · Season {card.season}</span>
-        <h1 className="type-display mt-2 text-4xl">{card.name}</h1>
+        <h1 className={styles.title}>{card.name}</h1>
       </header>
       <PlayerCard3D card={card} edition={edition} reveal bloom gyro />
       <TiltHint />

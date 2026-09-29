@@ -46,7 +46,7 @@ describe("BangerBoard saved votes", () => {
     );
 
     expect(screen.getByRole("heading", { name: "The Daily Stu" })).toBeTruthy();
-    expect(screen.getByText("Vote once a day → get $200")).toBeTruthy();
+    expect(screen.getByText("Vote once a day · $200 reward")).toBeTruthy();
     await waitFor(() => expect(screen.getByText(/^Resets (?!at your local time)/)).toBeTruthy());
   });
 
@@ -212,7 +212,7 @@ describe("BangerBoard vote feedback", () => {
       />,
     );
 
-    expect(screen.getByText("Vote once a day → get $300")).toBeTruthy();
+    expect(screen.getByText("Vote once a day · $300 reward")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Banger/ }));
     await waitFor(() => expect(screen.getByText("Vote locked in — $300 added to your wallet.")).toBeTruthy());
     expect(screen.getByText("✓ $300 bonus claimed")).toBeTruthy();

@@ -38,6 +38,10 @@ test("two captains run one auction to settlement", async ({ captains: [cap1, cap
   // Captain 1 (E2E Alpha, on the clock) nominates Mid1 explicitly — the
   // picker lists players alphabetically, so "first button" is not stable.
   // Nominating opens the branded confirm modal; confirm it.
+  const nominationAlert = cap1.getByRole("dialog", { name: "Your nomination" });
+  if (await nominationAlert.count()) {
+    await nominationAlert.getByRole("button", { name: "Pick my player" }).click();
+  }
   await cap1.getByRole("button", { name: /^Nominate Mid1/ }).click();
   await cap1.getByRole("dialog").getByRole("button", { name: "Nominate", exact: true }).click();
 

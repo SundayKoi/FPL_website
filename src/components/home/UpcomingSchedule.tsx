@@ -169,7 +169,7 @@ export default function UpcomingSchedule({
       ) : (
         <div className={workspace ? styles.rows : "border-t border-border-subtle/60"}>
           {schedule.fixtures.map((fixture) => (
-            <FixtureCard key={fixture.id} fixture={fixture} identities={identities} teamBasePath={teamBasePath} />
+            <FixtureCard key={fixture.id} fixture={fixture} identities={identities} teamBasePath={teamBasePath} appearance={appearance} />
           ))}
         </div>
       )}

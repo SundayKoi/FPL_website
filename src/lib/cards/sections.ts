@@ -128,10 +128,14 @@ export function activeCardsSection(
 }
 
 /**
- * The same page in the other league: the bases swap and the rest of the
- * path rides along, because every cards page exists under both.
+ * The same cards destination in the other league. Opaque Season's End copy
+ * IDs and the legacy claims redirect do not have a guaranteed counterpart,
+ * so they land on the destination catalog/home instead of replaying IDs.
  */
 export function pairedCardsHref(pathname: string, from: string, to: string): string {
   if (!isUnder(pathname, from)) return to;
-  return `${to}${pathname.slice(from.length)}`;
+  const suffix = pathname.slice(from.length);
+  if (suffix === "/claims" || suffix.startsWith("/claims/")) return to;
+  if (/^\/season-end\/copy\/[^/]+\/?$/.test(suffix)) return to + "/season-end";
+  return to + suffix;
 }

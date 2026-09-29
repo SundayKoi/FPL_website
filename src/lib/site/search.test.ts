@@ -4,7 +4,7 @@ import { normalizeQuery, createSearch, type SearchItem } from "./search";
 const ITEMS: SearchItem[] = [
   { kind: "page", label: "Stats", href: "/stats", hint: "League" },
   { kind: "page", label: "The Vault", href: "/cards/vault", hint: "Cards", keywords: ["eclipse", "one of one"] },
-  { kind: "page", label: "Patrons", href: "/supporters", hint: "Info", keywords: ["flame holders", "supporters"] },
+  { kind: "page", label: "Membership & support", href: "/membership#patrons", hint: "About", keywords: ["flame holders", "supporters"] },
   { kind: "player", label: "Doug", href: "/players/Doug%23NA1", hint: "#NA1" },
   { kind: "player", label: "Douglas", href: "/players/Douglas%23EUW", hint: "Player" },
   { kind: "team", label: "Neon Dynasty", href: "/teams/neon-dynasty", hint: "Team" },
@@ -29,7 +29,7 @@ describe("createSearch", () => {
   });
 
   it("finds a page by what people call it", () => {
-    expect(search("supporters")[0]?.label).toBe("Patrons");
+    expect(search("supporters")[0]?.href).toBe("/membership#patrons");
     expect(search("eclipse")[0]?.label).toBe("The Vault");
   });
 

@@ -86,16 +86,16 @@ function GauntletPlayoffFigure() {
 export default function RulebookContent() {
   return (
     <article
-      aria-labelledby="rulebook-title"
+      aria-labelledby="rulebook-document-title"
       className="space-y-10 text-sm leading-7 sm:text-base"
     >
       <header className="space-y-4">
-        <h1
-          id="rulebook-title"
-          className="scroll-mt-24 font-display text-4xl font-semibold text-white sm:text-5xl"
+        <h2
+          id="rulebook-document-title"
+          className="scroll-mt-24 border-b border-border-subtle pb-3 font-display text-2xl font-semibold text-white sm:text-3xl"
         >
           Franchise Premier League(FPL)–Official Premier Rulebook Split 5
-        </h1>
+        </h2>
       </header>
 
       <section aria-labelledby="league-overview" className="space-y-5">

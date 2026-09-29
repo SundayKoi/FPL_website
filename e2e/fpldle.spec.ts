@@ -1,8 +1,11 @@
 import { expect } from "@playwright/test";
-import { seedFixture, test } from "./fixtures";
+import { signIn, seedFixture, test } from "./fixtures";
+import { BETTING_ADMIN_EMAIL, BETTING_PASSWORD } from "../scripts/betting-fixture";
 
 test("seeded Premier and Academy puzzles can be solved", async ({ page }) => {
+  seedFixture("betting");
   seedFixture("fpldle");
+  await signIn(page, BETTING_ADMIN_EMAIL, BETTING_PASSWORD, "/fpldle");
 
   for (const puzzle of [
     { path: "/fpldle", name: "Premier Smoke" },

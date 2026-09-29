@@ -152,7 +152,7 @@ export default function SeasonEndOwnedShelf({ owned, base }: { owned: OwnedRelea
                       <div className="flex w-full flex-col items-center gap-2 px-1 text-center">
                         <p className="text-xs text-steel">Copy <span className="font-semibold text-white">#{copy.inventoryId}</span> · {finishLabel(copy)}</p>
                         <div className="flex flex-wrap items-center justify-center gap-2">
-                          <Link href={`${base}/season-end/copy/${copy.inventoryId}`} className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-coral transition hover:border-coral/70 hover:bg-coral/10">
+                          <Link href={`${base}/season-end/copy/${copy.inventoryId}`} aria-label={`View copy #${copy.inventoryId}`} className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-coral transition hover:border-coral/70 hover:bg-coral/10">
                             View copy
                           </Link>
                           <SeasonEndDustButton inventoryId={copy.inventoryId} />

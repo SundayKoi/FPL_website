@@ -110,9 +110,10 @@ export function BetPanel({
         ))}
       </div>
       <div className="mt-3 flex items-center justify-between text-sm" data-testid="payout">
-        <span className="text-muted">Win payout</span>
+        <span className="text-muted">Est. net profit</span>
         <span className="font-display font-bold not-italic text-mint">+{fmtPoints(profit)}</span>
       </div>
+      <p className="mt-1 text-xs leading-5 text-muted">At the current pool split. A winning bet also returns its stake.</p>
       {tooBig && <div role="alert" className="mt-2 text-xs text-red-400">Over balance</div>}
       {error && <div role="alert" className="mt-2 text-xs text-red-400">{error}</div>}
       <button

@@ -22,6 +22,7 @@ export interface BroadcasterWorkspaceProps {
   teamA: ScoutSource;
   teamB: ScoutSource;
   playerDetails?: BroadcasterPlayerDetails[];
+  showLeagueSelector?: boolean;
 }
 
 const leagueLinks: { league: LeagueView; label: string; href: string }[] = [
@@ -36,6 +37,7 @@ export default function BroadcasterWorkspace({
   teamA,
   teamB,
   playerDetails,
+  showLeagueSelector = true,
 }: BroadcasterWorkspaceProps) {
   const [tab, setTab] = useState<WorkspaceTab>("team-a");
   const [scope, setScope] = useState<ScoutScope>("season");
@@ -76,21 +78,23 @@ export default function BroadcasterWorkspace({
         headToHeadTriggerRef={headToHeadTriggerRef}
       />
 
-      <nav aria-label="League" className="inline-flex gap-1 rounded-md border border-border-strong bg-canvas p-1">
-        {leagueLinks.map((link) => {
-          const active = link.league === league;
-          return <Link
-            key={link.league}
-            href={link.href}
-            aria-current={active ? "page" : undefined}
-            className={`inline-flex items-center justify-center rounded px-4 py-2 text-xs uppercase tracking-[0.14em] transition ${
-              active ? "bg-action-fill font-bold text-white" : "text-muted/60 hover:bg-surface hover:text-action-text"
-            }`}
-          >
-            {link.label}
-          </Link>;
-        })}
-      </nav>
+      {showLeagueSelector ? (
+        <nav aria-label="League" className="inline-flex gap-1 rounded-md border border-border-strong bg-canvas p-1">
+          {leagueLinks.map((link) => {
+            const active = link.league === league;
+            return <Link
+              key={link.league}
+              href={link.href}
+              aria-current={active ? "page" : undefined}
+              className={`inline-flex items-center justify-center rounded px-4 py-2 text-xs uppercase tracking-[0.14em] transition ${
+                active ? "bg-action-fill font-bold text-white" : "text-muted/60 hover:bg-surface hover:text-action-text"
+              }`}
+            >
+              {link.label}
+            </Link>;
+          })}
+        </nav>
+      ) : null}
 
       <div className="card-brand p-2">
         <div role="tablist" aria-label="Broadcaster workspace" className="flex flex-wrap gap-1">

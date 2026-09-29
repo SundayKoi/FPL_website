@@ -2,7 +2,9 @@ import type { ReactNode } from "react";
 import type { RosterTeamView } from "@/lib/draft/types";
 import type { RosterClaimTarget } from "@/lib/teams/rosterClaims";
 import { DIVISIONS, type Division } from "@/lib/schedule/types";
+import LeaguePageShell from "@/components/league/LeaguePageShell";
 import TeamRosterCard from "./TeamRosterCard";
+import styles from "./TeamsDirectory.module.css";
 
 type LeagueView = "premier" | "academy";
 
@@ -25,7 +27,6 @@ export default function TeamsDirectory({
 }) {
   const isAcademy = league === "academy";
   const leagueLabel = isAcademy ? "Academy" : "Premier";
-  const title = `${leagueLabel} Teams`;
   const sections: { label: string; division: Division | null }[] = [
     { label: DIVISIONS[1], division: DIVISIONS[1] },
     { label: DIVISIONS[0], division: DIVISIONS[0] },
@@ -33,42 +34,53 @@ export default function TeamsDirectory({
   ];
 
   return (
-    <main className="page-backdrop flex-1">
-      <div className="page-container page-spacing w-full">
-        <header className="flex flex-col gap-6 border-b border-border-subtle pb-8 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <span className="label-dash">{leagueLabel.toUpperCase()} LEAGUE ROSTERS</span>
-            <h1 className="type-display mt-3 text-5xl sm:text-6xl">{title}</h1>
-            <hr className="accent-rule mt-5 w-48 sm:w-64" />
-            <p className="mt-4 max-w-2xl text-lg leading-8 text-muted">
-              {isPreview
-                ? `Preview the ${leagueLabel.toLowerCase()} roster format with placeholder names and positions.`
-                : `Showing the ${draftName ?? "selected"} ${leagueLabel.toLowerCase()} roster.`}
-            </p>
-            <span className="mt-4 inline-flex rounded-full border border-league-accent/50 bg-league-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-league-accent">
-              {isPreview ? "PREVIEW DATA" : draftName}
-            </span>
-          </div>
-          {adminControls ? <div className="flex shrink-0 items-center gap-3">{adminControls}</div> : null}
-        </header>
+    <LeaguePageShell
+      league={league}
+      title={`${leagueLabel} teams`}
+      season={draftName}
+      activeSection="teams"
+      description={
+        isPreview
+          ? `Preview the ${leagueLabel.toLowerCase()} roster format with placeholder names and positions.`
+          : `Teams and player rosters for ${draftName ?? `the selected ${leagueLabel.toLowerCase()} draft`}.`
+      }
+    >
+      {isPreview ? (
+        <p className={styles.previewNotice}>
+          <strong>Preview data.</strong> Team names and player positions are placeholders.
+        </p>
+      ) : null}
 
-        <section aria-label="Team rosters" className="mt-10">
-          {rosterContent ?? sections.map((section) => {
-            const sectionTeams = teams.filter((team) => (team.division ?? null) === section.division);
-            if (!sectionTeams.length) return null;
-            return (
-              <div key={section.label} className="mb-10 last:mb-0">
-                <h2 className="label-dash mb-4 text-xl text-white">{section.label}</h2>
-                <div className="team-directory-grid">
-                  {sectionTeams.map((team) => (
-                    <TeamRosterCard key={team.id} team={team} league={league} playerClaims={playerClaims} />
-                  ))}
-                </div>
+      <section aria-label="Team rosters" className={styles.directory}>
+        {sections.map((section) => {
+          const sectionTeams = teams.filter((team) => (team.division ?? null) === section.division);
+          if (!sectionTeams.length) return null;
+          return (
+            <section key={section.label} aria-labelledby={`division-${section.label}`} className={styles.division}>
+              <h2 id={`division-${section.label}`} className={styles.divisionTitle}>{section.label}</h2>
+              <div className={styles.teamGrid}>
+                {sectionTeams.map((team) => (
+                  <TeamRosterCard
+                    key={team.id}
+                    team={team}
+                    league={league}
+                    appearance="league"
+                    playerClaims={playerClaims}
+                  />
+                ))}
               </div>
-            );
-          })}
-        </section>
-      </div>
-    </main>
+            </section>
+          );
+        })}
+      </section>
+
+      {adminControls || rosterContent ? (
+        <details className={styles.management}>
+          <summary>Team management</summary>
+          {adminControls ? <div className={styles.managementControls}>{adminControls}</div> : null}
+          {rosterContent ? <div className={styles.managementEditor}>{rosterContent}</div> : null}
+        </details>
+      ) : null}
+    </LeaguePageShell>
   );
 }

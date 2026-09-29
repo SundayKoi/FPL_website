@@ -112,6 +112,9 @@ for (const persona of PERSONAS) {
       page.on("pageerror", (error) => errors.push(error.message.split("\n")[0]));
       await page.setViewportSize(viewport);
       await page.goto(`/admin/expedition-board?persona=${persona}`);
+      // The dev server can briefly keep its hidden loading tree beside the
+      // rendered page. Wait for the route to settle before using strict locators.
+      await expect(page.getByTestId("expedition-board")).toHaveCount(1);
       await expect(page.getByTestId("expedition-board")).toBeVisible();
       await page.waitForLoadState("networkidle");
       // Every run card's map measured and drawn in the frame that fits it.

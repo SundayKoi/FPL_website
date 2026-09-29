@@ -13,6 +13,8 @@
 import { cardsSections } from "@/lib/cards/sections";
 import type { LeagueView } from "@/lib/league/context";
 import { leaguePath } from "@/lib/league/links";
+import { ABOUT_DESTINATIONS } from "@/lib/site/about";
+import { playDestinationHref } from "@/lib/play/destinations";
 
 export interface SiteDestination {
   label: string;
@@ -97,17 +99,16 @@ function cardsGroup(view: LeagueView): SiteGroup {
 }
 
 function premiumGroup(view: LeagueView): SiteGroup {
-  const premiumHref = view === "academy" ? "/premium?league=academy" : "/premium";
   return {
     key: "premium",
     label: "Premium",
     blurb: "The extras: betting dollars, the show, the drafter",
     items: [
-      { label: "Premium HQ", href: premiumHref, blurb: "Everything premium in one place", keywords: ["premium hub"] },
-      { label: "Betting", href: "/betting", blurb: "Bet betting dollars on the week's games", keywords: ["bets", "pickems", "props", "wallet", "dollars"], gated: true },
+      { label: "Premium HQ", href: playDestinationHref("premium", view), blurb: "Everything premium in one place", keywords: ["premium hub"] },
+      { label: "Betting", href: playDestinationHref("betting", view), blurb: "Bet betting dollars on the week's games", keywords: ["bets", "pickems", "props", "wallet", "dollars"], gated: true },
       { label: "Betting leaderboard", href: "/betting/leaderboard", blurb: "Who has the most betting dollars", keywords: ["richest"], gated: true },
       { label: "Your betting profile", href: "/betting/profile", blurb: "Your bets, your record, your ledger", nested: true, keywords: ["my bets", "history"], gated: true },
-      { label: "The Daily Stu", href: "/bangers", blurb: "The show, every day", keywords: ["bangers", "podcast", "stu"], gated: true },
+      { label: "The Daily Stu", href: playDestinationHref("daily-stu", view), blurb: "The show, every day", keywords: ["bangers", "podcast", "stu"], gated: true },
       { label: "Match Drafter", href: "/drafter", blurb: "Run a pick-ban draft with friends", keywords: ["pick ban", "draft tool", "lobby"], gated: true },
       { label: "Skin lines", href: "/skin-lines", blurb: "The parallels patrons are voting on", nested: true, keywords: ["parallels", "foils", "mockups"], gated: true },
     ],
@@ -115,33 +116,34 @@ function premiumGroup(view: LeagueView): SiteGroup {
 }
 
 function dailyGroup(view: LeagueView): SiteGroup {
-  const prefix = view === "academy" ? "/academy" : "";
   return {
     key: "daily",
     label: "Daily games",
-    blurb: "One a day, for the whole league — reset at midnight Eastern",
+    blurb: "Daily puzzles share a reward by league and Eastern puzzle date",
     items: [
-      { label: "FPL'dle", href: `${prefix}/fpldle`, blurb: "Guess the player of the day", keywords: ["wordle", "fpldle", "daily puzzle"], gated: true },
-      { label: "Higher or Lower", href: `${prefix}/higher-lower`, blurb: "Which card rates higher? Keep the streak alive", keywords: ["higher lower", "streak"], gated: true },
+      { label: "FPL'dle", href: playDestinationHref("fpldle", view), blurb: "Find today's league player in five guesses", keywords: ["wordle", "fpldle", "daily puzzle"], gated: true },
+      { label: "Higher or Lower", href: playDestinationHref("higher-lower", view), blurb: "Call whether the challenger card rates higher or lower", keywords: ["higher lower", "run score"], gated: true },
     ],
   };
 }
 
 const INFO_GROUP: SiteGroup = {
   key: "info",
-  label: "Info",
-  blurb: "How the league works and how to be part of it",
+  label: "About",
+  blurb: "How FPL works, its rules, and ways to take part",
   items: [
-    { label: "About the league", href: "/info", blurb: "What FPL is and how a season runs", keywords: ["info", "about", "faq"] },
-    { label: "Premium & Patron", href: "/membership", blurb: "What each costs, what each gets you, how to get it", keywords: ["premium", "patron", "price", "membership", "how to get premium", "role"] },
-    { label: "Betting dollars", href: "/economy", blurb: "Every way to earn them and spend them, with the figures", keywords: ["economy", "money", "earn", "wallet", "daily", "weekly"] },
-    { label: "Glossary", href: "/glossary", blurb: "Shine, dust, relic, binder — the words, explained", keywords: ["shine", "dust", "relic", "terms", "what is"] },
-    { label: "Sign Up", href: "/signup", blurb: "Register to play next season", keywords: ["register", "join"] },
-    { label: "Rulebook", href: "/rulebook", blurb: "Every rule, in one place", keywords: ["rules"] },
-    { label: "League Links", href: "/league-links", blurb: "Discord, Twitch, the sheets, and the rest", keywords: ["discord", "twitch", "links"] },
+    { ...ABOUT_DESTINATIONS[0], blurb: "What FPL is, how to join the Premier player pool, and shared resources", keywords: ["info", "about", "faq"] },
+    { ...ABOUT_DESTINATIONS[1], blurb: "The complete official rulebook", keywords: ["rules", "rulebook"] },
+    { ...ABOUT_DESTINATIONS[2], blurb: "What is free, what Premium opens, and how patronage supports FPL", keywords: ["premium", "patron", "patrons", "supporters", "price", "membership", "how to get premium", "role", "perks"] },
+    { ...ABOUT_DESTINATIONS[3], blurb: "Every way to earn and spend play money, with a glossary of card terms", keywords: ["economy", "money", "betting dollars", "earn", "wallet", "daily", "weekly"] },
+    { label: "Sign up", href: "/signup", blurb: "Open the current Premier player-pool signup form", keywords: ["register", "join", "registration"], nested: true },
+    { label: "League resources", href: "/info#league-resources", blurb: "Open the shared links and documents", keywords: ["league links", "masterdoc", "discord", "twitch", "sheets", "resources"], nested: true },
+    { label: "Developer support", href: "/membership#support-devs", blurb: "Find PayPal and Venmo options for supporting the developers", keywords: ["donate", "donation", "tip", "paypal", "venmo", "support the devs"], nested: true },
+    { label: "Current patrons", href: "/membership#patrons", blurb: "See active public patron listings", keywords: ["supporters", "flame holders", "patron list"], nested: true },
+    { label: "Card terms", href: "/economy#glossary", blurb: "Definitions for shine, dust, relics, binders, and more", keywords: ["glossary", "terms", "shine", "dust", "relic", "what is"], nested: true },
+    { label: "Dust", href: "/economy#term-dust", blurb: "What dust is and how dusting works", keywords: ["dust glossary", "dust definition"], nested: true },
+    { label: "Shine", href: "/economy#shine", blurb: "What shine is and where cards use it", keywords: ["shine definition", "what is shine"], nested: true },
     { label: "Identity claims", href: "/identity-claims", blurb: "Roster identity requests waiting on a captain or admin", nested: true, keywords: ["riot id", "claim identity", "verify"] },
-    { label: "Patrons", href: "/supporters", blurb: "The Flame Holders who keep the lights on", keywords: ["supporters", "patron", "flame holders", "perks"] },
-    { label: "Support the Devs", href: "/support-devs", blurb: "Chip in for the people who build the site", keywords: ["donate", "tip"] },
   ],
 };
 

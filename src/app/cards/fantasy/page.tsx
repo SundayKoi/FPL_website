@@ -93,7 +93,7 @@ export async function FantasyPageView({
     return (
       <main className="page-container page-spacing bg-hash flex flex-1 flex-col items-center justify-center gap-4 text-center">
         <span className="label-dash">Fantasy</span>
-        <h1 className="type-display text-3xl sm:text-4xl">No season yet</h1>
+        <h1 className="text-3xl sm:text-4xl">No season yet</h1>
         <p className="max-w-md text-sm text-steel">Fantasy opens once a season is set up for this league.</p>
       </main>
     );

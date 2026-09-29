@@ -60,33 +60,14 @@ describe("AcademyPlayersPage", () => {
     directoryProps.mockReset();
   });
 
-  it("loads academy canonical player-pool rows and enables editing for admins", async () => {
-    const playerPoolQuery = query({
-      data: [
-        {
-          id: "academy-1",
-          season_key: "academy-1",
-          display_name: "Academy Canon",
-          role: "top",
-          rank: "E1",
-          opgg_url: "https://op.gg/academy-canon",
-        },
-      ],
-      error: null,
-    });
+  it("links admins to the dedicated Academy player workspace", async () => {
     const profileQuery = query({ data: { is_admin: true }, error: null });
     const from = vi.fn((table: string) => {
-      if (table === "player_pool") return playerPoolQuery;
       if (table === "league_settings") {
         return query({ data: { current_season: "S5", academy_season: "A1" }, error: null });
       }
-      if (table === "player_identity_links") return query({ data: [], error: null });
       if (table === "profiles") {
-        return {
-          select: (columns: string) => columns === "is_admin"
-            ? profileQuery
-            : query({ data: [], error: null }),
-        };
+        return { select: (columns: string) => columns.includes("is_admin") ? profileQuery : query({ data: [], error: null }) };
       }
       return query({ data: null, error: null });
     });
@@ -100,39 +81,15 @@ describe("AcademyPlayersPage", () => {
 
     render(await AcademyPlayersPage());
 
-    expect(from).toHaveBeenCalledWith("player_pool");
-    expect(playerPoolQuery.eq).toHaveBeenCalledWith("season_key", "academy-1");
-    expect(profileQuery.eq).toHaveBeenCalledWith("id", "admin-1");
-    expect(directoryProps).toHaveBeenCalledWith(
-      expect.objectContaining({
-        canonicalPlayers: [
-          expect.objectContaining({ display_name: "Academy Canon", season_key: "academy-1" }),
-        ],
-        isAdmin: true,
-        poolSeasonKey: "academy-1",
-      }),
-    );
-    expect(screen.getByRole("button", { name: "Edit Player Pool" })).toBeTruthy();
+    expect(from).not.toHaveBeenCalledWith("player_pool");
+    expect(directoryProps).toHaveBeenCalledWith(expect.objectContaining({ isAdmin: false, poolSeasonKey: "academy-1" }));
+    expect(screen.getByRole("link", { name: /manage the academy player pool in admin/i }).getAttribute("href"))
+      .toBe("/admin/league/players?league=academy");
+    expect(screen.queryByRole("button", { name: "Edit Player Pool" })).toBeNull();
   });
 
   it("keeps academy player-pool editing hidden for non-admins", async () => {
     const from = vi.fn((table: string) => {
-      if (table === "player_pool") {
-        return query({
-          data: [
-            {
-              id: "academy-1",
-              season_key: "academy-1",
-              display_name: "Academy Canon",
-              role: "top",
-              rank: "E1",
-              opgg_url: "https://op.gg/academy-canon",
-            },
-          ],
-          error: null,
-        });
-      }
-
       if (table === "league_settings") {
         return query({ data: { current_season: "S5", academy_season: "A1" }, error: null });
       }
@@ -151,30 +108,10 @@ describe("AcademyPlayersPage", () => {
 
     expect(screen.queryByRole("button", { name: "Edit Player Pool" })).toBeNull();
     expect(from).not.toHaveBeenCalledWith("player_identity_links");
-    expect(directoryProps).toHaveBeenCalledWith(
-      expect.objectContaining({
-        isAdmin: false,
-        identitySeason: undefined,
-        identityLinks: undefined,
-        identityProfiles: undefined,
-      }),
-    );
+    expect(directoryProps).toHaveBeenCalledWith(expect.objectContaining({ isAdmin: false }));
   });
 
-  it("passes active Academy identity data to the admin editor", async () => {
-    const playerPoolQuery = query({
-      data: [
-        {
-          id: "academy-player-1",
-          season_key: "academy-1",
-          display_name: "Academy Canon",
-          role: "top",
-          rank: "E1",
-          opgg_url: "https://op.gg/academy-canon",
-        },
-      ],
-      error: null,
-    });
+  it("keeps Academy identity administration in the dedicated player workspace", async () => {
     const identityQuery = query({
       data: [
         {
@@ -187,15 +124,13 @@ describe("AcademyPlayersPage", () => {
       error: null,
     });
     const from = vi.fn((table: string) => {
-      if (table === "player_pool") return playerPoolQuery;
       if (table === "league_settings") {
         return query({ data: { current_season: "S5", academy_season: "A2" }, error: null });
       }
-      if (table === "player_identity_links") return identityQuery;
       if (table === "profiles") {
         return {
           select: (columns: string) => {
-            if (columns === "is_admin") {
+            if (columns.includes("is_admin")) {
               return query({ data: { is_admin: true }, error: null });
             }
             return query({
@@ -217,18 +152,10 @@ describe("AcademyPlayersPage", () => {
 
     render(await AcademyPlayersPage());
 
-    expect(identityQuery.eq).toHaveBeenCalledWith("league", "academy");
-    expect(identityQuery.eq).toHaveBeenCalledWith("season", "A2");
-    expect(directoryProps).toHaveBeenCalledWith(
-      expect.objectContaining({
-        identitySeason: "A2",
-        identityLinks: [
-          expect.objectContaining({ id: "academy-link-1", profileId: "profile-2", status: "pending" }),
-        ],
-        identityProfiles: [
-          { id: "profile-2", displayName: "Academy Verified", discordId: "333333" },
-        ],
-      }),
-    );
+    expect(from).not.toHaveBeenCalledWith("player_identity_links");
+    expect(identityQuery.eq).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: /manage the academy player pool in admin/i }).getAttribute("href"))
+      .toBe("/admin/league/players?league=academy");
+    expect(directoryProps).toHaveBeenCalledWith(expect.objectContaining({ isAdmin: false }));
   });
 });

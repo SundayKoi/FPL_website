@@ -1,0 +1,126 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(190px, 220px) minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(24px, 4vw, 48px);
+}
+
+.desktopContents {
+  position: sticky;
+  top: 112px;
+  max-height: calc(100vh - 128px);
+  overflow-y: auto;
+  padding-right: 12px;
+}
+
+.contentsTitle {
+  margin: 0 0 12px;
+  color: #aaa6b7;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sectionLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sectionLinks a {
+  display: block;
+  border-left: 1px solid #34313f;
+  padding: 7px 10px;
+  color: #aaa6b7;
+  font-size: 13px;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.sectionLinks a:hover {
+  border-left-color: #9dc4dc;
+  color: #f2f0f8;
+}
+
+.sectionLinks a:focus-visible,
+.mobileContents summary:focus-visible {
+  outline: 2px solid #9dc4dc;
+  outline-offset: 3px;
+}
+
+.mobileContents {
+  display: none;
+}
+
+.article {
+  min-width: 0;
+}
+
+.article :global(article) {
+  max-width: 78ch;
+}
+
+.article :global(h2),
+.article :global(h3) {
+  scroll-margin-top: 100px;
+}
+
+.article :global(p),
+.article :global(li) {
+  line-height: 1.75;
+}
+
+.article :global(figure) {
+  border-color: #34313f;
+  background: #15131b;
+}
+
+.article :global(a) {
+  color: #9dc4dc;
+}
+
+.article :global(a:focus-visible) {
+  outline: 2px solid #9dc4dc;
+  outline-offset: 3px;
+}
+
+@media (max-width: 850px) {
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .desktopContents {
+    display: none;
+  }
+
+  .mobileContents {
+    display: block;
+    border-block: 1px solid #34313f;
+    padding-block: 12px;
+  }
+
+  .mobileContents summary {
+    cursor: pointer;
+    color: #9dc4dc;
+    font-size: 14px;
+    font-weight: 650;
+  }
+
+  .mobileContents .sectionLinks {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px 12px;
+    margin-top: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mobileContents .sectionLinks {
+    grid-template-columns: 1fr;
+  }
+}

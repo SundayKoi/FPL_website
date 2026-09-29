@@ -6,7 +6,7 @@ export type MatchDraftStatus = "drafting" | "complete";
 export type MatchDraftLayout = "stage" | "board";
 export type MatchDraftImageSize = "md" | "lg";
 
-export interface MatchDraftTeam extends TeamIdentity {
+export interface MatchDraftTeam extends Omit<TeamIdentity, "bannerColor"> {
   players: string[];
 }
 

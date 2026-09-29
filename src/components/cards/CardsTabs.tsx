@@ -1,29 +1,19 @@
 "use client";
 
-// The tab bar on every cards page.
-//
-// Two rows: the six tabs, and — when the tab you are on has pages under it
-// — those pages. It replaces the hub's thirteen-link menu and the "← Back
-// to player cards" link that was the only way off every sub-page. On a
-// phone each row scrolls sideways rather than wrapping into three, so the
-// bar stays a bar. Switching league is the header's job (the brand chooser
-// pairs every cards page), so there is one switcher on the page, not two.
-
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import BalanceChip from "@/components/BalanceChip";
 import type { CardLeague } from "@/lib/cards/queries";
 import { activeCardsSection, cardsSections } from "@/lib/cards/sections";
-import BalanceChip from "@/components/BalanceChip";
+import styles from "./CardsTabs.module.css";
 
 const BASES: Record<CardLeague, string> = { premier: "/cards", academy: "/academy/cards" };
 
 function Badge({ count, label }: { count: number; label: string }) {
   if (count <= 0) return null;
   return (
-    <span
-      aria-label={`${count} ${label}`}
-      className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-coral px-1 font-mono text-[10px] font-bold leading-none text-navy"
-    >
+    <span aria-label={count + " " + label} className={styles.badge}>
       {count > 9 ? "9+" : count}
     </span>
   );
@@ -36,25 +26,33 @@ export default function CardsTabs({
   forks = 0,
 }: {
   league: CardLeague;
-  /** The viewer's betting dollars, or null when signed out. Shown at the
-   *  end of the bar: four cards pages spend them and none showed them. */
+  /** The viewer's betting dollars, or null when signed out. */
   balance?: number | null;
-  /** Trade offers waiting on the viewer — a badge on Market and on the
-   *  Trade offers sub-tab, the only in-app sign that anyone wants a word. */
+  /** Trade offers waiting on the viewer. */
   offers?: number;
-  /** Expedition forks waiting on the viewer — a badge on Play and on the
-   *  Expeditions sub-tab. A squad is standing still until they answer. */
+  /** Expedition forks waiting on the viewer. */
   forks?: number;
 }) {
   const pathname = usePathname() ?? BASES[league];
+  const [hash, setHash] = useState("");
+  useEffect(() => {
+    const syncHash = () => setHash(window.location.hash);
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    window.addEventListener("popstate", syncHash);
+    return () => {
+      window.removeEventListener("hashchange", syncHash);
+      window.removeEventListener("popstate", syncHash);
+    };
+  }, [pathname]);
   const base = BASES[league];
   const sections = cardsSections(base);
   const { section: active, child: activeChild } = activeCardsSection(sections, pathname);
 
   return (
-    <nav aria-label="Cards" className="border-b border-line bg-panel/60">
-      <div className="page-container flex w-full items-center gap-3 py-2">
-        <ul className="flex min-w-0 items-center gap-1 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,black_88%,transparent)] sm:flex-wrap sm:overflow-visible sm:pb-0 sm:[mask-image:none]">
+    <nav aria-label="Cards" className={styles.navigation} data-league={league}>
+      <div className={styles.row}>
+        <ul className={styles.list}>
           {sections.map((section) => {
             const current = active?.key === section.key;
             return (
@@ -63,9 +61,7 @@ export default function CardsTabs({
                   href={section.href}
                   aria-current={current ? "page" : undefined}
                   title={section.blurb}
-                  className={`inline-block shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral sm:text-sm ${
-                    current ? "bg-coral text-navy" : "text-steel hover:bg-line/40 hover:text-white"
-                  }`}
+                  className={styles.link}
                 >
                   {section.label}
                   {section.key === "market" ? <Badge count={offers} label="trade offers waiting" /> : null}
@@ -75,31 +71,41 @@ export default function CardsTabs({
             );
           })}
         </ul>
-        {balance !== null ? <BalanceChip balance={balance} className="ml-auto shrink-0 !px-3" testId="cards-balance" /> : null}
+        {balance !== null ? (
+          <div className={styles.balance}>
+            <BalanceChip balance={balance} className={styles.balanceLink} testId="cards-balance" />
+          </div>
+        ) : null}
       </div>
       {active?.children ? (
-        <div className="border-t border-line/60">
-          <ul className="page-container flex w-full items-center gap-x-4 gap-y-1 overflow-x-auto py-1.5 [mask-image:linear-gradient(to_right,black_88%,transparent)] sm:flex-wrap sm:overflow-visible sm:[mask-image:none]">
-            {active.children.map((child) => {
-              const current = activeChild?.href === child.href;
-              return (
-                <li key={child.href}>
-                  <Link
-                    href={child.href}
-                    aria-current={current ? "page" : undefined}
-                    title={child.blurb}
-                    className={`inline-block shrink-0 whitespace-nowrap border-b-2 px-0.5 py-1 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral ${
-                      current ? "border-coral text-white" : "border-transparent text-steel hover:text-white"
-                    }`}
-                  >
-                    {child.label}
-                    {child.href.endsWith("/trades") ? <Badge count={offers} label="trade offers waiting" /> : null}
-                    {child.href.endsWith("/expeditions") ? <Badge count={forks} label="expedition forks waiting" /> : null}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+        <div className={styles.subNavigation}>
+          <div className={styles.subRow}>
+            <ul className={styles.subList}>
+              {active.children.map((child) => {
+                const fragment = child.href.includes("#") ? "#" + child.href.split("#")[1] : "";
+                const current = fragment
+                  ? pathname === child.href.split("#")[0] && hash === fragment
+                  : activeChild?.href === child.href && hash === "";
+                return (
+                  <li key={child.href}>
+                    <Link
+                      href={child.href}
+                      onClick={() => {
+                        if (fragment) setHash(fragment);
+                      }}
+                      aria-current={current ? (fragment ? "location" : "page") : undefined}
+                      title={child.blurb}
+                      className={styles.subLink}
+                    >
+                      {child.label}
+                      {child.href.endsWith("/trades") ? <Badge count={offers} label="trade offers waiting" /> : null}
+                      {child.href.endsWith("/expeditions") ? <Badge count={forks} label="expedition forks waiting" /> : null}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </div>
       ) : null}
     </nav>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminInputClass } from "@/components/matches/CollapsibleAdminSection";
 import { createClient } from "@/lib/supabase/client";
+import { useScheduleManagement } from "./ScheduleManagementContext";
 
 const PHASES = ["Regular", "Playoffs"] as const;
 export type LeaguePhase = (typeof PHASES)[number];
@@ -25,6 +26,7 @@ export default function AdminSeasonSettings({
 }) {
   const supabase = createClient();
   const router = useRouter();
+  const management = useScheduleManagement();
   const [season, setSeason] = useState(currentSeason);
   const [phase, setPhase] = useState(currentPhase);
   const [academy, setAcademy] = useState(academySeason);
@@ -33,6 +35,7 @@ export default function AdminSeasonSettings({
   const [saved, setSaved] = useState(false);
 
   const handleSave = async () => {
+    if (management?.scopeMismatch) return;
     const trimmed = season.trim();
     const academyTrimmed = academy.trim();
     if (!trimmed) {
@@ -63,6 +66,7 @@ export default function AdminSeasonSettings({
       return;
     }
     setSaved(true);
+    management?.markClean();
     router.refresh();
   };
 
@@ -113,6 +117,7 @@ export default function AdminSeasonSettings({
               onClick={() => {
                 setPhase(p);
                 setSaved(false);
+                management?.markDirty(true);
               }}
               className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                 phase === p ? "bg-action-fill text-white" : "border border-border-subtle bg-surface text-muted hover:text-white"
@@ -127,7 +132,7 @@ export default function AdminSeasonSettings({
       <button
         type="button"
         onClick={() => void handleSave()}
-        disabled={busy}
+        disabled={busy || Boolean(management?.scopeMismatch)}
         className="rounded-full bg-action-fill px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
       >
         {busy ? "Saving…" : "Save"}

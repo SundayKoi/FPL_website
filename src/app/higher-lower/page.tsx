@@ -8,6 +8,7 @@ import {
   submitHigherLowerChoiceAction,
 } from "@/lib/higher-lower/actions";
 import { getHigherLowerGame, HigherLowerError } from "@/lib/higher-lower/server";
+import PlayPageShell from "@/components/play/PlayPageShell";
 
 export const metadata: Metadata = {
   title: "Higher or Lower — FPL",
@@ -20,11 +21,12 @@ export default async function HigherLowerPage() {
     game = await getHigherLowerGame("premier");
   } catch (error) {
     if (error instanceof HigherLowerError && error.code === "FORBIDDEN") {
-      return <HigherLowerAccessNotice league="Premier" message={error.message} />;
+      return <PlayPageShell league="premier" active="higher-lower"><HigherLowerAccessNotice league="Premier" message={error.message} /></PlayPageShell>;
     }
-    return <HigherLowerUnavailable league="Premier" />;
+    return <PlayPageShell league="premier" active="higher-lower"><HigherLowerUnavailable league="Premier" /></PlayPageShell>;
   }
   return (
+    <PlayPageShell league="premier" active="higher-lower" isAdmin={game.isAdmin}>
     <HigherLowerBoard
       initialGame={game}
       league="premier"
@@ -32,5 +34,6 @@ export default async function HigherLowerPage() {
       submitChoice={submitHigherLowerChoiceAction}
       advanceRound={advanceHigherLowerRoundAction}
     />
+    </PlayPageShell>
   );
 }

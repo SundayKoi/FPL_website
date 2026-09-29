@@ -2,6 +2,7 @@ import Link from "next/link";
 import PlayerProfile from "@/components/players/PlayerProfile";
 import { resolvePlayerParam } from "@/lib/stats/resolvePlayer";
 import { createServerSupabase } from "@/lib/supabase/server";
+import LeaguePageShell from "@/components/league/LeaguePageShell";
 
 /**
  * Shareable player profile URL. The param is a display name or "Name#TAG"
@@ -33,11 +34,16 @@ export default async function PlayerPage({ params }: { params: Promise<{ player:
   );
 
   return (
-    <main className="page-container page-spacing flex flex-1 items-center justify-center page-backdrop">
-      <section className="card-brand max-w-md p-6 text-center">
+    <LeaguePageShell
+      league="premier"
+      title="Player profile"
+      activeSection="players"
+      description="Stats profile links are resolved against the Premier league identity records."
+    >
+      <section className="card-brand mx-auto max-w-xl p-6 text-center">
         {candidates.length > 1 ? (
           <>
-            <h1 className="type-display text-2xl text-white">Which {query}?</h1>
+            <h2 className="type-display text-2xl">Which {query}?</h2>
             <p className="mt-2 text-sm text-muted">More than one player has that name — pick one:</p>
             <ul className="mt-4 flex flex-col gap-2">
               {candidates.map((row) => (
@@ -54,7 +60,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ player:
           </>
         ) : (
           <>
-            <h1 className="type-display text-2xl text-white">No stats for “{query}”</h1>
+            <h2 className="type-display text-2xl">No stats for “{query}”</h2>
             <p className="mt-2 text-sm text-muted">
               Profiles appear once a player has games in the stats ingest. Check the spelling, or browse
               the player list.
@@ -65,6 +71,6 @@ export default async function PlayerPage({ params }: { params: Promise<{ player:
           </>
         )}
       </section>
-    </main>
+    </LeaguePageShell>
   );
 }

@@ -259,11 +259,11 @@ describe("selectDefaultOpenStages", () => {
 
 describe("countdownLabel", () => {
   const now = Date.parse("2026-08-20T00:00:00Z");
-  it("renders days+hours, hours+minutes, minutes, and live states", () => {
+  it("renders future countdowns and waits for a result after kickoff", () => {
     expect(countdownLabel(Date.parse("2026-08-23T05:30:00Z"), now)).toBe("in 3d 5h");
     expect(countdownLabel(Date.parse("2026-08-20T02:15:00Z"), now)).toBe("in 2h 15m");
     expect(countdownLabel(Date.parse("2026-08-20T00:40:00Z"), now)).toBe("in 40m");
-    expect(countdownLabel(Date.parse("2026-08-19T23:00:00Z"), now)).toBe("live now");
+    expect(countdownLabel(Date.parse("2026-08-19T23:00:00Z"), now)).toBe("awaiting result");
   });
 });
 

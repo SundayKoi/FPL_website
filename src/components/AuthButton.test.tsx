@@ -58,7 +58,7 @@ describe("AuthButton", () => {
     render(await AuthButton());
 
     expect(screen.getByText("Member")).toBeTruthy();
-    expect(screen.getByLabelText("Premium wallet balance $1,250")).toBeTruthy();
+    expect(screen.getByLabelText("Betting dollars balance $1,250")).toBeTruthy();
   });
 
   it("does not show a wallet balance to non-premium members", async () => {
@@ -66,6 +66,6 @@ describe("AuthButton", () => {
 
     render(await AuthButton());
 
-    expect(screen.queryByLabelText(/premium wallet balance/i)).toBeNull();
+    expect(screen.queryByLabelText(/betting dollars balance/i)).toBeNull();
   });
 });

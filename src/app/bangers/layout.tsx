@@ -1,13 +1,6 @@
 import type { ReactNode } from "react";
-import PremiumBackLink from "@/components/premium/PremiumBackLink";
+import PlayPageShell from "@/components/play/PlayPageShell";
 
 export default function BangersLayout({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex flex-1 flex-col">
-      <div className="page-container pt-5">
-        <PremiumBackLink />
-      </div>
-      {children}
-    </div>
-  );
+  return <PlayPageShell league="premier" active="daily-stu">{children}</PlayPageShell>;
 }

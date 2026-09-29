@@ -16,6 +16,8 @@ import {
   type BangerPost,
 } from "@/lib/bangers/feed";
 import BangerMeter from "./BangerMeter";
+import { DAILY_STU_REWARD_SENTENCE } from "@/lib/betting/daily";
+import styles from "./BangerBoard.module.css";
 
 type Vote = BangerVote;
 
@@ -43,39 +45,27 @@ function VoteButtons({ post, currentVote, onVote, disabled = false }: { post: Ba
         aria-pressed={currentVote === "stinker"}
         disabled={disabled}
         onClick={() => onVote("stinker")}
-        className={`rounded-full border px-4 py-2 text-sm font-bold uppercase tracking-[0.12em] transition disabled:cursor-wait disabled:opacity-50 ${
-          currentVote === "stinker"
-            ? "border-red-400 bg-red-500 text-white shadow-[0_0_18px_rgba(239,68,68,0.35)]"
-            : "border-red-400/40 text-red-200 hover:bg-red-500/20 hover:text-red-100"
-        }`}
+        className={`${styles.voteButton} ${currentVote === "stinker" ? styles.stinkerSelected : ""}`} data-vote="stinker"
       >
-        💩 Stinker
+        Stinker
       </button>
       <button
         type="button"
         aria-pressed={currentVote === "mid"}
         disabled={disabled}
         onClick={() => onVote("mid")}
-        className={`rounded-full border px-4 py-2 text-sm font-bold uppercase tracking-[0.12em] transition disabled:cursor-wait disabled:opacity-50 ${
-          currentVote === "mid"
-            ? "border-blue-400 bg-blue-500 text-white shadow-[0_0_18px_rgba(59,130,246,0.35)]"
-            : "border-blue-400/40 text-blue-200 hover:bg-blue-500/20 hover:text-blue-100"
-        }`}
+        className={`${styles.voteButton} ${currentVote === "mid" ? styles.midSelected : ""}`} data-vote="mid"
       >
-        😐 Mid
+        Mid
       </button>
       <button
         type="button"
         aria-pressed={currentVote === "banger"}
         disabled={disabled}
         onClick={() => onVote("banger")}
-        className={`rounded-full border px-4 py-2 text-sm font-bold uppercase tracking-[0.12em] transition disabled:cursor-wait disabled:opacity-50 ${
-          currentVote === "banger"
-            ? "border-yellow-300 bg-yellow-400 text-jungle shadow-[0_0_18px_rgba(250,204,21,0.35)]"
-            : "border-yellow-300/40 text-yellow-200 hover:bg-yellow-400/20 hover:text-yellow-100"
-        }`}
+        className={`${styles.voteButton} ${currentVote === "banger" ? styles.bangerSelected : ""}`} data-vote="banger"
       >
-        🍌 Banger
+        Banger
       </button>
     </div>
   );
@@ -84,9 +74,8 @@ function VoteButtons({ post, currentVote, onVote, disabled = false }: { post: Ba
 function TweetCard({ post, currentVote, onVote, votePending = false, voteMessage, featured = false }: { post: BangerPost; currentVote?: Vote; onVote: (vote: Vote) => void; votePending?: boolean; voteMessage?: string; featured?: boolean }) {
   const hasEngagement = post.replies !== undefined || post.reposts !== undefined || post.likes !== undefined;
   return (
-    <article className={`group relative overflow-hidden rounded-2xl border bg-jungle-card/90 p-5 transition hover:-translate-y-0.5 hover:border-banana/60 ${featured ? "border-banana/50 shadow-[0_14px_50px_rgba(0,0,0,0.3)]" : "border-white/10"}`}>
-      <div className="absolute right-4 top-4 text-2xl opacity-60 transition group-hover:rotate-12 group-hover:opacity-100" aria-hidden="true">🍌</div>
-      <div className="mb-5 pr-10"><TweetIdentity date={formatPostDate(post.publishedAt)} /></div>
+    <article className={`${styles.post} ${featured ? styles.featuredPost : ""}`}>
+      <div className="mb-5"><TweetIdentity date={formatPostDate(post.publishedAt)} /></div>
       <p className={`${featured ? "text-xl sm:text-2xl" : "text-lg"} max-w-2xl font-medium leading-snug text-white/90`}>
         {post.text}
       </p>
@@ -100,7 +89,7 @@ function TweetCard({ post, currentVote, onVote, votePending = false, voteMessage
       </div>
       {voteMessage ? <p className="mt-3 text-xs text-white/60" role="status" aria-live="polite">{voteMessage}</p> : null}
       <BangerMeter score={rating(post)} voteCount={totalVotes(post)} className="mt-4" />
-      <Link href={post.url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-[0.62rem] uppercase tracking-[0.18em] text-white/35 hover:text-banana">View on X ↗</Link>
+      <Link href={post.url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-[0.62rem] uppercase tracking-[0.18em] text-white/35 hover:text-action-text">View on X ↗</Link>
     </article>
   );
 }
@@ -120,9 +109,7 @@ function LocalResetTime({ endsAt }: { endsAt: string }) {
     );
   }, [endsAt]);
 
-  // League time first, the viewer's own beside it — the shape every
-  // other daily game uses.
-  return <p className="mt-3 text-xs text-white/45">{resetLabel ? `Resets midnight ET · ${resetLabel} for you` : "Resets at midnight ET"}</p>;
+  return <p className="mt-3 text-xs text-muted">{resetLabel ? `Resets midnight UTC · ${resetLabel} for you` : "Resets at midnight UTC"}</p>;
 }
 
 export default function BangerBoard({ posts, dailyBanger, settings, patron = false, initialVotes = {}, initialDailyVote, initialDailyRewardAmount }: { posts: BangerPost[]; dailyBanger: (BangerPost & { checkDate: string; startsAt: string; endsAt: string }) | null; settings: BangerBoardSettings; patron?: boolean; initialVotes?: Partial<Record<string, Vote>>; initialDailyVote?: Vote; initialDailyRewardAmount?: number }) {
@@ -221,52 +208,141 @@ export default function BangerBoard({ posts, dailyBanger, settings, patron = fal
   }
 
   return (
-    <main className="min-h-screen min-w-0 bg-jungle">
-      <section className="relative page-container border-b border-banana/20 pb-14 pt-14 sm:pt-20">
-        <div className="pointer-events-none absolute -right-8 -top-8 text-[10rem] opacity-[0.08] sm:text-[16rem]" aria-hidden="true">🐒</div>
-        <div className="w-full min-w-0">
-          <div className="mb-6 flex items-center gap-3 text-xs font-bold uppercase tracking-[0.24em] text-banana"><span className="text-lg">🍌</span> Premium dispatch</div>
-          <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
-            <div>
-              <h1 className="max-w-3xl font-display text-5xl font-bold uppercase italic leading-[0.9] tracking-[-0.05em] text-white sm:text-7xl">The Daily Stu</h1>
-              {settings.heroTitle && settings.heroTitle.trim().toLowerCase() !== "the daily stu" ? (
-                // The admin-typed headline used to BE the h1, so the page was
-                // called one thing in the menu and another on arrival.
-                <p className="mt-4 max-w-3xl font-display text-2xl font-bold uppercase italic text-banana sm:text-3xl">{settings.heroTitle}</p>
-              ) : null}
-              <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/60">The community court for the takes, theories, and timeline turbulence of <span className="font-semibold text-white">@Stuart69Davis</span>.</p>
-              <div className="mt-8 flex flex-wrap items-center gap-4"><a href="https://x.com/Stuart69Davis" target="_blank" rel="noopener noreferrer" className="rounded-full bg-banana px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-jungle transition hover:bg-white">Open X profile ↗</a><span className="text-xs uppercase tracking-[0.16em] text-white/35">{posts.length} archived transmissions</span></div>
-            </div>
-            <div className="rounded-2xl border border-banana/30 bg-jungle-card/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
-              <div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-[0.2em] text-white/45">Overall jungle verdict</span><span className="text-2xl">🏆</span></div>
-              <BangerMeter score={overallRating} voteCount={overallVoteCount} detail={overallVoteCount > 0 ? `${overallVoteCount} vote${overallVoteCount === 1 ? "" : "s"} cast` : undefined} className="mt-4" />
-              <p className="mt-3 text-sm text-white/45">{overallVoteCount > 0 ? "The banger share across every archived community vote." : "The canopy opens when verified posts arrive and the community starts voting."}</p>
+    <main className={styles.board}>
+      <header className={styles.hero}>
+        <div className={styles.heroGrid}>
+          <div>
+            <p className={styles.eyebrow}>Community ratings · Stuart69Davis</p>
+            <h1 className={styles.title}>The Daily Stu</h1>
+            {settings.heroTitle && settings.heroTitle.trim().toLowerCase() !== "the daily stu" ? (
+              <p className={styles.heroHeadline}>{settings.heroTitle}</p>
+            ) : null}
+            <p className={styles.intro}>
+              The community rates the takes, theories, and timeline turbulence of <strong>@Stuart69Davis</strong>.
+            </p>
+            <div className={styles.heroStatus}>
+              <a href="https://x.com/Stuart69Davis" target="_blank" rel="noopener noreferrer">Open X profile ↗</a>
+              <span>{posts.length} archived posts</span>
             </div>
           </div>
+          <section className={styles.overall} aria-label="Overall community rating">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className={styles.eyebrow}>Overall community rating</span>
+              <span className="font-mono text-sm text-muted">{overallVoteCount.toLocaleString()} votes</span>
+            </div>
+            <BangerMeter score={overallRating} voteCount={overallVoteCount} detail={overallVoteCount > 0 ? `${overallVoteCount} vote${overallVoteCount === 1 ? "" : "s"} cast` : undefined} className="mt-4" />
+            <p className="mt-3 text-sm leading-6 text-muted">
+              {overallVoteCount > 0 ? "Share of archived votes marked Banger." : "The rating will appear when verified posts receive community votes."}
+            </p>
+          </section>
         </div>
-      </section>
+      </header>
 
-      <section className="page-container w-full pt-12">
-        <div className="rounded-3xl border border-mint/30 bg-gradient-to-br from-[#173b2c] to-jungle-card p-6 shadow-[0_18px_50px_rgba(0,0,0,0.25)] sm:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="label-dash">Daily reward · shared with FPL&apos;dle and Higher or Lower</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">{settings.dailyTitle}</h2></div><span className="text-4xl">🎁 🍌</span></div>
-          {dailyBanger && dailyDisplayPost ? <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end"><div><TweetIdentity date={formatPostDate(dailyDisplayPost.publishedAt)} /><p className="mt-4 max-w-3xl text-xl leading-snug text-white/85">{dailyDisplayPost.text}</p><BangerMeter score={rating(dailyDisplayPost)} voteCount={totalVotes(dailyDisplayPost)} className="mt-5 max-w-xl" /></div><div>{dailyVote ? <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">{dailyPending ? "Saving vote…" : dailyRewardAmount ? `✓ $${dailyRewardAmount} bonus claimed` : "✓ Bonus claimed"}</p> : <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">Vote once a day → get ${listedDailyReward}</p>}<VoteButtons post={dailyDisplayPost} currentVote={dailyDisplayVote} onVote={voteDaily} disabled={dailyPending || Boolean(dailyVote)} />{dailyMessage ? <p className="mt-3 text-xs text-white/45" role="status" aria-live="polite">{dailyMessage}</p> : null}<LocalResetTime endsAt={dailyBanger.endsAt} /></div></div> : <p className="mt-6 text-sm text-white/50">No verified tweets are available for today&apos;s check yet.</p>}
+      <section className={styles.today} aria-labelledby="daily-stu-today">
+        <div className={styles.todayCopy}>
+          <p className={styles.eyebrow}>Today&apos;s check · separate vote reward</p>
+          <h2 id="daily-stu-today" className={styles.sectionTitle}>{settings.dailyTitle}</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">{DAILY_STU_REWARD_SENTENCE}</p>
+          {dailyBanger && dailyDisplayPost ? (
+            <div className={styles.dailyPost}>
+              <TweetIdentity date={formatPostDate(dailyDisplayPost.publishedAt)} />
+              <blockquote className="mt-4 text-lg leading-snug text-white sm:text-xl">{dailyDisplayPost.text}</blockquote>
+              <BangerMeter score={rating(dailyDisplayPost)} voteCount={totalVotes(dailyDisplayPost)} className="mt-4 max-w-xl" />
+            </div>
+          ) : (
+            <p className={styles.empty}>No verified post is available for today&apos;s check.</p>
+          )}
         </div>
+        {dailyBanger && dailyDisplayPost ? (
+          <div className={styles.dailyAction}>
+            <p className={styles.eyebrow}>Your vote</p>
+            {dailyVote ? (
+              <p className={styles.rewardState}>{dailyPending ? "Saving vote…" : dailyRewardAmount ? `✓ $${dailyRewardAmount} bonus claimed` : "✓ Vote saved"}</p>
+            ) : (
+              <p className={styles.rewardState}>Vote once a day · ${listedDailyReward} reward</p>
+            )}
+            <VoteButtons post={dailyDisplayPost} currentVote={dailyDisplayVote} onVote={voteDaily} disabled={dailyPending || Boolean(dailyVote)} />
+            {dailyMessage ? <p className="mt-3 text-sm text-muted" role="status" aria-live="polite">{dailyMessage}</p> : null}
+            <LocalResetTime endsAt={dailyBanger.endsAt} />
+          </div>
+        ) : null}
       </section>
 
-      <section className="page-container w-full py-12">
-        <div className="mb-6 flex items-end justify-between gap-4"><div><p className="label-dash">The podium</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">{settings.podiumTitle}</h2></div><span className="hidden text-4xl sm:block">🍌 🐒 🍌</span></div>
-        <div className="banger-post-grid">{rankedPosts.length > 0 ? rankedPosts.map((post, index) => <div key={post.id} className={`${index === 0 ? "lg:-translate-y-3" : ""} rounded-2xl border border-white/10 bg-jungle-card/70 p-4`}><div className="mb-3 flex items-center justify-between"><span className={`flex h-8 w-8 items-center justify-center rounded-full font-display text-lg font-bold ${index === 0 ? "bg-banana text-jungle" : "bg-white/10 text-white/60"}`}>{index + 1}</span></div><TweetIdentity compact date={formatPostDate(post.publishedAt)} /><p className="mt-3 min-h-16 text-sm leading-relaxed text-white/75">{post.text}</p><BangerMeter score={rating(post)} voteCount={totalVotes(post)} compact className="mt-3" /></div>) : <div className="rounded-2xl border border-dashed border-banana/30 bg-jungle-card/40 p-6 text-sm text-white/50">No community ratings yet.</div>}</div>
-      </section>
+      <div className={styles.columns}>
+        <section className={styles.feed} aria-labelledby="daily-stu-recent">
+          <div className={styles.sectionHeading}>
+            <div>
+              <p className={styles.eyebrow}>Verified posts</p>
+              <h2 id="daily-stu-recent" className={styles.sectionTitle}>{settings.recentTitle}</h2>
+            </div>
+            <span className="text-xs text-muted">{recentPosts.length} in the last 45 days</span>
+          </div>
+          {recentPosts.length > 0 ? (
+            <div className="mt-4 flex flex-col gap-4">
+              {recentPosts.map((post) => (
+                <TweetCard key={post.id} post={post} currentVote={displayVotes[post.id]} onVote={(nextVote) => vote(post.id, nextVote)} votePending={isVoteLocked(post.id)} voteMessage={voteMessages[post.id]} featured={post.id === recentPosts[0].id} />
+              ))}
+            </div>
+          ) : (
+            <p className={styles.empty}>No verified posts from the last 45 days. The feed stays empty until source posts are available.</p>
+          )}
+        </section>
 
-      <section className="page-container w-full pb-12">
-        <div className="mb-6 flex items-end justify-between gap-4"><div><p className="label-dash">The basement</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">{settings.stinkerTitle}</h2></div><span className="text-4xl">💩 🐒 💩</span></div>
-        <div className="banger-post-grid">{stinkerPosts.length > 0 ? stinkerPosts.map((post, index) => <div key={post.id} className="rounded-2xl border border-purple-300/20 bg-jungle-card/70 p-4"><div className="mb-3 flex items-center justify-between"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-300/20 font-display text-lg font-bold text-purple-200">{index + 1}</span><span className="text-xs font-bold uppercase tracking-[0.15em] text-purple-200">{stinkerRating(post)}% stinker</span></div><TweetIdentity compact date={formatPostDate(post.publishedAt)} /><p className="mt-3 min-h-16 text-sm leading-relaxed text-white/75">{post.text}</p></div>) : <div className="rounded-2xl border border-dashed border-purple-300/30 bg-jungle-card/40 p-6 text-sm text-white/50">No community stinkers yet.</div>}</div>
-      </section>
+        <aside className={styles.sidebar} aria-label="Community archive and rankings">
+          <section className={styles.panel} aria-labelledby="daily-stu-podium">
+            <p className={styles.eyebrow}>Most highly rated</p>
+            <h2 id="daily-stu-podium" className={styles.panelTitle}>{settings.podiumTitle}</h2>
+            {rankedPosts.length > 0 ? (
+              <ol className={styles.rankList}>
+                {rankedPosts.slice(0, 3).map((post, index) => (
+                  <li key={post.id} className={styles.rankItem}>
+                    <span className={styles.rankNumber}>{index + 1}</span>
+                    <div className="min-w-0 flex-1">
+                      <TweetIdentity compact date={formatPostDate(post.publishedAt)} />
+                      <p className="mt-2 line-clamp-3 text-sm leading-5 text-white">{post.text}</p>
+                      <BangerMeter score={rating(post)} voteCount={totalVotes(post)} compact className="mt-2" />
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : <p className={styles.empty}>No community ratings yet.</p>}
+          </section>
 
-      <section className="page-container flex w-full flex-col gap-12 pb-16">
-        <div className="order-1"><div className="mb-6 flex items-end justify-between gap-4"><div><p className="label-dash">The current canopy</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">{settings.recentTitle}</h2></div><span className="text-xs uppercase tracking-[0.15em] text-white/35">{recentPosts.length} transmissions</span></div><div className="space-y-4">{recentPosts.length > 0 ? recentPosts.map((post) => <TweetCard key={post.id} post={post} currentVote={displayVotes[post.id]} onVote={(nextVote) => vote(post.id, nextVote)} votePending={isVoteLocked(post.id)} voteMessage={voteMessages[post.id]} featured={post.id === recentPosts[0].id} />) : <div className="rounded-2xl border border-dashed border-banana/30 bg-jungle-card/40 p-6 text-sm leading-relaxed text-white/50">No verified tweets from the last 45 days yet. This feed will stay empty rather than display invented posts.</div>}</div></div>
-        <div className="order-2 relative overflow-hidden rounded-3xl border border-coral/40 bg-gradient-to-br from-[#173b2c] to-jungle-card p-6 shadow-[0_18px_50px_rgba(0,0,0,0.25)]"><div className="absolute -right-4 -top-8 text-8xl opacity-30" aria-hidden="true">🍌</div><p className="label-dash">From the archive</p><h2 className="mt-3 font-display text-3xl font-bold uppercase italic text-white">{settings.randomTitle}</h2><div className="mt-7 rounded-2xl border border-white/10 bg-jungle/60 p-4">{randomPost ? <><TweetIdentity date={formatPostDate(randomPost.publishedAt)} /><p className="mt-4 text-lg leading-snug text-white/85">{randomPost.text}</p><div className="mt-5"><VoteButtons post={randomPost} currentVote={displayVotes[randomPost.id]} onVote={(nextVote) => vote(randomPost.id, nextVote)} disabled={isVoteLocked(randomPost.id)} /></div>{voteMessages[randomPost.id] ? <p className="mt-3 text-xs text-white/60" role="status" aria-live="polite">{voteMessages[randomPost.id]}</p> : null}<BangerMeter score={rating(randomPost)} voteCount={totalVotes(randomPost)} compact className="mt-3" /></> : <p className="text-sm leading-relaxed text-white/45">The all-time verified archive is empty. Random pulls will unlock when real posts are connected.</p>}</div><button type="button" onClick={() => setRandomPostId(pickRandomPost(posts)?.id)} disabled={posts.length === 0} className="mt-5 w-full rounded-full border border-coral/70 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-coral transition hover:bg-coral hover:text-jungle disabled:cursor-not-allowed disabled:opacity-40">{posts.length === 0 ? "Awaiting verified posts" : "Pull another banana ↻"}</button></div>
-      </section>
+          <section className={styles.panel} aria-labelledby="daily-stu-lowest">
+            <p className={styles.eyebrow}>Lowest rated</p>
+            <h2 id="daily-stu-lowest" className={styles.panelTitle}>{settings.stinkerTitle}</h2>
+            {stinkerPosts.length > 0 ? (
+              <ol className={styles.rankList}>
+                {stinkerPosts.slice(0, 3).map((post, index) => (
+                  <li key={post.id} className={styles.rankItem}>
+                    <span className={styles.rankNumber}>{index + 1}</span>
+                    <div className="min-w-0 flex-1">
+                      <TweetIdentity compact date={formatPostDate(post.publishedAt)} />
+                      <p className="mt-2 line-clamp-3 text-sm leading-5 text-white">{post.text}</p>
+                      <span className="mt-2 inline-block text-xs font-semibold text-[var(--play-danger)]">{stinkerRating(post)}% Stinker</span>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : <p className={styles.empty}>No community stinkers yet.</p>}
+          </section>
+
+          <section className={styles.panel} aria-labelledby="daily-stu-archive">
+            <p className={styles.eyebrow}>From the archive</p>
+            <h2 id="daily-stu-archive" className={styles.panelTitle}>{settings.randomTitle}</h2>
+            {randomPost ? (
+              <div className="mt-4">
+                <TweetCard post={randomPost} currentVote={displayVotes[randomPost.id]} onVote={(nextVote) => vote(randomPost.id, nextVote)} votePending={isVoteLocked(randomPost.id)} voteMessage={voteMessages[randomPost.id]} />
+              </div>
+            ) : <p className={styles.empty}>No verified posts are available in the archive yet.</p>}
+            <button type="button" onClick={() => setRandomPostId(pickRandomPost(posts)?.id)} disabled={posts.length === 0} className={styles.archiveButton}>
+              {posts.length === 0 ? "Awaiting verified posts" : "Choose another post"}
+            </button>
+          </section>
+        </aside>
+      </div>
+
+      <footer className={styles.disclaimer}>FPL does not condone or endorse any posts made by Stu.</footer>
     </main>
   );
 }

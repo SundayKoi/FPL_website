@@ -7,82 +7,96 @@ import type { LeagueView } from "@/lib/league/context";
 import { leaguePath } from "@/lib/league/links";
 import { fetchLeagueSeasons } from "@/lib/league/season";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { fetchTeamIdentities, type TeamIdentity } from "@/lib/teams/identity";
+import LeaguePageShell, { LeagueEmptyState } from "@/components/league/LeaguePageShell";
+import { unstable_rethrow } from "next/navigation";
+import styles from "./StandingsPageView.module.css";
 
-const EMPTY: HomeStandingsData = { teams: [], race: [] };
+type StandingsPageData = {
+  season: string;
+  standings: HomeStandingsData;
+  identities: Record<string, TeamIdentity>;
+};
 
-/**
- * The standings, read exactly the way the home page reads them — the same
- * derivation, the same draft, the same season code — so the table here
- * and the panel there can never disagree. Fails to an empty table rather
- * than a broken page.
- */
-async function loadStandings(league: LeagueView): Promise<{ data: HomeStandingsData; season: string | null }> {
-  try {
-    const supabase = await createServerSupabase();
-    const seasons = await fetchLeagueSeasons(supabase);
-    if (league === "academy") {
-      const draft = await fetchAcademyDraftData(supabase);
-      const teamNames = draft.teams.map((team) => team.name);
-      const data = await fetchHomepageStandings(seasons.academy, teamNames, "academy_draft_id");
-      return { data, season: seasons.academy };
-    }
-    const data = await fetchHomepageStandings();
-    return { data, season: seasons.premier ?? null };
-  } catch (error) {
-    console.error("standings: load failed", error);
-    return { data: EMPTY, season: null };
+async function loadStandings(league: LeagueView): Promise<StandingsPageData> {
+  const supabase = await createServerSupabase();
+  const seasons = await fetchLeagueSeasons(supabase);
+  const season = league === "academy" ? seasons.academy : seasons.premier;
+  if (!season) throw new Error(`${league} current season is not configured`);
+
+  if (league === "academy") {
+    const draft = await fetchAcademyDraftData(supabase);
+    const teamNames = draft.teams.map((team) => team.name);
+    const standings = await fetchHomepageStandings(season, teamNames, "academy_draft_id", "divisions", true);
+    const identities = await fetchTeamIdentities("academy_draft_id").catch(() => ({}));
+    return { season, standings, identities };
   }
+
+  const [standings, identities] = await Promise.all([
+    fetchHomepageStandings(season, undefined, "featured_draft_id", "divisions", true),
+    fetchTeamIdentities().catch(() => ({})),
+  ]);
+  return { season, standings, identities };
 }
 
-/**
- * The standings as a page of their own. They lived only as a panel on the
- * home page, so "where do I see the table" had no answer in the menu.
- */
+/** Standings and the home-page table share one ranking calculation. The full
+ *  page gives that table the first visual position and keeps the race chart
+ *  available as supporting season history. */
 export default async function StandingsPageView({ league }: { league: LeagueView }) {
-  const { data, season } = await loadStandings(league);
-  const academy = league === "academy";
+  let result: StandingsPageData | null = null;
+  try {
+    result = await loadStandings(league);
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("standings: load failed", error);
+  }
+
+  const season = result?.season ?? null;
+  const teams = result?.standings.teams ?? [];
 
   return (
-    <main className="page-backdrop flex-1">
-      <div className="page-container page-spacing w-full">
-        <header className="max-w-3xl">
-          <span className="label-dash">
-            {academy ? "FPL Academy" : "Franchise Premier League"}
-            {season ? ` · ${season}` : ""}
+    <LeaguePageShell
+      league={league}
+      title="Standings"
+      season={season}
+      description="Series records, recent form and the next opponent for every team."
+      activeSection="standings"
+    >
+      {!result ? (
+        <LeagueEmptyState title="Standings are unavailable" tone="error">
+          We couldn&apos;t load the current season table. Refresh the page to try again.
+        </LeagueEmptyState>
+      ) : teams.length === 0 ? (
+        <LeagueEmptyState title={`No standings for ${result.season} yet`}>
+          The table will appear when the league roster is configured. Check the schedule for upcoming matchups.
+          <span className={styles.emptyLinkWrap}>
+            <Link href={leaguePath("schedule", league)} className={styles.inlineLink}>Open schedule</Link>
           </span>
-          <h1 className="type-display mt-3 text-5xl sm:text-6xl">Standings</h1>
-          <hr className="accent-rule mt-5 w-48 sm:w-64" />
-          <p className="mt-4 text-lg leading-8 text-muted">
-            Every team&apos;s record this season, their last five results, and the race week by week.
+        </LeagueEmptyState>
+      ) : (
+        <>
+          <p className={styles.legend}>
+            W and L count series. Games shows the map record inside those series. Form is oldest to newest.
           </p>
-          <nav aria-label="Related" className="mt-4 flex flex-wrap gap-2 text-xs">
-            <Link href={leaguePath("schedule", league)} className="btn-pill px-3 py-1.5">
-              Schedule
-            </Link>
-            <Link href={leaguePath("teams", league)} className="btn-pill px-3 py-1.5">
-              Teams
-            </Link>
-            <Link href={leaguePath("stats", league)} className="btn-pill px-3 py-1.5">
-              Stats
-            </Link>
-          </nav>
-        </header>
-
-        {data.teams.length === 0 ? (
-          <p className="card-brand mt-8 p-5 text-sm text-muted" data-testid="standings-empty">
-            No results yet this season. The table fills in as games are played — the{" "}
-            <Link href={leaguePath("schedule", league)} className="text-action-text underline-offset-4 hover:underline">
-              schedule
-            </Link>{" "}
-            says when the first one is.
-          </p>
-        ) : (
-          <div className="mt-8 grid gap-6 lg:grid-cols-2 xl:gap-8">
-            <HomeStandings teams={data.teams} seasonLabel={season ?? undefined} />
-            {data.race.length > 0 ? <StandingsRace race={data.race} /> : null}
-          </div>
-        )}
-      </div>
-    </main>
+          <HomeStandings
+            teams={teams}
+            seasonLabel={result.season}
+            identities={result.identities}
+            standingsHref={leaguePath("standings", league)}
+            teamBasePath={leaguePath("teams", league)}
+            appearance="workspace"
+            standalone
+          />
+          {result.standings.race.length > 0 ? (
+            <details className={styles.progression}>
+              <summary>Season progression</summary>
+              <div className={styles.progressionBody}>
+                <StandingsRace race={result.standings.race} appearance="workspace" />
+              </div>
+            </details>
+          ) : null}
+        </>
+      )}
+    </LeaguePageShell>
   );
 }

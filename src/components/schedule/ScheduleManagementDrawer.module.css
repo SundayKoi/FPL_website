@@ -1,0 +1,138 @@
+.dialog {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(640px, 100vw);
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
+  border-right: 0;
+  background: var(--color-surface);
+  color: var(--color-content);
+  box-shadow: -20px 0 60px rgb(0 0 0 / 0.35);
+}
+
+.dialog::backdrop {
+  background: rgb(2 5 9 / 0.68);
+  backdrop-filter: blur(2px);
+}
+
+.shell {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding: 1.25rem 1.5rem 1rem;
+}
+
+.close {
+  display: inline-flex;
+  min-height: 2.5rem;
+  min-width: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  color: var(--color-content);
+}
+
+.tabs {
+  display: flex;
+  gap: 1.25rem;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding: 0 1.5rem;
+}
+
+.tab {
+  flex: 0 0 auto;
+  border-bottom: 2px solid transparent;
+  padding: 0.75rem 0.25rem;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.activeTab {
+  border-color: var(--color-league-accent);
+  color: var(--color-content);
+}
+
+.toolPicker {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem 0.5rem;
+}
+
+.toolPicker select {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0.5rem;
+  background: var(--color-canvas);
+  padding: 0.55rem 0.7rem;
+  color: var(--color-content);
+}
+
+.body {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 1rem 1.5rem 2rem;
+}
+
+.warning {
+  margin: 0 1.5rem 0.75rem;
+  border: 1px solid rgb(245 182 46 / 0.45);
+  border-radius: 0.5rem;
+  background: rgb(245 182 46 / 0.08);
+  padding: 0.75rem;
+  color: #f5d481;
+  font-size: 0.875rem;
+}
+
+.confirm {
+  position: absolute;
+  z-index: 2;
+  inset: auto 1rem 1rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 0.75rem;
+  background: var(--color-raised);
+  padding: 1rem;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.5);
+}
+
+@media (max-width: 640px) {
+  .dialog {
+    width: 100vw;
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .header,
+  .tabs {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .toolPicker {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .body {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}

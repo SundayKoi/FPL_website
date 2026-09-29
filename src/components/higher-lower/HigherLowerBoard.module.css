@@ -1,0 +1,39 @@
+.board {
+  width: min(100% - 32px, 1380px);
+  margin: 0 auto;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 24px;
+  padding: clamp(24px, 4vw, 48px) 0;
+  color: var(--play-ink, #f2f0f8);
+}
+
+.board :global(.btn-rivalry) {
+  min-height: 44px;
+  border: 1px solid var(--play-action, #1c5583);
+  border-radius: 3px;
+  background: var(--play-action, #1c5583);
+  color: var(--play-action-contrast, white);
+  box-shadow: none;
+  font-weight: 700;
+}
+
+.board :global(.btn-rivalry:hover) {
+  border-color: var(--play-action-text, #9dc4dc);
+  background: var(--play-action, #1c5583);
+  box-shadow: none;
+}
+
+.board :global(button:not(.btn-rivalry)) {
+  min-height: 44px;
+}
+
+.board :global(button:focus-visible) {
+  outline: 2px solid var(--play-focus, #9dc4dc);
+  outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+  .board { width: min(100% - 24px, 1380px); gap: 18px; }
+}

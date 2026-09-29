@@ -2,8 +2,8 @@ import Link from "next/link";
 import { teamSlug } from "@/lib/teams/teamPage";
 import type { LeagueKey } from "@/lib/players/identity";
 import type { MyTeamDashboardResult } from "@/lib/my-team/types";
-import { MyTeamDashboard } from "./MyTeamDashboard";
 import type { MyReportRow } from "@/lib/captain/queries";
+import { MyTeamDashboard } from "./MyTeamDashboard";
 
 const ACTION = "inline-flex rounded-full border border-action-text/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-action-text transition hover:bg-action-fill hover:text-white";
 
@@ -20,13 +20,7 @@ function teamPath(league: LeagueKey, teamName: string): string {
 }
 
 function GateCard({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="page-backdrop flex-1">
-      <div className="page-container page-spacing w-full">
-        <section className="card-brand mx-auto w-full max-w-3xl p-6 sm:p-8">{children}</section>
-      </div>
-    </main>
-  );
+  return <section className="card-brand mx-auto w-full max-w-3xl p-6 sm:p-8">{children}</section>;
 }
 
 /**
@@ -38,12 +32,14 @@ export default function MyTeamGate({
   dashboard,
   league,
   redirectPath,
-  teamReports,
-  teamReportsUnavailable,
+  captainTools,
+  teamReports = [],
+  teamReportsUnavailable = false,
 }: {
   dashboard: MyTeamDashboardResult;
   league: LeagueKey;
   redirectPath?: string;
+  captainTools?: React.ReactNode;
   teamReports?: MyReportRow[];
   teamReportsUnavailable?: boolean;
 }) {
@@ -53,7 +49,7 @@ export default function MyTeamGate({
     return (
       <GateCard>
         <span className="label-dash">My Team</span>
-        <h1 className="type-display mt-3 text-3xl sm:text-4xl">Sign in to see your team</h1>
+        <h2 className="type-display mt-3 text-2xl sm:text-3xl">Sign in to see your team</h2>
         <p className="mt-3 text-sm leading-6 text-muted">
           Your roster, schedule, tournament codes, draft links, and scouting live here after Discord sign-in.
         </p>
@@ -67,7 +63,7 @@ export default function MyTeamGate({
     return (
       <GateCard>
         <span className="label-dash">My Team · {dashboard.season}</span>
-        <h1 className="type-display mt-3 text-3xl sm:text-4xl">Claim your roster spot</h1>
+        <h2 className="type-display mt-3 text-2xl sm:text-3xl">Claim your roster spot</h2>
         <p className="mt-3 text-sm leading-6 text-muted">
           Your signed-in account is not linked to a current player yet. Open your public team page and claim your exact roster spot.
         </p>
@@ -100,7 +96,7 @@ export default function MyTeamGate({
     return (
       <GateCard>
         <span className="label-dash">My Team · {dashboard.season}</span>
-        <h1 className="type-display mt-3 text-3xl sm:text-4xl">Your claim is pending</h1>
+        <h2 className="type-display mt-3 text-2xl sm:text-3xl">Your claim is pending</h2>
         <p className="mt-3 text-sm leading-6 text-muted">
           Your team captain or league admin can approve it. Private team data stays hidden until then.
         </p>
@@ -116,7 +112,7 @@ export default function MyTeamGate({
     return (
       <GateCard>
         <span className="label-dash">My Team · {dashboard.season}</span>
-        <h1 className="type-display mt-3 text-3xl sm:text-4xl">No active team found</h1>
+        <h2 className="type-display mt-3 text-2xl sm:text-3xl">No active team found</h2>
         <p className="mt-3 text-sm leading-6 text-muted">
           {dashboard.playerPoolId
             ? "Your player identity is linked, but no active team is attached to it for this league season."
@@ -128,5 +124,11 @@ export default function MyTeamGate({
     );
   }
 
-  return <MyTeamDashboard dashboard={dashboard} league={league} teamReports={teamReports} teamReportsUnavailable={teamReportsUnavailable} />;
+  return <MyTeamDashboard
+    dashboard={dashboard}
+    league={league}
+    captainTools={captainTools}
+    teamReports={teamReports}
+    teamReportsUnavailable={teamReportsUnavailable}
+  />;
 }

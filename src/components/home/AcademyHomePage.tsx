@@ -29,8 +29,8 @@ export default async function AcademyHomePage() {
 
   const [awards, standingsData, schedule, identities, topCards, featuredSettings, viewer] = await Promise.all([
     fetchHomepageAwards(seasons.academy, teamNames, "academy_draft_id"),
-    fetchHomepageStandings(seasons.academy, teamNames, "academy_draft_id"),
-    fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, teamNameSet)),
+    fetchHomepageStandings(seasons.academy, teamNames, "academy_draft_id", "league-wide"),
+    fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, teamNameSet), seasons.academy),
     fetchTeamIdentities("academy_draft_id"),
     // The Academy hub's own build — same season code, same week.
     (async () => fetchCurrentWeekCards(await createServerSupabase(), seasons.academy))(),
@@ -56,6 +56,7 @@ export default async function AcademyHomePage() {
       scheduleBasePath="/academy/schedule"
       scheduleTeamBasePath={null}
       viewer={viewer}
+      appearance="workspace"
     />
   );
 }

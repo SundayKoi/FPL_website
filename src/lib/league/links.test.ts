@@ -63,4 +63,19 @@ describe("pairedLeagueHref on the cards section", () => {
   it("carries a cards sub-page's whole path across", () => {
     expect(pairedLeagueHref("/cards/market/bounties", "academy")).toBe("/academy/cards/market/bounties");
   });
+
+  it("keeps league-scoped release IDs and missing routes out of the destination URL", () => {
+    expect(pairedLeagueHref("/cards/season-end", "academy", "release=premier-release&sort=best"))
+      .toBe("/academy/cards/season-end?sort=best");
+    expect(pairedLeagueHref("/cards/season-end/copy/417", "academy"))
+      .toBe("/academy/cards/season-end");
+    expect(pairedLeagueHref("/cards/claims", "academy"))
+      .toBe("/academy/cards");
+  });
+
+  it("sends public token and card detail routes to a safe Cards destination", () => {
+    expect(pairedLeagueHref("/binder/0123456789abcdef", "academy")).toBe("/academy/cards");
+    expect(pairedLeagueHref("/sign/0123456789abcdef0123456789abcdef", "academy")).toBe("/academy/cards");
+    expect(pairedLeagueHref("/card/player-one", "academy")).toBe("/academy/cards/browse");
+  });
 });

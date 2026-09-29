@@ -71,11 +71,9 @@ describe("PremiumHub betting preview", () => {
     // The stale "new feature" banner is gone; the daily games section is
     // the one place that lists them, and it says when they reset.
     expect(screen.queryByRole("complementary", { name: "New feature announcement" })).toBeNull();
-    expect(screen.getAllByText(/reset at midnight Eastern/).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/midnight UTC/)).toBeNull();
+    expect(screen.getByText(/Eastern puzzle date/)).toBeTruthy();
+    expect(screen.getByText(/midnight UTC/)).toBeTruthy();
 
-    const destinations = screen.getByRole("navigation", { name: "Premium destinations" });
-    expect(within(destinations).queryByRole("link", { name: /FPL'dle/ })).toBeNull();
     const dailyGames = screen.getByRole("region", { name: "Daily games" });
     expect(dailyGames.getAttribute("id")).toBe("daily-games");
     expect(within(dailyGames).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/fpldle");
@@ -98,7 +96,7 @@ describe("PremiumHub betting preview", () => {
     // Still in testing: members are not offered it; staff are.
     expect(within(academyDailyGames).queryByRole("link", { name: /Guess the Card/ })).toBeNull();
     cleanup();
-    render(<PremiumHub snapshot={{ ...snapshot, league: "academy" as const }} staff />);
+    render(<PremiumHub snapshot={{ ...snapshot, league: "academy" as const }} isAdmin />);
     expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /Guess the Card/ }).getAttribute("href")).toBe("/academy/guess-the-card");
   });
 
@@ -185,7 +183,7 @@ describe("PremiumHub betting preview", () => {
     expect(screen.getByText("Betting open")).toBeTruthy();
     expect(screen.getByText("$7,980 pool")).toBeTruthy();
     expect(screen.getByText("$1,250")).toBeTruthy();
-    expect(screen.getByText(/Rate the latest take and vote once a day\. One shared reward a day/)).toBeTruthy();
+    expect(screen.getByText(/Vote on today's Daily Stu check for a separate \$200 betting-dollar reward/)).toBeTruthy();
   });
 
   it("shows an explicit empty state when no market is available", () => {

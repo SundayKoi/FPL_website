@@ -1,0 +1,170 @@
+.row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) minmax(185px, auto);
+  align-items: center;
+  gap: 14px;
+  border-top: 1px solid var(--color-border-subtle);
+  padding: 11px 12px;
+}
+
+.matchup {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.team {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-content);
+  text-decoration: none;
+}
+
+.team:hover {
+  color: var(--color-action-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.teamName {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crest {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.fallback {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-league-accent);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.winner {
+  color: var(--color-prestige);
+}
+
+.unknown {
+  color: var(--color-muted);
+}
+
+.versus {
+  flex: 0 0 auto;
+  color: var(--color-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.score {
+  flex: 0 0 auto;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 4px;
+  background: var(--color-raised);
+  padding: 3px 9px;
+  color: var(--color-content);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+.score:hover {
+  border-color: var(--color-action-text);
+  color: var(--color-action-text);
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  color: var(--color-muted);
+  font-size: 0.76rem;
+}
+
+.badge,
+.draft {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 3px;
+  background: var(--color-surface);
+  padding: 3px 7px;
+  color: var(--color-muted);
+  font-size: 0.67rem;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.draft {
+  border-color: color-mix(in srgb, var(--color-league-accent) 35%, var(--color-border-subtle));
+  color: var(--color-action-text);
+}
+
+.draft:hover {
+  background: var(--color-league-wash);
+}
+
+.vs {
+  color: var(--color-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+@media (max-width: 700px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+    padding: 12px 4px;
+  }
+
+  .matchup {
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .team {
+    width: calc(50% - 22px);
+  }
+
+  .teamName {
+    font-size: 0.84rem;
+  }
+
+  .meta {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
+.row :global(a:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}

@@ -180,7 +180,16 @@ describe("Higher or Lower server module", () => {
       league: "premier",
       state: "not_started",
       canReplay: true,
+      isAdmin: false,
     });
+  });
+
+  it("carries true admin status into the game view for the authorized testing destination", async () => {
+    premiumAccess.mockResolvedValue({ signedIn: true, allowed: true, inconclusive: false, isAdmin: true });
+    const client = createClient(null);
+    createBettingServiceClient.mockReturnValue(client);
+
+    await expect(getHigherLowerGame("premier")).resolves.toMatchObject({ isAdmin: true });
   });
 
   it("does not wait for weekly leaderboard before returning an active round", async () => {

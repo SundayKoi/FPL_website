@@ -1,29 +1,15 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/supabase/server", () => ({
-  createServerSupabase: vi.fn(async () => ({
-    auth: { getUser: vi.fn(async () => ({ data: { user: null } })) },
-    from: () => ({
-      select: () => ({
-        order: async () => ({ data: null }),
-        eq: () => ({ single: async () => ({ data: null }) }),
-      }),
-    }),
-  })),
-}));
+const redirectMock = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
-import LeagueLinksPage from "./page";
+import LeagueLinksRedirect from "./page";
 
-describe("LeagueLinksPage", () => {
+describe("legacy League Links route", () => {
+  beforeEach(() => redirectMock.mockClear());
 
-  it("renders league resource links without the Rulebook card", async () => {
-    render(await LeagueLinksPage());
-
-    expect(screen.getByRole("heading", { name: "League Links", level: 1 })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "League resources" }).id).toBe("league-resources");
-    expect(screen.getByRole("heading", { name: "Payment", level: 2 })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "MasterDoc", level: 2 })).toBeTruthy();
-    expect(screen.queryByRole("article", { name: "Rulebook resource" })).toBeNull();
+  it("lands on the consolidated resource section", () => {
+    LeagueLinksRedirect();
+    expect(redirectMock).toHaveBeenCalledWith("/info#league-resources");
   });
 });

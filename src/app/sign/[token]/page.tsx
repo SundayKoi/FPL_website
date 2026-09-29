@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { INVITE_DAYS, inviteExpired } from "@/lib/cards/signing";
 import InviteSignaturePad from "@/components/cards/InviteSignaturePad";
+import styles from "@/components/cards/CardsPageShell.module.css";
 
 export const metadata: Metadata = {
   title: "Sign your card — FPL",
@@ -36,9 +37,9 @@ export default async function SigningInvitePage({ params }: { params: Promise<{ 
 
   if (!invite) {
     return (
-      <main className="page-container page-spacing flex flex-1 items-center justify-center page-backdrop">
+      <main className={styles.page + " " + styles.standalone + " items-center justify-center page-backdrop p-8"} data-league="neutral">
         <section className="card-brand max-w-md p-6 text-center">
-          <h1 className="type-display text-2xl text-white">Link not found</h1>
+          <h1 className={styles.title}>Link not found</h1>
           <p className="mt-2 text-sm text-muted">
             This signing link isn&apos;t valid. Ask whoever sent it for a fresh one.
           </p>
@@ -49,9 +50,9 @@ export default async function SigningInvitePage({ params }: { params: Promise<{ 
 
   if (invite.used_at) {
     return (
-      <main className="page-container page-spacing flex flex-1 items-center justify-center page-backdrop">
+      <main className={styles.page + " " + styles.standalone + " items-center justify-center page-backdrop p-8"} data-league="neutral">
         <section className="card-brand max-w-md p-6 text-center">
-          <h1 className="type-display text-2xl text-white">Already signed</h1>
+          <h1 className={styles.title}>Already signed</h1>
           <p className="mt-2 text-sm text-muted">
             This link was already used — a signature is on file. If that was a mistake or a stray mark, ask
             whoever sent the link for a fresh one; signing again just replaces what&apos;s there.
@@ -63,9 +64,9 @@ export default async function SigningInvitePage({ params }: { params: Promise<{ 
 
   if (inviteExpired(invite.expires_at)) {
     return (
-      <main className="page-container page-spacing flex flex-1 items-center justify-center page-backdrop">
+      <main className={styles.page + " " + styles.standalone + " items-center justify-center page-backdrop p-8"} data-league="neutral">
         <section className="card-brand max-w-md p-6 text-center">
-          <h1 className="type-display text-2xl text-white">Link expired</h1>
+          <h1 className={styles.title}>Link expired</h1>
           <p className="mt-2 text-sm text-muted">
             Signing links last {INVITE_DAYS} days and this one has lapsed. Ask for a fresh one.
           </p>
@@ -75,10 +76,10 @@ export default async function SigningInvitePage({ params }: { params: Promise<{ 
   }
 
   return (
-    <main className="page-container page-spacing flex flex-1 items-center justify-center page-backdrop">
+    <main className={styles.page + " " + styles.standalone + " items-center justify-center page-backdrop p-8"} data-league="neutral">
       <section className="card-brand flex w-full max-w-lg flex-col items-center gap-4 p-6 text-center">
         <span className="label-dash">THE FACELESS DROP</span>
-        <h1 className="type-display text-3xl text-white">Sign your card, {invite.display_name}</h1>
+        <h1 className={styles.title}>Sign your card, {invite.display_name}</h1>
         <p className="max-w-[46ch] text-sm text-muted">
           Your championship card only ever carries a real autograph. Draw your signature below — finger or
           stylus both work — and a lucky few pulls of your card will come out inked.

@@ -1,0 +1,98 @@
+.seasonToolbar {
+  border-bottom: 0;
+  padding-bottom: 4px;
+}
+
+.toolbarLabel {
+  padding-bottom: 8px;
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.seasonLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.seasonLink {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 3px;
+  padding: 5px 10px;
+  color: var(--color-content);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.seasonLink:hover,
+.seasonLink[aria-current="page"] {
+  border-color: var(--color-league-accent);
+  background: var(--color-league-wash);
+}
+
+.seasonLink:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.stageGroups {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.stageGroup {
+  min-width: 0;
+}
+
+.groupTitle {
+  margin: 0 0 6px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding-bottom: 10px;
+  color: var(--color-muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.noFixtures {
+  margin: 0;
+  border-top: 1px solid var(--color-border-subtle);
+  padding: 14px 4px;
+  color: var(--color-muted);
+  font-size: 0.88rem;
+}
+
+.management {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: 14px;
+}
+
+.management > summary {
+  min-height: 44px;
+  cursor: pointer;
+  padding: 12px 0;
+  color: var(--color-content);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.management > summary:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.managementContent {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 0 18px;
+}

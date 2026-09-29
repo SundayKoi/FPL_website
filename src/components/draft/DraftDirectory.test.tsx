@@ -23,7 +23,7 @@ describe("DraftDirectory", () => {
   it("links each draft card to its existing board", () => {
     render(<DraftDirectory drafts={[draft({ id: "summer-auction", name: "Summer Auction", status: "live" })]} />);
 
-    expect(screen.getByRole("heading", { name: "Auction Draft", level: 1 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Auction draft", level: 1 })).toBeTruthy();
     expect(screen.getByRole("link", { name: /summer auction/i }).getAttribute("href")).toBe(
       "/draft/summer-auction"
     );
@@ -40,8 +40,8 @@ describe("DraftDirectory", () => {
       />
     );
 
-    expect(screen.getAllByText("FPL Season 5")).toHaveLength(2);
-    expect(screen.getAllByText("Academy Draft")).toHaveLength(2);
+    expect(screen.getAllByRole("heading", { name: "FPL Season 5" })).toHaveLength(1);
+    expect(screen.getAllByRole("heading", { name: "Academy Draft" })).toHaveLength(1);
     expect(screen.getAllByLabelText("Draft start countdown")).toHaveLength(2);
   });
 

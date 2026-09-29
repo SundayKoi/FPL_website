@@ -8,7 +8,7 @@ describe("RulebookContent", () => {
     render(<RulebookContent />);
 
     expect(
-      screen.getByRole("heading", { name: /rulebook/i, level: 1 }),
+      screen.getByRole("heading", { name: "Franchise Premier League(FPL)–Official Premier Rulebook Split 5", level: 2 }),
     ).toBeTruthy();
     expect(
       screen

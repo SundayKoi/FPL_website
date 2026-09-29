@@ -1,79 +1,85 @@
 import Link from "next/link";
 import type { Draft } from "@/lib/draft/types";
 import UpcomingDraftCard from "./UpcomingDraftCard";
+import styles from "./DraftDirectory.module.css";
 
 export default function DraftDirectory({ drafts, showAdmin = false }: { drafts: Draft[]; showAdmin?: boolean }) {
   const upcomingDrafts = drafts
     .filter((draft) => draft.status === "setup" && draft.starts_at)
     .sort((left, right) => new Date(left.starts_at!).getTime() - new Date(right.starts_at!).getTime());
+  const activeDrafts = drafts.filter((draft) => draft.status === "live" || draft.status === "paused");
+  const setupDrafts = drafts.filter((draft) => draft.status === "setup" && !draft.starts_at);
+  const completedDrafts = drafts.filter((draft) => draft.status === "complete");
+
+  const draftList = (items: Draft[]) => (
+    <ul className={styles.draftList}>
+      {items.map((draft) => (
+        <li key={draft.id}>
+          <Link href={`/draft/${draft.id}`} className={styles.draftLink}>
+            <span className={styles.draftName}>{draft.name}</span>
+            <span className={styles.draftStatus} data-status={draft.status}>{draft.status}</span>
+            <span className={styles.openLink}>Open board <span aria-hidden="true">→</span></span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
 
   return (
-    <main className="page-backdrop flex-1">
-      <section className="page-container page-spacing w-full"
-        aria-labelledby="draft-central-title"
-      >
-        <div className="mb-6 flex items-end justify-between gap-4">
+    <main className={styles.page}>
+      <section className={styles.content} aria-labelledby="draft-central-title">
+        <header className={styles.header}>
           <div>
-            <span className="label-dash">THE SEASON STARTS HERE</span>
-            <h1 id="draft-central-title" className="type-display mt-2 text-4xl sm:text-5xl">
-              Auction Draft
-            </h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-muted">
-              Get ready for the next room, follow active boards, and revisit every completed draft.
-            </p>
+            <p className={styles.context}>League tools</p>
+            <h1 id="draft-central-title">Auction draft</h1>
+            <p className={styles.description}>Upcoming rooms, live drafts, and completed boards.</p>
           </div>
           {showAdmin ? (
             // Presentation only, like the header's Admin link: /admin
             // re-checks the staff tier. Everyone else used to see this.
             <Link
               href="/admin"
-              className="text-sm text-muted underline underline-offset-4 hover:text-white focus-visible:text-white"
+              className={styles.adminLink}
             >
-              Admin
+              Admin settings
             </Link>
           ) : null}
-        </div>
+        </header>
 
-        {upcomingDrafts.length > 0 && (
-          <section aria-labelledby="upcoming-drafts-title" className="mb-8">
-            <div className="mb-4">
-              <span className="label-dash text-gold">THE NEXT ROOMS</span>
-              <h2 id="upcoming-drafts-title" className="type-display mt-2 text-3xl sm:text-4xl">
-                Countdown to draft night
-              </h2>
+        {upcomingDrafts.length > 0 ? (
+          <section aria-labelledby="upcoming-drafts-title" className={styles.section}>
+            <div className={styles.sectionHeading}>
+              <h2 id="upcoming-drafts-title">Upcoming</h2>
+              <p>Scheduled draft rooms</p>
             </div>
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className={styles.upcomingGrid}>
               {upcomingDrafts.map((draft) => <UpcomingDraftCard key={draft.id} draft={draft} />)}
             </div>
           </section>
-        )}
+        ) : null}
 
-        {drafts.length === 0 ? (
-          <p className="text-sm text-muted">No drafts yet.</p>
-        ) : (
-          <section aria-labelledby="all-drafts-title">
-            <div className="mb-4">
-              <span className="label-dash">DRAFT ARCHIVE</span>
-              <h2 id="all-drafts-title" className="type-display mt-2 text-3xl sm:text-4xl">All drafts</h2>
-            </div>
-            <ul className="grid gap-4 md:grid-cols-2">
-            {drafts.map((draft) => (
-              <li key={draft.id}>
-                <Link
-                  href={`/draft/${draft.id}`}
-                  className="card-brand flex h-full flex-col gap-2 px-5 py-4 transition-colors hover:border-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-                >
-                  <span className="type-display text-xl">{draft.name}</span>
-                  <span className="text-sm uppercase tracking-wide text-muted">
-                    {draft.status}
-                  </span>
-                  <span className="label-dash">VIEW BOARD →</span>
-                </Link>
-              </li>
-            ))}
-            </ul>
+        {activeDrafts.length > 0 ? (
+          <section aria-labelledby="active-drafts-title" className={styles.section}>
+            <div className={styles.sectionHeading}><h2 id="active-drafts-title">Active drafts</h2><p>Live and paused boards</p></div>
+            {draftList(activeDrafts)}
           </section>
-        )}
+        ) : null}
+
+        {setupDrafts.length > 0 ? (
+          <section aria-labelledby="setup-drafts-title" className={styles.section}>
+            <div className={styles.sectionHeading}><h2 id="setup-drafts-title">Setup</h2><p>Preview boards without a scheduled start</p></div>
+            {draftList(setupDrafts)}
+          </section>
+        ) : null}
+
+        {completedDrafts.length > 0 ? (
+          <section aria-labelledby="completed-drafts-title" className={styles.section}>
+            <div className={styles.sectionHeading}><h2 id="completed-drafts-title">Completed</h2><p>Past auction boards and final rosters</p></div>
+            {draftList(completedDrafts)}
+          </section>
+        ) : null}
+
+        {drafts.length === 0 ? <p className={styles.empty}>No drafts yet.</p> : null}
       </section>
     </main>
   );

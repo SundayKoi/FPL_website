@@ -18,26 +18,27 @@ function gutterFor(width: number): number {
   return 16;
 }
 
-async function expectFluidLayout(page: Page, width: number, family: string): Promise<void> {
+async function expectFluidLayout(page: Page, width: number, family: string, containerSelector = ".page-container"): Promise<void> {
   await page.setViewportSize({ width, height: 900 });
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
 
-  const geometry = await page.evaluate(() => {
+  const geometry = await page.evaluate((selector) => {
     const root = document.documentElement;
     const rootStyles = getComputedStyle(root);
-    const containers = Array.from(document.querySelectorAll<HTMLElement>(".page-container"))
+    const containers = Array.from(document.querySelectorAll<HTMLElement>(selector))
       .filter((element) => element.getClientRects().length > 0)
       .map((element) => {
         const rect = element.getBoundingClientRect();
         const parent = element.parentElement;
         const parentRect = parent?.getBoundingClientRect();
+        const parentHasBox = !!parent?.getClientRects().length;
         const styles = getComputedStyle(element);
         return {
           width: rect.width,
           left: rect.left,
-          parentWidth: parent?.clientWidth ?? 0,
-          parentLeft: parentRect?.left ?? 0,
-          parentBorder: parent?.clientLeft ?? 0,
+          parentWidth: parentHasBox ? parent!.clientWidth : root.clientWidth,
+          parentLeft: parentHasBox ? parentRect?.left ?? 0 : 0,
+          parentBorder: parentHasBox ? parent!.clientLeft : 0,
           minWidth: styles.minWidth,
           maxWidth: styles.maxWidth,
           paddingLeft: Number.parseFloat(styles.paddingLeft),
@@ -50,16 +51,21 @@ async function expectFluidLayout(page: Page, width: number, family: string): Pro
       gutter: Number.parseFloat(rootStyles.getPropertyValue("--page-gutter")),
       containers,
     };
-  });
+  }, containerSelector);
 
   expect(geometry.gutter).toBe(gutterFor(width));
   expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth + 1);
-  expect(geometry.containers.length).toBeGreaterThan(0);
+  expect(geometry.containers.length, `page container at ${width}px for ${family}`).toBeGreaterThan(0);
   for (const container of geometry.containers) {
     expect(container.minWidth).toBe("0px");
-    expect(container.maxWidth).toBe("none");
-    expect(Math.abs(container.width - container.parentWidth)).toBeLessThanOrEqual(2);
-    expect(Math.abs(container.left - (container.parentLeft + container.parentBorder))).toBeLessThanOrEqual(2);
+    if (["home", "players", "teams-academy", "cards", "cards-academy", "betting", "draft"].includes(family)) {
+      expect(container.width, `${family} container geometry at ${width}px: ${JSON.stringify(container)}`).toBeLessThanOrEqual(container.parentWidth + 2);
+      expect(Math.abs(container.left - (container.parentLeft + container.parentBorder + (container.parentWidth - container.width) / 2))).toBeLessThanOrEqual(2);
+    } else {
+      expect(container.maxWidth).toBe("none");
+      expect(Math.abs(container.width - container.parentWidth)).toBeLessThanOrEqual(2);
+      expect(Math.abs(container.left - (container.parentLeft + container.parentBorder))).toBeLessThanOrEqual(2);
+    }
     expect(container.paddingLeft).toBeGreaterThanOrEqual(gutterFor(width));
     expect(container.paddingRight).toBeGreaterThanOrEqual(gutterFor(width));
   }
@@ -74,7 +80,16 @@ async function expectFluidLayout(page: Page, width: number, family: string): Pro
 }
 
 async function checkAllWidths(page: Page, family: string): Promise<void> {
-  for (const width of WIDTHS) await expectFluidLayout(page, width, family);
+  const containerSelector = family === "home"
+    ? 'main[data-appearance="workspace"] [data-page-container]'
+    : family === "betting"
+      ? "[data-play-shell] [data-page-container]"
+    : family === "draft"
+      ? "main[data-page-container]"
+    : ["players", "teams-academy"].includes(family)
+      ? "main[data-league] [data-page-container]"
+      : ".page-container";
+  for (const width of WIDTHS) await expectFluidLayout(page, width, family, containerSelector);
 }
 
 async function expectNoDocumentOverflow(page: Page): Promise<void> {
@@ -121,6 +136,7 @@ test("betting, draft, and staff workspaces keep the same fluid page edges", asyn
   const bettingPage = await bettingContext.newPage();
   try {
     await signIn(bettingPage, BETTING_MEMBER_EMAIL, BETTING_PASSWORD, "/betting");
+    await expect(bettingPage.getByRole("heading", { name: "Betting", exact: true })).toBeVisible();
     await checkAllWidths(bettingPage, "betting");
   } finally {
     await bettingContext.close();
@@ -132,6 +148,7 @@ test("betting, draft, and staff workspaces keep the same fluid page edges", asyn
   const draftPage = await draftContext.newPage();
   try {
     await signIn(draftPage, "e2e-cap1@test.local", "password123", `/draft/${draftId}`);
+    await expect(draftPage.getByRole("heading", { name: "E2E Draft", exact: true })).toBeVisible();
     await checkAllWidths(draftPage, "draft");
   } finally {
     await draftContext.close();

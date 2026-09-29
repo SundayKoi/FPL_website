@@ -1,5 +1,5 @@
-import SectionLoading from "@/components/system/SectionLoading";
+import ScheduleLoading from "@/components/schedule/ScheduleLoading";
 
 export default function Loading() {
-  return <SectionLoading label="Loading the schedule…" rows={3} />;
+  return <ScheduleLoading league="Academy" />;
 }
