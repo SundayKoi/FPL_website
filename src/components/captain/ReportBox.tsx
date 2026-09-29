@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { parseReport } from "@/lib/matches/parseReport";
 import type { LeagueTeam } from "@/lib/matches/types";
+import type { FixtureRow } from "@/lib/schedule/types";
 import { purgeMatchStats, submitReport, type MyReportRow } from "@/lib/captain/queries";
 import { friendlyErrorMessage } from "@/lib/captain/errors";
+import { defaultFixtureId, fixtureCandidates, fixtureOptionLabel } from "@/lib/captain/reportFixture";
 import MyReportsList from "./MyReportsList";
 
 const MATCH_ID_RE = /^NA1_\d+$/;
@@ -27,6 +29,11 @@ interface ReportForm {
   phase: string;
   teamAId: string;
   teamBId: string;
+  /** The schedule fixture this series is, or "" for a scrim or a makeup game
+   *  with no fixture. This is what the schedule, the match page and playoff
+   *  advancement all key on, so a report filed against nothing is invisible
+   *  to all three. */
+  fixtureId: string;
   scoreA: string;
   scoreB: string;
   draftUrl: string;
@@ -56,6 +63,7 @@ function emptyForm(defaults: {
   phase: string;
   teamAId: string | null;
   teamBId: string | null;
+  fixtureId: string | null;
   draftPrefill: DraftPrefill | null;
 }): ReportForm {
   const prefill = defaults.draftPrefill;
@@ -64,6 +72,7 @@ function emptyForm(defaults: {
     phase: defaults.phase,
     teamAId: defaults.teamAId ?? "",
     teamBId: defaults.teamBId ?? "",
+    fixtureId: defaults.fixtureId ?? "",
     scoreA: prefill?.scoreA != null ? String(prefill.scoreA) : "",
     scoreB: prefill?.scoreB != null ? String(prefill.scoreB) : "",
     draftUrl: prefill?.draftUrl ?? "",
@@ -97,6 +106,7 @@ export default function ReportBox({
   prefillTeamBId,
   draftPrefill = null,
   myReports,
+  fixtures,
   isAdmin = false,
 }: {
   teams: LeagueTeam[];
@@ -109,6 +119,9 @@ export default function ReportBox({
    *  (blue sides), the draft URL, and the score from recorded winners. */
   draftPrefill?: DraftPrefill | null;
   myReports: MyReportRow[];
+  /** The season's fixtures, so the report can be linked to the match it
+   *  describes. Without this list the report links to `fixtureId` alone. */
+  fixtures?: FixtureRow[];
   /** Whether to offer clearing the ingested stats of a game being re-filed
    *  (see purgeMatchStats). Presentation only: the RPC checks for itself. */
   isAdmin?: boolean;
@@ -116,11 +129,32 @@ export default function ReportBox({
   const supabase = createClient();
   const router = useRouter();
 
+  /** The fixtures a report about the chosen pair could be. */
+  const candidatesFor = (teamAId: string, teamBId: string) =>
+    fixtures
+      ? fixtureCandidates(
+          fixtures,
+          teams.find((t) => t.id === teamAId)?.name ?? null,
+          teams.find((t) => t.id === teamBId)?.name ?? null,
+        )
+      : [];
+
+  /** Pick the fixture link for a form's pair — on first render, after a
+   *  paste, and whenever a team changes, because a link to a match between
+   *  two other teams is worse than none. Without a fixtures list there is
+   *  nothing to pick from, and the page's own fixture stands. */
+  const withFixtureFor = (next: ReportForm): ReportForm =>
+    fixtures
+      ? { ...next, fixtureId: defaultFixtureId(candidatesFor(next.teamAId, next.teamBId), next.fixtureId, fixtureId) }
+      : next;
+  const freshForm = () =>
+    withFixtureFor(
+      emptyForm({ season: defaultSeason, phase: defaultPhase, teamAId: prefillTeamAId, teamBId: prefillTeamBId, fixtureId, draftPrefill }),
+    );
+
   const [pasteText, setPasteText] = useState("");
   const [parseWarnings, setParseWarnings] = useState<string[]>([]);
-  const [form, setForm] = useState<ReportForm>(() =>
-    emptyForm({ season: defaultSeason, phase: defaultPhase, teamAId: prefillTeamAId, teamBId: prefillTeamBId, draftPrefill })
-  );
+  const [form, setForm] = useState<ReportForm>(freshForm);
   const [errors, setErrors] = useState<string[]>([]);
   /** Match ids whose stats are in raw_stats with no report behind them —
    *  what an admin is offered to clear so the games can be filed again. */
@@ -130,13 +164,16 @@ export default function ReportBox({
 
   const teamName = (id: string | null) => teams.find((t) => t.id === id)?.name ?? "Unknown team";
 
+  const fixtureOptions = candidatesFor(form.teamAId, form.teamBId);
+  const linkedFixture = fixtureOptions.find((f) => f.id === form.fixtureId) ?? null;
+
   /** The drafted blue side for a game number, when the drafter recorded one. */
   const draftBlueFor = (gameNumber: number): string | null =>
     draftPrefill?.games.find((game) => game.gameNumber === gameNumber)?.blueTeamId ?? null;
 
   const handleParse = () => {
     const parsed = parseReport(pasteText, teams);
-    setForm((prev) => ({
+    setForm((prev) => withFixtureFor({
       ...prev,
       teamAId: parsed.teamAId ?? prev.teamAId,
       teamBId: parsed.teamBId ?? prev.teamBId,
@@ -287,7 +324,7 @@ export default function ReportBox({
         scoreA,
         scoreB,
         draftUrl: form.draftUrl.trim() || null,
-        fixtureId,
+        fixtureId: form.fixtureId || null,
         forfeitTeamId: forfeitTeamId || null,
         forfeitNote: forfeitTeamId ? form.forfeitNote.trim() || null : null,
         games: form.games.map((g) => ({
@@ -298,7 +335,7 @@ export default function ReportBox({
       });
       setPasteText("");
       setParseWarnings([]);
-      setForm(emptyForm({ season: defaultSeason, phase: defaultPhase, teamAId: prefillTeamAId, teamBId: prefillTeamBId, draftPrefill }));
+      setForm(freshForm());
       setSuccess(
         purged
           ? "Report submitted. The earlier stats for these games were cleared; the next ingest run re-fetches them under this report."
@@ -380,7 +417,7 @@ export default function ReportBox({
           Team A
           <select
             value={form.teamAId}
-            onChange={(e) => setForm((p) => ({ ...p, teamAId: e.target.value }))}
+            onChange={(e) => setForm((p) => withFixtureFor({ ...p, teamAId: e.target.value }))}
             className={inputClass}
           >
             <option value="">Select…</option>
@@ -395,7 +432,7 @@ export default function ReportBox({
           Team B
           <select
             value={form.teamBId}
-            onChange={(e) => setForm((p) => ({ ...p, teamBId: e.target.value }))}
+            onChange={(e) => setForm((p) => withFixtureFor({ ...p, teamBId: e.target.value }))}
             className={inputClass}
           >
             <option value="">Select…</option>
@@ -468,6 +505,36 @@ export default function ReportBox({
             className={inputClass}
           />
         </label>
+        {fixtureOptions.length > 0 && (
+          <label className="col-span-2 flex flex-col gap-1 text-xs text-muted sm:col-span-4">
+            Fixture
+            <select
+              value={form.fixtureId}
+              onChange={(e) => setForm((p) => ({ ...p, fixtureId: e.target.value }))}
+              className={inputClass}
+            >
+              <option value="">No fixture — scrim or unscheduled game</option>
+              {fixtureOptions.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {fixtureOptionLabel(f)}
+                </option>
+              ))}
+            </select>
+            {/* Said here because it is the one place it can be: a report
+                filed against no fixture never reaches the schedule, the
+                match page, or the playoff bracket, and nothing downstream
+                says why. */}
+            {linkedFixture && linkedFixture.score_a !== null ? (
+              <span className="text-prestige">
+                This fixture already has a score. Reporting it again is how a corrected series gets its games
+                back on the match page and its winner through the bracket; the score itself is edited on the
+                schedule.
+              </span>
+            ) : (
+              <span>The schedule, the match page and playoff advancement all read the report through this link.</span>
+            )}
+          </label>
+        )}
       </div>
 
       <div className="mt-4 flex flex-col gap-2">

@@ -728,6 +728,11 @@ and submit" button there that does the same. Neither touches a fixture score
 the wrong report already filled (fix it on `/schedule`) or a card edition
 already archived (rebuild it with "Archive card edition") — see
 [Re-reporting an ingested series](docs/backend.md#re-reporting-an-ingested-series).
+When re-filing, check the form's **Fixture** picker names the series being
+corrected: the schedule, the match page and playoff advancement only see a
+report through that link, and a report filed against no fixture changes none
+of them. An already-filed report with no fixture can be linked from the admin
+reports queue on `/my-team` without another ingest.
 
 ### Automatic betting settlement
 

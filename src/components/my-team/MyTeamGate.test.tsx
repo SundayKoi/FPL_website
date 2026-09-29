@@ -41,6 +41,7 @@ const ready: MyTeamDashboardResult = {
     { id: "team-2", name: "Enemy Team", abbreviation: "EN", active: true },
   ],
   nextFixture: fixture,
+  fixtures: [fixture],
   codes: [{
     id: "code-1",
     fixture_id: fixture.id,

@@ -16,7 +16,7 @@ function dashboard(overrides: Partial<MyTeamReadyDashboard> = {}): MyTeamReadyDa
   return {
     kind: "ready", league: "premier", profileId: "profile-1", playerPoolId: "pool-1", season: "S5",
     team: { ...teams[0], imageUrl: null, bannerColor: "#123456" }, teams, activeTeams: teams,
-    nextFixture: fixture, codes: [], draftGames: [], schedule: [fixture],
+    nextFixture: fixture, fixtures: [fixture], codes: [], draftGames: [], schedule: [fixture],
     roster: { draftPlayers: [], riotAccounts: [], multiOpggUrl: null },
     opponent: {
       team: teams[1], name: "Enemy Team", roster: { draftPlayers: [], riotAccounts: [] }, multiOpggUrl: null,

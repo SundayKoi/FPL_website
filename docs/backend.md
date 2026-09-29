@@ -2059,6 +2059,21 @@ Two callers, both through `purgeMatchStats` in `src/lib/captain/queries.ts`:
   behind — is explained, and an admin (`isAdmin`, presentation only) gets a
   "Clear ingested stats and submit" button that purges and files in one go.
 
+The re-filed report has to carry the fixture, or nothing downstream sees it.
+`/schedule`'s match page, the Academy advancement script and the Premier
+playoff panel all find a series through `match_reports.fixture_id`; a report
+with none ingests cleanly and then changes nothing on the schedule. The form
+used to set that id from the team's next unplayed fixture only, which a
+corrected series can never be — its fixture already carries the score the
+wrong report synced — so the correction was filed against nothing. `ReportBox`
+now takes the season's `fixtures` (`MyTeamReadyDashboard.fixtures`, league-
+scoped) and shows a "Fixture" picker for the chosen pair, defaulting per
+`defaultFixtureId` in `src/lib/captain/reportFixture.ts`: the page's own
+fixture, else the pair's one unplayed fixture, else its one fixture even if
+scored; several played fixtures and no hint leave it blank. `AdminReportsQueue`
+shows the same picker on any report whose `fixture_id` is null and links it
+in place (guarded `update … is fixture_id null`), which needs no re-ingest.
+
 What it deliberately does not undo, because each has its own path and none
 follows from a match id alone:
 

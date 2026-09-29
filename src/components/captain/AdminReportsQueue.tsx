@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { LeagueTeam, MatchReport, MatchReportGame } from "@/lib/matches/types";
+import type { FixtureRow } from "@/lib/schedule/types";
 import { fixGameSide, purgeMatchStats } from "@/lib/captain/queries";
 import { friendlyErrorMessage } from "@/lib/captain/errors";
+import { fixtureCandidates, fixtureOptionLabel } from "@/lib/captain/reportFixture";
 import { FixtureChips, ForfeitLine, StatusBadge } from "./reportStatus";
 
 /**
@@ -20,11 +22,15 @@ export default function AdminReportsQueue({
   reports,
   games,
   teams,
+  fixtures,
   initiallyOpen = false,
 }: {
   reports: MatchReport[];
   games: MatchReportGame[];
   teams: LeagueTeam[];
+  /** The season's fixtures. With them, a report filed against no fixture
+   *  gets a picker to link it after the fact; without, no picker. */
+  fixtures?: FixtureRow[];
   initiallyOpen?: boolean;
 }) {
   const supabase = createClient();
@@ -137,6 +143,34 @@ export default function AdminReportsQueue({
     router.refresh();
   };
 
+  /**
+   * A report with no fixture_id is invisible to the schedule, the match page
+   * and playoff advancement, however cleanly it ingested. Linking it here is
+   * the repair; the ingest does not have to run again for it, because the
+   * link is all those three read. The fixture score is not touched: a
+   * report only ever fills an empty one, and this one is already past that.
+   */
+  const handleLinkFixture = async (report: MatchReport, fixtureId: string) => {
+    setBusyId(report.id);
+    setError(null);
+    const { data, error: linkError } = await supabase
+      .from("match_reports")
+      .update({ fixture_id: fixtureId })
+      .eq("id", report.id)
+      .is("fixture_id", null)
+      .select("id");
+    setBusyId(null);
+    if (linkError) {
+      setError(linkError.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      setError("This report was linked to a fixture by someone else in the meantime — refresh to see it.");
+      return;
+    }
+    router.refresh();
+  };
+
   const handleFixSide = async (gameId: string, blueTeamId: string) => {
     setBusyId(gameId);
     setError(null);
@@ -213,6 +247,36 @@ export default function AdminReportsQueue({
                         </button>
                       </div>
                     </div>
+                    {(() => {
+                      if (r.fixture_id || !fixtures) return null;
+                      const options = fixtureCandidates(fixtures, teamName(r.team_a_id), teamName(r.team_b_id));
+                      return (
+                        <label className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-amber-300">
+                          Not linked to a fixture — the schedule and bracket cannot see it.
+                          {options.length > 0 ? (
+                            <select
+                              disabled={busy}
+                              defaultValue=""
+                              onChange={(e) => {
+                                if (e.target.value) void handleLinkFixture(r, e.target.value);
+                              }}
+                              className="rounded border border-border-subtle bg-canvas px-1.5 py-0.5 text-xs text-white"
+                            >
+                              <option value="" disabled>
+                                Link to fixture…
+                              </option>
+                              {options.map((f) => (
+                                <option key={f.id} value={f.id}>
+                                  {fixtureOptionLabel(f)}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-muted">No fixture between these teams this season.</span>
+                          )}
+                        </label>
+                      );
+                    })()}
                     <ForfeitLine team={r.forfeit_team_id ? teamName(r.forfeit_team_id) : null} note={r.forfeit_note} />
                     {r.error_text && <p className="mt-1 text-xs text-red-400">{r.error_text}</p>}
                     {r.warning_text && <p className="mt-1 text-xs text-amber-300">{r.warning_text}</p>}

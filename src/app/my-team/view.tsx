@@ -153,6 +153,7 @@ export async function MyTeamPageView({
             prefillTeamBId={captainData.prefill.prefillTeamBId}
             draftPrefill={captainData.prefill.draftPrefill}
             myReports={captainData.myReports}
+            fixtures={dashboard.fixtures}
             isAdmin={dashboard.isAdmin}
           />
         </div>
@@ -233,7 +234,12 @@ export async function MyTeamPageView({
           season={dashboard.season}
           enableBulkImporter
         />
-        <AdminReportsQueue reports={adminData.reports} games={adminData.games} teams={dashboard.teams} />
+        <AdminReportsQueue
+          reports={adminData.reports}
+          games={adminData.games}
+          teams={dashboard.teams}
+          fixtures={adminData.fixtures}
+        />
         {adminData.isOwner ? (
           <LeagueTeamsEditor teams={dashboard.teams} />
         ) : (

@@ -66,6 +66,11 @@ export type MyTeamReadyDashboard = {
   /** Human-selectable teams. Admin overrides are validated only against this list. */
   activeTeams: LeagueTeam[];
   nextFixture: FixtureRow | null;
+  /** Every fixture in this league's season, so a report can be linked to the
+   *  match it describes even when that is not the team's next one — a
+   *  corrected series whose fixture already carries a score, or an admin
+   *  filing for two other teams. */
+  fixtures: FixtureRow[];
   /** A confirmed Premier quarterfinal winner while both semifinal slots remain TBD. */
   awaitingPlayoffDraw?: boolean;
   codes: MatchCode[];

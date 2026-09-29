@@ -409,6 +409,7 @@ export async function loadMyTeamDashboard(
     teams,
     activeTeams,
     nextFixture,
+    fixtures,
     awaitingPlayoffDraw,
     codes,
     draftGames,

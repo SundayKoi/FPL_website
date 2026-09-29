@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LeagueTeam } from "@/lib/matches/types";
+import type { FixtureRow } from "@/lib/schedule/types";
 import ReportBox from "./ReportBox";
 
 const { submitReport, purgeMatchStats, tableRows } = vi.hoisted(() => ({
@@ -30,7 +31,7 @@ const teams = [
   { id: "team-b", name: "Wildcats", abbreviation: "WLD", active: true },
 ] as unknown as LeagueTeam[];
 
-function renderBox(props: { isAdmin?: boolean } = {}) {
+function renderBox(props: { isAdmin?: boolean; fixtures?: FixtureRow[]; fixtureId?: string | null } = {}) {
   return render(
     <ReportBox
       teams={teams}
@@ -270,5 +271,93 @@ describe("ReportBox re-reporting an ingested game", () => {
 
     expect(await screen.findByText(/NOT_ADMIN: admin access required/)).toBeTruthy();
     expect(submitReport).not.toHaveBeenCalled();
+  });
+});
+
+describe("ReportBox fixture link", () => {
+  // The schedule, the match page and playoff advancement all find a report
+  // through match_reports.fixture_id. The form used to set it from the
+  // team's next unplayed fixture and nothing else, so a corrected series —
+  // whose fixture already carried the wrong report's score — was filed
+  // against nothing: right score on the schedule, no games, no winner
+  // advanced, and no message anywhere saying why.
+  const semifinal = {
+    id: "semi-1",
+    season: "S5",
+    stage: "semifinals",
+    division: null,
+    team_a: "Alcatraz",
+    team_b: "Wildcats",
+    scheduled_at: "2026-09-28T20:00:00-04:00",
+    best_of: 5,
+    score_a: 3,
+    score_b: 2,
+    sort_order: 1,
+    created_at: "2026-08-01T00:00:00Z",
+  } as FixtureRow;
+  const finals = { ...semifinal, id: "final-1", stage: "finals", team_a: "Wildcats", team_b: "Alcatraz", scheduled_at: "2026-10-05T20:00:00-04:00", score_a: null, score_b: null } as FixtureRow;
+  const submitValid = () => {
+    fillValidReport();
+    fireEvent.change(screen.getByDisplayValue("Blue side?"), { target: { value: "team-b" } });
+    fireEvent.click(screen.getByRole("button", { name: /submit report/i }));
+  };
+  const submittedFixtureId = () => (submitReport.mock.calls[0][1] as { fixtureId: string | null }).fixtureId;
+
+  it("links a corrected series to its fixture even though that fixture already has a score", async () => {
+    renderBox({ fixtures: [semifinal], fixtureId: null });
+
+    const picker = screen.getByLabelText(/^fixture/i) as HTMLSelectElement;
+    expect(picker.value).toBe("semi-1");
+    expect(screen.getByText(/this fixture already has a score/i)).toBeTruthy();
+
+    submitValid();
+    await waitFor(() => expect(submitReport).toHaveBeenCalledTimes(1));
+    expect(submittedFixtureId()).toBe("semi-1");
+  });
+
+  it("keeps the page's own fixture when the pair has several, and lets the reporter switch", async () => {
+    renderBox({ fixtures: [semifinal, finals], fixtureId: "final-1" });
+    const picker = screen.getByLabelText(/^fixture/i) as HTMLSelectElement;
+    expect(picker.value).toBe("final-1");
+    expect(picker.options).toHaveLength(3);
+
+    fireEvent.change(picker, { target: { value: "semi-1" } });
+    submitValid();
+    await waitFor(() => expect(submitReport).toHaveBeenCalledTimes(1));
+    expect(submittedFixtureId()).toBe("semi-1");
+  });
+
+  it("drops the link when the pair changes to teams with no fixture, rather than keep a wrong one", async () => {
+    const withBears = [...teams, { id: "team-c", name: "Bears", abbreviation: "BRS", active: true }] as unknown as LeagueTeam[];
+    render(
+      <ReportBox
+        teams={withBears}
+        defaultSeason="S5"
+        defaultPhase="Regular"
+        fixtureId="semi-1"
+        prefillTeamAId="team-a"
+        prefillTeamBId="team-b"
+        myReports={[]}
+        fixtures={[semifinal]}
+      />,
+    );
+    expect((screen.getByLabelText(/^fixture/i) as HTMLSelectElement).value).toBe("semi-1");
+
+    fireEvent.change(screen.getByLabelText(/team b/i), { target: { value: "team-c" } });
+    expect(screen.queryByLabelText(/^fixture/i)).toBeNull();
+
+    fillValidReport();
+    fireEvent.change(screen.getByDisplayValue("Blue side?"), { target: { value: "team-c" } });
+    fireEvent.click(screen.getByRole("button", { name: /submit report/i }));
+    await waitFor(() => expect(submitReport).toHaveBeenCalledTimes(1));
+    expect(submittedFixtureId()).toBeNull();
+  });
+
+  it("still files against the page's fixture when no fixture list is given", async () => {
+    renderBox({ fixtureId: "semi-1" });
+    expect(screen.queryByLabelText(/^fixture/i)).toBeNull();
+    submitValid();
+    await waitFor(() => expect(submitReport).toHaveBeenCalledTimes(1));
+    expect(submittedFixtureId()).toBe("semi-1");
   });
 });

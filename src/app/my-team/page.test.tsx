@@ -114,6 +114,7 @@ function ready(overrides: Partial<MyTeamReadyDashboard> = {}): MyTeamReadyDashbo
     teams,
     activeTeams: teams,
     nextFixture: fixture,
+    fixtures: [fixture],
     codes: [{
       id: "code-1",
       fixture_id: fixture.id,
@@ -282,6 +283,7 @@ describe("My Team page", () => {
     expect(reportBox).toHaveBeenCalledWith(expect.objectContaining({
       defaultSeason: "S5",
       fixtureId: "fixture-1",
+      fixtures: [fixture],
       prefillTeamAId: "team-1",
       prefillTeamBId: "team-2",
       draftPrefill: {

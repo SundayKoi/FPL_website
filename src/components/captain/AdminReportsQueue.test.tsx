@@ -1,12 +1,14 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LeagueTeam, MatchReport, MatchReportGame } from "@/lib/matches/types";
+import type { FixtureRow } from "@/lib/schedule/types";
 import AdminReportsQueue from "./AdminReportsQueue";
 
-const { fixGameSide, purgeMatchStats, deleteReport, statsRows, calls } = vi.hoisted(() => ({
+const { fixGameSide, purgeMatchStats, deleteReport, linkReport, statsRows, calls } = vi.hoisted(() => ({
   fixGameSide: vi.fn(),
   purgeMatchStats: vi.fn(),
   deleteReport: vi.fn(),
+  linkReport: vi.fn(),
   /** What raw_stats still holds for the report's games. */
   statsRows: [] as { match_id: string }[],
   /** The order the delete and the purge actually happened in. */
@@ -28,6 +30,13 @@ vi.mock("@/lib/supabase/client", () => ({
               calls.push("delete");
               return deleteReport(...args);
             },
+          }),
+          update: (patch: unknown) => ({
+            eq: (column: string, id: string) => ({
+              is: (guardColumn: string, guardValue: unknown) => ({
+                select: () => linkReport(patch, column, id, guardColumn, guardValue),
+              }),
+            }),
           }),
         };
       }
@@ -63,8 +72,10 @@ const games = [
   { id: "g3", report_id: "report-1", game_number: 3, match_id: "NA1_3", status: "failed", error_text: "nope" },
 ] as unknown as MatchReportGame[];
 
-function renderQueue() {
-  return render(<AdminReportsQueue reports={[report]} games={games} teams={teams} initiallyOpen />);
+function renderQueue(props: { reports?: MatchReport[]; fixtures?: FixtureRow[] } = {}) {
+  return render(
+    <AdminReportsQueue reports={props.reports ?? [report]} games={games} teams={teams} fixtures={props.fixtures} initiallyOpen />,
+  );
 }
 
 beforeEach(() => {
@@ -82,6 +93,7 @@ afterEach(() => {
   fixGameSide.mockReset();
   purgeMatchStats.mockReset();
   deleteReport.mockReset();
+  linkReport.mockReset();
   statsRows.length = 0;
   calls.length = 0;
 });
@@ -136,5 +148,58 @@ describe("AdminReportsQueue delete", () => {
       expect.stringMatching(/report deleted, but its ingested stats could not be cleared: NOT_ADMIN/i),
     );
     expect(deleteReport).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AdminReportsQueue fixture link", () => {
+  // A report filed against no fixture ingests fine and then reaches nothing:
+  // the schedule, the match page and playoff advancement all read it through
+  // fixture_id. The repair is the link, not another ingest.
+  const semifinal = {
+    id: "semi-1",
+    season: "S5",
+    stage: "semifinals",
+    division: null,
+    team_a: "Wildcats",
+    team_b: "Alcatraz",
+    scheduled_at: "2026-09-28T20:00:00-04:00",
+    best_of: 5,
+    score_a: 2,
+    score_b: 3,
+    sort_order: 1,
+    created_at: "2026-08-01T00:00:00Z",
+  } as FixtureRow;
+  const unrelated = { ...semifinal, id: "other", team_b: "Bears" } as FixtureRow;
+
+  it("offers the pair's fixtures for an unlinked report and links the chosen one, guarded against a race", async () => {
+    linkReport.mockResolvedValue({ data: [{ id: "report-1" }], error: null });
+    renderQueue({ fixtures: [unrelated, semifinal] });
+
+    expect(screen.getByText(/not linked to a fixture/i)).toBeTruthy();
+    const picker = screen.getByDisplayValue(/link to fixture/i) as HTMLSelectElement;
+    expect(Array.from(picker.options).map((o) => o.value)).toEqual(["", "semi-1"]);
+
+    fireEvent.change(picker, { target: { value: "semi-1" } });
+    await waitFor(() => expect(linkReport).toHaveBeenCalledTimes(1));
+    expect(linkReport).toHaveBeenCalledWith({ fixture_id: "semi-1" }, "id", "report-1", "fixture_id", null);
+  });
+
+  it("says so when the link found nothing to update", async () => {
+    linkReport.mockResolvedValue({ data: [], error: null });
+    renderQueue({ fixtures: [semifinal] });
+    fireEvent.change(screen.getByDisplayValue(/link to fixture/i), { target: { value: "semi-1" } });
+
+    expect(await screen.findByRole("alert")).toHaveProperty(
+      "textContent",
+      expect.stringMatching(/linked to a fixture by someone else/i),
+    );
+  });
+
+  it("shows no picker for a report that is already linked, or without a fixture list", () => {
+    renderQueue({ reports: [{ ...report, fixture_id: "semi-1" }], fixtures: [semifinal] });
+    expect(screen.queryByText(/not linked to a fixture/i)).toBeNull();
+    cleanup();
+    renderQueue();
+    expect(screen.queryByText(/not linked to a fixture/i)).toBeNull();
   });
 });

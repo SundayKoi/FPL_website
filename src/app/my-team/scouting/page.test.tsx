@@ -79,6 +79,7 @@ function ready(overrides: Partial<MyTeamReadyDashboard> = {}): MyTeamReadyDashbo
     teams,
     activeTeams: teams,
     nextFixture: fixture,
+    fixtures: [fixture],
     codes: [],
     draftGames: [],
     schedule: [fixture],
