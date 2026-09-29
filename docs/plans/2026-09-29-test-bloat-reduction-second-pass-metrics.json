@@ -1,0 +1,114 @@
+{
+  "environment": {
+    "platform": "macOS-15.6.1-arm64-arm-64bit",
+    "python": "3.12.2",
+    "node": "v22.23.2",
+    "npm": "10.9.8"
+  },
+  "commits": [
+    {
+      "ref": "ff20e8582c61e6a43600bfed0eb38bbcb67a5d5d",
+      "commit": "ff20e8582c61e6a43600bfed0eb38bbcb67a5d5d",
+      "tree": "aa048409e7364a1a62e7208a10ada13273a39871",
+      "source": {
+        "modules": 453,
+        "lines": 66169,
+        "literal_expect_calls": 10158,
+        "files_with_vi_mock": 174,
+        "vi_mock_calls": 498
+      },
+      "playwright": {
+        "scenario_files": 8,
+        "scenario_cases": 13,
+        "support_files": 6,
+        "support_lines": 733
+      },
+      "python": {
+        "test_modules": 2,
+        "test_lines": 1704
+      },
+      "pg_tap": {
+        "files": 156,
+        "planned_assertions": 2427
+      }
+    },
+    {
+      "ref": "810fa7b46eb850d91acc6689c9e9e0c6aef77c11",
+      "commit": "810fa7b46eb850d91acc6689c9e9e0c6aef77c11",
+      "tree": "cfc299dbd1895475e2138eb43dbb9e02525a1c56",
+      "source": {
+        "modules": 279,
+        "lines": 48011,
+        "literal_expect_calls": 7148,
+        "files_with_vi_mock": 109,
+        "vi_mock_calls": 349
+      },
+      "playwright": {
+        "scenario_files": 7,
+        "scenario_cases": 7,
+        "support_files": 10,
+        "support_lines": 999
+      },
+      "python": {
+        "test_modules": 2,
+        "test_lines": 1704
+      },
+      "pg_tap": {
+        "files": 159,
+        "planned_assertions": 2455
+      }
+    },
+    {
+      "ref": "7d46e6aca4713bcbc8a7ce4dda4147071a8ef6b6",
+      "commit": "7d46e6aca4713bcbc8a7ce4dda4147071a8ef6b6",
+      "tree": "9213e847dd4fff30efe9983e5c5f6d66c4f26872",
+      "source": {
+        "modules": 292,
+        "lines": 48460,
+        "literal_expect_calls": 7217,
+        "files_with_vi_mock": 114,
+        "vi_mock_calls": 355
+      },
+      "playwright": {
+        "scenario_files": 7,
+        "scenario_cases": 7,
+        "support_files": 10,
+        "support_lines": 999
+      },
+      "python": {
+        "test_modules": 2,
+        "test_lines": 1704
+      },
+      "pg_tap": {
+        "files": 159,
+        "planned_assertions": 2455
+      }
+    },
+    {
+      "ref": "435bba30",
+      "commit": "435bba30e9372f2e9cf24ab8b71114691266c237",
+      "tree": "cffd1a42aa01bd466fa83892b729deb259e0a840",
+      "source": {
+        "modules": 279,
+        "lines": 47125,
+        "literal_expect_calls": 6915,
+        "files_with_vi_mock": 108,
+        "vi_mock_calls": 344
+      },
+      "playwright": {
+        "scenario_files": 7,
+        "scenario_cases": 7,
+        "support_files": 10,
+        "support_lines": 999
+      },
+      "python": {
+        "test_modules": 2,
+        "test_lines": 1704
+      },
+      "pg_tap": {
+        "files": 160,
+        "planned_assertions": 2457
+      }
+    }
+  ]
+}
