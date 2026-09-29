@@ -1346,8 +1346,8 @@ in `glossary.ts`. The board says "power" for shine. Status icons come from
 League goal, Road ahead and Atlas sections from the modules above and states
 no number of its own. `/admin/expedition-board?persona=new|mid|veteran`
 renders the board from `boardFixtures.ts` without a staff profile under
-`npm run dev`. `e2e/expedition-board.spec.ts` screenshots it and checks phone
-width, tap targets and disabled-control reasons.
+`npm run dev`. These fixture routes remain useful for manual review; they are
+not part of the automated infrastructure journey suite.
 
 **Deploy safety.** Code for all five features can ship first.
 
@@ -1853,10 +1853,13 @@ historical recovery but cannot start new openings.
 The trusted server actions derive the Discord identity from the signed-in
 session and call service-only RPCs. `begin_season_end_opening` binds the
 request UUID, release revision, mode, price, signing book, rules, and economy
-before charging; recovery checks the existing owner/request first, so pause,
-membership loss, active-season rollover, or a newer revision cannot strand a
-paid opening. Preparation locks the opening and stores the canonical design
-payload; fulfillment mints five ordered rows plus provenance atomically.
+before charging. A request UUID is reserved globally: the same account can
+resume its receipt, while a different account reusing that UUID is denied
+before another opening or debit can be created. Recovery checks the existing
+owner/request first, so pause, membership loss, active-season rollover, or a
+newer revision cannot strand a paid opening. Preparation locks the opening and
+stores the canonical design payload; fulfillment mints five ordered rows plus
+provenance atomically.
 
 Public copies use `season_end_inventory` only. The market adapters page
 listings, wants, trades, and owned copies; settlement rechecks ownership,

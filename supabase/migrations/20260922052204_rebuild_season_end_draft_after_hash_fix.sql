@@ -6,7 +6,8 @@
 -- never selected or modified.
 do $$
 declare
-  v_release public.season_end_releases%rowtype;
+  -- A record avoids resolving the later-created table before the replay guard.
+  v_release record;
   v_designs jsonb;
   v_catalog_designs jsonb;
   v_catalog jsonb;
@@ -14,6 +15,15 @@ declare
   v_revision jsonb;
   v_revision_digest text;
 begin
+  -- Scoped historical repair: this ran against an existing cloud schema, but
+  -- sorts before 20261019000001_season_end_packs on a fresh database. There
+  -- cannot be a draft to repair before its table exists. The later
+  -- 20261026000001 repair also runs after the schema has been installed.
+  -- Keep failures in an existing schema visible; do not catch SQL errors.
+  if to_regclass('public.season_end_releases') is null then
+    return;
+  end if;
+
   select * into v_release
     from public.season_end_releases
    where league = 'premier'

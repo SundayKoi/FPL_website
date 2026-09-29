@@ -44,22 +44,12 @@ const knownDuplicates = [
 // resets and CI). `list` and `push` for the linked database never use it.
 const migrationOverrides = [
   {
-    // card_art_champion_key() and card_art_champion_display() are
-    // `language sql` functions whose bodies are a bare `case ... end`, a
-    // syntax error on every PostgreSQL. The replacement adds `select`.
-    migration: '20261018000001_card_art_champion_preferences.sql',
-    original: 'adbe558c876189cfefe2702c5792c608e77e1490',
-    replacement: '20261018000001_card_art_champion_preferences.sql',
-    replacementBlob: '5c80a7d54bb070c0722e2072a995be438245e87b',
-    fresh: false,
-  },
-  {
     // A data repair restored after it was applied to the linked database
     // (restoredApplied in check-migrations.mjs). It sorts before the
     // migration that creates season_end_releases, so it cannot compile on a
     // fresh database, which has no draft to repair anyway.
     migration: '20260922052204_rebuild_season_end_draft_after_hash_fix.sql',
-    original: '787088fc1e1a149e165de22cb592c09b26cd7144',
+    original: 'ced3709037e6667ec5894ada0fdb4be91d35adf7',
     replacement: 'fresh/20260922052204_rebuild_season_end_draft_after_hash_fix.sql',
     replacementBlob: '86f0a347089dd07e7ed9aa8c7ef87ae0bbe7a2f6',
     fresh: true,
@@ -131,6 +121,10 @@ export function stageMigrations(source, destination, {
     const sql = names.map(read).join('\n\n');
     writeFileSync(join(destination, names[0]), sql);
   }
+  return {
+    sourceFiles: [...groups.values()].reduce((total, names) => total + names.length, 0),
+    stagedFiles: groups.size,
+  };
 }
 
 // A complete Supabase project for the local CLI: config, edge functions,

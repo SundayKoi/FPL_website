@@ -9,7 +9,7 @@ const script = resolve("scripts/check-migrations.mjs");
 const directories: string[] = [];
 afterEach(() => directories.splice(0).forEach((dir) => rmSync(dir, { recursive: true, force: true })));
 
-function fixture(existingDuplicate = false) {
+function fixture(existingDuplicate = false, initialFiles: Record<string, string> = {}) {
   const cwd = mkdtempSync(join(tmpdir(), "migration-check-"));
   directories.push(cwd);
   const git = (...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
@@ -22,6 +22,7 @@ function fixture(existingDuplicate = false) {
   const commit = () => { git("add", "."); git("-c", "commit.gpgsign=false", "commit", "-qm", "fixture", "--allow-empty"); return git("rev-parse", "HEAD"); };
   add("20260929000001_existing.sql");
   if (existingDuplicate) add("20260929000001_legacy_duplicate.sql");
+  for (const [name, sql] of Object.entries(initialFiles)) add(name, sql);
   const base = commit();
   // The guard reads origin/main for the released set by default; a fixture
   // repo has no remote, so it is off unless a test names a release ref.
@@ -112,7 +113,6 @@ it("accepts a backdated migration the release branch already carries, byte for b
 });
 
 it.each([
-  "20260922052204_rebuild_season_end_draft_after_hash_fix.sql",
   "20261026000001_repair_current_season_end_draft_hashes.sql",
 ])("accepts only the exact restored applied migration %s", (name) => {
   const f = fixture();
@@ -123,6 +123,38 @@ it.each([
   expect(f.check(base).status).toBe(0);
   f.add(name, `${sql}\n-- changed after application\n`);
   expect(f.check(base).stderr).toContain("new version must sort after 20261028000001");
+});
+
+it("accepts only the reviewed historical replay repair from its exact prior blob", () => {
+  const name = "20260922052204_rebuild_season_end_draft_after_hash_fix.sql";
+  const oldSql = execFileSync("git", ["cat-file", "blob", "787088fc1e1a149e165de22cb592c09b26cd7144"], {
+    cwd: resolve("."),
+    encoding: "utf8",
+  });
+  const f = fixture(false, { [name]: oldSql });
+  const repairedSql = readFileSync(resolve("supabase/migrations", name), "utf8");
+  const base = f.git("rev-parse", "HEAD");
+  f.add(name, repairedSql);
+  expect(f.check(base).status).toBe(0);
+
+  f.add(name, `${repairedSql}\n-- changed outside the reviewed repair\n`);
+  expect(f.check(base).stderr).toContain("existing migrations must not be modified");
+});
+
+it("accepts only the reviewed card-art SQL replay correction from its exact prior blob", () => {
+  const name = "20261018000001_card_art_champion_preferences.sql";
+  const oldSql = execFileSync("git", ["cat-file", "blob", "adbe558c876189cfefe2702c5792c608e77e1490"], {
+    cwd: resolve("."),
+    encoding: "utf8",
+  });
+  const f = fixture(false, { [name]: oldSql });
+  const repairedSql = readFileSync(resolve("supabase/migrations", name), "utf8");
+  const base = f.git("rev-parse", "HEAD");
+  f.add(name, repairedSql);
+  expect(f.check(base).status).toBe(0);
+
+  f.add(name, `${repairedSql}\n-- changed outside the reviewed replay correction\n`);
+  expect(f.check(base).stderr).toContain("existing migrations must not be modified");
 });
 
 it("treats a released duplicate version as inherited history, not a new collision", () => {
