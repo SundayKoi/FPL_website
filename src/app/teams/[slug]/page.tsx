@@ -23,6 +23,8 @@ import TeamRecentDrafts, { type TeamDraftRow } from "@/components/teams/TeamRece
 import PlayerRosterClaim from "@/components/teams/PlayerRosterClaim";
 import type { MatchDraftAction, MatchDraftPositions } from "@/lib/match-draft/types";
 import { fetchRosterClaimStates } from "@/lib/teams/rosterClaims";
+import LeaguePageShell from "@/components/league/LeaguePageShell";
+import styles from "./TeamPage.module.css";
 
 
 /**
@@ -191,73 +193,34 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
     record.seriesPlayed > 0 ? ((record.wins / record.seriesPlayed) * 100).toFixed(0) : null;
 
   return (
-    <main className="page-backdrop flex-1">
-      <div className="page-container page-spacing w-full">
-        <Link
-          href={league === "academy" ? "/academy/teams" : "/teams"}
-          className="flex w-fit items-center gap-1.5 rounded-full border border-border-strong bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
-        >
-          <span aria-hidden="true">←</span> All teams
-        </Link>
-
-        <header
-          className="card-brand mt-6 flex flex-wrap items-end justify-between gap-6 overflow-hidden border-t-4 p-6 sm:p-8"
-          style={{ borderTopColor: team.bannerColor }}
-        >
-          <div className="flex min-w-0 items-center gap-4">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded border border-white/25 bg-canvas/60 p-2 shadow-lg">
-              {team.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={team.imageUrl}
-                  alt={`${team.name} logo`}
-                  className="h-full w-full rounded object-contain"
-                />
-              ) : (
-                <span className="type-display text-3xl text-white/90" aria-hidden="true">
-                  {team.abbreviation}
-                </span>
-              )}
-            </div>
-            <div className="min-w-0">
-              <h1 className="type-display text-4xl text-white sm:text-5xl">{team.name}</h1>
-              <p className="mt-1 text-sm text-white/80">
-                Captain {team.captainName}
-                {team.division ? ` · ${team.division}` : ""}
-                {draft?.name ? ` · ${draft.name}` : ""}
-              </p>
-            </div>
+    <LeaguePageShell
+      league={league}
+      title={team.name}
+      season={season ?? draft?.name ?? undefined}
+      activeSection="teams"
+      description={`Captain ${team.captainName}${team.division ? ` · ${team.division}` : ""}.`}
+    >
+      <div className={styles.details}>
+        <section className={styles.identity} aria-label={`${team.name} team summary`} style={{ borderTopColor: team.bannerColor }}>
+          {team.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={team.imageUrl} alt={`${team.name} logo`} />
+          ) : (
+            <span className={styles.abbreviation} aria-hidden="true">{team.abbreviation}</span>
+          )}
+          <div className={styles.record}>
+            <strong>{record.wins}–{record.losses}</strong>
+            <span>{winRate !== null ? `${winRate}% series` : "No series played"}</span>
           </div>
-          <div
-            className="border-l-2 pl-4 text-right"
-            style={{ borderLeftColor: team.bannerColor }}
-          >
-            <p className="type-display text-4xl text-white">
-              {record.wins}–{record.losses}
-            </p>
-            <p className="text-xs uppercase tracking-[0.14em] text-white/80">
-              {winRate !== null ? `${winRate}% series` : "No series played"}
-            </p>
+          <div className={styles.identityActions}>
             {multiOpggUrl ? (
-              <a
-                href={multiOpggUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-flex rounded-full border border-action-text/80 bg-action-fill/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-action-text transition hover:bg-action-fill hover:text-white"
-              >
-                Team OP.GG Multi
-              </a>
+              <a href={multiOpggUrl} target="_blank" rel="noreferrer" className={styles.secondaryAction}>Team OP.GG Multi ↗</a>
             ) : null}
-            <Link
-              href={scoutingHref}
-              className="mt-3 inline-flex rounded-full border border-action-text/80 bg-action-fill px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-action-fill/80"
-            >
-              Scouting report
-            </Link>
+            <Link href={scoutingHref} className={styles.primaryAction}>Scouting report</Link>
           </div>
-        </header>
+        </section>
 
-        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className={styles.columns}>
           {/* No overflow-hidden: the last player's account menu opens past
               the card's bottom edge and must stay clickable. */}
           <section
@@ -274,7 +237,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                   <span className="w-9 shrink-0 font-display text-xs font-semibold not-italic text-muted">
                     {ROLE_LABELS_SHORT[player.role]}
                   </span>
-                  {player.isEmpty ? (
+                  {player.isEmpty || (league === "academy" && (!player.opggUrl?.trim() || player.opggUrl === "#")) ? (
                     <span className="min-w-0 flex-1 truncate text-sm text-muted/70">
                       {player.displayName}
                     </span>
@@ -292,17 +255,19 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                         </span>
                       </summary>
                       <div className="absolute left-0 top-full z-20 mt-1 flex min-w-48 flex-col rounded border border-border-subtle bg-canvas p-1 shadow-lg">
-                        <Link
-                          href={`/players/${encodeURIComponent(player.displayName)}`}
-                          className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:bg-border-subtle/40 hover:text-white"
-                        >
-                          Stats profile
-                        </Link>
-                        {(linkedAccountUrls(player.displayName).length
-                          ? linkedAccountUrls(player.displayName)
-                          : player.opggUrl?.trim() && player.opggUrl !== "#"
-                            ? [player.opggUrl]
-                            : []
+                        {league === "premier" ? (
+                          <Link
+                            href={`/players/${encodeURIComponent(player.displayName)}`}
+                            className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:bg-border-subtle/40 hover:text-action-text"
+                          >
+                            Stats profile
+                          </Link>
+                        ) : null}
+                        {(league === "academy"
+                          ? player.opggUrl?.trim() && player.opggUrl !== "#" ? [player.opggUrl] : []
+                          : linkedAccountUrls(player.displayName).length
+                            ? linkedAccountUrls(player.displayName)
+                            : player.opggUrl?.trim() && player.opggUrl !== "#" ? [player.opggUrl] : []
                         ).map((url, index) => (
                           <a
                             key={url}
@@ -419,11 +384,11 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
           </div>
         </div>
 
-        <div className="mt-6">
+        <div className="mt-2">
           <TeamRecentDrafts rows={recentDraftRows} />
         </div>
       </div>
-    </main>
+    </LeaguePageShell>
   );
 }
 

@@ -35,9 +35,9 @@ export default function BroadcasterFixtureHeader({
   return <header className="card-brand flex flex-wrap items-center justify-between gap-4 p-5">
     <div>
       <p className="label-dash text-gold">Fixture</p>
-      <h1 className="type-display mt-1 text-2xl sm:text-3xl">
+      <h2 className="type-display mt-1 text-2xl sm:text-3xl">
         {fixture.team_a ?? "TBD"} <span className="text-muted">vs</span> {fixture.team_b ?? "TBD"}
-      </h1>
+      </h2>
       <p className="mt-2 text-sm text-muted">
         {formatKickoff(fixture.scheduled_at)} · Bo{fixture.best_of} · {meta.label}
         {fixture.division ? ` · ${fixture.division} division` : ""}

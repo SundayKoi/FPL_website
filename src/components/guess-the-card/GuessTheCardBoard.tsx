@@ -125,8 +125,8 @@ export default function GuessTheCardBoard({
         </div>
       </header>
 
-      <div className="rounded border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-muted">
-        <span className="font-bold text-gold">Admin test gate:</span> this daily game is not open to Premium members yet. Progress and rewards still use the real account path.
+      <div className="rounded border border-border-strong bg-surface px-4 py-3 text-sm text-muted">
+        <span className="font-bold text-gold">Admin test:</span> this puzzle is available to administrators while testing. Puzzle progress and the shared reward use the same account path as other daily games.
       </div>
 
       <div className="grid items-start gap-8 lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-12">
@@ -186,7 +186,7 @@ export default function GuessTheCardBoard({
 
           {game.reward ? (
             <p className="mt-4 rounded border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-gold">
-              Shared daily reward: <strong>${game.reward.amount}</strong> betting dollars credited.{" "}
+              Shared puzzle reward: <strong>${game.reward.amount}</strong> betting dollars credited.{" "}
               <BalanceChip balance={game.reward.balance} />
             </p>
           ) : null}

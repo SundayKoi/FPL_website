@@ -79,6 +79,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                 authSlot={<AuthButton />}
                 showAdmin={tier.isAdmin || tier.isOwner || tier.isBroadcaster}
                 showBroadcaster={canAccessBroadcaster(tier)}
+                isGuessTheCardAdmin={tier.isAdmin}
               />
               {children}
               <SupportDevButton />
@@ -91,6 +92,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               authSlot={<AuthButton />}
               showAdmin={tier.isAdmin || tier.isOwner || tier.isBroadcaster}
               showBroadcaster={canAccessBroadcaster(tier)}
+              isGuessTheCardAdmin={tier.isAdmin}
             />
             {children}
             <SupportDevButton />

@@ -348,8 +348,9 @@ Authorization has several independent dimensions:
 - Premium HQ uses `src/lib/premium/access.ts` as the shared server-side gate;
   `DISCORD_REQUIRED_ROLE_ID` in `DISCORD_GUILD_ID` is the canonical FPL
   Premium role, with the legacy drafter variables retained as a fallback.
-  The gate reads the payment URL from the League Links payment resource only
-  for visitors who are not already admitted.
+  The gate reads the payment URL from the `payment` row in `info_resources`
+  only for visitors who are not already admitted; the public link is at
+  `/info#league-resources`.
 - Public token drafts use the token as their capability and keep lobby reads
   and mutations scoped to the lobby/game in the corresponding RPCs.
 - Public open-lobby creation is intentionally different from lobby usage:
@@ -374,14 +375,14 @@ Postgres database and public schema:
 | Canonical players and free agency | `player_pool`, `free_agency_avg_bids`, `signups`, `info_resources` | Cross-draft player metadata, free-agency data, signups, and editable information resources. |
 | Match reporting and stats | `match_reports`, `match_report_games`, `match_codes`, `raw_stats`, `stats_*` views | Captains report series; the Riot ingester writes raw rows; views provide player, team, champion, record, and game-log aggregates. A series that ended early carries `match_reports.forfeit_team_id` — see "Forfeits" below. |
 | Betting | `betting_profiles`, `betting_teams`, `betting_events`, `betting_markets`, `betting_bets`, `betting_ledger`, pick'em/store/season tables | Service-role RPCs handle wallet, bet, lock, resolve, cancel, and audit transitions after app-layer Discord/staff checks. Schedule-linked events identify the reusable Premier/Academy season catalog entries; generated markets retain `fixture_id` for idempotent retries. |
-| Banger Board | `banger_posts`, `banger_votes`, `daily_banger_checks`, `daily_banger_votes` | Public tweet reads and aggregate ratings use definer RPCs; server actions derive the signed-in Discord wallet and call service-role vote/reward RPCs. Daily rewards are atomically ledgered and limited by `(UTC date, voter)`; `daily_banger_votes.reward_amount` records the amount actually paid. |
+| Banger Board | `banger_posts`, `banger_votes`, `daily_banger_checks`, `daily_banger_votes` | Public post reads and aggregate ratings use definer RPCs; server actions derive the signed-in Discord wallet and call service-role vote/reward RPCs. The Daily Stu vote reward is atomically ledgered and limited by `(UTC check date, voter)`; `daily_banger_votes.reward_amount` records the amount actually paid. This is separate from the daily puzzle reward. |
 | Banger Board settings | `banger_board_settings` | Public title reads; authenticated admin/owner-only updates enforced by RLS using `is_admin()` / `is_owner()`. |
 | Fixture match drafts | `match_drafts`, `match_draft_settings` | Captains draft champions for scheduled fixtures; actions, ready checks, side choice, change requests, winners, role positions, and server-authoritative signed deadlines are database-backed. Pick overtime is stored as side-local debt and consumed only by that side's next pick; bans retain their existing timeout/skip behavior. |
 | Public match-draft lobbies | `open_draft_lobbies`, `open_drafts` | Token-scoped champion drafts for external/public links, with a premium-gated creation path. Lobby rows persist the same signed deadline and side-local pick overtime, while only bans can be skipped after the grace period. |
 | Player cards | `card_art_prefs`, `card_snapshots`, `card_rating_history` | User/admin art and motto preferences plus service-written weekly rating baselines/history. |
-| FPL'dle | `fpldle_daily_candidates`, `fpldle_daily_puzzles`, `fpldle_daily_progress`, `daily_game_rewards` | Public candidate labels come from the latest frozen `card_editions` week; service-role RPCs lazily snapshot and select one stable answer per Eastern calendar date and league, record each signed-in wallet's guesses, and claim the shared daily-game reward when solved within five guesses. `daily_game_rewards` pays one 200 betting-dollar base reward per profile and Eastern date (300 for an active patron), regardless of which daily game completes first; FPL'dle `reward_amount` records the shared amount. Answer and progress rows have no `anon`/`authenticated` read grant. |
-| Guess the Card | `box_score_daily_candidates`, `box_score_daily_puzzles`, `box_score_daily_progress`, `daily_game_rewards` | Admin-testing daily puzzle at `/guess-the-card` and `/academy/guess-the-card`. Trusted server actions fetch complete current-season `raw_stats` rows, use a transaction advisory lock to freeze one eligible game per Eastern calendar date and league, return only the progressive reveal DTO, record at most five distinct guesses through service-role RPCs, and claim the shared daily-game reward on a correct answer. Candidate, target, and progress tables have RLS with service-role-only grants; the final target JSON is an explicit allowlist of game-stat fields rather than the full raw row. |
-| Higher or Lower | `higher_lower_daily_candidates`, `higher_lower_daily_runs`, `higher_lower_weekly_settlements`, `higher_lower_weekly_payouts`, `daily_game_rewards` | Premium daily game for Premium members, admins, and owners. Trusted server actions use the shared Premium gate and service-role RPCs to freeze one full `card_editions` pool per Eastern calendar date and league, run a stable 45-round server-timed sequence with optimistic run versions, claim the shared daily-game reward when a run ends, preserve every unlimited attempt for best-score ranking, reveal challenger cards only after settlement, and split the fixed 2,000 weekly pool among tied top combined-league runs. Hidden candidate state has no `anon`/`authenticated` read grant. |
+| FPL'dle | `fpldle_daily_candidates`, `fpldle_daily_puzzles`, `fpldle_daily_progress`, `daily_game_rewards` | Public candidate labels come from the latest frozen `card_editions` week; service-role RPCs lazily snapshot and select one stable answer per Eastern calendar date and league, record each signed-in wallet's guesses, and claim the shared puzzle reward when solved within five guesses. `daily_game_rewards` pays one 200 betting-dollar base reward per profile, Eastern puzzle date, and league (300 for an active patron), regardless of which eligible puzzle is completed first in that league; Premier and Academy claims are independent. FPL'dle `reward_amount` records the shared amount. Answer and progress rows have no `anon`/`authenticated` read grant. |
+| Guess the Card | `box_score_daily_candidates`, `box_score_daily_puzzles`, `box_score_daily_progress`, `daily_game_rewards` | Admin-testing daily puzzle at `/guess-the-card` and `/academy/guess-the-card`. Trusted server actions fetch complete current-season `raw_stats` rows, use a transaction advisory lock to freeze one eligible game per Eastern calendar date and league, return only the progressive reveal DTO, record at most five distinct guesses through service-role RPCs, and claim the shared puzzle reward on a correct answer. It uses the same per-member, per-league, per-puzzle-date claim as FPL'dle and Higher or Lower. Candidate, target, and progress tables have RLS with service-role-only grants; the final target JSON is an explicit allowlist of game-stat fields rather than the full raw row. |
+| Higher or Lower | `higher_lower_daily_candidates`, `higher_lower_daily_runs`, `higher_lower_weekly_settlements`, `higher_lower_weekly_payouts`, `daily_game_rewards` | Premium daily game for Premium members, admins, and owners. Trusted server actions use the shared Premium gate and service-role RPCs to freeze one full `card_editions` pool per Eastern calendar date and league, run a stable 45-round server-timed sequence with optimistic run versions, claim the shared puzzle reward when a run ends, preserve every unlimited attempt for best-score ranking, reveal challenger cards only after settlement, and split the fixed 2,000 weekly pool among tied top combined-league runs. Daily puzzle claims are independent by league; the weekly competition combines them and uses UTC weeks. Hidden candidate state has no `anon`/`authenticated` read grant. |
 | Weekly Draw | `weekly_draws` | One row per season and week records the `card_inventory` copy drawn that week, its owner, the frozen card json, and the pot. Anyone may read it for the draw history page; only the service-role `run_weekly_draw` writes it. |
 | Card expeditions | `expedition_runs`, `expedition_supplies`, `expedition_policies`, `expedition_graveyard` | One row per squad sent out: the three `card_inventory` copies, the tier (seven runs, plus `lost` — the HOLD on a lost card, which reuses the deploy lock), the squad's shine, its forks and the choices made at them, insurance, a target card, the fee, when it resolves, and the whole outcome once it is claimed. Supplies hold map fragments; policies are a patron's weekly free insurance, claimed by primary-key insert; the graveyard keeps dead cards. Owners read their own rows; every write goes through `launch_expedition` / `decide_expedition_fork` / `resolve_expedition` / `ransom_lost_card` / `expire_lost_cards`. `card_inventory.mutation` is a generated column off the card json; `card_inventory_expedition_guard` keeps a deployed or lost copy from leaving the collection and `card_inventory_curse_guard` keeps a fresh Cursed card off the market. |
 | Card print runs | `card_print_runs`, `card_inventory.print_number` | One counter row per print — `(season, edition_week, slug)` — recording how many copies that print has ever stamped. A `BEFORE INSERT` trigger on `card_inventory` bumps the counter in one `insert … on conflict do update … returning` and writes the resulting serial onto the new row, so no caller picks its own number. `minted` is monotonic: dusting retires a number rather than freeing it. Counts are world-readable (permissive select policy plus an `anon`/`authenticated` grant); every write comes from the trigger. |
@@ -889,7 +890,7 @@ season.
 `/skin-lines` is the design table the idea came from, open to staff and to
 active patrons (`fetchPatronActive`, a `betting_profiles.patron_until` read;
 the Premium Discord role does not open it, and everyone else is sent to
-`/support-devs`). It is listed as a patron perk in `src/lib/patron/perks.ts`
+`/membership#support-devs`). It is listed as a patron perk in `src/lib/patron/perks.ts`
 and linked from the admin hub. The proposal: draw each
 season's foils in one League skin line, a new line every season, with four
 tiers inside it (Standard, Chroma, Prestige, Ultimate) sitting on the rungs —
@@ -1951,8 +1952,10 @@ series wrongly. The Send-off (`src/lib/cards/sendoff.ts`) reads the same rows
 to print the gauntlet's losers, and skips a fixture with a missing team, so a
 round-2 placeholder with a TBD opponent is safe to leave in place.
 
-**The generators.** `/schedule`'s owner strip draws both phases rather than
-having an admin type fixtures in by hand. The regular season is
+**The generators.** `/schedule` keeps its existing regular-season and gauntlet
+generators inside the owner-only **Manage → Fixtures** drawer. The drawer
+shows one tool at a time; generating still uses the existing client writes and
+server actions described below. The regular season is
 `src/lib/schedule/generate.ts` behind `AdminGenerateSchedule`, which writes
 from the browser client. The gauntlet is `src/lib/schedule/gauntlet.ts` — pure
 seeding and pairing rules — behind the server actions in
@@ -1984,8 +1987,25 @@ Both `match_reports` and `league_teams` are world-readable
 (`using (true)` plus a select grant to `anon`/`authenticated`), so this read
 uses the caller's own cookie-bound client and no service-role key.
 
+Both schedule routes scope fixture rows by persistent season ownership before
+season selection or bracket construction. `src/lib/schedule/scope.ts` keeps
+Premier rows out of Academy and retains Academy playoff placeholders even when
+both team names are null; Academy gauntlet rows remain excluded. The route
+state in `src/lib/schedule/viewState.ts` validates season, phase, and week
+parameters and includes the configured current season before its first fixture
+is published.
+
+`src/lib/schedule/bracket.ts` builds a read-only bracket from those selected
+season rows. It derives a winner only from a decisive score that reaches the
+fixture's best-of threshold, and shows an advancement connection only when
+that winner uniquely matches a published slot in the next round. Fixture stage
+and order control presentation only; Premier pairings can be reseeded, so
+adjacent slot numbers do not establish progression. Academy's published two
+quarterfinal, two semifinal, one TBD final layout is preserved as entered.
+
 Premier only — `ACADEMY_EXCLUDED_STAGES` in
-`src/lib/academy/filtering.ts` keeps the gauntlet off the Academy calendar.
+`src/lib/academy/filtering.ts` keeps the gauntlet off the Academy calendar for
+other consumers as well.
 
 ### Forfeits
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchProfileStats, fetchRecentBets } from "@/lib/betting/queries";
 import { fmtPoints } from "@/lib/betting/format";
+import styles from "./ProfilePage.module.css";
 
 export const metadata: Metadata = {
   title: "Betting profile — FPL",
@@ -30,12 +31,16 @@ export default async function ProfilePage() {
   const settled = bets.filter((b) => b.settled);
 
   return (
-    <div>
-      <span className="label-dash">Player Profile</span>
-      <h1 className="type-display mt-2 text-4xl sm:text-5xl">{user.username}</h1>
+    <div className={styles.profile}>
+      <header className={styles.header}>
+        <div>
+          <span className="label-dash">Player Profile</span>
+          <h1 className="type-display mt-2 text-4xl sm:text-5xl">{user.username}</h1>
+          <p className="mt-2 text-sm text-muted">Account record and recent betting activity.</p>
+        </div>
+      </header>
 
-      <div className="mt-8 grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3">
-        <StatBox label="Balance" value={fmtPoints(user.balance)} valueClass="text-mint" />
+      <div className={styles.stats}>
         <StatBox
           label="Record"
           value={`${stats.wins}W / ${stats.losses}L`}
@@ -49,24 +54,36 @@ export default async function ProfilePage() {
         <StatBox label="Best streak" value={stats.best_streak > 0 ? String(stats.best_streak) : "—"} />
         <StatBox label="Biggest win" value={fmtPoints(stats.biggest_win)} valueClass="text-mint" />
         <StatBox label="Perfect Pick'ems" value={stats.perfect_pickems > 0 ? `🎯 ${stats.perfect_pickems}` : "0"} />
-        <StatBox label="Open bets" value={String(open.length)} />
+        <StatBox label="Open in latest 50" value={String(open.length)} />
       </div>
 
-      <h2 className="label-dash mt-8">Open Bets</h2>
+      <div className={styles.listHeading}>
+        <div>
+          <h2 className="label-dash">Open Bets</h2>
+          <p className="mt-1 text-xs text-muted">Open wagers in the most recent 50 bets.</p>
+        </div>
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted">Stake</span>
+      </div>
       <div className="mt-3 rounded-lg border border-border-subtle bg-surface">
         {open.length === 0 ? (
           <p className="p-4 text-sm text-muted">None.</p>
         ) : (
           open.map((b) => (
-            <div key={b.id} className="flex items-center justify-between border-b border-border-subtle px-4 py-2.5 text-sm last:border-0">
-              <span className="text-muted">{b.market_title ?? `Market ${b.market_id}`}</span>
+            <div key={b.id} className={styles.betRow}>
+              <span className="min-w-0 truncate text-muted">{b.market_title ?? `Market ${b.market_id}`}</span>
               <span className="font-semibold text-white">{fmtPoints(b.amount)}</span>
             </div>
           ))
         )}
       </div>
 
-      <h2 className="label-dash mt-8">Recent Settled</h2>
+      <div className={styles.listHeading}>
+        <div>
+          <h2 className="label-dash">Recent Settled</h2>
+          <p className="mt-1 text-xs text-muted">Net result from the most recent 50 bets; refunded stakes are identified separately.</p>
+        </div>
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted">Net outcome</span>
+      </div>
       <div className="mt-3 rounded-lg border border-border-subtle bg-surface">
         {settled.length === 0 ? (
           <p className="p-4 text-sm text-muted">None yet.</p>
@@ -75,10 +92,10 @@ export default async function ProfilePage() {
             const won = (b.payout ?? 0) > (b.amount ?? 0);
             const refunded = b.payout === b.amount;
             return (
-              <div key={b.id} className="flex items-center justify-between border-b border-border-subtle px-4 py-2.5 text-sm last:border-0">
-                <span className="text-muted">{b.market_title ?? `Market ${b.market_id}`}</span>
+              <div key={b.id} className={styles.betRow}>
+                <span className="min-w-0 truncate text-muted">{b.market_title ?? `Market ${b.market_id}`}</span>
                 <span className={`font-semibold ${refunded ? "text-muted" : won ? "text-mint" : "text-red-400"}`}>
-                  {refunded ? `${fmtPoints(b.amount)} refunded` : won ? `+${fmtPoints((b.payout ?? 0) - b.amount)}` : `-${fmtPoints(b.amount)}`}
+                  {refunded ? `${fmtPoints(b.amount)} stake refunded` : won ? `+${fmtPoints((b.payout ?? 0) - b.amount)} net` : `-${fmtPoints(b.amount)} net`}
                 </span>
               </div>
             );

@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import AboutPageHeader from "@/components/info/AboutPageHeader";
+import AboutPageShell from "@/components/info/AboutPageShell";
 import { createServerSupabase } from "@/lib/supabase/server";
-import type { SignupRow } from "@/lib/signup/types";
-import AdminSignupsTable from "@/components/signup/AdminSignupsTable";
-import AdminSignupsToggle from "@/components/signup/AdminSignupsToggle";
 import SignupForm from "@/components/signup/SignupForm";
 
 export const metadata: Metadata = {
@@ -28,61 +27,45 @@ export default async function SignupPage() {
     discordName = profile?.display_name ?? "";
   }
 
-  const [settingsResult, signupsResult] = await Promise.all([
-    supabase
-      .from("league_settings")
-      .select("current_season, signups_open")
-      .eq("id", 1)
-      .single(),
-    // RLS hides rows from non-admins anyway; skipping the query avoids the
-    // noise of a permission-shaped empty result.
-    isAdmin
-      ? supabase.from("signups").select("*").order("created_at", { ascending: false })
-      : Promise.resolve({ data: null }),
-  ]);
+  const settingsResult = await supabase
+    .from("league_settings")
+    .select("current_season, signups_open")
+    .eq("id", 1)
+    .single();
 
   const season = settingsResult.data?.current_season ?? "S5";
   const signupsOpen = settingsResult.data?.signups_open ?? true;
-  const signups = (signupsResult.data as SignupRow[]) ?? [];
 
   return (
-    <main className="page-backdrop flex-1">
-      <div className="page-container page-spacing w-full">
-        <header className="border-b border-border-subtle pb-8">
-          <span className="label-dash">JOIN THE LEAGUE</span>
-          <h1 className="type-display mt-3 text-5xl sm:text-6xl">Sign Up</h1>
-          <hr className="accent-rule mt-5 w-48 sm:w-64" />
-          <p className="mt-4 max-w-2xl text-lg leading-8 text-muted">
-            Enter the {season} player pool. The eligibility rules — ranked-game minimums, account level, and the
-            rank cap — are in the{" "}
-            <Link href="/rulebook" className="text-action-text underline-offset-4 hover:underline">
-              Rulebook
-            </Link>
-            ; read them before you submit.
+    <AboutPageShell activeHref="/info">
+      <AboutPageHeader
+        eyebrow="Join the league"
+        title="Sign up"
+        description={
+          <>
+            Enter the {season} Premier player pool. Eligibility rules — including ranked-game minimums, account level,
+            and the rank cap — are in the <Link href="/rulebook#league-overview" className="text-action-text underline underline-offset-4 hover:text-white">official rules</Link>;
+            read them before you submit.
+          </>
+        }
+      />
+
+      {isAdmin ? (
+        <section aria-label="Signup administration" className="mb-6 border-y border-border-subtle py-4">
+          <Link href="/admin/league/signups" className="text-sm font-semibold text-action-text underline underline-offset-4">Manage signups in Admin →</Link>
+        </section>
+      ) : null}
+
+      {signupsOpen ? (
+        <SignupForm season={season} initialDiscord={discordName} />
+      ) : (
+        <div className="max-w-3xl border-y border-border-subtle py-8">
+          <p className="font-display text-2xl font-semibold text-white">Signups are closed</p>
+          <p className="mt-3 text-sm leading-6 text-muted">
+            The {season} signup window isn&apos;t open right now. Follow Discord for the next split&apos;s announcement.
           </p>
-        </header>
-
-        {isAdmin && (
-          <div className="mt-8 flex flex-col gap-4">
-            <AdminSignupsToggle signupsOpen={signupsOpen} />
-            <AdminSignupsTable signups={signups} />
-          </div>
-        )}
-
-        <div className="mt-8">
-          {signupsOpen ? (
-            <SignupForm season={season} initialDiscord={discordName} />
-          ) : (
-            <div className="card-brand p-8 text-center">
-              <p className="type-display text-3xl">Signups are closed</p>
-              <p className="mt-3 text-muted">
-                The {season} signup window isn&apos;t open right now. Keep an eye on Discord for
-                the next split&apos;s announcement.
-              </p>
-            </div>
-          )}
         </div>
-      </div>
-    </main>
+      )}
+    </AboutPageShell>
   );
 }

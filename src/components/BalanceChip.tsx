@@ -23,7 +23,7 @@ export default function BalanceChip({
     <Link
       href="/economy"
       title="Your betting dollars — what they buy and every way to earn more"
-      aria-label={`Premium wallet balance ${fmtPoints(balance)}`}
+      aria-label={`Betting dollars balance ${fmtPoints(balance)}`}
       data-testid={testId}
       className={`inline-flex items-center rounded-full border border-gold/40 bg-gold/10 font-mono font-semibold text-gold transition hover:bg-gold/20 ${sizing} ${className}`}
     >

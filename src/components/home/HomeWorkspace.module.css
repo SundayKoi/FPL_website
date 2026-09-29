@@ -65,9 +65,11 @@
 }
 
 .container {
+  box-sizing: border-box;
   width: min(100%, 1600px);
+  min-width: 0;
   margin: 0 auto;
-  padding: 32px clamp(16px, 3vw, 44px) 56px;
+  padding: 32px var(--page-gutter) 56px;
 }
 
 .content {
@@ -1742,7 +1744,7 @@
 }
 
 /* Premier team-identity homepage */
-.bandInner { width: min(100%, 1520px); margin-inline: auto; padding-inline: clamp(16px, 3.2vw, 48px); }
+.bandInner { box-sizing: border-box; width: min(100%, 1520px); min-width: 0; margin-inline: auto; padding-inline: var(--page-gutter); }
 .heroSection { width: 100%; background: var(--workspace-deep); }
 .heroCanvas { position: relative; display: grid; grid-template-columns: 1fr 1fr; min-height: clamp(400px, 35vw, 530px); overflow: hidden; }
 .heroCanvas::after { position: absolute; inset: 0; z-index: 0; background: linear-gradient(90deg, transparent 18%, rgb(var(--workspace-accent-rgb) / .18) 45%, rgb(var(--workspace-accent-rgb) / .18) 55%, transparent 82%); pointer-events: none; content: ""; }
@@ -2245,14 +2247,3 @@
   .seedList { grid-template-columns: 1fr; }
   .bracketRound { width: 78vw; flex-basis: 78vw; }
 }
-
-/* Signed-in shortcuts band (HomeShortcutsBand): four doors under the hero. */
-.shortcutsBand { border-bottom: 1px solid #34313f; background: #0f0d14; }
-.shortcutsGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding-block: 18px; }
-.shortcutTile { display: flex; min-height: 76px; flex-direction: column; justify-content: center; gap: 4px; padding: 12px 16px; color: var(--workspace-ink); text-decoration: none; transition: border-color 150ms ease; }
-.shortcutTile:hover { border-color: var(--workspace-accent-light); }
-.shortcutTile:focus-visible { outline: 3px solid var(--workspace-accent-light); outline-offset: 3px; }
-.shortcutAccent { border-color: var(--workspace-accent); background: rgb(var(--workspace-accent-rgb) / .18); }
-.shortcutLabel { font-size: .95rem; font-weight: 800; line-height: 1.2; }
-.shortcutHint { color: var(--workspace-muted); font-size: .72rem; line-height: 1.35; }
-@media (max-width: 700px) { .shortcutsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-block: 12px; } .shortcutTile { min-height: 64px; padding: 10px 12px; } }

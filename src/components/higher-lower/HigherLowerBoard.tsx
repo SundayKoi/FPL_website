@@ -3,6 +3,7 @@
 import Link from "next/link";
 import ResetCountdown from "@/components/daily/ResetCountdown";
 import { DAILY_REWARD_SENTENCE } from "@/lib/betting/daily";
+import styles from "./HigherLowerBoard.module.css";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { preloadArt } from "@/lib/cards/artUrls";
@@ -293,7 +294,7 @@ export default function HigherLowerBoard({
         : "run over";
 
   return (
-    <main className="page-container page-spacing-compact bg-hash flex w-full flex-1 flex-col gap-8 text-white">
+    <main className={styles.board}>
       <header className="flex flex-wrap items-end justify-between gap-5">
         <div>
           <span className="label-dash">FPL Premium · {label} Daily</span>

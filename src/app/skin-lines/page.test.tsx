@@ -73,7 +73,7 @@ describe("the skin-line mockup page", () => {
     render(await SkinLinesPreviewPage());
     expect(redirect).not.toHaveBeenCalled();
     expect(screen.getByTestId("access-wall").getAttribute("data-reason")).toBe("no-role");
-    expect(screen.getByRole("link", { name: /become a patron/i }).getAttribute("href")).toBe("/support-devs");
+    expect(screen.getByRole("link", { name: /become a patron/i }).getAttribute("href")).toBe("/membership#support-devs");
   });
 
   it("shows a signed-out visitor the wall with a sign-in button, without asking about patronage", async () => {

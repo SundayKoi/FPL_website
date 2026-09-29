@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { generateRegularSeason, type GeneratorTeam } from "@/lib/schedule/generate";
+import { useScheduleManagement } from "./ScheduleManagementContext";
 
 /** Draws a random intra-division regular season for the featured draft's teams:
  *  inside each division everyone plays everyone once, one match per team per
@@ -10,13 +11,14 @@ import { generateRegularSeason, type GeneratorTeam } from "@/lib/schedule/genera
 export default function AdminGenerateSchedule({ season }: { season: string }) {
   const supabase = createClient();
   const router = useRouter();
+  const management = useScheduleManagement();
   const [startDate, setStartDate] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
   const generate = async () => {
-    if (busy) return;
+    if (busy || management?.scopeMismatch) return;
     setErr(null);
     setDone(null);
 
@@ -86,6 +88,7 @@ export default function AdminGenerateSchedule({ season }: { season: string }) {
       return;
     }
     setDone(`Drew ${fixtures.length} matches across weeks 1-5.`);
+    management?.markClean();
     router.refresh();
   };
 
@@ -106,14 +109,14 @@ export default function AdminGenerateSchedule({ season }: { season: string }) {
           <input
             type="datetime-local"
             value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
+            onChange={(e) => { setStartDate(e.target.value); management?.markDirty(true); }}
             aria-label="Week 1 kickoff"
             className="input-brand px-2 py-1 text-sm"
           />
         </label>
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || Boolean(management?.scopeMismatch)}
           onClick={() => void generate()}
           className="btn-primary px-3 py-1.5 text-xs"
         >

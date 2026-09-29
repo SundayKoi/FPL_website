@@ -6,7 +6,7 @@ export interface TeamIdentity {
   name: string;
   abbreviation: string;
   imageUrl: string | null;
-  bannerColor?: string;
+  bannerColor: string;
 }
 
 /** Crest and short name for each team of a league's draft, keyed by slug so a

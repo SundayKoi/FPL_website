@@ -11,6 +11,7 @@ import { resolveLeagueView, type LeagueView } from "@/lib/league/context";
 import { stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 import { createServerSupabase } from "@/lib/supabase/server";
+import LeaguePageShell from "@/components/league/LeaguePageShell";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -116,24 +117,22 @@ export default async function BroadcasterPage({ searchParams }: { searchParams: 
 
   if (!context.fixture) {
     return (
-      <main className="page-backdrop flex-1">
-        <div className="page-container page-spacing w-full space-y-8">
-          <header className="border-b border-border-subtle pb-8">
-            <span className="label-dash">Broadcast desk</span>
-            <h1 className="type-display mt-3 text-5xl sm:text-6xl">Broadcaster workspace</h1>
-          </header>
-          <LeagueLinks league={league} />
-          {games}
-          <section className="card-brand p-5">
-            <p className="text-sm text-muted">
-              No {league === "academy" ? "Academy" : "Premier"} featured match is available.
-            </p>
-            <Link href="/admin" className="mt-4 inline-flex text-sm font-semibold text-action-text hover:text-white">
-              Choose the featured matchup
-            </Link>
-          </section>
-        </div>
-      </main>
+      <LeaguePageShell
+        league={league}
+        title="Broadcaster"
+        headerActions={<LeagueLinks league={league} />}
+        description="Select a fixture to open its broadcast scouting and matchup tools."
+      >
+        {games}
+        <section className="card-brand p-5">
+          <p className="text-sm text-muted">
+            No {league === "academy" ? "Academy" : "Premier"} featured match is available.
+          </p>
+          <Link href="/admin" className="mt-4 inline-flex text-sm font-semibold text-action-text hover:underline">
+            Choose the featured matchup
+          </Link>
+        </section>
+      </LeaguePageShell>
     );
   }
 
@@ -146,22 +145,33 @@ export default async function BroadcasterPage({ searchParams }: { searchParams: 
 
   if (!scouting) {
     return (
-      <main className="page-backdrop flex-1">
-        <div className="page-container page-spacing w-full space-y-6">
-          <BroadcasterFixtureHeader fixture={context.fixture} twitchUrl={context.settings.twitchUrl} />
-          <LeagueLinks league={league} />
+      <LeaguePageShell
+        league={league}
+        title="Broadcaster"
+        season={context.fixture.season}
+        headerActions={<LeagueLinks league={league} />}
+        description="Selected fixture, broadcast links, and scouting data."
+      >
+        <div className="flex flex-col gap-6">
           {games}
+          <BroadcasterFixtureHeader fixture={context.fixture} twitchUrl={context.settings.twitchUrl} />
           <section className="card-brand p-5" aria-label="Scouting unavailable">
             <p className="text-sm text-muted">Scouting data is temporarily unavailable.</p>
           </section>
         </div>
-      </main>
+      </LeaguePageShell>
     );
   }
 
   return (
-    <main className="page-backdrop flex-1">
-      <div className="page-container page-spacing w-full space-y-6">
+    <LeaguePageShell
+      league={league}
+      title="Broadcaster"
+      season={context.fixture.season}
+      headerActions={<LeagueLinks league={league} />}
+      description="Selected fixture, team scouting, and matchup evidence."
+    >
+      <div className="flex flex-col gap-6">
         {games}
         <BroadcasterWorkspace
           league={league}
@@ -170,8 +180,9 @@ export default async function BroadcasterPage({ searchParams }: { searchParams: 
           teamA={scouting.teamA}
           teamB={scouting.teamB}
           playerDetails={scouting.playerDetails}
+          showLeagueSelector={false}
         />
       </div>
-    </main>
+    </LeaguePageShell>
   );
 }

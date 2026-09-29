@@ -10,10 +10,22 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
   const supabase = await createServerSupabase();
   const { data: settings } = await supabase
     .from("league_settings")
-    .select("academy_draft_id")
+    .select("featured_draft_id, academy_draft_id")
     .eq("id", 1)
     .single();
-  const academyDraftId = (settings as { academy_draft_id?: string | null } | null)?.academy_draft_id;
+  const draftSettings = settings as { featured_draft_id?: string | null; academy_draft_id?: string | null } | null;
+  const academyDraftId = draftSettings?.academy_draft_id;
+  const league = id === academyDraftId
+    ? "academy"
+    : id === draftSettings?.featured_draft_id
+      ? "premier"
+      : undefined;
 
-  return <DraftBoard draftId={id} nemesisEnabled={id !== academyDraftId} />;
+  return (
+    <DraftBoard
+      draftId={id}
+      nemesisEnabled={id !== academyDraftId}
+      league={league}
+    />
+  );
 }

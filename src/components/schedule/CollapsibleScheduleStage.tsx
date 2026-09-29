@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 import { useUrlState } from "@/lib/ui/useUrlState";
+import type { HomeAppearance } from "@/components/home/appearance";
+import leagueStyles from "./CollapsibleScheduleStage.module.css";
 
 /** "stages=week_1,-playoffs": a stage you opened, a stage you closed. Only
  *  the ones you touched are listed, so a fresh link still opens the way the
@@ -25,12 +27,14 @@ export default function CollapsibleScheduleStage({
   note,
   initiallyOpen,
   children,
+  appearance = "legacy",
 }: {
   stageId: string;
   label: string;
   note: string;
   initiallyOpen: boolean;
   children: ReactNode;
+  appearance?: HomeAppearance | "league";
 }) {
   const [view, setView] = useUrlState({ stages: "" });
   const touched = parseStages(view.stages);
@@ -47,25 +51,25 @@ export default function CollapsibleScheduleStage({
   }
 
   return (
-    <div id={stageId} className="card-brand scroll-mt-24 overflow-hidden">
-      <div className="border-b border-border-subtle">
+    <div id={stageId} className={appearance === "league" ? leagueStyles.stage : "card-brand scroll-mt-24 overflow-hidden"} data-appearance={appearance}>
+      <div className={appearance === "league" ? leagueStyles.header : "border-b border-border-subtle"}>
         <button
           type="button"
           aria-controls={contentId}
           aria-expanded={isOpen}
           onClick={toggle}
-          className="flex w-full flex-wrap items-baseline justify-between gap-2 px-4 py-3 text-left hover:bg-surface/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus"
+          className={appearance === "league" ? leagueStyles.trigger : "flex w-full flex-wrap items-baseline justify-between gap-2 px-4 py-3 text-left hover:bg-surface/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus"}
         >
-          <span className="type-display text-xl">{label}</span>
-          <span className="flex items-center gap-3 text-xs text-muted">
+          <span className={appearance === "league" ? leagueStyles.stageTitle : "type-display text-xl"}>{label}</span>
+          <span className={appearance === "league" ? leagueStyles.stageMeta : "flex items-center gap-3 text-xs text-muted"}>
             <span>{note}</span>
-            <span aria-hidden className="text-base leading-none text-action-text">
+            <span aria-hidden className={appearance === "league" ? leagueStyles.toggle : "text-base leading-none text-action-text"}>
               {isOpen ? "−" : "+"}
             </span>
           </span>
         </button>
       </div>
-      {isOpen ? <div id={contentId}>{children}</div> : null}
+      {isOpen ? <div id={contentId} className={appearance === "league" ? leagueStyles.content : undefined}>{children}</div> : null}
     </div>
   );
 }

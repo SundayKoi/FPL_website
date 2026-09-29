@@ -46,11 +46,11 @@ const toolColumns: ToolGroup[][] = [
       title: "League",
       category: "league",
       tools: [
-        { label: "Signups", description: "Premier signup window & player applications", href: "/signup", icon: "calendar" },
-        { label: "Schedule", description: "Fixtures, scores & season phase", href: "/schedule", icon: "file" },
-        { label: "Players", description: "Pool & average bids", href: "/players", icon: "people" },
-        { label: "Teams", description: "Captains, identity & rosters", href: "/teams", icon: "shield" },
-        { label: "Draft room", description: "Auctions & assignments", href: "/admin#drafts", icon: "people", ownerOnly: true },
+        { label: "Signups", description: "Premier signup window & player applications", href: "/admin/league/signups", icon: "calendar" },
+        { label: "Schedule", description: "Fixtures, scores & season phase", href: "/admin/league/schedule", icon: "file" },
+        { label: "Players", description: "Pool & average bids", href: "/admin/league/players", icon: "people" },
+        { label: "Teams", description: "Captains, identity & rosters", href: "/admin/league/teams", icon: "shield" },
+        { label: "Draft room", description: "Auctions & assignments", href: "/admin/league/drafts", icon: "people", ownerOnly: true },
       ],
     },
     {
@@ -58,9 +58,9 @@ const toolColumns: ToolGroup[][] = [
       title: "Broadcast & content",
       category: "content",
       tools: [
-        { label: "Homepage", description: "Featured matches & display mode", href: "/admin#homepage-controls", icon: "monitor" },
+        { label: "Homepage", description: "Featured matches & display mode", href: "/admin/content", icon: "monitor" },
         { label: "Announcements", description: "Prepared channel posts", href: "/admin/announce", icon: "file" },
-        { label: "The Daily Stu", description: "Titles & editorial controls", href: "/admin#daily-stu-controls", icon: "megaphone" },
+        { label: "The Daily Stu", description: "Titles & editorial controls", href: "/admin/content?panel=daily-stu", icon: "megaphone" },
       ],
     },
   ],
@@ -71,13 +71,13 @@ const toolColumns: ToolGroup[][] = [
       category: "cards",
       tools: [
         { label: "Card claims", description: "Player card ownership reviews", href: "/admin/claims", icon: "file" },
-        { label: "Roster identity claims", description: "Player-to-team identity requests", href: "/identity-claims", icon: "people" },
+        { label: "Roster identity claims", description: "Player-to-team identity requests", href: "/admin/reviews/identity", icon: "people" },
         { label: "Season’s End", description: "Regular-season honors", href: "/admin/seasons-end", icon: "trophy" },
         { label: "The Send-off", description: "Playoff editions", href: "/admin/sendoff", icon: "star" },
         { label: "On Air", description: "Live-drop caster cards", href: "/admin/on-air", icon: "broadcast" },
         { label: "Expedition seasons", description: "Standings & season close", href: "/admin/expeditions", icon: "compass" },
-        { label: "Expedition board", description: "Collector views", href: "/admin/expedition-board", icon: "compass" },
-        { label: "Expedition map", description: "Season map states", href: "/admin/expedition-map", icon: "compass" },
+        { label: "Expedition board", description: "Review and curate expedition cards", href: "/admin/expedition-board", icon: "compass" },
+        { label: "Expedition map", description: "Manage expedition map content", href: "/admin/expedition-map", icon: "compass" },
       ],
     },
     {
@@ -88,7 +88,7 @@ const toolColumns: ToolGroup[][] = [
         { label: "Betting", description: "Markets, pick’ems & catalog", href: "/admin/betting", icon: "chart" },
         { label: "Analytics", description: "Activity, pulls & balances", href: "/admin/analytics", icon: "chart" },
         { label: "Patrons", description: "Receipts & grants", href: "/admin/patrons", icon: "heart", ownerOnly: true },
-        { label: "Staff & access", description: "Roles & permissions", href: "/admin#staff-controls", icon: "people", ownerOnly: true },
+        { label: "Staff & access", description: "Roles & permissions", href: "/admin/access", icon: "people", ownerOnly: true },
       ],
     },
   ],
@@ -96,11 +96,12 @@ const toolColumns: ToolGroup[][] = [
 
 const designTools: Tool[] = [
   { label: "Parallels", description: "Foil treatments", href: "/admin/parallels", icon: "arrow" },
-  { label: "Skin-line parallels", description: "Seasonal skin line", href: "/skin-lines", icon: "arrow" },
+  { label: "Skin-line parallels", description: "Seasonal skin line", href: "/admin/design", icon: "arrow" },
   { label: "Expedition mutations", description: "Expedition card traits", href: "/admin/mutations", icon: "arrow" },
   { label: "Card overlays", description: "Alternate card finishes", href: "/admin/overlays", icon: "arrow" },
   { label: "The Dribb card", description: "Five-copy chase print", href: "/admin/dribb", icon: "arrow" },
-  { label: "Guess the Card", description: "Staff access to the daily game", href: "/guess-the-card", icon: "arrow" },
+  { label: "God Pack preview", description: "Preview the pack reveal", href: "/admin/design#god-pack-preview", icon: "arrow" },
+  { label: "Guess the Card", description: "Daily game preview", href: "/admin/design", icon: "arrow" },
 ];
 
 const filterTabs = [
@@ -138,90 +139,30 @@ function Icon({ name, size = 22 }: { name: string; size?: number }) {
   );
 }
 
-function SidebarLinks({
-  isOwner,
-  view,
-  league,
-  season,
-}: {
-  isOwner: boolean;
-  view: "overview" | "tools";
-  league: League;
-  season: string;
-}) {
-  const scheduleHref = `${league === "academy" ? "/academy/schedule" : "/schedule"}?season=${encodeURIComponent(season)}`;
-  const playersHref = league === "academy" ? "/academy/players" : "/players";
-  const context = `league=${league}&season=${encodeURIComponent(season)}`;
-  const link = (href: string, label: string, icon: string, ownerOnly = false) => (
-    <Link
-      key={label}
-      href={ownerOnly && !isOwner ? `/admin/tools?category=owner&${context}` : href}
-      aria-disabled={ownerOnly && !isOwner ? "true" : undefined}
-      className={`${styles.sideLink} ${ownerOnly && !isOwner ? styles.restrictedSideLink : ""}`}
-    >
-      <Icon name={icon} size={18} />
-      <span>{label}</span>
-      {ownerOnly ? <span className={styles.ownerTag}>Owner</span> : null}
-    </Link>
-  );
-
-  return (
-    <>
-      <div className={styles.sideEyebrow}>Administration</div>
-      <div className={styles.primarySideLinks}>
-        <Link href={`/admin?${context}`} aria-current={view === "overview" ? "page" : undefined} className={`${styles.sideLink} ${view === "overview" ? styles.activeSideLink : ""}`}>
-          <Icon name="home" size={18} /><span>Overview</span>
-        </Link>
-        <Link href={`/admin/tools?${context}`} aria-current={view === "tools" ? "page" : undefined} className={`${styles.sideLink} ${view === "tools" ? styles.activeSideLink : ""}`}>
-          <Icon name="file" size={18} /><span>All tools</span>
-        </Link>
-      </div>
-      <div className={styles.sideGroup}>
-        <div className={styles.sideEyebrow}>League</div>
-        {link("/signup", "Signups", "calendar")}
-        {link(scheduleHref, "Schedule", "file")}
-        {link(playersHref, "Players & teams", "people")}
-        {link(`/admin?${context}#drafts`, "Draft room", "people", true)}
-      </div>
-      <div className={styles.sideGroup}>
-        <div className={styles.sideEyebrow}>Experience</div>
-        {link(`/admin/tools?category=cards&${context}`, "Cards & rewards", "star")}
-        {link("/admin/betting", "Betting", "chart")}
-        {link(`/admin?${context}#homepage-controls`, "Broadcast & content", "monitor")}
-        {link("/admin/analytics", "Analytics", "chart")}
-      </div>
-      <div className={styles.sideGroup}>
-        <div className={styles.sideEyebrow}>Workspace</div>
-        {link(`/admin/tools?${context}#design-lab`, "Design lab", "flask")}
-        {link(`/admin?${context}#staff-controls`, "Staff & access", "people", true)}
-        {link("/admin/patrons", "Patrons", "heart", true)}
-      </div>
-    </>
-  );
-}
-
 function toolHref(tool: Tool, league: League, season: string): string {
   const leagueParam = `league=${league}`;
-  const workspace = `/admin?league=${league}&season=${encodeURIComponent(season)}`;
+  const context = `league=${league}&season=${encodeURIComponent(season)}`;
   switch (tool.label) {
     case "Schedule":
-      return `${league === "academy" ? "/academy/schedule" : "/schedule"}?season=${encodeURIComponent(season)}`;
+      return `/admin/league/schedule?${context}`;
     case "Players":
-      return league === "academy" ? "/academy/players" : "/players";
+      return `/admin/league/players?${context}`;
     case "Teams":
-      return league === "academy" ? "/academy/teams" : "/teams";
+      return `/admin/league/teams?league=${league}`;
     case "Season’s End":
       return `${tool.href}?${leagueParam}`;
     case "The Send-off":
       return `${tool.href}?${leagueParam}`;
     case "Homepage":
-      return `${workspace}#homepage-controls`;
+      return "/admin/content";
     case "The Daily Stu":
-      return `${workspace}#daily-stu-controls`;
+      return "/admin/content?panel=daily-stu";
     case "Draft room":
-      return `${workspace}#drafts`;
+      return "/admin/league/drafts";
     case "Staff & access":
-      return `${workspace}#staff-controls`;
+      return "/admin/access";
+    case "God Pack preview":
+      return "/admin/design#god-pack-preview";
     default:
       return tool.href;
   }
@@ -262,10 +203,7 @@ export default function AdminConsole({
   queueItems = [],
   queueUnavailable = false,
   recentActivity = [],
-  reportQueue,
-  reportQueueUnavailable,
   initialQuery = "",
-  children,
 }: {
   view: "overview" | "tools";
   isOwner: boolean;
@@ -288,10 +226,7 @@ export default function AdminConsole({
   queueItems?: AdminQueueItem[];
   queueUnavailable?: boolean;
   recentActivity?: AdminActivityItem[];
-  reportQueue?: ReactNode;
-  reportQueueUnavailable?: boolean;
   initialQuery?: string;
-  children?: ReactNode;
 }) {
   const pathname = usePathname() ?? "/admin";
   const searchParams = useSearchParams();
@@ -300,7 +235,18 @@ export default function AdminConsole({
   const [query, setQuery] = useState(initialQuery);
   const [queueFilter, setQueueFilter] = useState<"all" | QueueType>("all");
   const currentCategory = searchParams?.get("category") ?? "all";
-  const toolFilter = currentCategory;
+  const [toolFilter, setToolFilter] = useState(currentCategory);
+
+  const [previousContext, setPreviousContext] = useState({ initialQuery, currentCategory, pathname });
+  if (previousContext.initialQuery !== initialQuery || previousContext.pathname !== pathname) {
+    setQuery(initialQuery);
+  }
+  if (previousContext.currentCategory !== currentCategory || previousContext.pathname !== pathname) {
+    setToolFilter(currentCategory);
+  }
+  if (previousContext.initialQuery !== initialQuery || previousContext.currentCategory !== currentCategory || previousContext.pathname !== pathname) {
+    setPreviousContext({ initialQuery, currentCategory, pathname });
+  }
 
   useEffect(() => {
     const onShortcut = (event: KeyboardEvent) => {
@@ -360,6 +306,7 @@ export default function AdminConsole({
   }
 
   function chooseToolFilter(value: string) {
+    setToolFilter(value);
     const params = new URLSearchParams(searchParams?.toString());
     if (value === "all") params.delete("category");
     else params.set("category", value);
@@ -369,17 +316,6 @@ export default function AdminConsole({
 
   return (
     <div className={styles.console}>
-      <aside className={styles.sidebar} aria-label="Admin navigation">
-        <SidebarLinks isOwner={isOwner} view={view} league={league} season={season} />
-      </aside>
-
-      <details className={styles.mobileMenu}>
-        <summary>Admin menu <span aria-hidden="true">⌄</span></summary>
-        <nav className={styles.mobileMenuContent} aria-label="Admin navigation">
-          <SidebarLinks isOwner={isOwner} view={view} league={league} season={season} />
-        </nav>
-      </details>
-
       <div className={styles.workspace}>
         <div className={styles.toolbar}>
           <div className={styles.contextControls} aria-label="Workspace context">
@@ -484,16 +420,16 @@ export default function AdminConsole({
                       ) : <p className={styles.noMatch}>No featured matchup selected.</p>}
                       <div className={styles.matchStarts}>{featuredMatch?.starts || "Set a featured match in the editor below"}</div>
                       <div className={styles.broadcastMode}><span>Homepage mode</span><strong>{settingsAvailable ? homepageMode : "Unavailable"}</strong></div>
-                      <Link href={`/admin?league=${league}&season=${encodeURIComponent(season)}#homepage-controls`} className={styles.broadcastButton}>Edit featured matchup</Link>
+                      <Link href="/admin/content" className={styles.broadcastButton}>Edit featured matchup</Link>
                     </section>
                     <section className={styles.quickActions} aria-labelledby="quick-actions-title">
                       <h2 id="quick-actions-title">Quick actions</h2>
                   <div className={styles.quickGrid}>
-                        <Link href={league === "academy" ? `/academy/schedule?season=${encodeURIComponent(season)}` : `/schedule?season=${encodeURIComponent(season)}`}><Icon name="calendar" size={18} />Edit fixtures <span aria-hidden="true">→</span></Link>
-                        <Link href="/signup"><Icon name="people" size={18} />Review signups <span aria-hidden="true">→</span></Link>
-                        <Link href={league === "academy" ? "/academy/teams" : "/teams"}><Icon name="shield" size={18} />Manage rosters <span aria-hidden="true">→</span></Link>
+                        <Link href={`/admin/league/schedule?league=${league}&season=${encodeURIComponent(season)}`}><Icon name="calendar" size={18} />Edit fixtures <span aria-hidden="true">→</span></Link>
+                        <Link href="/admin/league/signups"><Icon name="people" size={18} />Review signups <span aria-hidden="true">→</span></Link>
+                        <Link href={`/admin/league/teams?league=${league}`}><Icon name="shield" size={18} />Manage rosters <span aria-hidden="true">→</span></Link>
                         {canReviewQueues ? <Link href="/admin/claims"><Icon name="people" size={18} />Review player claims <span aria-hidden="true">→</span></Link> : null}
-                        {isOwner ? <Link href={`/admin?league=${league}&season=${encodeURIComponent(season)}#drafts`}><Icon name="file" size={18} />Open draft room <span aria-hidden="true">→</span></Link> : null}
+                        {isOwner ? <Link href="/admin/league/drafts"><Icon name="file" size={18} />Open draft room <span aria-hidden="true">→</span></Link> : null}
                       </div>
                     </section>
                   </aside>
@@ -501,7 +437,7 @@ export default function AdminConsole({
 
                 <div className={styles.bottomGrid}>
                   <section className={styles.weekSection} aria-labelledby="week-title">
-                    <div className={styles.tableHeading}><h2 id="week-title">This week</h2><Link href={league === "academy" ? `/academy/schedule?season=${encodeURIComponent(season)}` : `/schedule?season=${encodeURIComponent(season)}`}>View schedule <span aria-hidden="true">→</span></Link></div>
+                    <div className={styles.tableHeading}><h2 id="week-title">This week</h2><Link href={`/admin/league/schedule?league=${league}&season=${encodeURIComponent(season)}`}>View schedule <span aria-hidden="true">→</span></Link></div>
                     <div className={styles.scheduleTableWrap}>
                       <table className={styles.scheduleTable}>
                         <thead><tr><th>Match</th><th>Starts</th><th>Status</th></tr></thead>
@@ -514,7 +450,7 @@ export default function AdminConsole({
                     </div>
                   </section>
                   <section className={styles.activity} aria-labelledby="activity-title">
-                    <h2 id="activity-title">Recent activity</h2>
+                    <h2 id="activity-title">Recorded activity</h2>
                     {canReviewQueues && !queueUnavailable && recentActivity.length ? recentActivity.map((item) => (
                       <div className={styles.activityRow} key={item.id}>
                         <Icon name={item.icon} size={20} />
@@ -522,7 +458,7 @@ export default function AdminConsole({
                         <time dateTime={item.occurredAt}>{item.timeLabel}</time>
                       </div>
                     )) : (
-                      <p className={styles.activityEmpty}>{queueUnavailable ? "Activity is temporarily unavailable." : canReviewQueues ? "No recent report or claim activity for this league and season." : "Recent activity is available to admins."}</p>
+                      <p className={styles.activityEmpty}>{queueUnavailable ? "Activity is temporarily unavailable." : canReviewQueues ? "No recorded report or claim activity in the recent window for this league and season." : "Recorded activity is available to admins."}</p>
                     )}
                   </section>
                 </div>
@@ -532,13 +468,10 @@ export default function AdminConsole({
                 <span className={styles.workspaceEyebrow}>Broadcast workspace</span>
                 <h2>Homepage controls</h2>
                 <p>Choose a featured matchup for {league === "academy" ? "Academy" : "Premier"}. Your existing access stays limited to broadcast controls.</p>
-                <Link href={`/admin?league=${league}&season=${encodeURIComponent(season)}#homepage-controls`} className={styles.outlineButton}>Open featured matchup controls <span aria-hidden="true">↓</span></Link>
+                <Link href="/admin/content" className={styles.outlineButton}>Open featured matchup controls <span aria-hidden="true">↓</span></Link>
               </section>
             )}
 
-            {isFullAdmin && canReviewQueues && reportQueue ? <section id="match-reports" aria-label="Match report review" className={styles.reportQueue}>{reportQueue}</section> : null}
-            {isFullAdmin && canReviewQueues && reportQueueUnavailable ? <section id="match-reports" aria-label="Match report review" className={styles.reportQueue}><p className={styles.queueEmpty}>Match report data is temporarily unavailable.</p></section> : null}
-            {children ? <div className={styles.managementWorkspaces}>{children}</div> : null}
             <footer className={styles.consoleFooter}><span>FPL / ADMIN</span><span>{isOwner ? "Owner view" : "Staff view"}</span></footer>
           </>
         ) : (
@@ -575,16 +508,16 @@ export default function AdminConsole({
               </div>
 
               <aside className={styles.designLab} id="design-lab" aria-labelledby="design-lab-title">
-                <div className={styles.designTitle}><Icon name="flask" size={38} /><div><span>Card treatments</span><h2 id="design-lab-title">Design tools</h2></div></div>
-                <p>Review card treatments and season presentations.</p>
+                <div className={styles.designTitle}><Icon name="flask" size={38} /><div><span>Previews & experiments</span><h2 id="design-lab-title">Design lab</h2></div></div>
+                <p>Explore treatments before they ship.</p>
                 <div className={styles.designRows}>
                   {visibleDesignTools.map((tool) => (
                     <Link href={tool.href} key={tool.label}>{tool.label}<Icon name="arrow" size={17} /></Link>
                   ))}
-                  {visibleDesignTools.length === 0 ? <span className={styles.designEmpty}>No design tools match this search.</span> : null}
+                  {visibleDesignTools.length === 0 ? <span className={styles.designEmpty}>Use All tools to browse design previews.</span> : null}
                 </div>
-                <Link href="/admin/parallels" className={styles.designButton}>Open design tools <span aria-hidden="true">→</span></Link>
-                <div className={styles.quieterWorkspace}><strong>Focused operations</strong><p>Design tools stay grouped here so daily work is easy to scan.</p></div>
+                <Link href="/admin/parallels" className={styles.designButton}>Open design lab <span aria-hidden="true">→</span></Link>
+                <div className={styles.quieterWorkspace}><strong>A quieter workspace</strong><p>Previews live here, leaving daily operations focused.</p></div>
               </aside>
             </div>
             <footer className={styles.consoleFooter}><span>FPL / ADMIN</span><span>{isOwner ? "Owner view" : "Staff view"}</span></footer>

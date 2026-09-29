@@ -24,7 +24,7 @@ async function requireOwner(): Promise<boolean> {
  *  wardrobe, and the public roster. */
 function revalidatePatronSurfaces(): void {
   revalidatePath("/admin/patrons");
-  revalidatePath("/supporters");
+  revalidatePath("/membership");
   revalidatePath("/cards/packs");
   revalidatePath("/academy/cards/packs");
 }

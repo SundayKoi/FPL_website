@@ -4,6 +4,7 @@ import GuessTheCardBoard from "@/components/guess-the-card/GuessTheCardBoard";
 import GuessTheCardUnavailable from "@/components/guess-the-card/GuessTheCardUnavailable";
 import { resetGuessTheCardPuzzleAction, submitGuessTheCardAction } from "@/lib/guess-the-card/actions";
 import { GuessTheCardError, getGuessTheCardGame } from "@/lib/guess-the-card/server";
+import PlayPageShell from "@/components/play/PlayPageShell";
 
 export const metadata: Metadata = {
   title: "Guess the Card — FPL",
@@ -16,9 +17,9 @@ export default async function GuessTheCardPage() {
     game = await getGuessTheCardGame("premier");
   } catch (error) {
     if (error instanceof GuessTheCardError && error.code === "FORBIDDEN") {
-      return <DailyGameWall league="Premier" game="Guess the Card" redirect="/guess-the-card" message={error.message} testing />;
+      return <PlayPageShell league="premier" active="guess-the-card"><DailyGameWall league="Premier" game="Guess the Card" redirect="/guess-the-card" message={error.message} testing /></PlayPageShell>;
     }
-    return <GuessTheCardUnavailable league="Premier" />;
+    return <PlayPageShell league="premier" active="guess-the-card" isAdmin><GuessTheCardUnavailable league="Premier" /></PlayPageShell>;
   }
-  return <GuessTheCardBoard initialGame={game} submitGuess={submitGuessTheCardAction} resetPuzzle={resetGuessTheCardPuzzleAction} />;
+  return <PlayPageShell league="premier" active="guess-the-card" isAdmin={game.adminTesting}><GuessTheCardBoard initialGame={game} submitGuess={submitGuessTheCardAction} resetPuzzle={resetGuessTheCardPuzzleAction} /></PlayPageShell>;
 }

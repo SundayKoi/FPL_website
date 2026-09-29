@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { homeShortcuts } from "@/lib/home/shortcuts";
 import type { HomeViewer } from "@/lib/home/viewer";
 import type { LeagueView } from "@/lib/league/context";
 import { leaguePath } from "@/lib/league/links";
 import type { FixtureRow } from "@/lib/schedule/types";
 import { PREMIUM_NAME, PREMIUM_PRICE_LABEL } from "@/lib/site/discord";
+import { homeShortcuts } from "@/lib/home/shortcuts";
 import type { HomeAppearance } from "./appearance";
+import HomeShortcutsBand from "./HomeShortcutsBand";
 import styles from "./HomeWorkspace.module.css";
 
 /** "Mon, Sep 7 · 8:00 PM ET" — the league keeps Eastern time everywhere. */
@@ -14,28 +15,6 @@ function whenLabel(iso: string | null): string | null {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
   return `${date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "America/New_York" })} · ${date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} ET`;
-}
-
-function ThirdDoor({
-  door,
-}: {
-  door: { eyebrow: string; title: string; body: string; href: string; cta: string; secondary: { href: string; label: string } };
-}) {
-  return (
-    <div className="rounded-lg border border-coral/50 bg-coral/5 p-4" data-testid="home-third-door">
-      <span className="label-dash text-coral">{door.eyebrow}</span>
-      <span className="mt-1 block text-lg font-semibold text-white">{door.title}</span>
-      <span className="mt-1 block text-sm leading-6 text-muted">{door.body}</span>
-      <span className="mt-3 flex flex-wrap items-center gap-3">
-        <Link href={door.href} className="btn-coral px-4 py-2 text-xs uppercase tracking-wide">
-          {door.cta}
-        </Link>
-        <Link href={door.secondary.href} className="text-sm text-action-text underline-offset-4 hover:underline">
-          {door.secondary.label}
-        </Link>
-      </span>
-    </div>
-  );
 }
 
 /**
@@ -66,12 +45,10 @@ export default function HomeOrientation({
   const academy = league === "academy";
   const cardsBase = academy ? "/academy/cards" : "/cards";
   const premiumHref = academy ? "/premium?league=academy" : "/premium";
+  const shortcuts = homeShortcuts(league, viewer);
   const when = whenLabel(fixture?.scheduled_at ?? null);
   const played = fixture !== null && fixture.score_a !== null && fixture.score_b !== null;
 
-  // The third door changes with who is looking. The legacy layout shows
-  // it only to signed-out visitors (signed-in ones get their shortcuts);
-  // the workspace layout shows it to everyone below the intro.
   const thirdDoor =
     viewer === "premium"
       ? {
@@ -99,8 +76,6 @@ export default function HomeOrientation({
             cta: "Sign in →",
             secondary: { href: "/membership", label: `What ${PREMIUM_NAME} is` },
           };
-
-  const shortcuts = homeShortcuts(league, viewer);
 
   const map = [
     { label: "League", href: leaguePath("players", league), blurb: "Players, teams, schedule, stats" },
@@ -160,20 +135,7 @@ export default function HomeOrientation({
             <Link href={leaguePath("schedule", league)} className={styles.action}>See the schedule</Link>
             <Link href={`${cardsBase}/browse`} className={styles.introSecondaryLink}>Browse the cards</Link>
           </nav>
-        ) : (
-          <nav aria-label="Your shortcuts" className={styles.introQuickLinks} data-testid="home-shortcuts">
-            {shortcuts.map((shortcut) => (
-              <Link
-                key={shortcut.label}
-                href={shortcut.href}
-                title={shortcut.hint}
-                className={shortcut.accent ? styles.action : styles.introSecondaryLink}
-              >
-                <span>{shortcut.label}</span>
-              </Link>
-            ))}
-          </nav>
-        )}
+        ) : <HomeShortcutsBand shortcuts={shortcuts} />}
       </section>
     );
   }
@@ -214,36 +176,31 @@ export default function HomeOrientation({
           ) : null}
         </div>
 
-        {viewer === "signed-out" ? (
-          <nav aria-label="Start here" className="grid gap-3">
-            <Link href={leaguePath("schedule", league)} className="group rounded-lg border border-border-subtle bg-canvas/40 p-4 transition hover:border-action-text/60">
-              <span className="label-dash">The season</span>
-              <span className="mt-1 block text-lg font-semibold text-white">See the schedule</span>
-              <span className="mt-1 block text-sm leading-6 text-muted">Who plays whom this week, and every result so far.</span>
-            </Link>
-            <Link href={`${cardsBase}/browse`} className="group rounded-lg border border-border-subtle bg-canvas/40 p-4 transition hover:border-action-text/60">
-              <span className="label-dash">The cards</span>
-              <span className="mt-1 block text-lg font-semibold text-white">Browse the cards</span>
-              <span className="mt-1 block text-sm leading-6 text-muted">Every player rated from this season, open to everyone.</span>
-            </Link>
-            <ThirdDoor door={thirdDoor} />
-          </nav>
-        ) : (
-          <nav aria-label="Your shortcuts" className="grid grid-cols-2 gap-3" data-testid="home-shortcuts">
-            {shortcuts.map((shortcut) => (
-              <Link
-                key={shortcut.label}
-                href={shortcut.href}
-                className={`flex min-h-24 flex-col justify-between rounded-lg border p-4 transition ${
-                  shortcut.accent ? "border-coral/60 bg-coral/10 hover:border-coral" : "border-border-subtle bg-canvas/40 hover:border-action-text/60"
-                }`}
-              >
-                <span className="text-lg font-semibold leading-tight text-white">{shortcut.label}</span>
-                <span className="mt-2 text-xs leading-5 text-muted">{shortcut.hint}</span>
+        {viewer === "signed-out" ? <nav aria-label="Start here" className={workspace ? styles.introActions : "grid gap-3"}>
+          <Link href={leaguePath("schedule", league)} className={workspace ? styles.action : "group rounded-lg border border-border-subtle bg-canvas/40 p-4 transition hover:border-action-text/60"}>
+            {workspace ? null : <span className="label-dash">The season</span>}
+            <span className={workspace ? "text-center" : "mt-1 block text-lg font-semibold text-white"}>See the schedule</span>
+            {!workspace ? <span className="mt-1 block text-sm leading-6 text-muted">Who plays whom this week, and every result so far.</span> : null}
+          </Link>
+          <Link href={`${cardsBase}/browse`} className={workspace ? `${styles.softPanel} ${styles.link} inline-flex min-h-11 items-center justify-center px-3 text-center no-underline` : "group rounded-lg border border-border-subtle bg-canvas/40 p-4 transition hover:border-action-text/60"}>
+            {workspace ? "Browse the cards" : <><span className="label-dash">The cards</span><span className="mt-1 block text-lg font-semibold text-white">Browse the cards</span><span className="mt-1 block text-sm leading-6 text-muted">Every player rated from this season, open to everyone.</span></>}
+          </Link>
+          <div className={workspace ? `${styles.softPanel} ${styles.introDoor} p-3` : "rounded-lg border border-coral/50 bg-coral/5 p-4"} data-testid="home-third-door">
+            <div className={workspace ? "min-w-0" : "contents"}>
+              <span className={workspace ? styles.eyebrow : "label-dash text-coral"}>{thirdDoor.eyebrow}</span>
+              <span className={`mt-1 block text-base font-semibold ${workspace ? styles.ink : "text-white"}`}>{thirdDoor.title}</span>
+              <span className={`mt-1 block text-xs leading-5 ${workspace ? styles.muted : "text-muted"}`}>{thirdDoor.body}</span>
+            </div>
+            <span className={workspace ? styles.introDoorLinks : "mt-3 flex flex-wrap items-center gap-3"}>
+              <Link href={thirdDoor.href} className={workspace ? styles.action : "btn-coral px-4 py-2 text-xs uppercase tracking-wide"}>
+                {thirdDoor.cta}
               </Link>
-            ))}
-          </nav>
-        )}
+              <Link href={thirdDoor.secondary.href} className={workspace ? styles.link : "text-sm text-action-text underline-offset-4 hover:underline"}>
+                {thirdDoor.secondary.label}
+              </Link>
+            </span>
+          </div>
+        </nav> : <HomeShortcutsBand shortcuts={shortcuts} />}
       </div>
 
       <nav aria-label="Site map" className={workspace ? `${styles.introSecondary} text-sm` : "mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border-subtle pt-4 text-sm"}>

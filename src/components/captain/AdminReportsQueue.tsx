@@ -20,11 +20,15 @@ export default function AdminReportsQueue({
   games,
   teams,
   initiallyOpen = false,
+  selectedReportId,
+  label = "Admin — match report review",
 }: {
   reports: MatchReport[];
   games: MatchReportGame[];
   teams: LeagueTeam[];
   initiallyOpen?: boolean;
+  selectedReportId?: string;
+  label?: string;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -111,7 +115,7 @@ export default function AdminReportsQueue({
         aria-expanded={open}
         className="flex w-full items-center justify-between px-4 py-3 text-left"
       >
-        <span className="label-dash">Admin — all reports ({reports.length})</span>
+        <span className="label-dash">{label} ({reports.length})</span>
         <span aria-hidden="true" className="text-muted">
           {open ? "▴" : "▾"}
         </span>
@@ -131,7 +135,13 @@ export default function AdminReportsQueue({
               {reports.map((r) => {
                 const busy = busyId === r.id;
                 return (
-                  <li key={r.id} className="rounded border border-border-subtle/60 bg-canvas/60 p-3">
+                  <li
+                    key={r.id}
+                    id={`report-${r.id}`}
+                    tabIndex={selectedReportId === r.id ? -1 : undefined}
+                    aria-current={selectedReportId === r.id ? "true" : undefined}
+                    className={`rounded border p-3 ${selectedReportId === r.id ? "border-action-text bg-action-fill/10" : "border-border-subtle/60 bg-canvas/60"}`}
+                  >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold text-white">
                         {teamAbbr(r.team_a_id)} {r.score_a}–{r.score_b} {teamAbbr(r.team_b_id)}

@@ -1,0 +1,53 @@
+.leagueCard > :global(div:first-child) {
+  height: 92px;
+  padding: 12px 16px;
+}
+
+.leagueCard > :global(div:first-child img) {
+  width: 64px;
+  height: 64px;
+}
+
+.leagueCard > :global(div:first-child span) {
+  font-size: 2rem;
+}
+
+.leagueCard > :global(div:nth-child(2)) {
+  border-color: var(--color-border-subtle);
+  background: var(--color-surface);
+}
+
+.leagueCard > :global(div:nth-child(2) h2),
+.leagueCard > :global(div:nth-child(2) h2) :global(.text-white) {
+  color: var(--color-content);
+}
+
+.leagueCard > :global(div:nth-child(2) h2 a:hover) {
+  color: var(--color-action-text);
+}
+
+.leagueCard > :global(div:nth-child(2) p) {
+  color: var(--color-muted);
+}
+
+.leagueCard > ul {
+  background: var(--color-surface);
+}
+
+.leagueCard > ul li {
+  color: var(--color-content);
+}
+
+.leagueCard > ul li :global(.text-white) {
+  color: var(--color-content);
+}
+
+.leagueCard > ul li :global(.text-white):hover,
+.leagueCard > ul li details[open] summary :global(.text-white) {
+  color: var(--color-action-text);
+}
+
+.leagueCard > ul li details > div {
+  border-color: var(--color-border-subtle);
+  background: var(--color-surface);
+}

@@ -8,6 +8,7 @@ import { fetchBinderByToken } from "@/lib/binder/queries";
 import PatronFlame from "@/components/patron/PatronFlame";
 import { patronFlameOf } from "@/lib/patron/flames";
 import { editionLabel } from "@/lib/packs/week";
+import styles from "@/components/cards/CardsPageShell.module.css";
 
 /** The binder is public by link, so it renders for signed-out visitors —
  *  the service client reads it because the tables are deny-all, not
@@ -56,7 +57,7 @@ export default async function BinderPage({ params }: { params: Promise<{ token: 
   const flame = await patronFlame(binder.discordId);
 
   return (
-    <main className="page-container page-spacing page-backdrop flex w-full flex-1 flex-col gap-8 text-white">
+    <main className={styles.page + " " + styles.standalone + " gap-8 py-10 text-white page-backdrop"} data-league="neutral">
       <div>
         <BackLink href="/cards/browse" label="Browse the cards" />
       </div>
@@ -74,7 +75,7 @@ export default async function BinderPage({ params }: { params: Promise<{ token: 
         ) : null}
         <div>
           <span className="label-dash">The binder</span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">
+          <h1 className={styles.title}>
             {binder.title ?? (binder.ownerName ? `${binder.ownerName}'s binder` : "Card binder")}
             {flame ? (
               <span className="ml-3 align-middle rounded-full border border-gold/50 bg-gold/10 px-2.5 py-1 text-xs font-bold uppercase tracking-[0.14em] text-gold">

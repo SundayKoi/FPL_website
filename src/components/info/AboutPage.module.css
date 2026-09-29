@@ -1,0 +1,237 @@
+.page {
+  --color-canvas: #0c0b10;
+  --color-surface: #15131b;
+  --color-raised: #211e29;
+  --color-border-subtle: #34313f;
+  --color-border-strong: #514c5d;
+  --color-muted: #aaa6b7;
+  --color-content: #f2f0f8;
+  --color-primary: #9dc4dc;
+  --color-line: #34313f;
+  --color-steel: #aaa6b7;
+  --color-coral: #9dc4dc;
+  --color-action-fill: #1c5583;
+  --color-action-text: #9dc4dc;
+  --color-action-contrast: #fff;
+  --color-focus: #9dc4dc;
+  min-height: 100%;
+  flex: 1 0 auto;
+  background: #0c0b10;
+  color: #f2f0f8;
+}
+
+.container {
+  width: min(100% - 32px, 1120px);
+  margin-inline: auto;
+  padding-block: 20px 64px;
+}
+
+.sectionNav {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 32px;
+  border-block: 1px solid #34313f;
+}
+
+.sectionNav a {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 2px solid transparent;
+  padding: 10px 12px;
+  color: #aaa6b7;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-align: center;
+  text-decoration: none;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.sectionNav a:hover,
+.sectionNav a.activeSection {
+  border-bottom-color: #1c5583;
+  color: #f2f0f8;
+}
+
+.sectionNav a:focus-visible,
+.page :global(a:focus-visible),
+.page :global(button:focus-visible),
+.page :global(summary:focus-visible),
+.page :global(input:focus-visible),
+.page :global(select:focus-visible),
+.page :global(textarea:focus-visible) {
+  outline: 2px solid #9dc4dc;
+  outline-offset: 3px;
+}
+
+.pageHeader {
+  max-width: 760px;
+  margin-bottom: 32px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #9dc4dc;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.pageHeader h1 {
+  margin: 8px 0 0;
+  color: #f2f0f8;
+  font-family: var(--font-display, inherit);
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.lede {
+  max-width: 70ch;
+  margin-top: 12px;
+  color: #aaa6b7;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.resourceList,
+.guideList {
+  margin-bottom: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.resourceList {
+  border-top: 1px solid #34313f;
+}
+
+.resourceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid #34313f;
+  padding: 16px 0;
+}
+
+.guideList {
+  border-top: 1px solid #34313f;
+}
+
+.guideList li {
+  border-bottom: 1px solid #34313f;
+}
+
+.guideList a {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(0, 2fr);
+  gap: 16px;
+  padding: 15px 0;
+  color: #aaa6b7;
+  font-size: 14px;
+  line-height: 1.6;
+  text-decoration: none;
+}
+
+.guideList a span:first-child {
+  color: #f2f0f8;
+  font-weight: 650;
+}
+
+.guideList a:hover span:first-child {
+  color: #9dc4dc;
+}
+
+.page :global(.btn-primary) {
+  border: 1px solid #1c5583;
+  background: #1c5583;
+  color: #fff;
+}
+
+.page :global(.btn-primary:hover) {
+  border-color: #3977a8;
+  background: #245f8e;
+  color: #fff;
+}
+
+.page :global(.btn-pill) {
+  border-color: #514c5d;
+  background: #15131b;
+  color: #9dc4dc;
+}
+
+.page :global(.btn-pill:hover) {
+  border-color: #9dc4dc;
+  background: #211e29;
+  color: #f2f0f8;
+}
+
+.page :global(.card-brand) {
+  border-color: #34313f;
+  border-radius: 10px;
+  background: #15131b;
+  box-shadow: none;
+}
+
+.page :global(.accent-rule) {
+  display: none;
+}
+
+.page :global([id]) {
+  scroll-margin-top: 96px;
+}
+
+@media (max-width: 720px) {
+  .sectionNav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 24px;
+  }
+
+  .sectionNav a {
+    min-height: 44px;
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+
+  .guideList a {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+}
+
+@media (max-width: 520px) {
+  .resourceRow {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 420px) {
+  .container {
+    width: calc(100% - 32px);
+    padding-top: 12px;
+  }
+
+  .lede {
+    font-size: 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sectionNav a {
+    transition: none;
+  }
+}

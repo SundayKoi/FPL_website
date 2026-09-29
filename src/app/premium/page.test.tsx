@@ -44,7 +44,7 @@ describe("PremiumPageView", () => {
       "https://www.paypal.com/paypalme/DraftFPL",
     );
     expect(screen.getByRole("link", { name: /sign in with discord/i }).getAttribute("href")).toBe(
-      "/login?redirect=/premium",
+      "/login?redirect=%2Fpremium",
     );
     expect(loadSnapshotMock).not.toHaveBeenCalled();
   });
@@ -58,14 +58,27 @@ describe("PremiumPageView", () => {
     expect(screen.getByRole("heading", { name: "Premium HQ" })).toBeTruthy();
     expect(screen.queryByText(/fpl premium is only \$10/i)).toBeNull();
     expect(screen.queryByRole("link", { name: /paypal/i })).toBeNull();
-    expect(screen.getByText(/fpl does not condone or endorse any tweets made by stu/i)).toBeTruthy();
-    const destinations = screen.getByRole("navigation", { name: "Premium destinations" });
-    expect(within(destinations).getByRole("link", { name: /^Cards/ }).getAttribute("href")).toBe("/cards");
+    expect(screen.getByText(/fpl does not condone or endorse any posts made by stu/i)).toBeTruthy();
+    const destinations = screen.getByRole("navigation", { name: "Play destinations" });
+    expect(within(destinations).getByRole("link", { name: /^Premium HQ/ }).getAttribute("href")).toBe("/premium?league=academy");
     expect(within(destinations).getByRole("link", { name: /^Betting/ }).getAttribute("href")).toBe("/betting");
     expect(within(destinations).getByRole("link", { name: /The Daily Stu/ }).getAttribute("href")).toBe("/bangers");
-    expect(within(destinations).getByRole("link", { name: /Match Drafter/ }).getAttribute("href")).toBe("/drafter");
+    expect(within(destinations).queryByRole("link", { name: /Guess the Card/ })).toBeNull();
+    expect(screen.getByRole("link", { name: /Open Match Drafter/ }).getAttribute("href")).toBe("/drafter");
     expect(screen.getByRole("link", { name: "Academy" }).getAttribute("aria-current")).toBe("page");
     expect(loadSnapshotMock).toHaveBeenCalledWith("academy");
     expect(loadPaymentMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps Academy selected after a signed-out visitor signs in", async () => {
+    premiumAccessMock.mockResolvedValue({ signedIn: false, allowed: false, inconclusive: false });
+
+    render(await PremiumPageView({ searchParams: Promise.resolve({ league: "academy" }) }));
+
+    expect(screen.getByRole("link", { name: /sign in with discord/i }).getAttribute("href")).toBe(
+      "/login?redirect=%2Fpremium%3Fleague%3Dacademy",
+    );
+    const nav = screen.getByRole("navigation", { name: "Play destinations" });
+    expect(within(nav).getByRole("link", { name: "Premium HQ" }).getAttribute("href")).toBe("/premium?league=academy");
   });
 });

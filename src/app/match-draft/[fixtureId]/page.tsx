@@ -145,7 +145,8 @@ export default async function MatchDraftPage({
   // Academy runs on its own season code, so the season tells us which
   // league's captain page the "report this result" link should target.
   const academySeason = (leagueSettingsResult.data as { academy_season: string | null } | null)?.academy_season ?? null;
-  const reportHref = leaguePath("captain", academySeason && fixture.season === academySeason ? "academy" : "premier");
+  const league = academySeason && fixture.season === academySeason ? "academy" : "premier";
+  const reportHref = leaguePath("captain", league);
 
   const settings = settingsResult.data as MatchDraftSettingsRow | null;
   const seriesFormat: MatchDraftSeriesFormat = {
@@ -233,6 +234,8 @@ export default async function MatchDraftPage({
       overlaySlotWidth={overlaySlotWidthFrom(firstParam(query.slot))}
       tourneyCodes={tourneyCodes}
       reportHref={reportHref}
+      league={league}
+      season={fixture.season}
     />
   );
 }

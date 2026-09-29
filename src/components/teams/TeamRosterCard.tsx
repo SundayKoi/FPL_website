@@ -7,11 +7,13 @@ import { linkedAccountLabel, linkedAccountUrls } from "@/lib/players/linkedAccou
 import { teamSlug } from "@/lib/teams/teamPage";
 import PlayerRosterClaim from "@/components/teams/PlayerRosterClaim";
 import type { RosterClaimTarget } from "@/lib/teams/rosterClaims";
+import styles from "./TeamRosterCard.module.css";
 
 
 export type TeamRosterCardProps = {
   team: RosterTeamView;
   league?: "premier" | "academy";
+  appearance?: "default" | "league";
   editable?: boolean;
   onDragStart?: (player: RosterSlotView) => void;
   onDragEnd?: () => void;
@@ -24,6 +26,7 @@ export type TeamRosterCardProps = {
 export default function TeamRosterCard({
   team,
   league = "premier",
+  appearance = "default",
   editable = false,
   onDragStart,
   onDragEnd,
@@ -45,7 +48,10 @@ export default function TeamRosterCard({
     // No overflow-hidden on the card: the player account menus open past
     // the bottom edge (the last row's menu was unreachable). The banner and
     // list round their own corners instead.
-    <article aria-labelledby={headingId} className="card-brand">
+    <article
+      aria-labelledby={headingId}
+      className={`card-brand ${appearance === "league" ? styles.leagueCard : ""}`}
+    >
       <div
         aria-label={`${team.name} banner`}
         role="group"
@@ -119,7 +125,11 @@ export default function TeamRosterCard({
               <span className="w-9 shrink-0 text-xs font-display font-semibold not-italic text-muted">
                 {ROLE_LABELS_SHORT[player.role]}
               </span>
-              {!empty ? (
+              {!empty ? league === "academy" && (!player.opggUrl?.trim() || player.opggUrl === "#") ? (
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
+                  {player.displayName}
+                </span>
+              ) : (
                 // Click a player for their stats profile or linked OP.GG
                 // accounts (from the league's account sheet). Everything
                 // inside is draggable={false} so the menu never hijacks the
@@ -140,14 +150,21 @@ export default function TeamRosterCard({
                     </span>
                   </summary>
                   <div className="absolute left-0 top-full z-20 mt-1 flex min-w-48 flex-col rounded border border-border-subtle bg-canvas p-1 shadow-lg">
-                    <Link
-                      href={`/players/${encodeURIComponent(player.displayName)}`}
-                      draggable={false}
-                      className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:bg-border-subtle/40 hover:text-white"
-                    >
-                      Stats profile
-                    </Link>
-                    {linkedAccountUrls(player.displayName).map((url, index) => (
+                    {league === "academy" ? null : (
+                      <Link
+                        href={`/players/${encodeURIComponent(player.displayName)}`}
+                        draggable={false}
+                        className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:bg-border-subtle/40 hover:text-white"
+                      >
+                        Stats profile
+                      </Link>
+                    )}
+                    {(league === "academy"
+                      ? player.opggUrl?.trim() && player.opggUrl !== "#"
+                        ? [player.opggUrl]
+                        : []
+                      : linkedAccountUrls(player.displayName)
+                    ).map((url, index) => (
                       <a
                         key={url}
                         href={url}

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { seedFixture, signIn } from "./fixtures";
 import {
   CONTRACT_PASSWORD,
@@ -7,6 +7,10 @@ import {
   MATCH_DRAFT_SPECTATOR_EMAIL,
 } from "./contract-fixtures";
 import { localServiceClient, signedInLocalClient } from "./test-clients";
+
+function championPool(page: Page) {
+  return page.locator('[data-testid="champion-pool-grid"]:visible').first();
+}
 
 test("captains synchronize bans, reconnecting spectators catch up, stale and spectator actions fail", async ({ browser }) => {
   test.setTimeout(90_000);
@@ -25,19 +29,26 @@ test("captains synchronize bans, reconnecting spectators catch up, stale and spe
       red.goto(`/match-draft/${fixtureId}`),
       spectator.goto(`/match-draft/${fixtureId}`),
     ]);
-    await expect(blue.getByTestId("champion-pool-grid")).toBeVisible();
-    await expect(red.getByTestId("champion-pool-grid")).toBeVisible();
-    await expect(spectator.getByTestId("champion-pool-grid").getByRole("button", { name: "Ahri", exact: true })).toBeDisabled();
+    await expect(championPool(blue)).toBeVisible();
+    await expect(championPool(red)).toBeVisible();
+    await expect(championPool(spectator).getByRole("button", { name: "Ahri", exact: true })).toBeDisabled();
     await expect(spectator.getByText("CAPTAINS-ONLY-CODE")).toHaveCount(0);
+
+    // Wait until every browser has joined the realtime channel before the
+    // first captain acts, so the other captains and spectator can observe it.
+    for (const page of [blue, red, spectator]) {
+      await expect(page.getByRole("status", { name: "Connecting to live updates…" })).toHaveCount(0);
+      await expect(page.getByText("Live updates interrupted. The page may be stale while we reconnect.")).toHaveCount(0);
+    }
 
     await spectator.context().setOffline(true);
     await expect.poll(() => spectator.evaluate(() => navigator.onLine)).toBe(false);
 
-    await blue.getByTestId("champion-pool-grid").getByRole("button", { name: "Ahri", exact: true }).click();
+    await championPool(blue).getByRole("button", { name: "Ahri", exact: true }).click();
     await blue.getByRole("dialog", { name: "Confirm pick" }).getByRole("button", { name: "Lock in Ahri" }).click();
     await expect(red.getByTestId("ban-blue-1")).toContainText("Ahri");
 
-    await red.getByTestId("champion-pool-grid").getByRole("button", { name: "Bard", exact: true }).click();
+    await championPool(red).getByRole("button", { name: "Bard", exact: true }).click();
     await red.getByRole("dialog", { name: "Confirm pick" }).getByRole("button", { name: "Lock in Bard" }).click();
     await spectator.context().setOffline(false);
     await expect.poll(() => spectator.evaluate(() => navigator.onLine)).toBe(true);

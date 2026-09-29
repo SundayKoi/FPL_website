@@ -1,5 +1,5 @@
 import Image from "next/image";
-import PatronPerks from "@/components/patron/PatronPerks";
+import Link from "next/link";
 import { PATRON_PAYPAL_HREF, PATRON_VENMO_LINKS } from "@/lib/patron/links";
 
 type Props = {
@@ -28,26 +28,28 @@ export default function SupportDevSection({ className = "" }: Props) {
     <section
       id="support-devs"
       aria-labelledby="support-devs-heading"
-      className={`card-brand ${className} grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,24rem)] lg:items-center`}
+      className={`${className} scroll-mt-24 border-t border-border-subtle pt-8`}
     >
-      <div>
-        <div className="border-b border-border-subtle/70 pb-8">
-          <span className="label-dash">THE PEOPLE BEHIND THE PLAYS</span>
-          <h2 id="meet-the-devs-heading" className="font-display mt-3 text-3xl font-semibold text-white sm:text-4xl">
-            Meet the Devs
-          </h2>
-          <div className="mt-5 grid gap-4">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] lg:items-start">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-action-text">The people behind the site</p>
+          <h2 id="support-devs-heading" className="mt-2 font-display text-2xl font-semibold text-white">Support the developers</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
+            Optional support helps cover the site, broadcasts, and tools. These payment links support the developers directly;
+            they do not register you for league play or assign the separate FPL Premium role.
+          </p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {devs.map((dev) => (
-              <article key={dev.handle} className="flex items-center gap-4 rounded-xl border border-border-subtle bg-black/10 p-4">
+              <article key={dev.handle} className="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface p-4">
                 <Image
                   src={dev.avatar}
                   alt={`${dev.name} avatar`}
-                  width={80}
-                  height={80}
-                  className="h-20 w-20 shrink-0 rounded-full border border-border-subtle object-cover"
+                  width={64}
+                  height={64}
+                  className="h-16 w-16 shrink-0 rounded-full border border-border-subtle object-cover"
                 />
                 <div>
-                  <h3 className="font-display text-2xl font-semibold text-white">{dev.name}</h3>
+                  <h3 className="font-display text-xl font-semibold text-white">{dev.name}</h3>
                   <p className="mt-1 text-sm font-medium tracking-wide text-muted">{dev.handle}</p>
                   <a
                     href={dev.venmoUrl}
@@ -61,42 +63,37 @@ export default function SupportDevSection({ className = "" }: Props) {
               </article>
             ))}
           </div>
-        </div>
-
-        <div className="mt-8">
-          <span className="label-dash">KEEPING THE LEAGUE RUNNING</span>
-          <h2 id="support-devs-heading" className="font-display mt-3 text-3xl font-semibold text-white sm:text-4xl">
-            Support the Devs
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted sm:text-base">
-            If you enjoy the league and want to help keep the site, broadcasts, and tools going,
-            you can support Zachari or Matthew at Venmo or PayPal.
+          <div className="mt-5 flex flex-wrap gap-2">
+            <a href={PATRON_PAYPAL_HREF} target="_blank" rel="noopener noreferrer" className="btn-pill inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold">
+              PayPal · Zachari ↗
+            </a>
+            {PATRON_VENMO_LINKS.map((link) => (
+              <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer" className="btn-pill inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold">
+                Venmo · {link.name} ↗
+              </a>
+            ))}
+          </div>
+          <p className="mt-3 text-xs leading-5 text-muted">
+            If you are supporting as a patron and want a public flame listing, message a developer with your Discord username.
+            Patron recognition and FPL Premium access are handled separately.
           </p>
-          <p className="mt-3 max-w-2xl text-sm italic leading-6 text-gold sm:text-base">
-            Donations will be used to cover website costs.
+          <p className="mt-3 text-sm">
+            <Link href="#patrons" className="text-action-text underline underline-offset-4 hover:text-white">See current patrons →</Link>
           </p>
-
-          <PatronPerks className="mt-6" />
-          <a
-            href={PATRON_PAYPAL_HREF}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-pill mt-6 inline-flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
-          >
-            Support via PayPal <span aria-hidden="true">↗</span>
-          </a>
         </div>
-      </div>
-
-      <div className="flex justify-center lg:justify-end">
-        <Image
-          src="/paypal-zbultman-qr.jpg"
-          alt="PayPal QR code for Zachari Bultman"
-          width={1170}
-          height={2532}
-          sizes="(max-width: 1024px) 80vw, 24rem"
-          className="h-auto max-h-[34rem] w-auto max-w-full rounded-xl border border-border-subtle object-contain"
-        />
+        <details className="rounded-lg border border-border-subtle bg-surface p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-action-text">Show PayPal QR code</summary>
+          <div className="mt-4 flex justify-center">
+            <Image
+              src="/paypal-zbultman-qr.jpg"
+              alt="PayPal QR code for Zachari Bultman"
+              width={1170}
+              height={2532}
+              sizes="(max-width: 1024px) 80vw, 22rem"
+              className="h-auto max-h-[30rem] w-auto max-w-full rounded-lg border border-border-subtle object-contain"
+            />
+          </div>
+        </details>
       </div>
     </section>
   );

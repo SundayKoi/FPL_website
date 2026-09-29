@@ -76,6 +76,11 @@ export function resolveLeagueFromPath(pathname: string): LeagueView {
 const CARDS_BASES: Record<LeagueView, string> = { premier: "/cards", academy: "/academy/cards" };
 
 export function pairedLeagueHref(pathname: string, target: LeagueView, search = ""): string {
+  // A match belongs to exactly one league. There is no corresponding fixture
+  // to carry across, so switch to the destination schedule instead of keeping
+  // an unresolved fixture id or falling back to the league home page.
+  if (pathname.startsWith("/match/")) return leaguePath("schedule", target);
+
   // The cards section keeps its own map: the same page in the other
   // league, or that league's Play tab for a page it does not have.
   const cardsFrom = hasPathPrefix(pathname, CARDS_BASES.academy)
@@ -85,7 +90,23 @@ export function pairedLeagueHref(pathname: string, target: LeagueView, search = 
       : null;
   if (cardsFrom) {
     const href = pairedCardsHref(pathname, cardsFrom, CARDS_BASES[target]);
-    return search ? `${href}?${search.replace(/^\?/, "")}` : href;
+    const params = new URLSearchParams(search.replace(/^\?/, ""));
+    // Season's End release IDs are scoped to a league. The destination
+    // catalog chooses its own latest published release instead of receiving
+    // an ID from the other league.
+    params.delete("release");
+    const query = params.toString();
+    return query ? `${href}?${query}` : href;
+  }
+
+  // These public links identify one league's data (or a one-time credential)
+  // and have no exact counterpart. Switch to the destination Cards directory
+  // without carrying an entity ID or token across leagues.
+  if (/^\/(?:binder|sign)\/[^/]+\/?$/.test(pathname)) {
+    return CARDS_BASES[target];
+  }
+  if (/^\/card\/[^/]+\/?$/.test(pathname)) {
+    return CARDS_BASES[target] + "/browse";
   }
 
   const match = PAIRED_PREFIXES.find(([premier, academy]) =>

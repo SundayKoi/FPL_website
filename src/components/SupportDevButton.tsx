@@ -10,7 +10,7 @@ export default function SupportDevButton() {
 
   return (
     <Link
-      href="/support-devs"
+      href="/membership#support-devs"
       aria-label="Support the devs"
       title="Support the devs"
       className="fixed bottom-20 left-4 z-40 flex h-10 w-10 overflow-hidden rounded-full border border-gold/60 bg-canvas/95 shadow-lg shadow-black/40 backdrop-blur transition hover:border-action-text hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus md:bottom-6 sm:left-6 sm:h-11 sm:w-11"

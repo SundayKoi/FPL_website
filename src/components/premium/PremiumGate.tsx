@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { DISCORD_INVITE_EXTERNAL, DISCORD_INVITE_URL, PREMIUM_NAME, PREMIUM_PRICE_LABEL } from "@/lib/site/discord";
 
-export default function PremiumGate({ signedIn, paymentHref }: { signedIn: boolean; paymentHref: string }) {
+export default function PremiumGate({ signedIn, paymentHref, redirectHref = "/premium" }: { signedIn: boolean; paymentHref: string; redirectHref?: string }) {
   return (
     <main className="page-container page-spacing page-backdrop flex flex-1 flex-col items-center justify-center text-center">
       <section className="card-brand flex w-full max-w-2xl flex-col items-center gap-5 p-7 sm:p-10">
@@ -21,7 +21,7 @@ export default function PremiumGate({ signedIn, paymentHref }: { signedIn: boole
             Get {PREMIUM_NAME} — {PREMIUM_PRICE_LABEL} ↗
           </a>
           {!signedIn ? (
-            <Link href="/login?redirect=/premium" className="btn-pill inline-flex items-center text-sm">
+            <Link href={`/login?redirect=${encodeURIComponent(redirectHref)}`} className="btn-pill inline-flex items-center text-sm">
               Sign in with Discord
             </Link>
           ) : null}

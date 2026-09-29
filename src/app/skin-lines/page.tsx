@@ -80,7 +80,7 @@ export default async function SkinLinesPreviewPage() {
           redirect="/skin-lines"
           title="A seat at the design table"
           body="This preview is one of the things patronage buys: proposals drawn on real cards before anything mints, and a say before it does. Patrons and staff can open it."
-          browse="/support-devs"
+          browse="/membership#support-devs"
           browseLabel="Become a patron →"
         />
       );

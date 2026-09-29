@@ -46,6 +46,8 @@ export interface HigherLowerGame {
   expiresAt: string;
   weekStart: string;
   league: HigherLowerLeague;
+  /** True admin status for the authorized Guess the Card navigation link. */
+  isAdmin: boolean;
   state: HigherLowerRunState;
   score: number;
   round: number;

@@ -7,6 +7,7 @@ vi.mock("next/navigation", () => ({ usePathname: () => pathname.value }));
 
 afterEach(() => {
   pathname.value = "/cards";
+  window.history.replaceState({}, "", "/");
   cleanup();
 });
 
@@ -51,6 +52,15 @@ describe("CardsTabs", () => {
     expect(tabs().getByRole("link", { name: "My Collection" }).getAttribute("href")).toBe("/academy/cards/collection");
     expect(tabs().getByRole("link", { name: "Play" }).getAttribute("aria-current")).toBe("page");
     expect(tabs().getByRole("link", { name: "Expeditions" }).getAttribute("href")).toBe("/academy/cards/expeditions");
+  });
+
+  it("marks only the collection anchor at the current fragment", () => {
+    pathname.value = "/cards/collection";
+    window.history.replaceState({}, "", "/cards/collection#binder");
+    render(<CardsTabs league="premier" />);
+    expect(tabs().getByRole("link", { name: "Showcase" }).getAttribute("aria-current")).toBe("location");
+    expect(tabs().getByRole("link", { name: "Team sets" }).getAttribute("aria-current")).toBeNull();
+    expect(tabs().getByRole("link", { name: "My cards" }).getAttribute("aria-current")).toBeNull();
   });
 
   it("shows the wallet at the end of the bar when signed in, and nothing when not", () => {

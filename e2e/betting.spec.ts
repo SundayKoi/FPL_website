@@ -51,7 +51,7 @@ test("member bets, admin resolves, member's profile shows the payout", async ({ 
   await signIn(page, MEMBER_EMAIL, PASSWORD, "/betting");
 
   // Signup-bonus balance from the seed, formatted by fmtPoints ("$1,000").
-  await expect(page.getByRole("banner").getByRole("link", { name: "Premium wallet balance $1,000" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("link", { name: "Betting dollars balance $1,000" })).toBeVisible();
 
   await page.goto(`/betting/market/${marketId}`);
   await expect(page.getByRole("heading", { name: /Betting FC.*Wager United/ })).toBeVisible();
@@ -64,7 +64,7 @@ test("member bets, admin resolves, member's profile shows the payout", async ({ 
 
   // Balance chip drops by the 100 stake ($1,000 -> $900) — proves the bet
   // actually posted (place_bet's balance write), not just an optimistic UI.
-  await expect(page.getByRole("banner").getByRole("link", { name: "Premium wallet balance $900" })).toBeVisible();
+  await expect(page.getByRole("banner").getByRole("link", { name: "Betting dollars balance $900" })).toBeVisible();
 
   await signOut(page);
 
@@ -118,15 +118,15 @@ test("member bets, admin resolves, member's profile shows the payout", async ({ 
     return page.getByRole("group", { name: label });
   }
 
-  // Balance: $1,000 - 100 (stake) + 600 (payout) = $1,500.
-  await expect(statValue("Balance")).toContainText("$1,500");
+  // Balance: $1,000 - 100 (stake) + 600 (payout) = $1,500. The profile page
+  // exposes the current balance in the shared navigation wallet link.
+  await expect(page.getByRole("banner").getByRole("link", { name: "Betting dollars balance $1,500" })).toBeVisible();
   // Record: one graded bet, and it won (payout 600 > stake 100).
   await expect(statValue("Record")).toContainText("1W / 0L");
   // Net profit, from the ledger (bet_place -100, bet_payout +600): $500.
   await expect(statValue("Net profit")).toContainText("$500");
-  // Recent Settled row: "+$500" (unambiguous — nothing else on the page
-  // renders a leading "+").
-  await expect(page.getByText("+$500", { exact: true })).toBeVisible();
+  // Recent Settled row includes its net label in the redesigned profile.
+  await expect(page.getByText("+$500 net", { exact: true })).toBeVisible();
 
   // Verify the authoritative rows after the page has reloaded with a fresh
   // authenticated session. A matching profile summary alone could hide a

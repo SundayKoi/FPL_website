@@ -3,6 +3,9 @@ import { formatKickoff, hasResult, teamLabel } from "@/lib/schedule/format";
 import { teamSlug } from "@/lib/teams/teamPage";
 import type { TeamIdentity } from "@/lib/teams/identity";
 import type { FixtureRow } from "@/lib/schedule/types";
+import type { HomeAppearance } from "@/components/home/appearance";
+import styles from "@/components/home/HomeWorkspace.module.css";
+import leagueStyles from "./FixtureCard.module.css";
 
 function divisionChipClass(division: FixtureRow["division"]): string {
   switch (division) {
@@ -23,6 +26,7 @@ function TeamCrest({
   align,
   highlight,
   basePath,
+  appearance,
 }: {
   name: string;
   identity?: TeamIdentity;
@@ -31,7 +35,9 @@ function TeamCrest({
   /** Team-page root, or null to render unlinked — /teams/[slug] resolves the
    *  Premier draft only, so Academy crests would 404. */
   basePath: string | null;
+  appearance: HomeAppearance | "league";
 }) {
+  const league = appearance === "league";
   const unknown = name === "TBD";
   const short = identity?.abbreviation ?? name;
   const body = (
@@ -40,15 +46,18 @@ function TeamCrest({
         // Supabase Storage hosts vary per deployment, which makes next/image
         // remotePatterns brittle here.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={identity.imageUrl} alt="" className="h-7 w-7 shrink-0 rounded object-contain" />
+        <img src={identity.imageUrl} alt="" className={league ? leagueStyles.crest : "h-7 w-7 shrink-0 rounded object-contain"} />
       ) : null}
-      <span className="truncate font-display text-base font-semibold not-italic">{short}</span>
+      {league && !unknown && !identity?.imageUrl ? <span aria-hidden className={leagueStyles.fallback}>{identity?.abbreviation ?? short.slice(0, 3).toUpperCase()}</span> : null}
+      <span className={league ? leagueStyles.teamName : "truncate font-display text-base font-semibold not-italic"}>{short}</span>
     </>
   );
 
-  const layout = `flex min-w-0 items-center gap-2 ${
-    align === "right" ? "flex-row-reverse text-right" : "text-left"
-  } ${highlight ? "text-prestige" : unknown ? "text-muted/70" : "text-white"}`;
+  const layout = league
+    ? `${leagueStyles.team} ${highlight ? leagueStyles.winner : unknown ? leagueStyles.unknown : ""}`
+    : `${appearance === "workspace" ? styles.ink : ""} flex min-w-0 items-center gap-2 ${
+        align === "right" ? "flex-row-reverse text-right" : "text-left"
+      } ${highlight ? "text-prestige" : unknown ? "text-muted/70" : "text-white"}`;
 
   if (unknown || basePath === null) return <span className={layout} title={unknown ? undefined : name}>{body}</span>;
   return (
@@ -68,6 +77,8 @@ export default function FixtureCard({
   draftedFixtureIds,
   identities = {},
   teamBasePath = "/teams",
+  appearance = "legacy",
+  showDivision = true,
 }: {
   fixture: FixtureRow;
   /** Fixture ids the site drafter actually recorded a pick/ban phase for.
@@ -79,56 +90,62 @@ export default function FixtureCard({
   /** Where a crest links. Pass null for Academy: /teams/[slug] resolves the
    *  Premier draft only, so those links would 404. */
   teamBasePath?: string | null;
+  appearance?: HomeAppearance | "league";
+  showDivision?: boolean;
 }) {
+  const workspace = appearance === "workspace";
+  const league = appearance === "league";
   const played = hasResult(fixture);
   const teamA = teamLabel(fixture.team_a);
   const teamB = teamLabel(fixture.team_b);
   const aWon = played && fixture.score_a! > fixture.score_b!;
   const bWon = played && fixture.score_b! > fixture.score_a!;
+  const academyFixture = teamBasePath?.startsWith("/academy/") ?? false;
+  const matchHref = `/match/${fixture.id}${academyFixture ? "?league=academy" : ""}`;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border-subtle/60 px-4 py-3 first:border-t-0">
-      <span
-        className={`inline-flex w-16 shrink-0 justify-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${divisionChipClass(fixture.division)}`}
+    <div className={league ? leagueStyles.row : workspace ? styles.fixtureRow : "flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border-subtle/60 px-4 py-3 first:border-t-0"} data-appearance={appearance}>
+      {showDivision ? <span
+        className={`${league ? leagueStyles.badge : "inline-flex w-16 shrink-0 justify-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em]"} ${divisionChipClass(fixture.division)}`}
       >
         {fixture.division ?? "Cross"}
-      </span>
+      </span> : null}
 
       {/* Its own line below the meta on narrow screens. Sharing a row is what
           squeezed the matchup to zero width and hid it entirely on mobile. */}
-      <div className="order-last flex w-full min-w-0 items-center justify-center gap-3 text-sm sm:order-none sm:w-auto sm:flex-1">
+      <div className={league ? leagueStyles.matchup : workspace ? styles.fixtureMatchup : "order-last flex w-full min-w-0 items-center justify-center gap-3 text-sm sm:order-none sm:w-auto sm:flex-1"}>
         <div className="flex min-w-0 flex-1 justify-end">
-          <TeamCrest name={teamA} identity={identities[teamSlug(teamA)]} align="right" highlight={aWon} basePath={teamBasePath} />
+          <TeamCrest name={teamA} identity={identities[teamSlug(teamA)]} align="right" highlight={aWon} basePath={teamBasePath} appearance={appearance} />
         </div>
         {played ? (
           <Link
-            href={`/match/${fixture.id}`}
+            href={matchHref}
             aria-label={`Post-game for ${teamA} versus ${teamB}`}
-            className="shrink-0 rounded border border-border-strong bg-canvas px-2 py-0.5 font-bold text-white hover:border-action-text hover:text-action-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            className={league ? leagueStyles.score : workspace ? `${styles.fixtureScore} shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus` : "shrink-0 rounded border border-border-strong bg-canvas px-2 py-0.5 font-bold text-white hover:border-action-text hover:text-action-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"}
           >
             {fixture.score_a}–{fixture.score_b}
           </Link>
         ) : (
-          <span className="shrink-0 text-xs font-semibold uppercase text-muted">vs</span>
+          <span className={league ? leagueStyles.vs : "shrink-0 text-xs font-semibold uppercase text-muted"}>vs</span>
         )}
         <div className="flex min-w-0 flex-1 justify-start">
-          <TeamCrest name={teamB} identity={identities[teamSlug(teamB)]} align="left" highlight={bWon} basePath={teamBasePath} />
+          <TeamCrest name={teamB} identity={identities[teamSlug(teamB)]} align="left" highlight={bWon} basePath={teamBasePath} appearance={appearance} />
         </div>
       </div>
 
-      <div className="ml-auto flex shrink-0 items-center gap-2 text-xs text-muted">
+      <div className={league ? leagueStyles.meta : workspace ? styles.fixtureMeta : "ml-auto flex shrink-0 items-center gap-2 text-xs text-muted"}>
         {/* The pick/ban phase was only reachable by guessing that the SCORE
             was a link to a page that happened to contain it. People asking
             "where can I see the draft" were not going to find that. */}
         {draftedFixtureIds?.has(fixture.id) ? (
           <Link
-            href={`/match/${fixture.id}#draft`}
-            className="rounded-full border border-border-strong bg-surface px-2 py-0.5 font-semibold uppercase hover:border-action-text hover:text-action-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            href={`${matchHref}#draft`}
+            className={league ? leagueStyles.draft : workspace ? `${styles.fixtureDraft} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus` : "rounded-full border border-border-strong bg-surface px-2 py-0.5 font-semibold uppercase hover:border-action-text hover:text-action-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"}
           >
             Draft
           </Link>
         ) : null}
-        <span className="rounded-full border border-border-subtle bg-surface px-2 py-0.5 font-semibold uppercase">
+        <span className={league ? leagueStyles.badge : "rounded-full border border-border-subtle bg-surface px-2 py-0.5 font-semibold uppercase"}>
           Bo{fixture.best_of}
         </span>
         <span className="whitespace-nowrap">{formatKickoff(fixture.scheduled_at)}</span>

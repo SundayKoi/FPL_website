@@ -30,7 +30,7 @@ test("sessions, private reads, and staff-only mutation follow server access", as
   const settings = await localServiceClient().from("league_settings").select("homepage_mode").eq("id", 1).single();
   expect(settings.data?.homepage_mode).toBe("auto");
 
-  await signIn(page, ACCESS_ADMIN_EMAIL, CONTRACT_PASSWORD, "/admin");
+  await signIn(page, ACCESS_ADMIN_EMAIL, CONTRACT_PASSWORD, "/admin/content");
   const homepageDisplay = page.getByRole("group", { name: "Homepage display mode" });
   await expect(homepageDisplay).toBeVisible();
   const admin = await signedInLocalClient(ACCESS_ADMIN_EMAIL, CONTRACT_PASSWORD);

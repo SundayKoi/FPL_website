@@ -322,7 +322,7 @@ export default function FpldleBoard({
   const [shared, setShared] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [localResetTime, setLocalResetTime] = useState<string | null>(null);
-  const [remaining, setRemaining] = useState(() => new Date(game.expiresAt).getTime() - Date.now());
+  const [remaining, setRemaining] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
   const [resetting, startResetTransition] = useTransition();
   const playerPickerRef = useRef<HTMLDivElement | null>(null);
@@ -369,9 +369,11 @@ export default function FpldleBoard({
   }, [answer, game.date, guesses, loaded, reward, status, storageKey]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
+    const updateRemaining = () => {
       setRemaining(new Date(game.expiresAt).getTime() - Date.now());
-    }, 1000);
+    };
+    updateRemaining();
+    const timer = window.setInterval(updateRemaining, 1000);
     return () => window.clearInterval(timer);
   }, [game.expiresAt]);
 
@@ -533,14 +535,7 @@ export default function FpldleBoard({
   const finished = status !== "playing";
 
   return (
-    <main className="page-container page-spacing-compact page-backdrop flex w-full min-w-0 flex-1 flex-col gap-8 text-white">
-      <aside aria-label="FPL&apos;dle reward" className="rounded border border-gold/40 bg-gold/5 px-4 py-3 text-sm text-muted">
-        <span className="label-dash">Daily reward</span>
-        <p className="mt-2 text-white">{DAILY_REWARD_SENTENCE} FPL&apos;dle pays when you solve within five guesses.</p>
-      </aside>
-      <p role="note" className="rounded border border-gold/40 bg-gold/5 px-4 py-3 text-sm text-muted">
-        <span className="font-semibold text-gold">Reminder:</span> Possible players include substitutes (subs).
-      </p>
+    <main className="page-backdrop mx-auto flex w-full max-w-[1800px] min-w-0 flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="label-dash">Premium daily puzzle · {league === "academy" ? "Academy" : "Premier"}</span>
@@ -554,7 +549,7 @@ export default function FpldleBoard({
           <PersonalStreakCard snapshot={streaks} />
           <div className="rounded border border-border-subtle bg-surface px-4 py-3 text-right">
             <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted">Next puzzle</span>
-            <span className="font-mono text-xl text-gold" aria-live="polite">{formatCountdown(remaining)}</span>
+            <span className="font-mono text-xl text-gold" aria-live="polite">{remaining === null ? "—:—:—" : formatCountdown(remaining)}</span>
             <span data-testid="fpldle-local-reset" className="block text-xs text-muted">
               {localResetTime ? `Midnight Eastern · ${localResetTime} for you` : "Resets at midnight Eastern"}
             </span>
@@ -668,7 +663,17 @@ export default function FpldleBoard({
         )}
       </section>
 
+      <aside aria-label="FPL&apos;dle reward" className="rounded border border-border-subtle bg-surface px-4 py-3 text-sm text-muted">
+        <span className="label-dash">Shared puzzle reward</span>
+        <p className="mt-2 text-white">{DAILY_REWARD_SENTENCE} FPL&apos;dle pays when you solve within five guesses.</p>
+      </aside>
+      <p role="note" className="rounded border border-border-subtle bg-surface px-4 py-3 text-sm text-muted">
+        <span className="font-semibold text-white">Reminder:</span> Possible players include substitutes (subs).
+      </p>
+
       <section className="card-brand p-4 sm:p-6">
+        <div role="region" aria-label="Guess history; scroll horizontally to read every clue" tabIndex={0} className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+        <div className="min-w-[38rem]">
         <div className={`${boardGridClass(showDivision)} mb-3 px-2 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-muted`}>
           <span className="min-w-0 break-words">Guess</span>
           <span className="min-w-0 break-words text-center">Team</span>
@@ -680,11 +685,13 @@ export default function FpldleBoard({
         <div className="flex min-w-0 flex-col gap-2" aria-label="FPL'dle guesses">
           {boardRows.map((feedback, index) => <GuessRow key={feedback?.player.slug ?? `empty-${index}`} feedback={feedback} showDivision={showDivision} />)}
         </div>
+        </div>
+        </div>
       </section>
 
       <StreakLeaderboard snapshot={streaks} />
 
-      <p className="text-center text-xs text-muted">Values show each guessed player. Green means exact; misses stay neutral. Overall arrows point toward the target.</p>
+      <p className="text-center text-xs text-muted">Each clue names the guessed player’s value and result. Exact matches use green; misses stay neutral. Overall arrows point toward the target.</p>
     </main>
   );
 }

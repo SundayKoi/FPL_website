@@ -8,7 +8,8 @@ import {
   selectActiveStage,
   stageRank,
 } from "@/lib/schedule/format";
-import { FIXTURE_STAGES, type FixtureRow, type FixtureStage } from "@/lib/schedule/types";
+import type { FixtureRow, FixtureStage } from "@/lib/schedule/types";
+import { FIXTURE_STAGES } from "@/lib/schedule/types";
 
 export interface HomepageScheduleData {
   asOf?: number;
@@ -19,7 +20,11 @@ export interface HomepageScheduleData {
   activeStage: FixtureStage | null;
   /** The active stage's fixtures only. */
   fixtures: FixtureRow[];
-  /** Everything from the active stage through the rest of the season's bracket. */
+  /**
+   * Everything still ahead in the season — the active stage and every later
+   * stage in bracket order, played or not — so staff can pick a match from
+   * the whole bracket, not just tonight. Empty once the season is played out.
+   */
   upcoming: FixtureRow[];
 }
 
@@ -133,14 +138,13 @@ export function alignFuturePremierHomeFixturesToMonday(schedule: HomepageSchedul
   };
 }
 
-/** Expose the shared stage resolver under the homepage's historical name. */
+/** Keep a playoff-only calendar visible when a league has not seeded Week 1. */
 export function selectHomepageStage(fixtures: FixtureRow[]): FixtureStage | null {
   const hasRegularFixtures = fixtures.some((fixture) =>
     (REGULAR_SEASON_STAGES as readonly string[]).includes(fixture.stage),
   );
   if (hasRegularFixtures) return selectActiveStage(fixtures);
 
-  // A playoff-only schedule should not be masked by an empty Week 1.
   const postseasonStages = FIXTURE_STAGES.filter(
     (stage) => !(REGULAR_SEASON_STAGES as readonly string[]).includes(stage),
   );
@@ -151,12 +155,12 @@ export function selectHomepageStage(fixtures: FixtureRow[]): FixtureStage | null
 
 /**
  * The active stage's fixtures for one league's homepage. `scope` narrows the
- * fixture list before the season is resolved; `selectedSeason` pins Premier
- * and Academy readers to their configured season.
+ * fixture list before the season is resolved — Academy passes its own filter
+ * so its A1 fixtures resolve independently of Premier's season.
  */
 export async function fetchHomepageSchedule(
   scope?: (fixtures: FixtureRow[]) => FixtureRow[],
-  selectedSeason?: string | null,
+  requestedSeason?: string | null,
 ): Promise<HomepageScheduleData> {
   const supabase = await createServerSupabase();
   const asOf = Date.now();
@@ -166,7 +170,7 @@ export async function fetchHomepageSchedule(
 
   const allFixtures = scope ? scope((data ?? []) as FixtureRow[]) : ((data ?? []) as FixtureRow[]);
   const seasons = seasonsOf(allFixtures);
-  const season = selectedSeason || resolveSeason(allFixtures, undefined);
+  const season = requestedSeason || resolveSeason(allFixtures, undefined);
 
   if (!season) {
     return { asOf, season: null, isNewestSeason: true, activeStage: "week_1", fixtures: [], upcoming: [], seasonFixtures: [] };

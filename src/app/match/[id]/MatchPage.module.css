@@ -1,0 +1,77 @@
+.matchup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-left: 3px solid var(--color-league-accent);
+  background: var(--color-surface);
+  padding: 18px 20px;
+}
+
+.matchup h2 {
+  margin: 0;
+  color: var(--color-content);
+  font-size: clamp(1.35rem, 3vw, 2rem);
+  line-height: 1.25;
+}
+
+.matchup h2 a {
+  color: var(--color-content);
+  text-decoration: none;
+  text-underline-offset: 4px;
+}
+
+.matchup h2 a:hover {
+  color: var(--color-action-text);
+  text-decoration: underline;
+}
+
+.matchup p {
+  margin: 0;
+}
+
+.scoreValue {
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-raised);
+  padding: 4px 10px;
+  color: var(--color-content);
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+}
+
+.gameCard {
+  min-width: 0;
+}
+
+.gameCard :global(.text-white) {
+  color: var(--color-content);
+}
+
+.gameCard :global(.text-gold) {
+  color: var(--color-prestige);
+}
+
+.tableScroll {
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+.tableScroll:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.tableScroll table {
+  border-collapse: collapse;
+}
+
+.gameCard :global(.bg-sky-500\/20) {
+  background: rgb(97 190 255 / 0.14);
+  color: #9bdcff;
+}
+
+.gameCard :global(.bg-red-500\/20) {
+  background: rgb(255 122 139 / 0.14);
+  color: #ffabb6;
+}

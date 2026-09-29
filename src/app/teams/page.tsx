@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import type { Draft, Player, Profile, Team } from "@/lib/draft/types";
 import { toRosterTeams } from "@/lib/teams/roster";
-import AdminTeamEditor from "@/components/teams/AdminTeamEditor";
-import AdminRosterEditor from "@/components/teams/AdminRosterEditor";
-import FeaturedDraftSelector from "@/components/teams/FeaturedDraftSelector";
 import { PLACEHOLDER_TEAMS } from "@/components/teams/placeholderTeams";
 import TeamsDirectory from "@/components/teams/TeamsDirectory";
 
@@ -23,16 +21,13 @@ export default async function TeamsPage({ searchParams }: TeamsPageProps) {
   const supabase = await createServerSupabase();
   const { isAdmin, isOwner } = await fetchStaffTier(supabase);
 
-  const [settingsResult, academyDraftResult, draftsResult] = await Promise.all([
+  const [settingsResult, academyDraftResult] = await Promise.all([
     supabase
       .from("league_settings")
       .select("featured_draft_id, academy_draft_id")
       .eq("id", 1)
       .single(),
     supabase.from("drafts").select("id, name").eq("name", "S1 Academy").maybeSingle(),
-    isAdmin
-      ? supabase.from("drafts").select("id, name").order("created_at", { ascending: false })
-      : Promise.resolve({ data: [] }),
   ]);
 
   const featuredDraftId = settingsResult.data?.featured_draft_id ?? null;
@@ -69,45 +64,20 @@ export default async function TeamsPage({ searchParams }: TeamsPageProps) {
     profiles = (profileRows as Profile[]) ?? [];
   }
 
-  const hasSelectedDraft = Boolean(selectedDraft);
-  const teams = hasSelectedDraft
+  const teams = selectedDraft
     ? toRosterTeams(selectedTeams, selectedPlayers, profiles)
     : PLACEHOLDER_TEAMS;
 
   return (
-    <TeamsDirectory
-      draftName={selectedDraft?.name ?? null}
-      isPreview={!hasSelectedDraft}
-      league={isAcademy ? "academy" : "premier"}
-      teams={teams}
-      adminControls={
-        isOwner ? (
-          <FeaturedDraftSelector
-            drafts={(draftsResult.data as { id: string; name: string }[]) ?? []}
-            premierDraftId={featuredDraftId}
-            academyDraftId={academyDraftId}
-          />
-        ) : isAdmin ? (
-          <p className="text-sm text-muted">Some league configuration is owner-only.</p>
-        ) : null
-      }
-      rosterContent={
-        hasSelectedDraft && isAdmin ? (
-          <AdminTeamEditor
-            key={selectedDraft!.id}
-            draftId={selectedDraft!.id}
-            teams={selectedTeams}
-            profiles={profiles}
-          >
-            <AdminRosterEditor
-              draftId={selectedDraft!.id}
-              teams={selectedTeams}
-              players={selectedPlayers}
-              profiles={profiles}
-            />
-          </AdminTeamEditor>
-        ) : undefined
-      }
-    />
+    <>
+      {isAdmin || isOwner ? (
+        <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6 lg:px-8">
+          <Link href={`/admin/league/teams?league=${isAcademy ? "academy" : "premier"}`} className="text-sm font-semibold text-action-text underline underline-offset-4">
+            Manage teams and rosters in Admin →
+          </Link>
+        </div>
+      ) : null}
+      <TeamsDirectory draftName={selectedDraft?.name ?? null} isPreview={!selectedDraft} league={isAcademy ? "academy" : "premier"} teams={teams} />
+    </>
   );
 }

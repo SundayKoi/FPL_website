@@ -1,0 +1,183 @@
+.filters {
+  align-items: end;
+}
+
+.searchFilter,
+.filter {
+  display: flex;
+  min-width: 150px;
+  flex: 1 1 150px;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.searchFilter {
+  flex-basis: 220px;
+}
+
+.searchFilter input,
+.filter select {
+  min-height: 42px;
+  width: 100%;
+  border-radius: 2px;
+  font-size: 0.88rem;
+  font-weight: 550;
+}
+
+.actionButton,
+.clearButton,
+.inlineClear {
+  min-height: 40px;
+  border: 1px solid var(--color-action-text);
+  border-radius: 2px;
+  padding: 8px 12px;
+  color: var(--color-action-text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.actionButton:hover,
+.clearButton:hover,
+.inlineClear:hover {
+  background: var(--color-league-wash);
+}
+
+.actionButton:focus-visible,
+.clearButton:focus-visible,
+.inlineClear:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.results {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.resultSummary {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--color-muted);
+  font-size: 0.84rem;
+}
+
+.resultSummary p {
+  margin: 0;
+}
+
+.clearButton {
+  min-height: 34px;
+  background: transparent;
+}
+
+.playerPanels {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.rolePanel {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 3px;
+  background: var(--color-surface);
+  color: var(--color-content);
+}
+
+.rolePanel h2 {
+  margin: 0;
+  padding: 11px 14px;
+  font-size: 1rem;
+  font-weight: 750;
+}
+
+.rolePanel > div {
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-raised);
+}
+
+.rolePanel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rolePanel li {
+  min-width: 0;
+  align-items: center;
+}
+
+.rolePanel li a {
+  color: var(--color-content);
+}
+
+.rolePanel li a:hover {
+  color: var(--color-action-text);
+}
+
+.rolePanel[data-role="top"] h2 { color: #d0a8ff; background: rgb(176 107 255 / 0.12); }
+.rolePanel[data-role="jungle"] h2 { color: #72d9ae; background: rgb(72 201 149 / 0.12); }
+.rolePanel[data-role="mid"] h2 { color: #9dc4dc; background: rgb(97 190 255 / 0.12); }
+.rolePanel[data-role="adc"] h2 { color: #e6bf61; background: rgb(230 191 97 / 0.12); }
+.rolePanel[data-role="support"] h2 { color: #d0a8ff; background: rgb(176 107 255 / 0.12); }
+
+.saveError {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: 0.88rem;
+}
+
+.management {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: 18px;
+}
+
+.management summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--color-action-text);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.management summary:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 4px;
+}
+
+.managementControls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.inlineClear {
+  display: block;
+  margin-top: 12px;
+  background: transparent;
+}
+
+@media (min-width: 640px) {
+  .playerPanels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1120px) {
+  .playerPanels {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}

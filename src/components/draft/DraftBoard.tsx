@@ -20,18 +20,22 @@ import NominationAlert from "./NominationAlert";
 import Toast from "./Toast";
 import DraftSetupPreview from "./DraftSetupPreview";
 import ConnectionBanner from "@/components/system/ConnectionBanner";
+import type { LeagueView } from "@/lib/league/context";
+import styles from "@/components/league/LeagueToolWorkspace.module.css";
 
 export default function DraftBoard({
   draftId,
   captainControls = null,
   adminControls = null,
   nemesisEnabled = true,
+  league,
 }: {
   draftId: string;
   captainControls?: ReactNode;
   adminControls?: ReactNode;
   /** Academy runs one division, so it holds no nemesis draft. */
   nemesisEnabled?: boolean;
+  league?: LeagueView;
 }) {
   const s = useDraftState(draftId);
   const { picks: nemesisPicks } = useNemesisPicks(draftId);
@@ -46,7 +50,7 @@ export default function DraftBoard({
 
   if (!s.draft)
     return (
-      <main className="page-container page-spacing-compact flex min-h-screen items-center justify-center bg-canvas page-backdrop">
+      <main data-league={league} className={`${styles.workspace} flex min-h-screen items-center justify-center bg-canvas page-backdrop p-8`}>
         <div className="card-brand px-10 py-8 text-center">
           {s.loaded ? (
             <>
@@ -76,9 +80,9 @@ export default function DraftBoard({
     !openLot;
 
   return (
-    <main className="page-container page-spacing-compact flex w-full flex-1 flex-col gap-4 page-backdrop text-white">
+    <main data-league={league} data-page-container className={`${styles.workspace} mx-auto flex w-full max-w-[1800px] min-w-0 flex-1 flex-col gap-4 page-backdrop py-6 text-white`} style={{ paddingInline: "var(--page-gutter)" }}>
       <div className={chatTopReserve}>
-        <DraftHeader draft={draft} />
+        <DraftHeader draft={draft} league={league} />
       </div>
 
       <ConnectionBanner

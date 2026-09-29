@@ -7,10 +7,13 @@ import { createClient } from "@/lib/supabase/client";
 import { errorMessage } from "@/lib/teams/errorMessage";
 import { STAGE_META, stageMeta } from "@/lib/schedule/format";
 import { DIVISIONS, type Division, type FixtureRow, type FixtureStage } from "@/lib/schedule/types";
+import { findScopedFixture, scopedFixtures } from "@/lib/schedule/editorScope";
+import { useScheduleManagement } from "./ScheduleManagementContext";
 
 type FormStatus =
   | { kind: "idle" }
   | { kind: "saving" }
+  | { kind: "saved" }
   | { kind: "error"; message: string };
 
 interface FixtureForm {
@@ -107,7 +110,8 @@ function payloadFor(form: FixtureForm) {
   };
 }
 
-function validate(form: FixtureForm): string | null {
+function validate(form: FixtureForm, expectedSeason?: string | null): string | null {
+  if (expectedSeason !== undefined && (!expectedSeason || form.season.trim() !== expectedSeason)) return "The fixture season must match the selected schedule season.";
   const a = form.scoreA.trim();
   const b = form.scoreB.trim();
   if ((a === "") !== (b === "")) return "Enter both scores, or neither.";
@@ -121,9 +125,11 @@ const buttonClass =
 function FixtureFields({
   form,
   onChange,
+  lockSeason = false,
 }: {
   form: FixtureForm;
   onChange: (next: FixtureForm) => void;
+  lockSeason?: boolean;
 }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -133,6 +139,7 @@ function FixtureFields({
           type="text"
           value={form.season}
           onChange={(e) => onChange({ ...form, season: e.target.value })}
+          readOnly={lockSeason}
           placeholder="S5"
           className={inputClass}
         />
@@ -245,23 +252,64 @@ export default function AdminFixturesEditor({
   fixtures,
   season,
   isOwner,
+  mode = "collapsible",
+  defaultStages,
+  initialSelectedFixtureId = null,
 }: {
   fixtures: FixtureRow[];
   season: string | null;
   isOwner: boolean;
+  /** Keep the older collapsible presentation available to any existing caller. */
+  mode?: "collapsible" | "drawer";
+  /** The current phase/week. The explicit All season filter exposes every scoped row. */
+  defaultStages?: readonly FixtureStage[];
+  initialSelectedFixtureId?: string | null;
 }) {
   const supabase = createClient();
   const router = useRouter();
-  // Prefill new fixtures with the season currently being viewed so adding
-  // to an old split from its filtered view does the expected thing.
-  const [addForm, setAddForm] = useState<FixtureForm>({ ...EMPTY_FORM, season: season ?? "" });
-  const [addStatus, setAddStatus] = useState<FormStatus>({ kind: "idle" });
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<FixtureForm>(EMPTY_FORM);
-  const [editStatus, setEditStatus] = useState<FormStatus>({ kind: "idle" });
+  const management = useScheduleManagement();
+  const inDrawer = mode === "drawer" && management !== null;
+  const scoped = scopedFixtures(fixtures, season);
+  const [localEditingId, setLocalEditingId] = useState<string | null>(initialSelectedFixtureId);
+  const [allSeason, setAllSeason] = useState(false);
+  const [announcement, setAnnouncement] = useState<string | null>(null);
+  const resetRevision = management?.resetRevision ?? 0;
+  const editingId = inDrawer ? management.selectedFixtureId : localEditingId;
+  const selectedFixture = findScopedFixture(scoped, season, editingId);
+  const isScopeMismatch = Boolean(inDrawer && management.scopeMismatch);
+  const addKey = `${season ?? ""}:${resetRevision}`;
+  const editKey = `${season ?? ""}:${editingId ?? "none"}:${resetRevision}`;
+  const [addFormState, setAddFormState] = useState<{ key: string; form: FixtureForm }>({
+    key: addKey,
+    form: { ...EMPTY_FORM, season: season ?? "" },
+  });
+  const [addStatusState, setAddStatusState] = useState<{ key: string; status: FormStatus }>({
+    key: addKey,
+    status: { kind: "idle" },
+  });
+  const [editFormState, setEditFormState] = useState<{ key: string; form: FixtureForm }>({
+    key: "",
+    form: EMPTY_FORM,
+  });
+  const [editStatusState, setEditStatusState] = useState<{ key: string; status: FormStatus }>({
+    key: "",
+    status: { kind: "idle" },
+  });
+
+  const canKeepAddFormDuringScopeChange = isScopeMismatch && addFormState.key.endsWith(`:${resetRevision}`);
+  const addForm = addFormState.key === addKey || canKeepAddFormDuringScopeChange ? addFormState.form : { ...EMPTY_FORM, season: season ?? "" };
+  const addStatus = addStatusState.key === addKey ? addStatusState.status : { kind: "idle" as const };
+  const canKeepEditFormDuringScopeChange = isScopeMismatch && editingId !== null && editFormState.key.endsWith(`:${editingId}:${resetRevision}`);
+  const editForm = editFormState.key === editKey || canKeepEditFormDuringScopeChange ? editFormState.form : selectedFixture ? formFor(selectedFixture) : EMPTY_FORM;
+  const editStatus = editStatusState.key === editKey ? editStatusState.status : { kind: "idle" as const };
+  const setAddForm = (form: FixtureForm) => setAddFormState({ key: addKey, form });
+  const setAddStatus = (status: FormStatus) => setAddStatusState({ key: addKey, status });
+  const setEditForm = (form: FixtureForm) => setEditFormState({ key: editKey, form });
+  const setEditStatus = (status: FormStatus) => setEditStatusState({ key: editKey, status });
 
   const handleAdd = async () => {
-    const invalid = validate(addForm);
+    if (addStatus.kind === "saving" || isScopeMismatch) return;
+    const invalid = validate(addForm, inDrawer ? season : undefined);
     if (invalid) {
       setAddStatus({ kind: "error", message: invalid });
       return;
@@ -272,14 +320,23 @@ export default function AdminFixturesEditor({
       setAddStatus({ kind: "error", message: messageFor(error) });
       return;
     }
-    setAddForm({ ...EMPTY_FORM, season: addForm.season });
-    setAddStatus({ kind: "idle" });
+    const savedSeason = addForm.season;
+    setAddForm({ ...EMPTY_FORM, season: savedSeason });
+    setAddStatus({ kind: "saved" });
+    setAnnouncement("Fixture added.");
+    management?.markClean(true);
     router.refresh();
   };
 
   const handleSave = async () => {
-    if (!editingId) return;
-    const invalid = validate(editForm);
+    if (!editingId || !selectedFixture || editStatus.kind === "saving" || isScopeMismatch) return;
+    // Only update an ID from the selected season's already-authorized list.
+    const scopedTarget = findScopedFixture(scoped, season, editingId);
+    if (!scopedTarget) {
+      setEditStatus({ kind: "error", message: "That fixture is no longer in the selected season." });
+      return;
+    }
+    const invalid = validate(editForm, inDrawer ? season : undefined);
     if (invalid) {
       setEditStatus({ kind: "error", message: invalid });
       return;
@@ -288,122 +345,147 @@ export default function AdminFixturesEditor({
     const { data, error } = await supabase
       .from("fixtures")
       .update(payloadFor(editForm))
-      .eq("id", editingId)
+      .eq("id", scopedTarget.id)
       .select("id")
       .single();
-    if (error || data?.id !== editingId) {
+    if (error || data?.id !== scopedTarget.id) {
       setEditStatus({
         kind: "error",
         message: error ? messageFor(error) : "No matching fixture row was updated.",
       });
       return;
     }
-    setEditingId(null);
-    setEditStatus({ kind: "idle" });
+    setEditStatus({ kind: "saved" });
+    setAnnouncement("Fixture saved.");
+    setLocalEditingId(null);
+    management?.markClean(true);
+    management?.clearFixtureSelection();
     router.refresh();
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (row: FixtureRow) => {
+    if (!isOwner || editStatus.kind === "saving" || isScopeMismatch || !findScopedFixture(scoped, season, row.id)) return;
+    const fixtureName = `${row.team_a ?? "TBD"} vs ${row.team_b ?? "TBD"}`;
+    if (!window.confirm(`Delete ${fixtureName} from ${row.season}? This cannot be undone.`)) return;
     setEditStatus({ kind: "saving" });
-    const { error } = await supabase.from("fixtures").delete().eq("id", id);
-    if (error) {
-      setEditStatus({ kind: "error", message: messageFor(error) });
+    const { data, error } = await supabase.from("fixtures").delete().eq("id", row.id).select("id").single();
+    if (error || data?.id !== row.id) {
+      setEditStatus({ kind: "error", message: error ? messageFor(error) : "No matching fixture row was deleted." });
       return;
     }
-    if (editingId === id) setEditingId(null);
-    setEditStatus({ kind: "idle" });
+    setEditStatus({ kind: "saved" });
+    setAnnouncement(`${fixtureName} deleted from ${row.season}.`);
+    setLocalEditingId(null);
+    management?.markClean(true);
+    management?.clearFixtureSelection();
     router.refresh();
   };
 
-  return (
-    <CollapsibleAdminSection title="Admin — manage fixtures" contentGapClass="gap-6">
-          {isOwner ? (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm font-semibold text-white">Add fixture</p>
-              <FixtureFields form={addForm} onChange={setAddForm} />
-              {addStatus.kind === "error" && (
-                <p role="alert" className="text-sm text-red-400">
-                  {addStatus.message}
-                </p>
-              )}
+  const visibleFixtures = allSeason || !defaultStages?.length
+    ? scoped
+    : scoped.filter((fixture) => defaultStages.includes(fixture.stage));
+
+  const body = (
+    <div className="flex flex-col gap-6">
+      {announcement ? <p role="status" className="text-sm text-success">{announcement}</p> : null}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="label-dash">Browse / edit fixtures</p>
+          <h3 className="mt-1 text-lg font-semibold text-white">{season ?? "No season selected"}</h3>
+          <p className="mt-1 text-xs text-muted">Changes use the current schedule season and published fixture IDs.</p>
+        </div>
+        {scoped.length > 0 ? (
+          <label className="flex flex-col gap-1 text-xs text-muted">
+            Fixture list
+            <select value={allSeason ? "all" : "selected"} onChange={(event) => setAllSeason(event.target.value === "all")} className={inputClass}>
+              <option value="selected">Selected phase / week</option>
+              <option value="all">All season</option>
+            </select>
+          </label>
+        ) : null}
+      </div>
+
+      {editingId ? (
+        selectedFixture || canKeepEditFormDuringScopeChange ? (
+          <section className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-canvas/50 p-3" aria-labelledby="editing-fixture-heading">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p className="label-dash">Edit fixture</p>
+                <h4 id="editing-fixture-heading" className="mt-1 font-semibold text-white">{editForm.teamA || "TBD"} vs {editForm.teamB || "TBD"}</h4>
+                <p className="text-xs text-muted">{editForm.season || "Selected season"} · {stageMeta(editForm.stage).label}</p>
+              </div>
               <button
                 type="button"
-                onClick={handleAdd}
-                disabled={addStatus.kind === "saving"}
-                className={`${buttonClass} w-fit bg-action-fill text-white`}
+                onClick={() => {
+                  if (inDrawer) management?.requestNavigation({ section: "fixtures", panelId: "browse", fixtureId: null });
+                  else setLocalEditingId(null);
+                }}
+                className={`${buttonClass} border border-border-subtle bg-surface text-muted hover:text-white`}
               >
-                {addStatus.kind === "saving" ? "Adding…" : "Add fixture"}
+                Cancel edit
               </button>
             </div>
-          ) : (
-            <p className="text-sm text-muted">Some league configuration is owner-only.</p>
-          )}
-
-          {fixtures.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <p className="text-sm font-semibold text-white">Existing fixtures</p>
-              {fixtures.map((fixture) => {
-                const meta = stageMeta(fixture.stage);
-                const isEditing = editingId === fixture.id;
-                return (
-                  <div key={fixture.id} className="rounded border border-border-subtle/60 bg-canvas/60 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-sm text-muted">
-                        <span className="font-semibold text-white">{meta.label}</span>
-                        {" · "}
-                        {fixture.team_a ?? "TBD"} vs {fixture.team_b ?? "TBD"}
-                      </span>
-                      <div className="flex gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (isEditing) {
-                              setEditingId(null);
-                            } else {
-                              setEditingId(fixture.id);
-                              setEditForm(formFor(fixture));
-                              setEditStatus({ kind: "idle" });
-                            }
-                          }}
-                          className={`${buttonClass} border border-border-subtle bg-surface text-muted hover:text-white`}
-                        >
-                          {isEditing ? "Cancel" : "Edit"}
-                        </button>
-                        {isOwner && (
-                          <button
-                            type="button"
-                            onClick={() => void handleDelete(fixture.id)}
-                            disabled={editStatus.kind === "saving"}
-                            className={`${buttonClass} border border-red-400/40 bg-red-500/10 text-red-400`}
-                          >
-                            Delete
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    {isEditing && (
-                      <div className="mt-3 flex flex-col gap-3">
-                        <FixtureFields form={editForm} onChange={setEditForm} />
-                        {editStatus.kind === "error" && (
-                          <p role="alert" className="text-sm text-red-400">
-                            {editStatus.message}
-                          </p>
-                        )}
-                        <button
-                          type="button"
-                          onClick={handleSave}
-                          disabled={editStatus.kind === "saving"}
-                          className={`${buttonClass} w-fit bg-action-fill text-white`}
-                        >
-                          {editStatus.kind === "saving" ? "Saving…" : "Save fixture"}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            <FixtureFields form={editForm} lockSeason={inDrawer} onChange={(next) => { setEditForm(next); management?.markDirty(true); }} />
+            {editStatus.kind === "error" ? <p role="alert" className="text-sm text-red-400">{editStatus.message}</p> : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={handleSave} disabled={editStatus.kind === "saving" || isScopeMismatch} className={`${buttonClass} bg-action-fill text-white`}>
+                {editStatus.kind === "saving" ? "Saving…" : "Save fixture"}
+              </button>
+              {isOwner && selectedFixture ? <button type="button" onClick={() => void handleDelete(selectedFixture)} disabled={editStatus.kind === "saving" || isScopeMismatch} className={`${buttonClass} border border-red-400/40 bg-red-500/10 text-red-400`}>Delete fixture</button> : null}
             </div>
-          )}
-    </CollapsibleAdminSection>
+          </section>
+        ) : (
+          <p role="status" className="rounded border border-danger/40 bg-danger/5 p-3 text-sm text-danger">
+            This fixture ID is missing or outside the selected season. Choose a fixture from the current season list.
+          </p>
+        )
+      ) : null}
+
+      {!editingId && isOwner ? (
+        <section className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-canvas/50 p-3" aria-labelledby="add-fixture-heading">
+          <div><p className="label-dash">Owner tool</p><h4 id="add-fixture-heading" className="mt-1 font-semibold text-white">Add fixture</h4></div>
+          <FixtureFields form={addForm} lockSeason={inDrawer} onChange={(next) => { setAddForm(next); management?.markDirty(true); }} />
+          {addStatus.kind === "error" ? <p role="alert" className="text-sm text-red-400">{addStatus.message}</p> : null}
+          {addStatus.kind === "saved" ? <p role="status" className="text-sm text-success">Fixture added.</p> : null}
+          <button type="button" onClick={handleAdd} disabled={addStatus.kind === "saving" || isScopeMismatch} className={`${buttonClass} w-fit bg-action-fill text-white`}>
+            {addStatus.kind === "saving" ? "Adding…" : "Add fixture"}
+          </button>
+        </section>
+      ) : null}
+
+      <section className="flex flex-col gap-2" aria-label="Fixtures in the selected season">
+        <div className="flex items-center justify-between gap-2"><h4 className="font-semibold text-white">Existing fixtures</h4><span className="text-xs text-muted">{visibleFixtures.length} shown</span></div>
+        {visibleFixtures.length === 0 ? (
+          <p className="rounded border border-dashed border-border-subtle p-3 text-sm text-muted">{scoped.length === 0 ? "No fixtures are published in this season yet." : "No fixtures in the selected phase or week."}</p>
+        ) : (
+          visibleFixtures.map((fixture) => (
+            <div key={fixture.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-border-subtle/70 bg-canvas/60 p-3">
+              <span className="min-w-0 text-sm text-muted"><span className="font-semibold text-white">{stageMeta(fixture.stage).label}</span>{" · "}{fixture.team_a ?? "TBD"} vs {fixture.team_b ?? "TBD"}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (inDrawer) management?.requestNavigation({ section: "fixtures", panelId: "browse", fixtureId: fixture.id });
+                  else {
+                    setLocalEditingId(fixture.id);
+                    setEditForm(formFor(fixture));
+                    setEditStatus({ kind: "idle" });
+                  }
+                }}
+                disabled={isScopeMismatch}
+                className={`${buttonClass} border border-border-subtle bg-surface text-muted hover:text-white`}
+              >
+                Edit
+              </button>
+              {!inDrawer && isOwner ? <button type="button" onClick={() => void handleDelete(fixture)} disabled={editStatus.kind === "saving"} className={`${buttonClass} border border-red-400/40 bg-red-500/10 text-red-400`}>Delete</button> : null}
+            </div>
+          ))
+        )}
+      </section>
+      {!inDrawer && !isOwner ? <p className="text-sm text-muted">Adding and deleting fixtures are owner-only.</p> : null}
+    </div>
+  );
+
+  return mode === "drawer" ? body : (
+    <CollapsibleAdminSection title="Admin — manage fixtures" contentGapClass="gap-6">{body}</CollapsibleAdminSection>
   );
 }

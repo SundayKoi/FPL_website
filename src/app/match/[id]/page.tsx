@@ -7,16 +7,27 @@ import { teamSlug } from "@/lib/teams/teamPage";
 import type { FixtureRow } from "@/lib/schedule/types";
 import type { MatchDraftRow } from "@/lib/match-draft/types";
 import MatchDraftSummary from "@/components/matches/MatchDraftSummary";
+import LeaguePageShell from "@/components/league/LeaguePageShell";
+import { seasonBelongsToLeague } from "@/lib/league/season";
+import { leaguePath } from "@/lib/league/links";
+import type { LeagueView } from "@/lib/league/context";
+import styles from "./MatchPage.module.css";
 
 const int = new Intl.NumberFormat("en-US");
 
-function TeamLink({ name }: { name: string }) {
+function TeamLink({ name, league }: { name: string; league: LeagueView }) {
   if (name === "TBD") return <span className="text-muted">{name}</span>;
   return (
-    <Link href={`/teams/${teamSlug(name)}`} className="hover:text-action-text hover:underline">
+    <Link href={`${leaguePath("teams", league)}/${teamSlug(name)}`} className="hover:text-action-text hover:underline">
       {name}
     </Link>
   );
+}
+
+function playerProfileHref(name: string, league: LeagueView): string {
+  return league === "academy"
+    ? `${leaguePath("stats", league)}?player=${encodeURIComponent(name)}`
+    : `/players/${encodeURIComponent(name)}`;
 }
 
 export default async function MatchPage({ params }: { params: Promise<{ id: string }> }) {
@@ -26,6 +37,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const { data: fixtureRow } = await supabase.from("fixtures").select("*").eq("id", id).single();
   if (!fixtureRow) notFound();
   const fixture = fixtureRow as FixtureRow;
+  const league: LeagueView = seasonBelongsToLeague(fixture.season, "academy") ? "academy" : "premier";
 
   // fixtures -> match_reports -> match_report_games gives the Riot match ids
   // the nightly ingest wrote raw_stats rows under. The drafter's own record
@@ -84,19 +96,25 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const played = hasResult(fixture);
 
   return (
-    <main className="page-container page-spacing page-backdrop flex w-full flex-1 flex-col gap-6 text-white">
-      <header className="card-brand flex flex-col gap-2 p-5">
+    <LeaguePageShell
+      league={league}
+      title="Match details"
+      season={fixture.season}
+      activeSection="schedule"
+      description="Series result, player scoreboards, and draft detail."
+    >
+      <header className={styles.matchup}>
         <span className="label-dash">
           {stageMeta(fixture.stage).label}
           {fixture.division ? ` · ${fixture.division}` : ""}
         </span>
-        <h1 className="type-display flex flex-wrap items-center gap-3 text-2xl">
-          <TeamLink name={teamA} />
-          <span className="rounded border border-border-subtle bg-canvas px-3 py-1 text-xl">
+        <h2 className="type-display flex flex-wrap items-center gap-3 text-2xl">
+          <TeamLink name={teamA} league={league} />
+          <span className={styles.scoreValue}>
             {played ? `${fixture.score_a}–${fixture.score_b}` : "vs"}
           </span>
-          <TeamLink name={teamB} />
-        </h1>
+          <TeamLink name={teamB} league={league} />
+        </h2>
         <p className="text-sm text-muted">
           {formatKickoff(fixture.scheduled_at)} · Best of {fixture.best_of}
           {games.length > 0 ? ` · ${games.length} game${games.length === 1 ? "" : "s"} on record` : ""}
@@ -110,15 +128,13 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
               : " No games were played."}
           </p>
         )}
-        <Link href="/schedule" className="text-xs text-muted underline-offset-4 hover:text-action-text hover:underline">
+        <Link href={leaguePath("schedule", league)} className="text-sm font-semibold text-action-text underline-offset-4 hover:underline">
           ← Back to the schedule
         </Link>
       </header>
 
-      <MatchDraftSummary games={draftGames} />
-
       {games.length === 0 ? (
-        <section className="card-brand p-6 text-sm text-muted">
+        <section className="card-brand p-6 text-sm text-muted" aria-label="Game statistics unavailable">
           {forfeit
             ? "Nothing was played — this series was settled by forfeit."
             : played
@@ -127,7 +143,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
         </section>
       ) : (
         games.map((game) => (
-          <section key={game.matchId} className="card-brand flex flex-col gap-3 p-4">
+          <section key={game.matchId} className={`${styles.gameCard} card-brand flex flex-col gap-3 p-4`} aria-label={`Game ${game.gameNumber} scoreboard`}>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="label-dash">Game {game.gameNumber}</h2>
               <span className="text-xs text-muted">
@@ -139,7 +155,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
             </div>
 
             {game.sides.map((side) => (
-              <div key={side.side} className="overflow-x-auto">
+              <div key={side.side} className={styles.tableScroll} role="region" aria-label={`${side.teamName} ${side.side} scoreboard`} tabIndex={0}>
                 <div className="mb-1 flex items-center gap-2 text-sm">
                   <span
                     className={`rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
@@ -159,15 +175,16 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                   </span>
                 </div>
                 <table className="w-full min-w-[34rem] text-left text-sm">
+                  <caption className="sr-only">{side.teamName} players, champion, KDA, CS, gold, damage, and vision</caption>
                   <thead>
                     <tr className="text-[10px] uppercase tracking-wide text-muted">
-                      <th className="py-1 pr-2 font-semibold">Player</th>
-                      <th className="py-1 pr-2 font-semibold">Champion</th>
-                      <th className="py-1 pr-2 font-semibold">KDA</th>
-                      <th className="py-1 pr-2 font-semibold">CS</th>
-                      <th className="py-1 pr-2 font-semibold">Gold</th>
-                      <th className="py-1 pr-2 font-semibold">Damage</th>
-                      <th className="py-1 font-semibold">Vision</th>
+                      <th scope="col" className="py-1 pr-2 font-semibold">Player</th>
+                      <th scope="col" className="py-1 pr-2 font-semibold">Champion</th>
+                      <th scope="col" className="py-1 pr-2 font-semibold">KDA</th>
+                      <th scope="col" className="py-1 pr-2 font-semibold">CS</th>
+                      <th scope="col" className="py-1 pr-2 font-semibold">Gold</th>
+                      <th scope="col" className="py-1 pr-2 font-semibold">Damage</th>
+                      <th scope="col" className="py-1 font-semibold">Vision</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -175,7 +192,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                       <tr key={`${p.summonerName}-${p.champion}`} className="border-t border-border-subtle/60">
                         <td className="truncate py-1 pr-2">
                           <Link
-                            href={`/players/${encodeURIComponent(p.summonerName)}`}
+                            href={playerProfileHref(p.summonerName, league)}
                             className="underline-offset-4 hover:text-action-text hover:underline"
                           >
                             {p.summonerName}
@@ -199,6 +216,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
         ))
       )}
 
+      <MatchDraftSummary games={draftGames} />
+
       {games.length > 0 && Object.keys(record).length > 0 && (
         <p className="text-center text-xs text-muted">
           Series by games won:{" "}
@@ -207,6 +226,6 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
             .join(" · ")}
         </p>
       )}
-    </main>
+    </LeaguePageShell>
   );
 }

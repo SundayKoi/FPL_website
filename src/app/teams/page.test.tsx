@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import TeamsPage from "./page";
 
@@ -118,7 +118,7 @@ afterEach(() => {
 });
 
 describe("TeamsPage", () => {
-  it("shows the placeholder preview and admin selector when no draft is featured", async () => {
+  it("shows placeholder teams and sends staff to the team workspace", async () => {
     getUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
     from.mockImplementation((table: string) => {
       if (table === "profiles") return profilesQuery({ data: { is_admin: true, is_owner: true } }, { data: [] });
@@ -128,16 +128,14 @@ describe("TeamsPage", () => {
 
     render(await TeamsPage({ searchParams: Promise.resolve({}) }));
 
-    expect(screen.getByText("PREVIEW DATA")).toBeTruthy();
+    expect(screen.getByText(/Preview data/i)).toBeTruthy();
     expect(screen.getAllByRole("article")).toHaveLength(12);
-    expect(screen.getByLabelText("Premier draft")).toBeTruthy();
-    expect(screen.getByLabelText("Academy draft")).toBeTruthy();
-    expect(
-      screen.getByRole("region", { name: "Team rosters" }).querySelector(".team-directory-grid"),
-    ).not.toBeNull();
+    expect(screen.getByRole("link", { name: /manage teams and rosters in admin/i }).getAttribute("href"))
+      .toBe("/admin/league/teams?league=premier");
+    expect(screen.queryByLabelText("Premier draft")).toBeNull();
   });
 
-  it("shows the selected captain profile in the admin team editor", async () => {
+  it("shows the selected captain profile without embedding the admin editor", async () => {
     getUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
     from.mockImplementation((table: string) => {
       if (table === "profiles") {
@@ -160,13 +158,12 @@ describe("TeamsPage", () => {
 
     render(await TeamsPage({ searchParams: Promise.resolve({}) }));
 
-    expect(
-      screen.getByText((_, element) => element?.tagName === "P" && element.textContent?.trim() === "Captain Captain Live"),
-    ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
-
-    expect(screen.getByRole("option", { name: "Captain Profile" })).toBeTruthy();
-    expect(screen.getByRole("option", { name: "Available Captain" })).toBeTruthy();
+    expect(screen.getAllByText((_, element) =>
+      element?.tagName === "P" && element.textContent?.trim() === "Captain Captain Live",
+    ).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Edit teams" })).toBeNull();
+    expect(screen.getByRole("link", { name: /manage teams and rosters in admin/i }).getAttribute("href"))
+      .toBe("/admin/league/teams?league=premier");
     expect(profileIdsIn).not.toHaveBeenCalled();
     expect(profileOrder).toHaveBeenCalledWith("display_name");
   });
@@ -184,12 +181,15 @@ describe("TeamsPage", () => {
 
     render(await TeamsPage({ searchParams: Promise.resolve({}) }));
 
-    expect(screen.getByText("Split 5")).toBeTruthy();
+    expect(screen.getByText((_, element) =>
+      element?.tagName === "P" && element.textContent?.replace(/\s+/g, " ").trim() === "Franchise Premier League · Split 5",
+    )).toBeTruthy();
     expect(screen.queryByText("PREVIEW DATA")).toBeNull();
     expect(screen.getByText("Live Team")).toBeTruthy();
     expect(screen.queryByLabelText("Display draft")).toBeNull();
-    expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent?.trim() === "Captain Captain Live"))
-      .toBeTruthy();
+    expect(screen.getAllByText((_, element) =>
+      element?.tagName === "P" && element.textContent?.trim() === "Captain Captain Live",
+    ).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Edit teams" })).toBeNull();
   });
 
@@ -206,13 +206,13 @@ describe("TeamsPage", () => {
 
     render(await TeamsPage({ searchParams: Promise.resolve({ view: "academy" }) }));
 
-    expect(screen.getByRole("heading", { name: "Academy Teams" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Academy teams/i })).toBeTruthy();
     expect(screen.getByText("Academy Team")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Premier" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Academy" })).toBeNull();
   });
 
-  it("lets admins edit Academy teams", async () => {
+  it("links staff to the Academy team editor", async () => {
     getUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
     from.mockImplementation((table: string) => {
       if (table === "profiles") {
@@ -233,7 +233,8 @@ describe("TeamsPage", () => {
 
     render(await TeamsPage({ searchParams: Promise.resolve({ view: "academy" }) }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
-    expect(screen.getByLabelText("Academy Team name")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /manage teams and rosters in admin/i }).getAttribute("href"))
+      .toBe("/admin/league/teams?league=academy");
+    expect(screen.queryByLabelText("Academy Team name")).toBeNull();
   });
 });

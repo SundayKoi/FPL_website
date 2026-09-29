@@ -14,6 +14,7 @@ import {
   type GauntletPreview,
 } from "@/lib/schedule/gauntlet-actions";
 import { DIVISIONS } from "@/lib/schedule/types";
+import { useScheduleManagement } from "./ScheduleManagementContext";
 
 /** The rulebook's gauntlet trio: 4th, 5th and 6th of each division. */
 const GAUNTLET_SEEDS = new Set([4, 5, 6]);
@@ -28,6 +29,7 @@ const SOURCE_LABEL: Record<"fixture" | "report", string> = {
 
 export default function AdminGenerateGauntlet({ season }: { season: string }) {
   const router = useRouter();
+  const management = useScheduleManagement();
   const [preview, setPreview] = useState<GauntletPreview | null>(null);
   const [kickoff, setKickoff] = useState("");
   const [busy, setBusy] = useState(false);
@@ -55,7 +57,7 @@ export default function AdminGenerateGauntlet({ season }: { season: string }) {
   }, [season, reloadToken]);
 
   const draw = async () => {
-    if (busy || !kickoff) return;
+    if (busy || !kickoff || management?.scopeMismatch) return;
     setErr(null);
     setDone(null);
     if (
@@ -76,11 +78,12 @@ export default function AdminGenerateGauntlet({ season }: { season: string }) {
     }
     setDone(`Drew ${result.count} gauntlet fixtures.`);
     setReloadToken((token) => token + 1);
+    management?.markClean();
     router.refresh();
   };
 
   const seedRoundTwo = async () => {
-    if (busy || !preview?.roundTwo) return;
+    if (busy || !preview?.roundTwo || management?.scopeMismatch) return;
     setErr(null);
     setDone(null);
     const lines = preview.roundTwo.map((p) => `${p.team_a} vs ${p.team_b}`).join("\n");
@@ -100,6 +103,7 @@ export default function AdminGenerateGauntlet({ season }: { season: string }) {
     }
     setDone(`Seeded ${result.count} round-2 fixtures.`);
     setReloadToken((token) => token + 1);
+    management?.markClean();
     router.refresh();
   };
 
@@ -194,14 +198,14 @@ export default function AdminGenerateGauntlet({ season }: { season: string }) {
             type="datetime-local"
             required
             value={kickoff}
-            onChange={(e) => setKickoff(e.target.value)}
+            onChange={(e) => { setKickoff(e.target.value); management?.markDirty(true); }}
             aria-label="Gauntlet kickoff"
             className="input-brand px-2 py-1 text-sm"
           />
         </label>
         <button
           type="button"
-          disabled={busy || !kickoff}
+          disabled={busy || !kickoff || Boolean(management?.scopeMismatch)}
           onClick={() => void draw()}
           className="btn-primary px-3 py-1.5 text-xs"
         >
@@ -210,7 +214,7 @@ export default function AdminGenerateGauntlet({ season }: { season: string }) {
         {canSeedRoundTwo && (
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || Boolean(management?.scopeMismatch)}
             onClick={() => void seedRoundTwo()}
             className="btn-primary px-3 py-1.5 text-xs"
           >

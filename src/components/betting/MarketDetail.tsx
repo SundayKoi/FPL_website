@@ -59,13 +59,13 @@ function YourPosition({
             data-testid="your-position"
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs uppercase tracking-wide text-muted">Your bet</span>
+              <span className="text-xs uppercase tracking-wide text-muted">Stake</span>
               <span className="font-semibold" style={{ color: team.color }}>
                 {fmtPoints(stake)} on {team.short_code}
               </span>
             </div>
             <div className="mt-1 flex items-center justify-between">
-              <span className="text-mint">→ +{fmtPoints(profit)}</span>
+              <span className="text-xs text-muted" title="Estimate at the current pool split; stake is returned separately">Est. net profit&nbsp; <strong className="text-mint">+{fmtPoints(profit)}</strong></span>
               {!locked && (
                 <button
                   type="button"

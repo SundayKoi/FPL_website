@@ -1,0 +1,81 @@
+.statsTabs {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.controls {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+}
+
+.tabViewport {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+.tabList {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  gap: clamp(14px, 2vw, 24px);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.tab {
+  min-height: 44px;
+  border-bottom: 3px solid transparent;
+  padding: 0 2px;
+  color: var(--color-muted);
+  font-size: 0.77rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tab:hover,
+.tab[aria-pressed="true"] {
+  border-bottom-color: var(--color-league-accent);
+  color: var(--color-action-text);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.results {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.results :global(.text-white) {
+  color: var(--color-content);
+}
+
+.results :global(button.text-white),
+.results :global(a.btn-pill.text-white),
+.results :global([class*="bg-action-fill"].text-white) {
+  color: var(--color-action-contrast);
+}
+
+@media (min-width: 900px) {
+  .controls {
+    flex-direction: row;
+    align-items: end;
+    justify-content: space-between;
+  }
+
+  .tabViewport {
+    min-width: 0;
+    flex: 1;
+  }
+}
