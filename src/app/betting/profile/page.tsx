@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 function StatBox({ label, value, valueClass = "text-white" }: { label: string; value: string; valueClass?: string }) {
   return (
-    <div className="rounded-lg border border-border-subtle bg-surface p-4">
+    <div role="group" aria-label={label} className="rounded-lg border border-border-subtle bg-surface p-4">
       <div className="text-xs uppercase tracking-wide text-muted">{label}</div>
       <div className={`mt-1 text-2xl font-bold ${valueClass}`}>{value}</div>
     </div>

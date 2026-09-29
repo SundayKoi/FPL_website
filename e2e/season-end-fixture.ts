@@ -1,9 +1,6 @@
-import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { writeFileSync, unlinkSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { getLocalTestSupabase, runLocalTestSql } from "./local-supabase";
 import { sampleCard } from "../src/lib/cards/samples";
 import {
   catalogHash,
@@ -27,36 +24,42 @@ export const SEASON_END_PARTNER_EMAIL = "e2e-season-end-partner@test.local";
 export const SEASON_END_MEMBER_DISCORD_ID = "9000000000000011";
 export const SEASON_END_PARTNER_DISCORD_ID = "9000000000000012";
 
+const RECOVERY_FAULT_TRIGGER = "fpl_e2e_block_season_end_terminal";
+const RECOVERY_FAULT_FUNCTION = "fpl_e2e_block_season_end_terminal";
+
+export function suspendSeasonEndRecoveryCompletion(discordId: string): void {
+  if (!/^\d{8,20}$/.test(discordId)) throw new Error("Expected a fixture Discord id for the recovery interruption.");
+  runSql(`drop trigger if exists ${RECOVERY_FAULT_TRIGGER} on public.season_end_openings;`);
+  runSql(`drop function if exists public.${RECOVERY_FAULT_FUNCTION}();`);
+  runSql(`create function public.${RECOVERY_FAULT_FUNCTION}() returns trigger
+language plpgsql as $$
+begin
+  if old.discord_id = '${discordId}' and old.status = 'pending'
+     and new.status in ('fulfilled', 'refunded') then
+    raise exception 'E2E simulated interruption after purchase charge';
+  end if;
+  return new;
+end;
+$$;
+`);
+  runSql(`create trigger ${RECOVERY_FAULT_TRIGGER}
+before update of status on public.season_end_openings
+for each row execute function public.${RECOVERY_FAULT_FUNCTION}();
+`);
+}
+
+export function clearSeasonEndRecoveryCompletionInterruption(): void {
+  runSql(`drop trigger if exists ${RECOVERY_FAULT_TRIGGER} on public.season_end_openings;`);
+  runSql(`drop function if exists public.${RECOVERY_FAULT_FUNCTION}();`);
+}
+
 // Supabase's untyped service-role client is intentional for a local fixture;
 // the generated Database type does not include auth-admin or fixture-only rows.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseService = ReturnType<typeof createClient<any>>;
 
-function resolveConfig(): { url: string; serviceKey: string } {
-  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const envKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (envUrl && envKey) return { url: envUrl, serviceKey: envKey };
-  const status = JSON.parse(execFileSync("npx", ["supabase", "status", "-o", "json"], {
-    encoding: "utf8",
-    env: { ...process.env, SUPABASE_TELEMETRY_DISABLED: "1" },
-  })) as Record<string, string>;
-  const url = envUrl ?? status.API_URL;
-  const serviceKey = envKey ?? status.SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) throw new Error("Could not resolve local Supabase URL and service-role key.");
-  return { url, serviceKey };
-}
-
 function runSql(sql: string): void {
-  const file = join(tmpdir(), `season-end-fixture-${Date.now()}-${Math.random().toString(36).slice(2)}.sql`);
-  writeFileSync(file, sql, "utf8");
-  try {
-    execFileSync("npx", ["supabase", "db", "query", "--local", "--file", file], {
-      stdio: "inherit",
-      env: { ...process.env, SUPABASE_TELEMETRY_DISABLED: "1" },
-    });
-  } finally {
-    unlinkSync(file);
-  }
+  runLocalTestSql(sql);
 }
 
 async function ensureUser(admin: SupabaseService["auth"]["admin"], email: string): Promise<string> {
@@ -201,8 +204,8 @@ function accoladeDesign(releaseId: string, index: number): AccoladeCollectible {
   };
 }
 
-export async function seedSeasonEndFixture(): Promise<void> {
-  const { url, serviceKey } = resolveConfig();
+export async function seedSeasonEndFixture(scenario: "recovery" | "commerce"): Promise<{ releaseId: string }> {
+  const { url, serviceRoleKey: serviceKey } = getLocalTestSupabase();
   const service = createClient(url, serviceKey, { auth: { persistSession: false } });
   const memberId = await ensureUser(service.auth.admin, SEASON_END_MEMBER_EMAIL);
   const partnerId = await ensureUser(service.auth.admin, SEASON_END_PARTNER_EMAIL);
@@ -295,26 +298,43 @@ export async function seedSeasonEndFixture(): Promise<void> {
     .eq("id", releaseId);
   if (publishError) throw publishError;
 
-  // This is the durable charged-but-unresolved receipt used by the recovery
-  // journey. The member's real purchase below exercises begin/debit; this
-  // second receipt keeps the recovery test deterministic and local-only.
-  const pendingRequestId = randomUUID();
-  const { error: pendingError } = await service.from("season_end_openings").insert({
-    request_id: pendingRequestId,
-    discord_id: SEASON_END_PARTNER_DISCORD_ID,
-    release_id: releaseId,
-    mode: "public",
-    status: "pending",
-    price: 500,
-    revision_digest: revisionDigest,
-    economy_version: SEASON_END_ECONOMY.version,
-    economy_payload: SEASON_END_ECONOMY,
-    signing_book: [],
-    rules_version: SEASON_END_RULES_VERSION,
-  });
-  if (pendingError) throw pendingError;
-  const { error: partnerBalanceError } = await service.from("betting_profiles").update({ balance: 4_500 }).eq("discord_id", SEASON_END_PARTNER_DISCORD_ID);
-  if (partnerBalanceError) throw partnerBalanceError;
+  if (scenario === "recovery") {
+    // The browser starts the paid request through the real signed-in shop.
+    // This targeted fault blocks fulfillment and its compensating refund so
+    // that the durable receipt remains charged and pending for a retry.
+    suspendSeasonEndRecoveryCompletion(SEASON_END_PARTNER_DISCORD_ID);
+    return { releaseId };
+  }
 
-  console.log(`Seeded Season's End browser fixture: ${releaseId}`);
+  // Commerce gets its own release and two independently minted five-copy
+  // collections. Seed through the authoritative opening/fulfillment RPCs so
+  // ownership, wallet debits, inventory and provenance all begin consistent.
+  const designByKind = (kind: SeasonEndCollectible["kind"], index: number) =>
+    designs.filter((design) => design.kind === kind)[index];
+  const outcome = [
+    { design_id: designByKind("season", 0).designId, kind: "season", foil: false, signed: false },
+    { design_id: designByKind("season", 1).designId, kind: "season", foil: false, signed: false },
+    { design_id: designByKind("best_of", 0).designId, kind: "best_of", foil: false, signed: false },
+    { design_id: designByKind("accolade", 0).designId, kind: "accolade", foil: false, signed: false },
+    { design_id: designByKind("best_of", 1).designId, kind: "best_of", foil: true, foil_type: "prisma", signed: false, guaranteed_foil: true },
+  ];
+  for (const discordId of [SEASON_END_MEMBER_DISCORD_ID, SEASON_END_PARTNER_DISCORD_ID]) {
+    const requestId = randomUUID();
+    const { data: openingRows, error: beginError } = await service.rpc("begin_season_end_opening", {
+      p_request_id: requestId,
+      p_user: discordId,
+      p_release: releaseId,
+      p_mode: "public",
+    });
+    if (beginError) throw beginError;
+    const openingId = Array.isArray(openingRows) ? openingRows[0]?.opening_id : undefined;
+    if (typeof openingId !== "string") throw new Error("Commerce opening did not return a durable receipt.");
+    const { error: fulfillError } = await service.rpc("fulfill_season_end_opening", {
+      p_opening: openingId,
+      p_outcome: outcome,
+    });
+    if (fulfillError) throw fulfillError;
+  }
+
+  return { releaseId };
 }

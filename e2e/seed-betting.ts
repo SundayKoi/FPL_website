@@ -19,25 +19,9 @@
  *   2. otherwise, shell out to `npx supabase status -o json` (requires local
  *      Supabase already running via `npx supabase start`)
  */
-import { execSync } from "node:child_process";
 import { createClient } from "@supabase/supabase-js";
 import { seedBettingFixture, BETTING_MEMBER_EMAIL, BETTING_ADMIN_EMAIL, BETTING_PASSWORD } from "../scripts/betting-fixture";
-
-function resolveConfig(): { url: string; serviceKey: string } {
-  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const envKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (envUrl && envKey) return { url: envUrl, serviceKey: envKey };
-  const status = JSON.parse(execSync("npx supabase status -o json", { encoding: "utf8" }));
-  const url = envUrl ?? status.API_URL;
-  const serviceKey = envKey ?? status.SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
-    throw new Error(
-      "Could not resolve Supabase URL / service_role key. Is `npx supabase start` running? " +
-        "Or set SUPABASE_SERVICE_ROLE_KEY (and optionally NEXT_PUBLIC_SUPABASE_URL) yourself."
-    );
-  }
-  return { url, serviceKey };
-}
+import { getLocalTestSupabase } from "./local-supabase";
 
 async function ensureUser(
   admin: ReturnType<typeof createClient>["auth"]["admin"],
@@ -66,14 +50,13 @@ async function ensureUser(
 }
 
 async function main() {
-  const { url, serviceKey } = resolveConfig();
+  const { url, serviceRoleKey: serviceKey } = getLocalTestSupabase();
   const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
 
   const memberId = await ensureUser(supabase.auth.admin, BETTING_MEMBER_EMAIL);
   const adminId = await ensureUser(supabase.auth.admin, BETTING_ADMIN_EMAIL);
-  await seedBettingFixture(supabase, memberId, adminId);
-  const { error: ownerFlagError } = await supabase.from("profiles").update({ is_owner: true }).eq("id", adminId);
-  if (ownerFlagError) throw ownerFlagError;
+  const marketId = await seedBettingFixture(supabase, memberId, adminId);
+  console.log(`FPL_TEST_MARKET_ID=${marketId}`);
 }
 
 main().catch((err) => {

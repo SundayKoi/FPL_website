@@ -100,11 +100,17 @@ select is(has_function_privilege('authenticated', 'public.populate_postseason_ma
 select is(has_function_privilege('service_role', 'public.populate_postseason_match_codes(text,text,text,jsonb,jsonb,jsonb,text[],integer)', 'execute'), true, 'service_role can execute the trusted RPC');
 
 select tests.acting_as(tests.cap(1));
+drop table if exists pg_temp._postseason_expected_assignments;
+drop table if exists pg_temp._postseason_requested_assignments;
+drop table if exists pg_temp._postseason_target_fixtures;
 select throws_like($$
   select public.populate_postseason_match_codes('premier', 'ZZ', 'gauntlet', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, array[]::text[], 0)
 $$, '%NOT_ADMIN%', 'non-admin cannot populate postseason codes');
 
 select tests.acting_as(tests.admin_id());
+drop table if exists pg_temp._postseason_expected_assignments;
+drop table if exists pg_temp._postseason_requested_assignments;
+drop table if exists pg_temp._postseason_target_fixtures;
 select throws_like($$
   select public.populate_postseason_match_codes(
     'premier', 'ZZ', 'all-postseason',
@@ -119,6 +125,9 @@ $$, '%STALE_PREVIEW%', 'a preview from before the insert cannot be applied');
 insert into public.fixtures (id, stage, sort_order, team_a, team_b, best_of, season)
 values ('70000000-0000-0000-0000-000000000027', 'gauntlet_r2', 99, 'Post Alpha FC', 'Post Bravo FC', 3, 'ZZ');
 
+drop table if exists pg_temp._postseason_expected_assignments;
+drop table if exists pg_temp._postseason_requested_assignments;
+drop table if exists pg_temp._postseason_target_fixtures;
 select throws_like($$
   select public.populate_postseason_match_codes(
     'premier', 'ZZ', 'gauntlet',
@@ -139,6 +148,9 @@ select throws_like($$
 $$, '%CODES_INSUFFICIENT%', 'insufficient input is rejected before writing the newly eligible Bo3');
 select is((select count(*) from public.match_codes where fixture_id = '70000000-0000-0000-0000-000000000027'), 0::bigint, 'insufficient input leaves the new fixture untouched');
 
+drop table if exists pg_temp._postseason_expected_assignments;
+drop table if exists pg_temp._postseason_requested_assignments;
+drop table if exists pg_temp._postseason_target_fixtures;
 select throws_like($$
   select public.populate_postseason_match_codes(
     'premier', 'ZZ', 'gauntlet',
@@ -158,6 +170,9 @@ select throws_like($$
   )
 $$, '%CODES_DUPLICATE%', 'duplicate input codes are rejected');
 
+drop table if exists pg_temp._postseason_expected_assignments;
+drop table if exists pg_temp._postseason_requested_assignments;
+drop table if exists pg_temp._postseason_target_fixtures;
 select throws_like($$
   select public.populate_postseason_match_codes(
     'premier', 'ZZ', 'gauntlet',
@@ -176,10 +191,13 @@ select throws_like($$
     -- Since 20261029000002 the preview (buildPostseasonCodePreview) and the
     -- RPC both count the slot a reclaimed code vacates: three new slots plus
     -- KEEP-G2-1's old one. A preview that still said 3 is STALE_PREVIEW.
-    4
+    3
   )
-$$, '%CODES_INSUFFICIENT%', 'reclaiming an assigned unused code also opens its old slot and requires a replacement code');
+$$, '%STALE_PREVIEW%', 'reclaiming an assigned code opens its old slot and invalidates the stale missing-slot preview');
 
+drop table if exists pg_temp._postseason_expected_assignments;
+drop table if exists pg_temp._postseason_requested_assignments;
+drop table if exists pg_temp._postseason_target_fixtures;
 select is(
   (public.populate_postseason_match_codes(
     'premier', 'ZZ', 'gauntlet',
@@ -209,6 +227,9 @@ drop table if exists pg_temp._postseason_target_fixtures,
   pg_temp._postseason_requested_assignments, pg_temp._postseason_expected_assignments;
 select is((select array_agg(code order by game_number) from public.match_codes where fixture_id = '70000000-0000-0000-0000-000000000027'), array['LATE-1', 'LATE-2', 'LATE-3'], 'later-round reruns are additive');
 
+drop table if exists pg_temp._postseason_expected_assignments;
+drop table if exists pg_temp._postseason_requested_assignments;
+drop table if exists pg_temp._postseason_target_fixtures;
 select is(
   (public.populate_postseason_match_codes(
     'academy', 'A1', 'gauntlet',

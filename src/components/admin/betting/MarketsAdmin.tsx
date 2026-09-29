@@ -202,7 +202,7 @@ export default function MarketsAdmin({
         ) : (
           <ul className="flex flex-col gap-2">
             {markets.map((m) => (
-              <li key={m.id} className="card-brand flex flex-wrap items-center justify-between gap-3 p-3">
+              <li key={m.id} data-testid={`betting-market-${m.id}`} className="card-brand flex flex-wrap items-center justify-between gap-3 p-3">
                 <div className="flex min-w-0 flex-col gap-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusPill status={m.status} />

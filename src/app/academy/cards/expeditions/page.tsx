@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ExpeditionsPageView } from "@/app/cards/expeditions/page";
+import { ExpeditionsPageView } from "@/app/cards/expeditions/ExpeditionsPageView";
 
 export const metadata: Metadata = {
   title: "Academy Expeditions — FPL",

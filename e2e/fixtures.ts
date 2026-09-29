@@ -1,6 +1,6 @@
 import { test as base, type BrowserContext, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { getLocalTestSupabase } from "./local-supabase";
 
 /** Separate users for the auction; contexts close even when an assertion fails. */
 export const test = base.extend<{ captains: [Page, Page] }>({
@@ -16,63 +16,66 @@ export const test = base.extend<{ captains: [Page, Page] }>({
   },
 });
 
-function readLocalSupabaseConfig(): { url: string; serviceKey: string } {
-  const status = JSON.parse(execFileSync("npx", ["supabase", "status", "-o", "json"], { encoding: "utf8" })) as {
-    API_URL?: string;
-    SERVICE_ROLE_KEY?: string;
-  };
-  const url = status.API_URL;
-  const serviceKey = status.SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) throw new Error("Local Supabase is not running; refusing to seed an E2E fixture.");
+export type SeedResult = {
+  fixtureId?: string;
+  academyFixtureId?: string;
+  historicalFixtureId?: string;
+  marketId?: string;
+  academyReleaseId?: string;
+  historicalReleaseId?: string;
+  captainAProfileId?: string;
+  captainBProfileId?: string;
+  spectatorProfileId?: string;
+};
 
-  const localHosts = new Set(["localhost", "127.0.0.1", "::1"]);
-  const localUrl = new URL(url);
-  if (!localHosts.has(localUrl.hostname)) {
-    throw new Error(`E2E fixtures may only use local Supabase (reported host: ${localUrl.hostname}).`);
-  }
-
-  // Next reads .env files in this precedence order. Reject a cloud target here
-  // before fixture scripts write anything, even when the shell itself has no
-  // Supabase URL exported.
-  const fileConfig: Record<string, string | undefined> = {};
-  for (const file of [".env", ".env.development", ".env.local", ".env.development.local"]) {
-    try {
-      for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
-        const match = line.match(/^\s*(NEXT_PUBLIC_SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY)\s*=\s*(.*?)\s*$/);
-        if (match) fileConfig[match[1]] = match[2].replace(/^['\"]|['\"]$/g, "");
-      }
-    } catch {
-      // Missing optional env files are expected in clean checkouts.
+export function seedFixture(scenario: "draft" | "betting" | "season-end-recovery" | "season-end-commerce" | "access" | "isolation" | "match-draft"): SeedResult {
+  const stack = getLocalTestSupabase();
+  const contractSeed = ["access", "isolation", "match-draft"].includes(scenario);
+  const script = scenario === "draft" ? "seed.ts" : scenario === "betting" ? "seed-betting.ts"
+    : scenario.startsWith("season-end-") ? `seed-${scenario}.ts` : "seed-contracts.ts";
+  const scriptArgs = contractSeed ? [scenario] : [];
+  const fixtureEnv = { ...process.env };
+  // Do not pass conflicting color controls into nested Node/Supabase CLI
+  // processes. Node's error formatting can fail before surfacing the actual
+  // seed error when both variables are inherited from a developer shell.
+  delete fixtureEnv.FORCE_COLOR;
+  delete fixtureEnv.NO_COLOR;
+  try {
+    const output = execFileSync(process.execPath, ["--import", "tsx", `e2e/${script}`, ...scriptArgs], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      env: fixtureEnv,
+      maxBuffer: 4 * 1024 * 1024,
+    });
+    const result: SeedResult = {};
+    for (const [field, marker] of [
+      ["fixtureId", "FPL_TEST_FIXTURE_ID"],
+      ["academyFixtureId", "FPL_TEST_ACADEMY_FIXTURE_ID"],
+      ["historicalFixtureId", "FPL_TEST_HISTORICAL_FIXTURE_ID"],
+      ["marketId", "FPL_TEST_MARKET_ID"],
+      ["academyReleaseId", "FPL_TEST_ACADEMY_RELEASE_ID"],
+      ["historicalReleaseId", "FPL_TEST_HISTORICAL_RELEASE_ID"],
+      ["captainAProfileId", "FPL_TEST_CAPTAIN_A_PROFILE_ID"],
+      ["captainBProfileId", "FPL_TEST_CAPTAIN_B_PROFILE_ID"],
+      ["spectatorProfileId", "FPL_TEST_SPECTATOR_PROFILE_ID"],
+    ] as const) {
+      const value = output.match(new RegExp(`^${marker}=([A-Za-z0-9-]+)$`, "m"))?.[1];
+      if (value) result[field] = value;
     }
+    console.log(`Seeded ${scenario} fixtures in the isolated local database.`);
+    return result;
+  } catch (error) {
+    const detail = error instanceof Error && "stderr" in error
+      ? String((error as NodeJS.ErrnoException & { stderr?: string }).stderr ?? "")
+      : "";
+    const safeDetail = detail
+      .split(stack.serviceRoleKey).join("[redacted]")
+      .split(stack.anonKey).join("[redacted]")
+      .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[redacted jwt]")
+      .trim()
+      .slice(-3000);
+    throw new Error(`Failed to seed ${scenario} fixtures.${safeDetail ? `\n${safeDetail}` : ""}`);
   }
-
-  const appConfig = { ...fileConfig, ...process.env } as Record<string, string | undefined>;
-  const configuredUrl = appConfig.NEXT_PUBLIC_SUPABASE_URL;
-  if (configuredUrl) {
-    const target = new URL(configuredUrl);
-    if (!localHosts.has(target.hostname) || target.origin !== localUrl.origin) {
-      throw new Error(`E2E app and fixtures must target local Supabase at ${localUrl.origin}; configured app host is ${target.hostname}.`);
-    }
-  }
-  const configuredServiceKey = appConfig.SUPABASE_SERVICE_ROLE_KEY;
-  if (configuredServiceKey && configuredServiceKey !== serviceKey) {
-    throw new Error("The configured service-role key does not match the local Supabase key; refusing to seed an E2E fixture.");
-  }
-
-  return { url: localUrl.origin, serviceKey };
-}
-
-export function seedFixture(scenario: "draft" | "betting" | "fpldle" | "season-end"): void {
-  const script = scenario === "draft" ? "seed.ts" : `seed-${scenario}.ts`;
-  const local = readLocalSupabaseConfig();
-  execFileSync(process.execPath, ["--import", "tsx", `e2e/${script}`], {
-    stdio: "inherit",
-    env: {
-      ...process.env,
-      NEXT_PUBLIC_SUPABASE_URL: local.url,
-      SUPABASE_SERVICE_ROLE_KEY: local.serviceKey,
-    },
-  });
 }
 
 export async function signIn(page: Page, email: string, password: string, redirect = "/"): Promise<void> {

@@ -240,27 +240,24 @@ npm run typecheck        # generate Next.js route types, then check TypeScript
 npm test                 # Vitest unit/component suite
 npm run test:python      # Python mapper and settlement suites
 npm run build            # production Next.js build
-npm run test:db          # pgTAP suite; restages, runs against the local stack
-npm run e2e              # Playwright auction + betting smoke tests
+npm run db:stage         # stage reviewed fresh-database migrations and pgTAP files
+npm run test:db          # fresh local migration replay and pgTAP suite
+npm run e2e              # fresh local stack, production build, and browser journeys
+npm run test:infra       # pgTAP plus production build and all browser journeys
 ```
 
 Python tests require Python 3 with `requests` and `python-dotenv` installed
-in an active virtual environment. `npm run test:db` restages
-`supabase/.staged` and runs `supabase test db --workdir supabase/.staged`
-against the local stack started from it (see [Local setup](#local-setup)).
-It tests the database as the last start or reset left it, so reset after
-migration changes. See [docs/testing.md](docs/testing.md) for test
+in an active virtual environment. `npm run test:db` replays migrations and
+runs pgTAP against its disposable local stack; `npm run test:infra` also builds
+the production app and runs all browser journeys. `npm run db:stage` is
+available for manual work with `supabase/.staged`. See
+[docs/testing.md](docs/testing.md) for test
 discovery, fixtures, cleanup conventions, and focused commands.
 
 Choose checks using [Testing](docs/testing.md#choose-checks-by-change).
 Documentation-only edits need link, command, and diff review; they do not need
 application tests or a production build. Browser tests use self-seeding local
-fixtures; see the [Playwright setup](docs/testing.md#playwright).
-The expedition screenshot specs, `e2e/expedition-board.spec.ts` and
-`e2e/expedition-map.spec.ts`, need no seed. They render fixtures on the
-dev-only `/admin/expedition-board` and `/admin/expedition-map` previews and
-write PNGs for review to the gitignored `e2e/screenshots/`. Run one with
-`npx playwright test e2e/expedition-board.spec.ts`.
+fixtures and the isolated runner; see the [Playwright setup](docs/testing.md#playwright).
 
 ### Branches and releases
 
@@ -307,16 +304,12 @@ A raw `supabase db push` still sees the duplicate and can incorrectly offer
 to replay God Packs. Do not use `--include-all` to get past that warning.
 The wrapper does not repair history or mark missing SQL applied.
 
-The wrapper also stages reviewed overrides from `supabase/migration-overrides/`
-under the original version and name. Each one is pinned in
+The wrapper stages reviewed overrides from `supabase/migration-overrides/`
+under the original version and name. Each is pinned in
 `scripts/supabase-migrations.mjs` to the git blob ids of the original and of
 the override, so a changed file fails staging (and `npm test`) instead of
 being replaced silently:
 
-- `20261018000001_card_art_champion_preferences.sql` has two `language sql`
-  function bodies without `select`, which no PostgreSQL accepts. Every stage
-  uses the corrected copy, so `push` applies it if the linked database lacks
-  that version and skips it if the version is recorded.
 - `20260922052204_rebuild_season_end_draft_after_hash_fix.sql` is a data
   repair restored after it was applied to the linked database. It sorts
   before the migration that creates `season_end_releases`, so only
@@ -324,13 +317,16 @@ being replaced silently:
   A fresh database has no draft to repair. `list` and `push` stage it
   unchanged.
 
+The card-art migration's `language sql` functions now have replayable
+`select case` bodies in tracked history. The migration-history checker pins
+the previously reviewed applied-history repair; staging needs no replacement.
 
-`.github/workflows/ci.yml` runs the type-check, ESLint and the Vitest suite
-on every pull request and every push to `develop` or `main`. Its separate
-`database` job stages the fresh-database project, starts only Postgres with
-`npx supabase db start --workdir supabase/.staged` (which applies every
-staged migration), and runs `npm run test:db`. The release workflow waits
-on the `checks` job only. The shared `npm run typecheck` command generates
+
+`.github/workflows/ci.yml` runs type-check, ESLint, Vitest, Python tests, and
+the complete `npm run test:infra` gate on every pull request and every push to
+`develop` or `main`. The infrastructure command covers fresh migration replay,
+pgTAP, a production build, and all browser journeys inside the existing
+`checks` job. The release workflow waits on that job. The shared `npm run typecheck` command generates
 Next.js route types before checking TypeScript, so it also works on a fresh
 checkout. Production builds retain Next.js type checking; `next.config.ts`
 does not enable `ignoreBuildErrors`.

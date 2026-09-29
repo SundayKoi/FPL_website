@@ -2,11 +2,10 @@
 --
 -- The app computes shine, gates and outcome rolls (src/lib/expeditions/
 -- config.ts); Postgres owns the atomicity and the law. So this suite
--- exercises exactly the law: ownership, the no-double-deploy check, the
--- one-run-per-tier slot (there is no daily launch limit since
--- 20260926000001_expedition_no_daily_limit), the payout ledger, the mark
--- stamp and its replace-only-upward rule, and the trigger that keeps a
--- deployed copy from being melted or traded away.
+-- exercises exactly the law: ownership, one active run per tier, the
+-- no-double-deploy check, the payout ledger, the mark stamp
+-- and its replace-only-upward rule, and the trigger that keeps a deployed
+-- copy from being melted or traded away.
 
 begin;
 set local search_path = public, extensions;
@@ -19,7 +18,7 @@ grant usage on schema tests to anon, authenticated;
 -- === fixture =================================================================
 -- The owner: a profile (the RLS policy joins profiles.discord_id against
 -- auth.uid()) and the wallet the payouts land in. patron_until stays null
--- so the first launches are a free collector's.
+-- so the first daily-limit assertion sees the free tier.
 insert into public.profiles (id, discord_id, display_name)
 values ('00000000-0000-0000-0000-0000000e0069'::uuid, 'exped-0069', 'Expedition Owner');
 
@@ -123,7 +122,7 @@ select throws_ok($$
 -- The launch is captured into a temp table rather than called inline in the
 -- assertion: `between` duplicates its left operand in the parser, so an
 -- inline call would run the RPC twice and the second call would trip the
--- tier slot.
+-- daily limit.
 
 create temporary table exp_launch on commit drop as
   select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'scout',
@@ -144,10 +143,7 @@ select is(
   array[tests.exp_card('exp-1'), tests.exp_card('exp-2'), tests.exp_card('exp-3')],
   'the squad is stored as launched');
 
--- === 16-20. the tier slot, and no daily limit =================================
--- 20260902000001 made each tier a slot; 20260926000001 removed the Eastern-
--- day launch limit (one a day, two for patrons), so the slot is the only
--- ceiling, patron or not.
+-- === 16-20. the tier slot and same-day runs ==================================
 
 -- One of each tier at a time. The scouting run already in the field blocks
 -- another scouting run whatever cards it is sent with — this is what stops
@@ -159,35 +155,31 @@ select throws_ok($$
     array[tests.exp_card('exp-4'), tests.exp_card('exp-5'), tests.exp_card('exp-6')], 9, 8) $$,
   'P0001', 'tier already out', 'a tier already in the field cannot be sent out again');
 
--- With the raid slot free, the deploy check is the thing that refuses a
--- squad holding a copy that is already out.
-select throws_ok($$
-  select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'raid',
-    array[tests.exp_card('exp-1'), tests.exp_card('exp-4'), tests.exp_card('exp-5')], 14, 24) $$,
-  'P0001', 'card already deployed', 'a copy already out cannot be sent again');
-
--- A free collector's second launch the same day goes out: a free slot is
--- the whole gate.
+-- The daily cap was removed: a different tier can launch the same day.
 select lives_ok($$
   select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'raid',
     array[tests.exp_card('exp-4'), tests.exp_card('exp-5'), tests.exp_card('exp-6')], 14, 24) $$,
-  'a free collector may launch a second tier the same day');
+  'a free collector can launch a different tier on the same day');
 
 update public.betting_profiles set patron_until = now() + interval '30 days'
   where discord_id = 'exped-0069';
 
--- Patrons once had a second launch a day; the slot has no patron exception.
-select throws_ok($$
-  select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'raid',
-    array[tests.exp_card('exp-7'), tests.exp_card('exp-1'), tests.exp_card('exp-2')], 14, 24) $$,
-  'P0001', 'tier already out', 'a patron gets no second run of a tier already out');
-
--- A third launch the same day is not refused by any count: with the legend
--- slot free, only the deploy lock stops these copies.
+-- A free tier slot still refuses a squad holding a copy already in the field.
 select throws_ok($$
   select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'legend',
-    array[tests.exp_card('exp-1'), tests.exp_card('exp-2'), tests.exp_card('exp-3')], 20, 48) $$,
-  'P0001', 'card already deployed', 'a third launch the same day meets no daily limit');
+    array[tests.exp_card('exp-1'), tests.exp_card('exp-4'), tests.exp_card('exp-5')], 14, 24) $$,
+  'P0001', 'card already deployed', 'a copy already out cannot be sent again');
+
+select throws_ok($$
+  select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'scout',
+    array[tests.exp_card('exp-4'), tests.exp_card('exp-5'), tests.exp_card('exp-6')], 9, 8) $$,
+  'P0001', 'tier already out', 'patron status does not bypass the one-active-run-per-tier limit');
+
+select is(
+  (select array_agg(tier order by tier) from public.expedition_runs
+    where discord_id = 'exped-0069' and claimed_at is null),
+  array['raid', 'scout']::text[],
+  'different same-day tiers persist independently');
 
 -- === 20-22. the deploy lock ==================================================
 -- The trigger, not the RPC, is the guarantee: a deployed copy cannot leave
@@ -288,8 +280,8 @@ update public.card_inventory
   set card = card || '{"expedition": {"mark": "trail", "tier": "scout", "date": "2026-08-02"}}'::jsonb
   where id = tests.exp_card('exp-7');
 
--- Inserted rather than launched: what is under test is the claim, not the
--- gate in front of it.
+-- Inserted rather than launched: the day's two slots are spent, and what is
+-- under test is the claim, not the gate in front of it.
 insert into public.expedition_runs (discord_id, season, tier, squad, shine, resolves_at)
 values ('exped-0069', 'S_TEST_EXP', 'raid',
         array[tests.exp_card('exp-7'), tests.exp_card('exp-2'), tests.exp_card('exp-3')],
@@ -311,15 +303,14 @@ select lives_ok(
   $$ select public.dust_card('exped-0069', tests.exp_card('exp-1'), 10) $$,
   'a claimed copy is free to melt again');
 
--- And the tier is sendable again. Proven by the same launch that assertion
--- 16 saw refused with 'tier already out' now going out: the scouting run
--- claimed above no longer holds its slot (and the raid that held these
--- copies was claimed too). Without the claim freeing the slot, this would
--- still be the tier check.
+-- And the tier is sendable again. Proven by the error CHANGING: the
+-- scouting run claimed above no longer holds its slot, so what refuses
+-- this launch is the day limit rather than 'tier already out'. Without the
+-- claim freeing the slot, this would still be the tier check.
 select lives_ok($$
   select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'scout',
     array[tests.exp_card('exp-4'), tests.exp_card('exp-5'), tests.exp_card('exp-6')], 9, 8) $$,
-  'claiming a run frees its tier slot');
+  'claiming a run frees its tier slot for a new run');
 
 -- === 40. a claim cannot reach across owners ==================================
 -- claim_expedition matches on (id, discord_id), and the discord_id half is
@@ -364,7 +355,7 @@ select ok(has_function_privilege('service_role',
 -- A run belonging to somebody else is the non-vacuous half: a `using (true)`
 -- policy would pass a bare count, so the other collector's run (inserted
 -- for the cross-owner claim above) must be invisible while the owner's
--- four (three claimed, the scouting run relaunched above) stay readable.
+-- three stay readable.
 
 select tests.acting_as('00000000-0000-0000-0000-0000000e0069'::uuid);
 set local role authenticated;
