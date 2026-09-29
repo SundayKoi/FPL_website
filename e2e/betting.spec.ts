@@ -71,7 +71,9 @@ test("member bets, admin resolves, member's profile shows the payout", async ({ 
   // === Admin: sign in, resolve the market for the team the member backed ===
   await signIn(page, ADMIN_EMAIL, PASSWORD, "/admin/betting");
 
-  const marketRow = page.getByTestId(`betting-market-${marketId}`);
+  // Next may keep a hidden streamed route segment in the DOM briefly; select
+  // the visible admin page before locating this market by its stable id.
+  const marketRow = page.getByRole("main").getByTestId(`betting-market-${marketId}`);
   await expect(marketRow).toBeVisible();
 
   page.once("dialog", (dialog) => dialog.accept());
