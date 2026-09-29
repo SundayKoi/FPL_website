@@ -1,13 +1,13 @@
 # Clean-up tests review completion handoff
 
-Date: 2026-09-28
+Date: 2026-09-29 execution update (original source verification: 2026-09-28)
 
 ## Candidate and base
 
 - Verified source/test candidate: `810fa7b46eb850d91acc6689c9e9e0c6aef77c11` on `feature/clean-up-tests-infra`, in `.worktrees/develop`.
 - Latest merged base: `origin/develop` at `c7369b4f7087ddf598a82f369d91623769b9e699`.
 - The primary `clean-up-tests` checkout and its unrelated changes were left untouched.
-- The source/test candidate is committed locally and unpushed. This report and the replay-note update are documentation-only follow-ups; no source or SQL changed after the verified candidate. PR #388 is open at remote head `3ce7a6dbf662a9adc0eabb5789b19d5c9577952b`. GitHub reports its `checks` run succeeded on that older head; it does not verify this candidate. No PR, branch, deployment, release, or remote database changes were made.
+- The verified source/test tree has no source or SQL changes after `810fa7b`. The follow-up handoff and replay-note commits are documentation-only. The current cleanup branch is pushed through the existing [PR #388](https://github.com/SundayKoi/FPL_website/pull/388), targeting `develop`; the local and remote `develop` ref is `c7369b4f`. GitHub's former green check on `3ce7a6db` is stale and does not count. Before merge, verify the required `checks` job on the latest PR head and then on the resulting `develop` commit. The 2026-09-29 migration-history check against `c7369b4f` and pushed candidate `00d450de` passed, with only the three previously documented duplicate-version warnings.
 
 ## Review completion matrix
 
@@ -24,7 +24,7 @@ Date: 2026-09-28
 | Season’s End commerce | Passed. Independently seeded sales/trades check exact owner and provenance; sale and dust ledger cardinality and resulting balances are asserted. |
 | Assertion inventory and retained coverage | Completed. `docs/testing-inventory.csv` has 647 assertion-group rows across 644 paths. All 447 current test artifacts are mapped; there are no missing retained paths. Seven latest-base tests were added to the ledger. The six previously missing retained contracts were restored or moved, including safe redirect validation and league-scoped team identity. |
 | Historical migration policy and replay | Passed locally. Both authorized historical blob transitions remain narrowly pinned; all current migrations replay on the isolated stack. One forward request-UUID ownership migration has matching pgTAP coverage. |
-| Actual PR CI | Not verified for this candidate. PR #388’s successful `checks` run belongs to remote head `3ce7a6db`, while this candidate is newer and remains unpushed. |
+| Actual PR CI | The earlier successful run on `3ce7a6db` is stale. PR #388 is the delivery path; only a successful `checks` result on its latest head satisfies this merge gate. Confirm the resulting `develop` push check separately. |
 
 The scenario assertions ran together with `npm run test:infra`; `npm run e2e:list` also found exactly seven Chromium tests in seven files.
 
@@ -62,4 +62,4 @@ The full `test:infra` wall time was not captured separately; its production buil
 
 The two historical fixes are described in [the replay repair note](2026-09-27-historical-migration-replay-repair.md) and constrained to their exact reviewed Git blob pairs. No history repair was needed. Before the current read-only migration listing, `supabase/.temp/project-ref` was checked and matched FPL project `tyywoneobreracfnujdk`. The listing confirmed `20261028000001`, `20261029000001`, and `20261101000001` through `20261105000001` are applied. The latest site-search migration `20261106000001_site_search_log.sql` and candidate request-identity migration `20261106000002_season_end_request_identity.sql` were exercised only on the isolated local stack; no cloud SQL or DDL was executed.
 
-The current tests do not cover a live OAuth provider, live Discord/Riot calls, every route, multiple browsers, or comprehensive accessibility. Required CI must run on the eventual proposed commit before the release workflow can use it; the green PR check on `3ce7a6db` is older evidence only.
+The current tests do not cover a live OAuth provider, live Discord/Riot calls, every route, multiple browsers, or comprehensive accessibility. The cloud migrations remain unapplied. Complete PR #388 only after its exact latest-head `checks` result passes; then verify CI on the resulting `develop` commit. The green PR check on `3ce7a6db` is older evidence only.
