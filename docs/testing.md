@@ -21,10 +21,11 @@ browser tests write fixtures: confirm they target the local stack before running
 them. Operational scripts and linked-database migration pushes have different
 side effects and are not test commands.
 
-CI runs TypeScript, ESLint, Vitest, and Python checks in its `checks` job,
-and the pgTAP suite against a fresh local Postgres in its `database` job (see
-[SQL](#sql)). Commands are defined in [package.json](../package.json); the
-production build is `npm run build`.
+CI runs migration-history validation, typecheck, ESLint, Vitest, and Python
+checks in the required `checks` job. The same job runs `npm run test:infra`,
+which replays migrations on a disposable local stack, runs pgTAP, builds the
+production app, and runs the Chromium journeys. Commands are defined in
+[package.json](../package.json).
 
 ## Vitest
 

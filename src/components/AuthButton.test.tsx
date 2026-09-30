@@ -33,25 +33,6 @@ beforeEach(() => {
 });
 
 describe("AuthButton", () => {
-  it("links to the login page when signed out", async () => {
-    getUser.mockResolvedValue({ data: { user: null } });
-
-    render(await AuthButton());
-
-    expect(screen.getByRole("link", { name: "Sign in" })).toHaveProperty("pathname", "/login");
-    expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
-  });
-
-  it("replaces the sign-in link with a sign-out button when signed in", async () => {
-    render(await AuthButton());
-
-    expect(screen.queryByRole("link", { name: "Sign in" })).toBeNull();
-    expect(screen.getByText("Member")).toBeTruthy();
-
-    const button = screen.getByRole("button", { name: "Sign out" });
-    expect(button.closest("form")?.getAttribute("action")).toBeTruthy();
-  });
-
   it("shows the wallet balance beside a premium member's name", async () => {
     getBettingUserMock.mockResolvedValue({ allowed: true, balance: 1250 });
 

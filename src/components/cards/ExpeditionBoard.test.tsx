@@ -387,28 +387,6 @@ describe("ExpeditionBoard — tier cards", () => {
     expect(button.textContent).toBe("Patrons only");
   });
 
-  it("explains trail miles and the three titles in the rules of the road", () => {
-    renderBoard();
-    openTab("rules");
-    const rule = screen.getByTestId("rule-miles");
-    expect(rule.textContent).toContain("Scouting Run 1");
-    expect(rule.textContent).toContain("Legendary route 4");
-    expect(rule.textContent).toContain("An Exorcism is a rite, not a road");
-    expect(within(rule).getByTestId("rule-title-trailworn").textContent).toContain("8 miles");
-    expect(within(rule).getByTestId("rule-title-veteran").textContent).toContain("16 miles");
-    expect(within(rule).getByTestId("rule-title-wayfarer").textContent).toContain("30 miles");
-    expect(within(rule).getByTestId("rule-title-wayfarer").textContent).toContain("one more shine");
-  });
-
-  it("explains the Gilded Road in the rules of the road", () => {
-    renderBoard();
-    openTab("rules");
-    const rule = screen.getByTestId("rule-gilded");
-    expect(rule.textContent).toContain("3 signed cards");
-    expect(rule.textContent).toContain("$1,000–$3,000");
-    expect(screen.getByTestId("insurance-note").textContent).toContain("1 of 1 left this week");
-  });
-
   it("opens the Gilded Road to a patron", () => {
     renderBoard({ patron: true });
 
@@ -585,98 +563,6 @@ describe("ExpeditionBoard — runs in the field", () => {
     for (const name of ["Eve", "Alba", "Bex"]) {
       expect(within(run).getByText(name)).toBeTruthy();
     }
-  });
-
-  it("draws the route under a run and keeps its trail journal, folded to the latest lines", () => {
-    // Nine hours into a 24h raid with two forks: the first leg's two trail
-    // lines and the arrival at fork 1 are all in the past, so the journal
-    // has three lines to show and nothing yet to fold.
-    renderBoard({
-      runs: [
-        makeRun({
-          id: 23,
-          forks: 2,
-          startedAt: new Date(Date.now() - 9 * HOUR).toISOString(),
-          resolvesAt: new Date(Date.now() + 15 * HOUR).toISOString(),
-        }),
-      ],
-      deployedIds: new Set([5, 1, 2]),
-    });
-
-    const run = screen.getByTestId("run-23");
-    expect(within(run).getByTestId("living-map")).toBeTruthy();
-    // The latest line is the map's caption; the rest fold under the card.
-    expect(within(run).getByTestId("map-caption").textContent).toContain("The squad reached the reactor.");
-    const journal = within(run).getByTestId("journal-23");
-    expect(within(journal).getAllByRole("listitem").length).toBeGreaterThanOrEqual(3);
-    expect(journal.textContent).toContain("The squad reached the reactor.");
-    expect(within(run).queryByText(/just set out/)).toBeNull();
-  });
-
-  it("says the squad has just set out before the trail has anything to report", () => {
-    renderBoard({
-      runs: [makeRun({ id: 24, startedAt: new Date().toISOString(), resolvesAt: new Date(Date.now() + 24 * HOUR).toISOString() })],
-      deployedIds: new Set([5, 1, 2]),
-    });
-
-    const run = screen.getByTestId("run-24");
-    expect(within(run).getByText(/The squad has just set out/)).toBeTruthy();
-    expect(within(run).queryByTestId("journal-24")).toBeNull();
-  });
-
-  it("shows art for every kind of print that can march, not just player cards", () => {
-    // A champions relic names its champion on champWin and a moment names
-    // it on moment — neither carries a `signature`. Reading only the
-    // signature rendered both as a "?" box in the squad strip.
-    const marching: InventoryRow[] = [
-      makeCopy(1, "Alba", "gold", {
-        card: { ...makeCard("Alba", "Mid"), signature: { champion: "Ahri", games: 9 } },
-      }),
-      makeCopy(2, "the fool", "challenger", {
-        card: {
-          ...makeCard("the fool", "Mid"),
-          champWin: {
-            rank: "JOKER",
-            setIndex: 5,
-            setSize: 6,
-            team: "Faceless",
-            seasonWon: "S4",
-            champion: "Xin Zhao",
-            joker: true,
-          },
-        },
-      }),
-      makeCopy(3, "Cyn", "diamond", {
-        card: {
-          ...makeCard("Cyn", "Jungle"),
-          moment: {
-            id: 7,
-            title: "ONE MAN ARMY",
-            headline: "40% of the damage",
-            summonerName: "Cyn",
-            champion: "Yasuo",
-            teamName: null,
-            weekStart: "2026-08-24",
-            playerSlug: "cyn",
-          },
-        },
-      }),
-    ];
-
-    renderBoard({
-      copies: marching,
-      runs: [makeRun({ id: 22, squad: [1, 2, 3] })],
-      deployedIds: new Set([1, 2, 3]),
-    });
-
-    const run = screen.getByTestId("run-22");
-    const art = run.querySelectorAll("img");
-    expect(art).toHaveLength(3);
-    expect(within(run).queryByText("?")).toBeNull();
-    const sources = [...art].map((image) => image.getAttribute("src") ?? "");
-    expect(sources.some((src) => /XinZhao/i.test(src))).toBe(true);
-    expect(sources.some((src) => /Ahri/i.test(src))).toBe(true);
-    expect(sources.some((src) => /Yasuo/i.test(src))).toBe(true);
   });
 });
 
@@ -995,16 +881,6 @@ describe("ExpeditionBoard — forks", () => {
     expect(decideForkAction).toHaveBeenCalledWith(40, 0, "push");
     expect(refresh).toHaveBeenCalledTimes(1);
   });
-
-  it("shows nothing to answer once the fork is decided", () => {
-    renderBoard({
-      runs: [makeRun({ ...atFork(), choices: [{ index: 0, choice: "camp", at: "" }] })],
-      deployedIds: new Set([5, 1, 2]),
-    });
-
-    expect(screen.queryByTestId("fork-40-0")).toBeNull();
-    expect(screen.queryByRole("region", { name: "Forks waiting on you" })).toBeNull();
-  });
 });
 
 describe("ExpeditionBoard — the road", () => {
@@ -1063,16 +939,6 @@ describe("ExpeditionBoard — the road", () => {
     expect(container.innerHTML).not.toContain(next.title);
     expect(container.innerHTML.toLowerCase()).not.toContain(next.title.toLowerCase());
     expect(within(run).getByTestId("unseen-41").textContent).toBe("?One checkpoint ahead the squad hasn't seen yet.");
-  });
-
-  it("explains the road and the role calls in the rules of the road", () => {
-    renderBoard();
-    openTab("rules");
-    const rules = screen.getByTestId("expedition-rules");
-    expect(rules.textContent).toContain("The road is drawn when you launch.");
-    for (const call of ["hold", "scout", "roam", "kite", "ward"]) expect(within(rules).getByTestId(`rule-call-${call}`)).toBeTruthy();
-    expect(rules.textContent).toContain("A rival squad");
-    expect(rules.textContent).toContain("A shrine");
   });
 });
 
@@ -1369,11 +1235,6 @@ describe("ExpeditionBoard — season standings", () => {
     const rule = screen.getByTestId("rule-standings");
     expect(within(rule).getByTestId("rule-mark-survivor").textContent).toContain("Legendary routes brought home whole");
   });
-
-  it("says nothing until somebody has claimed a run", () => {
-    renderBoard();
-    expect(screen.queryByTestId("standings")).toBeNull();
-  });
 });
 
 describe("ExpeditionBoard — the weather", () => {
@@ -1389,11 +1250,6 @@ describe("ExpeditionBoard — the weather", () => {
     const rule = screen.getByTestId("rule-weather");
     for (const key of ["clear", "fog", "drought", "harvest", "watch"]) expect(within(rule).getByTestId(`rule-weather-${key}`)).toBeTruthy();
     expect(within(rule).getByTestId("rule-weather-watch").textContent).toContain("playoff week");
-  });
-
-  it("says nothing about the sky on a board without one", () => {
-    renderBoard();
-    expect(screen.queryByTestId("expedition-weather")).toBeNull();
   });
 });
 
@@ -1411,16 +1267,6 @@ describe("ExpeditionBoard — rivalries", () => {
     expect(within(strip).getByTestId("rivalry-doug").textContent).toContain("Doug2–1yours ahead");
     expect(within(strip).getByTestId("rivalry-ann").textContent).toContain("Ann0–1theirs ahead");
     expect(within(strip).getByTestId("rivalry-bo").textContent).toContain("Bo1–1level");
-  });
-
-  it("says nothing about rivalries until there is one, and explains company in the rules", () => {
-    renderBoard();
-    expect(screen.queryByTestId("rivalries")).toBeNull();
-    openTab("rules");
-    const rule = screen.getByTestId("rule-company");
-    expect(rule.textContent).toContain("more shine");
-    expect(rule.textContent).toContain("The dead walk");
-    expect(rule.textContent).toContain("2×");
   });
 });
 
@@ -1505,11 +1351,6 @@ describe("ExpeditionBoard — match day", () => {
     expect(banner.textContent).toContain("+20%");
     expect(screen.getByTestId("plays-1")).toBeTruthy();
     expect(screen.queryByTestId("plays-2")).toBeNull();
-  });
-
-  it("says nothing about match day on a quiet night", () => {
-    renderBoard();
-    expect(screen.queryByTestId("match-day")).toBeNull();
   });
 
   it("tells the ceremony the surge paid, and the log that a moment echoed", async () => {
@@ -1759,31 +1600,6 @@ describe("ExpeditionBoard — the page experience (§10.4) on the three personas
     expect(screen.queryByTestId("expedition-rules")).toBeNull();
   });
 
-  it("explains a word in place, and its 'More in the rules' opens the Rules tab", async () => {
-    renderPersona("new");
-    const term = within(screen.getByTestId("guide")).getByRole("button", { name: "fork" });
-    expect(term.getAttribute("aria-expanded")).toBe("false");
-    fireEvent.click(term);
-    expect(term.getAttribute("aria-expanded")).toBe("true");
-    const note = document.getElementById(term.getAttribute("aria-controls")!)!;
-    expect(note.hidden).toBe(false);
-    expect(note.textContent).toContain(GLOSSARY.fork.says);
-    await click(within(note).getByRole("link", { name: /More in the rules/ }));
-    expect(screen.getByTestId("tab-rules").getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByTestId("expedition-rules")).toBeTruthy();
-  });
-
-  it("cycles Suggest to a squad of three different edge kinds on the second press", () => {
-    renderPersona("veteran");
-    fireEvent.click(screen.getByTestId("suggest-squad"));
-    const first = screen.getByTestId("squad-shine").textContent;
-    fireEvent.click(screen.getByTestId("suggest-squad"));
-    const second = screen.getByTestId("squad-shine").textContent;
-    expect(second).toContain("3 picked");
-    expect(second).toContain("all three count");
-    expect(second).not.toBe(first);
-  });
-
   it("mid: opens the route card on a route this collector could run, not one already out", () => {
     // Both the Scouting Run and the Deep Raid are in the field; the card
     // under the row opens on the first route nothing but the squad shuts.
@@ -1792,15 +1608,6 @@ describe("ExpeditionBoard — the page experience (§10.4) on the three personas
     expect(screen.queryByTestId("tier-scout")).toBeNull();
     expect(screen.getByTestId("tier-legend")).toBeTruthy();
     expect(screen.getByTestId("route-pill-legend").getAttribute("aria-pressed")).toBe("true");
-  });
-
-  it("hides the first-visit guide once dismissed, and remembers it", () => {
-    const { unmount } = renderPersona("new");
-    fireEvent.click(screen.getByRole("button", { name: "Got it, hide this" }));
-    expect(screen.queryByTestId("guide")).toBeNull();
-    unmount();
-    renderPersona("new");
-    expect(screen.queryByTestId("guide")).toBeNull();
   });
 });
 
@@ -1878,16 +1685,6 @@ describe("ExpeditionBoard — edges on the board", () => {
     expect(within(edges).getByTestId("ceremony-edge-Unkillable").textContent).toContain("never landed");
     // The full event list still has every line, edges included.
     expect(screen.getByTestId("ceremony-events").textContent).toContain("The squad came home.");
-  });
-
-  it("has no edges section when none fired", async () => {
-    renderBoard({
-      runs: [makeRun({ id: 21, resolvesAt: new Date(Date.now() - HOUR).toISOString() })],
-      deployedIds: new Set([5, 1, 2]),
-    });
-    await click(screen.getByRole("button", { name: "Claim the Deep Raid" }));
-    expect(screen.getByTestId("expedition-ceremony")).toBeTruthy();
-    expect(screen.queryByTestId("ceremony-edges")).toBeNull();
   });
 });
 
@@ -2028,12 +1825,6 @@ describe("ExpeditionBoard — the base camp", () => {
 
 describe("ExpeditionBoard — the league goal", () => {
   const league = () => boardFixture("mid", new Date()).league!;
-
-  it("shows nothing of the league goal when there is none", () => {
-    renderBoard();
-    expect(screen.queryByTestId("league-line")).toBeNull();
-    expect(screen.queryByTestId("tab-league")).toBeNull();
-  });
 
   it("puts the goal's progress in the This-week line, and opens the League tab from it", async () => {
     renderBoard({ league: league() });

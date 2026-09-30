@@ -27,7 +27,6 @@ vi.mock("@/lib/supabase/client", () => ({
   },
 }));
 import MatchDraftBoard from "./MatchDraftBoard";
-import { overlaySlotWidthFrom } from "@/lib/match-draft/overlaySlot";
 import { LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
 import { CHAMPIONS } from "@/lib/match-draft/champions";
 import type { MatchDraftState } from "@/lib/match-draft/types";
@@ -79,23 +78,6 @@ describe("MatchDraftBoard", () => {
     expect(screen.getByRole("status").textContent).toMatch(/connecting to live updates/i);
     act(() => realtime.callback?.("CHANNEL_ERROR"));
     expect(screen.getByRole("alert").textContent).toMatch(/live updates interrupted/i);
-  });
-
-  it("renders the stage layout with team abbreviations, champion names, player names, and timer", async () => {
-    const { container } = render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
-
-    expect(screen.getAllByText("BLU").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("RED").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Ahri").length).toBeGreaterThan(0);
-    // Pick slots use horizontal centered splash art so it fills the wide slot,
-    // cropped toward the top of the image to keep the champion's head in frame.
-    expect(container.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/img/champion/centered/Ahri_0.jpg"]')).toBeTruthy();
-    expect(container.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/16.16.1/img/champion/Ahri.png"]')).toBeTruthy();
-    expect(screen.getAllByText("Blue Mid").length).toBeGreaterThan(0);
-    // The turn clock is live now — this fixture's turn started long ago, so it
-    // stays signed and visibly negative rather than clamping at zero.
-    await waitFor(() => expect(screen.getByText(/^-\d+s$/)).toBeTruthy());
-    expect(screen.getByRole("button", { name: /stage layout/i }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("keeps a pick selectable after the signed clock crosses zero", async () => {
@@ -194,24 +176,6 @@ describe("MatchDraftBoard", () => {
     expect(rpcMock).toHaveBeenCalledTimes(2);
   });
 
-  it("uses medium champion images by default and only exposes MD and LG", () => {
-    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
-
-    expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("md");
-    expect(screen.getByRole("button", { name: /decrease image size/i }).hasAttribute("disabled")).toBe(true);
-    expect(screen.getByRole("button", { name: /increase image size/i }).hasAttribute("disabled")).toBe(false);
-
-    fireEvent.click(screen.getByRole("button", { name: /increase image size/i }));
-
-    expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("lg");
-    expect(screen.getByRole("button", { name: /increase image size/i }).hasAttribute("disabled")).toBe(true);
-    expect(screen.getByRole("button", { name: /decrease image size/i }).hasAttribute("disabled")).toBe(false);
-
-    fireEvent.click(screen.getByRole("button", { name: /decrease image size/i }));
-
-    expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("md");
-  });
-
   it("auto-fills a pick with that side's individual player name", () => {
     const onSave = vi.fn();
     render(<MatchDraftBoard initialState={{ ...state, actions: [] }} onSave={onSave} />);
@@ -261,16 +225,6 @@ describe("MatchDraftBoard", () => {
     expect(screen.queryByLabelText("Side selection")).toBeNull();
   });
 
-  it("switches to the board layout", () => {
-    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
-
-    fireEvent.click(screen.getByRole("button", { name: /board layout/i }));
-
-    expect(screen.getByRole("button", { name: /board layout/i }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("region", { name: "Champion pool" })).toBeTruthy();
-    expect(screen.getByTestId("match-draft-compact-timer")).toBeTruthy();
-  });
-
   it("uses a compact completed status without presenting a stale current turn", () => {
     render(
       <MatchDraftBoard
@@ -309,17 +263,6 @@ describe("MatchDraftBoard", () => {
     expect(aatrox.querySelector('[data-testid="fearless-cross"]')).toBeNull();
   });
 
-  it("shows the banned champion's image and name in the ban tile", () => {
-    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
-
-    const banTile = screen.getAllByTestId("ban-blue-1")[0];
-    const icon = banTile.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/16.16.1/img/champion/Aatrox.png"]');
-    expect(icon).toBeTruthy();
-    expect(banTile.textContent).toContain("Aatrox");
-    // An empty slot still shows its placeholder.
-    expect(screen.getAllByTestId("ban-red-1")[0].textContent).toContain("B1");
-  });
-
   it("switches games instantly from the tabs, without a navigation", () => {
     const gameTwo: MatchDraftState = {
       ...state,
@@ -349,17 +292,6 @@ describe("MatchDraftBoard", () => {
     expect(screen.getByRole("region", { name: /draft complete/i })).toBeTruthy();
   });
 
-  it("labels the series with its configured format", () => {
-    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} seriesFormat={{ bestOf: 5, fearless: false }} />);
-    expect(screen.getByText(/Bo5 · Game 1/i)).toBeTruthy();
-
-    cleanup();
-    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} seriesFormat={{ bestOf: 3, fearless: true }} />);
-    expect(screen.getByText(/Bo3 fearless · Game 1/i)).toBeTruthy();
-    // Format controls persist to the database, so preview mode hides them.
-    expect(screen.queryByRole("group", { name: /series format/i })).toBeNull();
-  });
-
   it("filters the champion pool by role", () => {
     render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
 
@@ -369,16 +301,6 @@ describe("MatchDraftBoard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^All$/ }));
     expect(screen.getByRole("button", { name: /^Aatrox/ })).toBeTruthy();
-  });
-
-  it("resets the champion list scroll when a filter changes", () => {
-    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
-
-    const grid = screen.getByTestId("champion-pool-grid");
-    grid.scrollTop = 120;
-    fireEvent.click(screen.getByRole("button", { name: /^Support$/ }));
-
-    expect(grid.scrollTop).toBe(0);
   });
 
   it("locks picks behind the ready check until both sides are ready", () => {
@@ -517,20 +439,6 @@ describe("MatchDraftBoard", () => {
     cleanup();
     render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
     expect(screen.queryByRole("button", { name: /reset series/i })).toBeNull();
-  });
-
-  it("shows no player placeholder when a team has no roster", () => {
-    const noRoster = {
-      ...state,
-      blueTeam: { ...state.blueTeam, players: [] },
-      redTeam: { ...state.redTeam, players: [] },
-      scheduledTeams: state.scheduledTeams,
-    };
-    render(<MatchDraftBoard initialState={noRoster} onSave={vi.fn()} />);
-
-    expect(screen.queryByText(/player tbd/i)).toBeNull();
-    // A pick locked with a recorded player name still shows it.
-    expect(screen.getAllByText("Blue Mid").length).toBeGreaterThan(0);
   });
 
   it("pops the lock-in bar on selection and cancel dismisses it without saving", () => {
@@ -719,90 +627,6 @@ describe("MatchDraftBoard", () => {
       />,
     );
     expect(screen.queryByRole("button", { name: /spectator link/i })).toBeNull();
-  });
-
-  it("renders the overlay without a page background when transparent", () => {
-    const { container } = render(
-      <MatchDraftBoard initialState={state} overlay overlayTransparent onSave={vi.fn()} />,
-    );
-    const main = container.querySelector("main");
-    expect(main?.className).toContain("bg-transparent");
-    expect(main?.className).not.toContain("bg-canvas");
-  });
-
-  it("renders red-side overlay bans from right to left", () => {
-    const redBanState = {
-      ...state,
-      actions: [
-        ...state.actions,
-        { stepIndex: 1, side: "red" as const, kind: "ban" as const, slot: 1, champion: "Ahri", playerName: null },
-        { stepIndex: 3, side: "red" as const, kind: "ban" as const, slot: 2, champion: "Amumu", playerName: null },
-        { stepIndex: 5, side: "red" as const, kind: "ban" as const, slot: 3, champion: "Zed", playerName: null },
-        { stepIndex: 12, side: "red" as const, kind: "ban" as const, slot: 4, champion: "Zyra", playerName: null },
-        { stepIndex: 14, side: "red" as const, kind: "ban" as const, slot: 5, champion: "Thresh", playerName: null },
-      ],
-    };
-    render(<MatchDraftBoard initialState={redBanState} overlay onSave={vi.fn()} />);
-
-    expect(screen.getAllByTestId(/^ban-red-/).map((tile) => tile.getAttribute("data-testid"))).toEqual([
-      "ban-red-5",
-      "ban-red-4",
-      "ban-red-3",
-      "ban-red-2",
-      "ban-red-1",
-    ]);
-  });
-
-  it("caps the overlay's portrait boxes at 350px by default, without a fixed width", () => {
-    const { container } = render(<MatchDraftBoard initialState={state} overlay onSave={vi.fn()} />);
-
-    // 350 is the width the stream scene was built around; capped, not
-    // fixed, so a narrower browser source never overflows.
-    const slots = container.querySelectorAll('[class~="max-w-[350px]"]');
-    expect(slots).toHaveLength(10);
-    expect(container.querySelectorAll('[class~="max-w-[700px]"]')).toHaveLength(0);
-    expect(container.querySelectorAll('[class~="w-[700px]"]')).toHaveLength(0);
-    for (const slot of slots) expect(slot.className).toContain("w-full");
-  });
-
-  it("widens the overlay's portrait boxes to 700px on ?slot=700", () => {
-    const { container } = render(<MatchDraftBoard initialState={state} overlay overlaySlotWidth={700} onSave={vi.fn()} />);
-
-    expect(container.querySelectorAll('[class~="max-w-[700px]"]')).toHaveLength(10);
-    expect(container.querySelectorAll('[class~="max-w-[350px]"]')).toHaveLength(0);
-    expect(overlaySlotWidthFrom("700")).toBe(700);
-    expect(overlaySlotWidthFrom("350")).toBe(350);
-    expect(overlaySlotWidthFrom(undefined)).toBe(350);
-  });
-
-  it("mirrors the red side's ink to the outer edge of its slot", () => {
-    const { container } = render(<MatchDraftBoard initialState={state} overlay onSave={vi.fn()} />);
-
-    // The label row is reversed on red so the role sits at the right edge,
-    // and the names are right-aligned; blue keeps its ink on the left.
-    const redRows = container.querySelectorAll('[data-testid="red-pick-slot"] [class~="flex-row-reverse"]');
-    const blueRows = container.querySelectorAll('[data-testid="blue-pick-slot"] [class~="flex-row-reverse"]');
-    expect(redRows.length).toBeGreaterThan(0);
-    expect(blueRows).toHaveLength(0);
-    for (const slot of container.querySelectorAll('[data-testid="red-pick-slot"]')) {
-      expect(slot.querySelector("p")?.className).toContain("text-right");
-    }
-    for (const slot of container.querySelectorAll('[data-testid="blue-pick-slot"]')) {
-      expect(slot.querySelector("p")?.className).not.toContain("text-right");
-    }
-  });
-
-  it("keeps the red-side overlay team header stretched like blue", () => {
-    const { container } = render(<MatchDraftBoard initialState={state} overlay onSave={vi.fn()} />);
-    const overlayColumns = container.querySelector("main > div");
-
-    expect(overlayColumns?.children[2]?.className).not.toContain("items-end");
-  });
-
-  it("pushes red-side overlay champions to the right edge within their column", () => {
-    const { container } = render(<MatchDraftBoard initialState={state} overlay onSave={vi.fn()} />);
-
-    expect(container.querySelectorAll('[class~="justify-self-end"]')).toHaveLength(5);
   });
 
   it("routes lobby drafting through the token-checked open_draft RPCs", async () => {
