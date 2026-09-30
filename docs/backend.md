@@ -699,9 +699,9 @@ change and update their local state.
   `close_lot`; the RPC is safe to retry and only the database can settle it.
 - `src/components/draft/DraftChat.tsx` subscribes to draft-chat inserts and
   deletes.
-- `src/components/match-draft/MatchDraftBoard.tsx` combines presence,
-  broadcast intent messages, and Postgres changes for fixture and public-lobby
-  draft state.
+- `src/components/match-draft/useMatchDraftChannel.ts` (used by
+  `MatchDraftBoard.tsx`) combines presence, broadcast intent messages, and
+  Postgres changes for fixture and public-lobby draft state.
 - Realtime tests should assert both the mutation and the other client seeing
   the resulting state. Avoid relying on optimistic UI as proof that a write
   succeeded.
@@ -1251,7 +1251,7 @@ lets a second Scouting Run out, and forged runs leave the weekly insured count.
 It also adds a 14-argument wrapper with `p_forged`, which spends a policy
 (`FORGED_PER_WEEK` a week, never on a scout or an exorcism), launches through
 the 13-argument path uninsured and then marks the run `insured` and `forged`.
-`runs.ts` calls the 14-argument form only when a forged policy is asked for. At
+`runLaunch.ts` calls the 14-argument form only when a forged policy is asked for. At
 the claim, `resolveRoute` reads the tent (`input.camp.tent`) only under rules 6.
 
 **The league's expedition of the week** (`src/lib/expeditions/league.ts`,
