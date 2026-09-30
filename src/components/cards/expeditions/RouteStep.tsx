@@ -37,9 +37,9 @@ import { boardBlocked, type RouteGate } from "@/lib/expeditions/suggest";
 import type { LeagueBoard } from "@/lib/expeditions/league";
 import { WEATHERS, type WeatherKey } from "@/lib/expeditions/weather";
 import { ForgedPolicyToggle } from "../CampPanel";
-import { NO_REQUIREMENTS, RISK_CLASS, RISK_LABEL, requirementParts } from "../ExpeditionRules";
 import { LeagueGoalLine } from "../LeagueGoalPanel";
 import ExpeditionIcon, { type ExpeditionIconName } from "../expeditionIcons";
+import { NO_REQUIREMENTS, RISK_CLASS, RISK_LABEL, requirementParts } from "./requirements";
 import StepHeading from "./StepHeading";
 import Term from "./Term";
 
