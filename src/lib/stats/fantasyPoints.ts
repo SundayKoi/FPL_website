@@ -23,6 +23,7 @@
 // immediately, because the leaderboard would still be sorted plausibly.
 
 import type { WeeklyRawStatRow } from "./weekly";
+import { round2 } from "./formulas";
 import { mondayOf } from "@/lib/packs/week";
 
 /**
@@ -78,10 +79,10 @@ const num = (value: number | null | undefined): number => (typeof value === "num
 /** Percent column to the 0–1 scale the tariff prices. */
 const asShare = (pct: number | null | undefined): number => num(pct) / 100;
 
-/** Two decimals — points are displayed, compared and summed, and a long
- *  float tail in a table is noise that also makes two equal scores look
- *  unequal. */
-export const round2 = (value: number): number => Math.round(value * 100) / 100;
+/** Points round to two decimals — they are displayed, compared and summed,
+ *  and a long float tail in a table is noise that also makes two equal
+ *  scores look unequal. */
+export { round2 };
 
 /**
  * One game's points. Pure, and forgiving of nulls: a row missing a column

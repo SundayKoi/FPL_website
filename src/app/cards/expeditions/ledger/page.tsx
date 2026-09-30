@@ -8,18 +8,12 @@ import { EXPEDITION_TIERS, LOST_DAYS } from "@/lib/expeditions/config";
 import { fetchAccolades, fetchLedger, fetchStandings, type LedgerEntry } from "@/lib/expeditions/queries";
 import { ACCOLADES, accoladesOf, rankStandings } from "@/lib/expeditions/standings";
 import { fmtPoints } from "@/lib/betting/format";
+import { formatShortDateET } from "@/lib/time";
 
 export const metadata: Metadata = {
   title: "The ledger of the fallen and the found — FPL",
   description: "Every card the league has lost on an expedition, and every one that came back: whose, which route, and when.",
 };
-
-/** "Aug 27" on the Eastern calendar, the one every expedition keeps. */
-function onDay(at: string): string {
-  const date = new Date(at);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" });
-}
 
 function routeLabel(entry: LedgerEntry): string {
   return entry.route ? EXPEDITION_TIERS[entry.route].label : "an expedition";
@@ -91,7 +85,7 @@ function Row({ entry, now }: { entry: LedgerEntry; now: Date }) {
         </span>
       </span>
       <span className="basis-full sm:basis-auto sm:flex-1">{ledgerLine(entry, now)}</span>
-      <span className="ml-auto font-mono text-[11px] text-steel/80">{entry.kind === "missing" ? `until ${onDay(entry.at)}` : onDay(entry.at)}</span>
+      <span className="ml-auto font-mono text-[11px] text-steel/80">{entry.kind === "missing" ? `until ${formatShortDateET(entry.at)}` : formatShortDateET(entry.at)}</span>
     </li>
   );
 }
