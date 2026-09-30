@@ -17,18 +17,7 @@ import type {
 import { createServerSupabase } from "@/lib/supabase/server";
 import workspaceStyles from "@/components/league/LeagueToolWorkspace.module.css";
 import { firstParam } from "@/lib/searchParams";
-
-function gameParam(value: string | undefined, bestOf: number): number {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) return 1;
-  return Math.min(parsed, bestOf);
-}
-
-/** Explicit ?layout= choice, or null to fall back to the viewer-based
- *  default (captain links get board, spectator links get stage). */
-function layoutParam(value: string | undefined): MatchDraftLayout | null {
-  return value === "board" ? "board" : value === "stage" ? "stage" : null;
-}
+import { draftGameParam, draftLayoutParam } from "@/lib/match-draft/params";
 
 function lobbyTeam(name: string, info: OpenDraftLobbyInfo): MatchDraftTeam {
   const label = name.trim() || "TBD";
@@ -127,9 +116,9 @@ export default async function OpenDraftLobbyPage({
 
   const bestOf: MatchDraftBestOf = info.bestOf === 1 || info.bestOf === 5 ? info.bestOf : 3;
   const seriesFormat: MatchDraftSeriesFormat = { bestOf, fearless: info.fearless };
-  const layout = layoutParam(firstParam(query.layout)) ?? (info.teamName ? "board" : "stage");
+  const layout = draftLayoutParam(firstParam(query.layout)) ?? (info.teamName ? "board" : "stage");
   const overlay = firstParam(query.overlay) === "1";
-  const gameNumber = gameParam(firstParam(query.game), bestOf);
+  const gameNumber = draftGameParam(firstParam(query.game), bestOf);
 
   const { data: rowsData } = await supabase
     .from("open_drafts")
