@@ -1,12 +1,12 @@
 import { vi } from "vitest";
 
-export type SupabaseQueryResult = { data: unknown; error?: unknown };
+export type SupabaseQueryResult = { data: unknown; error?: unknown; count?: number | null };
 export type SupabaseFilterCall = { table: string; method: string; args: unknown[] };
 
 /**
  * Minimal thenable Supabase query builder for unit tests. It supports the
- * read-only filters used by the betting query modules and records filter
- * calls when a test needs to verify query scoping.
+ * common read-only filters and terminals, and records filter calls when a
+ * test needs to verify query scoping.
  */
 export function supabaseQuery(
   result: SupabaseQueryResult,
@@ -26,6 +26,8 @@ export function supabaseQuery(
     is: filter("is"),
     gt: filter("gt"),
     gte: filter("gte"),
+    lt: filter("lt"),
+    lte: filter("lte"),
     not: filter("not"),
     order: filter("order"),
     limit: filter("limit"),
@@ -33,6 +35,7 @@ export function supabaseQuery(
     // needs to prove paging (rather than just tolerate it) supplies its own
     // slicing mock — see fetchCollectors' row-cap test.
     range: filter("range"),
+    single: () => Promise.resolve(result),
     maybeSingle: () => Promise.resolve(result),
     then: (resolve: (value: SupabaseQueryResult) => unknown, reject?: (error: unknown) => unknown) =>
       Promise.resolve(result).then(resolve, reject),

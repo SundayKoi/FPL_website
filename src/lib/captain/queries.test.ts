@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { activeOnly, fetchMyReports, fetchMyRoster, rosterKey, findDraftTeamId } from "./queries";
 import type { LeagueTeam } from "@/lib/matches/types";
+import { supabaseQuery } from "@/test-utils/supabaseQuery";
 
 const team = (over: Partial<LeagueTeam>): LeagueTeam => ({
   id: "t",
@@ -83,21 +84,10 @@ function rosterClient(failedTable: string) {
 
   return {
     from: vi.fn((table: string) => {
-      const result = (): QueryResult => failedTable === table
+      const result: QueryResult = failedTable === table
         ? { data: null, error: { message: `${table} unavailable` } }
         : { data: rows[table] ?? null, error: null };
-      const chain = {
-        select: vi.fn(() => chain),
-        eq: vi.fn(() => chain),
-        in: vi.fn(() => chain),
-        order: vi.fn(() => chain),
-        single: vi.fn(async () => result()),
-        then: (
-          onFulfilled: (value: QueryResult) => unknown,
-          onRejected?: (reason: unknown) => unknown,
-        ) => Promise.resolve(result()).then(onFulfilled, onRejected),
-      };
-      return chain;
+      return supabaseQuery(result);
     }),
   };
 }

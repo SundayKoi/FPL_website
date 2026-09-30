@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MyTeamReadyDashboard } from "@/lib/my-team/types";
+import { supabaseQuery } from "@/test-utils/supabaseQuery";
 
 const {
   serverClient,
@@ -161,17 +162,6 @@ function ready(overrides: Partial<MyTeamReadyDashboard> = {}): MyTeamReadyDashbo
   };
 }
 
-function query(result: unknown) {
-  const builder = {
-    select: () => builder,
-    eq: () => builder,
-    order: () => builder,
-    single: () => Promise.resolve(result),
-    then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve),
-  };
-  return builder;
-}
-
 beforeEach(() => {
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
@@ -180,9 +170,9 @@ beforeEach(() => {
   fetchMyReports.mockResolvedValue([]);
   fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: false });
   from.mockImplementation((table: string) => {
-    if (table === "league_settings") return query({ data: { current_phase: "Regular" }, error: null });
-    if (table === "fixtures") return query({ data: [fixture], error: null });
-    return query({ data: [], error: null });
+    if (table === "league_settings") return supabaseQuery({ data: { current_phase: "Regular" }, error: null });
+    if (table === "fixtures") return supabaseQuery({ data: [fixture], error: null });
+    return supabaseQuery({ data: [], error: null });
   });
 });
 
@@ -352,11 +342,11 @@ describe("My Team page", () => {
     const mixedCode = { ...validCode, id: "code-mixed", team_b_id: "outside-team", code: "MIXED" };
     loadMyTeamDashboard.mockResolvedValue(ready({ isAdmin: true, league: "academy" }));
     from.mockImplementation((table: string) => {
-      if (table === "league_settings") return query({ data: { current_phase: "Regular" }, error: null });
-      if (table === "fixtures") return query({ data: [fixture, mixedFixture], error: null });
-      if (table === "match_reports") return query({ data: [validReport, mixedReport], error: null });
-      if (table === "match_codes") return query({ data: [validCode, mixedCode], error: null });
-      return query({ data: [], error: null });
+      if (table === "league_settings") return supabaseQuery({ data: { current_phase: "Regular" }, error: null });
+      if (table === "fixtures") return supabaseQuery({ data: [fixture, mixedFixture], error: null });
+      if (table === "match_reports") return supabaseQuery({ data: [validReport, mixedReport], error: null });
+      if (table === "match_codes") return supabaseQuery({ data: [validCode, mixedCode], error: null });
+      return supabaseQuery({ data: [], error: null });
     });
 
     render(await MyTeamPageView({ league: "academy", searchParams: Promise.resolve({}) }));

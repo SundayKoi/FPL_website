@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import { useState } from "react";
 import ScheduleManagementDrawer, { type ScheduleManagementPanels } from "./ScheduleManagementDrawer";
 import { useScheduleManagement } from "./ScheduleManagementContext";
@@ -62,8 +62,6 @@ function Harness() {
 }
 
 describe("ScheduleManagementDrawer", () => {
-  afterEach(() => cleanup());
-
   it("resets a clean drawer selection on a season change and does not reopen it when returning", async () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "Edit fixture" }));

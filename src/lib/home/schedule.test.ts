@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchHomepageSchedule, selectFutureHomepageFixtures, selectHomepageFeaturedFixture, selectHomepageStage } from "./schedule";
 import type { FixtureRow } from "@/lib/schedule/types";
+import { supabaseQuery } from "@/test-utils/supabaseQuery";
 
 const { createServerSupabase } = vi.hoisted(() => ({
   createServerSupabase: vi.fn(),
@@ -26,15 +27,6 @@ function fixture(overrides: Partial<FixtureRow>): FixtureRow {
   };
 }
 
-function query(result: unknown) {
-  const builder = {
-    select: () => builder,
-    order: () => builder,
-    then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve),
-  };
-  return builder;
-}
-
 afterEach(() => {
   createServerSupabase.mockReset();
 });
@@ -42,7 +34,7 @@ afterEach(() => {
 describe("fetchHomepageSchedule", () => {
   it("selects the newest season and its first incomplete week", async () => {
     const from = vi.fn(() =>
-      query({
+      supabaseQuery({
         data: [
           fixture({ id: "old", season: "S4", stage: "week_1" }),
           fixture({ id: "week-1", stage: "week_1" }),
@@ -66,7 +58,7 @@ describe("fetchHomepageSchedule", () => {
       fixture({ id: stage, stage, score_a: 2, score_b: 1, sort_order: index }),
     );
     const from = vi.fn(() =>
-      query({
+      supabaseQuery({
         data: [
           ...played,
           // Deliberately out of bracket order: `upcoming` re-sorts.
@@ -91,7 +83,7 @@ describe("fetchHomepageSchedule", () => {
 
   it("lists the weeks from the active week on mid-season", async () => {
     const from = vi.fn(() =>
-      query({
+      supabaseQuery({
         data: [
           fixture({ id: "week-1", stage: "week_1", score_a: 2, score_b: 1 }),
           fixture({ id: "week-2", stage: "week_2" }),
@@ -116,7 +108,7 @@ describe("fetchHomepageSchedule", () => {
       ),
       fixture({ id: "finals", stage: "finals", score_a: 3, score_b: 2 }),
     ];
-    createServerSupabase.mockResolvedValue({ from: vi.fn(() => query({ data: played, error: null })) });
+    createServerSupabase.mockResolvedValue({ from: vi.fn(() => supabaseQuery({ data: played, error: null })) });
 
     await expect(fetchHomepageSchedule()).resolves.toMatchObject({
       activeStage: null,
@@ -127,7 +119,7 @@ describe("fetchHomepageSchedule", () => {
 
   it("keeps Week 2 active when Week 1 is complete but Week 2 is empty", async () => {
     const from = vi.fn(() =>
-      query({
+      supabaseQuery({
         data: [fixture({ id: "week-1", score_a: 2, score_b: 1 })],
         error: null,
       }),
@@ -143,7 +135,7 @@ describe("fetchHomepageSchedule", () => {
   });
 
   it("starts at Week 1 when there are no fixtures", async () => {
-    createServerSupabase.mockResolvedValue({ from: vi.fn(() => query({ data: [], error: null })) });
+    createServerSupabase.mockResolvedValue({ from: vi.fn(() => supabaseQuery({ data: [], error: null })) });
 
     await expect(fetchHomepageSchedule()).resolves.toEqual(expect.objectContaining({
       season: null,
@@ -155,7 +147,7 @@ describe("fetchHomepageSchedule", () => {
   });
 
   it("keeps an explicitly selected season even if it has no fixtures yet", async () => {
-    createServerSupabase.mockResolvedValue({ from: vi.fn(() => query({ data: [fixture({ season: "S5" })], error: null })) });
+    createServerSupabase.mockResolvedValue({ from: vi.fn(() => supabaseQuery({ data: [fixture({ season: "S5" })], error: null })) });
     await expect(fetchHomepageSchedule(undefined, "S6")).resolves.toMatchObject({ season: "S6", fixtures: [] });
   });
 });
