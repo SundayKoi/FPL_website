@@ -7,6 +7,7 @@ import { cardSlug } from "@/lib/cards/build";
 import { fetchAllCardSeasons, type CardLeague } from "@/lib/cards/queries";
 import { seasonBelongsToLeague } from "@/lib/league/season";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { firstParam } from "@/lib/searchParams";
 
 export const metadata: Metadata = {
   title: "Player claims — FPL",
@@ -127,8 +128,8 @@ async function PlayerClaimsPage(props?: PlayerClaimsPageProps) {
 
   const staffTier = await fetchStaffTier(supabase);
   const params = await (searchParams ?? Promise.resolve<Record<string, string | string[] | undefined>>({}));
-  const leagueValue = Array.isArray(params.league) ? params.league[0] : params.league;
-  const seasonValue = Array.isArray(params.season) ? params.season[0] : params.season;
+  const leagueValue = firstParam(params.league);
+  const seasonValue = firstParam(params.season);
   const selectedLeague: CardLeague | null = leagueValue === "premier" || leagueValue === "academy" ? leagueValue : null;
   const selectedSeason = selectedLeague
     && typeof seasonValue === "string"

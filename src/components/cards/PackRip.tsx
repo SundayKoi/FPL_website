@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { GOD_PACK_ODDS_DENOMINATOR, type RarityClass } from "@/lib/packs/config";
 import { godPackAnnouncement, godPackFracture, ripOpen, ripTick } from "@/lib/packs/sounds";
+import { prefersReducedMotion } from "@/lib/ui/reducedMotion";
 
 /** Horizontal drag, in px, that takes the tear from sealed to open. Tuned
  *  against the pack's own width — a swipe most of the way across it, so
@@ -97,17 +98,6 @@ const SIGNED_SPARKS = [
   { left: "16%", top: "72%", delay: "1s" }, { left: "88%", top: "64%", delay: "1.5s" },
   { left: "50%", top: "6%", delay: "0.8s" }, { left: "44%", top: "92%", delay: "1.9s" },
 ];
-
-/** Exported so the full-screen opening (PackOpening) asks the same question
- *  the same way — one answer for the whole ritual, not one per component. */
-export function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  try {
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  } catch {
-    return false;
-  }
-}
 
 export default function PackRip({
   bestRarity,

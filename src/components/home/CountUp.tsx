@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { prefersReducedMotion } from "@/lib/ui/reducedMotion";
 
 /**
  * A number that counts up from 0 the first time it scrolls into view (and
@@ -8,10 +9,6 @@ import { useEffect, useRef, useState } from "react";
  * visitors just see the final value — the animation is progressive polish,
  * never a data gate.
  */
-function prefersReducedMotion(): boolean {
-  return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
 export default function CountUp({
   value,
   decimals = 0,

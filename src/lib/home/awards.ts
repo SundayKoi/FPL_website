@@ -1,5 +1,5 @@
 import { createServerSupabase } from "@/lib/supabase/server";
-import { mondayOf } from "@/lib/packs/week";
+import { mondayOf, weekDayLabel } from "@/lib/packs/week";
 import { fetchDraftId } from "./fetchDraftId";
 import { powerRanking } from "@/lib/stats/formulas";
 import { aggregateWeeklyPlayerRows, WEEKLY_STAT_COLUMNS, type WeeklyRawStatRow } from "@/lib/stats/weekly";
@@ -127,7 +127,7 @@ function weekFor(date: string): Week {
   const start = new Date(`${key}T12:00:00.000Z`);
   return {
     start: start.getTime(),
-    label: `Week of ${new Date(`${key}T00:00:00.000Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`,
+    label: `Week of ${weekDayLabel(key)}`,
     key,
   };
 }

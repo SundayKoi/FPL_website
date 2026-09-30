@@ -35,7 +35,7 @@
 
 import type { PlayerAggRow } from "@/lib/stats/types";
 import type { CardGameMeta, CardGameRow, CardPercentile } from "./build";
-import { type GameTotals, STYLE_MEASURE_LABELS, type StyleMeasureKey, pctOf } from "./measures";
+import { type GameTotals, STYLE_MEASURE_LABELS, type StyleMeasureKey, mean, pctOf } from "./measures";
 import { type ChampionClass, type Playstyle, championClass, playstyleOf, windowPlaystyleLabel } from "./playstyle";
 
 /** A per-game stat a style can be graded on. */
@@ -170,10 +170,6 @@ export function fundamentalWeightsForRole(roleMode: string | null | undefined): 
 }
 
 const num = (value: number | null | undefined): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
-
-function mean(values: number[]): number {
-  return values.reduce((s, v) => s + v, 0) / (values.length || 1);
-}
 
 /** The teams in one window, for the stats that need a game's other rows:
  *  a team's total damage taken, and the lane opponent. */

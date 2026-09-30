@@ -14,6 +14,7 @@ import {
   utcWeekStart,
 } from "./rules";
 import { dailyGameDate, dailyGameResetAt } from "@/lib/dailyDay";
+import { isIsoDate, isRecord } from "@/lib/validation";
 import { HigherLowerSnapshotError, refreshHigherLowerSnapshot } from "./snapshot";
 import type {
   HigherLowerChoice,
@@ -109,21 +110,11 @@ export class HigherLowerError extends Error {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 function parseLeague(value: unknown): HigherLowerLeague {
   if (value !== "premier" && value !== "academy") {
     throw new HigherLowerError("INVALID_INPUT", "Choose a valid Higher or Lower league.");
   }
   return value;
-}
-
-function isIsoDate(value: unknown): value is string {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
 function parseRunInput(input: unknown, action: "choice" | "advance"): {

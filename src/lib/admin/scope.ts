@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchLeagueSeasons, seasonBelongsToLeague } from "@/lib/league/season";
+import { resolveLeagueView } from "@/lib/league/context";
+import { firstParam } from "@/lib/searchParams";
 
 export type AdminLeague = "premier" | "academy";
 
@@ -11,10 +13,6 @@ export type AdminLeagueSeason = {
   optionsAvailable: boolean;
 };
 
-function first(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
 function isSeasonCodeForLeague(value: string, league: AdminLeague) {
   return /^[SA]\d+$/i.test(value) && seasonBelongsToLeague(value, league);
 }
@@ -23,8 +21,7 @@ export async function resolveAdminLeagueSeason(
   supabase: SupabaseClient,
   params: Record<string, string | string[] | undefined>,
 ): Promise<AdminLeagueSeason> {
-  const requestedLeague = first(params.league);
-  const league: AdminLeague = requestedLeague === "academy" ? "academy" : "premier";
+  const league: AdminLeague = resolveLeagueView(params.league);
   const [fixtureSeasons, currentSeasons] = await Promise.all([
     supabase.from("fixtures").select("season"),
     fetchLeagueSeasons(supabase),
@@ -44,7 +41,7 @@ export async function resolveAdminLeagueSeason(
     if (right === defaultSeason) return 1;
     return Number.parseInt(right.slice(1), 10) - Number.parseInt(left.slice(1), 10);
   });
-  const requestedSeason = first(params.season);
+  const requestedSeason = firstParam(params.season);
   const season = requestedSeason && seasonOptions.includes(requestedSeason) ? requestedSeason : defaultSeason;
   return {
     league,

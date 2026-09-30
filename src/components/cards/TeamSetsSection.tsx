@@ -17,12 +17,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { claimTeamSetAction } from "@/lib/cards/setActions";
 import { TEAM_SET_BONUS, type WeekTeamSet } from "@/lib/cards/sets";
-
-/** "Aug 24" — the week label the pack shop already uses. */
-function weekLabel(week: string): string {
-  const date = new Date(`${week}T12:00:00Z`);
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-}
+import { weekDayLabel } from "@/lib/packs/week";
 
 /** One week's worth of sets, as the page computed them. */
 export interface WeekSets {
@@ -112,14 +107,14 @@ export default function TeamSetsSection({
               type="button"
               onClick={() => setWeek(option.week)}
               aria-current={option.week === week ? "true" : undefined}
-              aria-label={`Show the week of ${weekLabel(option.week)}`}
+              aria-label={`Show the week of ${weekDayLabel(option.week)}`}
               className={`rounded-full border px-3 py-1 text-xs transition ${
                 option.week === week
                   ? "border-coral bg-coral/15 font-semibold text-white"
                   : "border-border-strong text-muted hover:border-action-text hover:text-white"
               }`}
             >
-              {weekLabel(option.week)}
+              {weekDayLabel(option.week)}
               {option.sets.some(
                 (set) => set.complete && !option.claimed.includes(set.teamName) && !paid.has(`${option.week}|${set.teamName}`),
               ) ? (

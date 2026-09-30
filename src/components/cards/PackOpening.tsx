@@ -37,7 +37,8 @@ import type { PackVariant, RarityClass } from "@/lib/packs/config";
 import { flipTone, godPackFinaleSting, packDropThud, setMuted, walkoutSting } from "@/lib/packs/sounds";
 import { PATRON_FLAMES, patronFlameOf } from "@/lib/patron/flames";
 import PatronFlame from "@/components/patron/PatronFlame";
-import PackRip, { prefersReducedMotion } from "./PackRip";
+import PackRip from "./PackRip";
+import { prefersReducedMotion } from "@/lib/ui/reducedMotion";
 import PlayerCard3D from "./PlayerCard3D";
 
 /** One card out of a pack, exactly as openPackAction hands it over. */

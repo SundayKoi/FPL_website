@@ -25,6 +25,7 @@ import { fetchChase, fetchDailyRipStatus, fetchLiveWindow, type DailyRipStatus }
 import { weekNotices } from "@/lib/packs/weekNotices";
 import { createServerSupabase } from "@/lib/supabase/server";
 import PatronPerks from "@/components/patron/PatronPerks";
+import { weekDayLabel } from "@/lib/packs/week";
 
 export const metadata: Metadata = {
   title: "Cards — FPL",
@@ -34,12 +35,6 @@ export const metadata: Metadata = {
 
 /** "Aug 24" — the draw week is a plain calendar date, printed as UTC so no
  *  reader's timezone slides it back onto the wrong Sunday. */
-function monthDay(weekStart: string): string {
-  const date = new Date(`${weekStart}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime())) return weekStart;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-}
-
 const NO_RIP: DailyRipStatus = { left: 0, patron: false, flame: null };
 
 /**
@@ -314,8 +309,8 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
             {DRAW_TAGLINE} This week&apos;s pot is {fmtPoints(WEEKLY_DRAW_POT)} and a free pack.
             {latestDraw
               ? drawPanel.isWinner
-                ? ` Week of ${monthDay(latestDraw.weekStart)} — that one was yours.`
-                : ` Week of ${monthDay(latestDraw.weekStart)} — ${winnerName} held the ticket.`
+                ? ` Week of ${weekDayLabel(latestDraw.weekStart)} — that one was yours.`
+                : ` Week of ${weekDayLabel(latestDraw.weekStart)} — ${winnerName} held the ticket.`
               : ""}
           </p>
           {viewerDiscordId ? (

@@ -5,6 +5,7 @@ import IdentityClaimQueueRow from "@/components/players/IdentityClaimQueueRow";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { seasonBelongsToLeague } from "@/lib/league/season";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { firstParam } from "@/lib/searchParams";
 
 export const metadata: Metadata = {
   title: "Identity claims — FPL",
@@ -55,8 +56,8 @@ async function IdentityClaimsPage(props?: IdentityClaimsPageProps) {
   }
 
   const params = await (searchParams ?? Promise.resolve<Record<string, string | string[] | undefined>>({}));
-  const leagueValue = Array.isArray(params.league) ? params.league[0] : params.league;
-  const seasonValue = Array.isArray(params.season) ? params.season[0] : params.season;
+  const leagueValue = firstParam(params.league);
+  const seasonValue = firstParam(params.season);
   const selectedLeague = leagueValue === "premier" || leagueValue === "academy" ? leagueValue : null;
   const selectedSeason = selectedLeague
     && typeof seasonValue === "string"

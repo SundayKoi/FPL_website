@@ -30,7 +30,7 @@
 
 import { championDisplayName } from "@/lib/match-draft/champions";
 import type { PlayerAggRow } from "@/lib/stats/types";
-import { MEASURE_LABELS, type MeasureKey, type StyleMeasureKey, barsForRole, gameTotals, pctOf, type GameTotals } from "./measures";
+import { MEASURE_LABELS, type MeasureKey, type StyleMeasureKey, barsForRole, gameTotals, mean, pctOf, type GameTotals } from "./measures";
 import { rateByStyle, type StyleRating, type StyleYardstick } from "./styleRating";
 
 /** One game a player actually played, distilled from raw_stats. */
@@ -485,10 +485,6 @@ function roleCohort(cohort: PlayerAggRow[], row: PlayerAggRow): PlayerAggRow[] {
  *  should look empty — even the league's last place grinds games). */
 function toStat(percentile: number): number {
   return Math.round(20 + Math.max(0, Math.min(100, percentile)) * 0.79);
-}
-
-function mean(values: number[]): number {
-  return values.reduce((s, v) => s + v, 0) / (values.length || 1);
 }
 
 /** Games at or past this duration count as "clutch" territory. */

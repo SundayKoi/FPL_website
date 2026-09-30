@@ -13,6 +13,7 @@ import { FREE_AGENCY_PLAYER_SUMMARIES } from "@/lib/players/freeAgencyData";
 import { primaryLinkedAccountUrl } from "@/lib/players/linkedAccounts";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchLeagueSeasons } from "@/lib/league/season";
+import { resolveLeagueView } from "@/lib/league/context";
 
 export const metadata = { title: "Players — FPL Admin" };
 
@@ -24,8 +25,7 @@ export default async function AdminPlayersPage({ searchParams }: { searchParams:
   if (!isAdmin && !isOwner) redirect("/admin");
 
   const params = await searchParams;
-  const requestedLeague = Array.isArray(params.league) ? params.league[0] : params.league;
-  const league = requestedLeague === "academy" ? "academy" : "premier";
+  const league = resolveLeagueView(params.league);
   const leagueSeasons = await fetchLeagueSeasons(supabase);
   const identitySeason = leagueSeasons[league];
 

@@ -6,6 +6,7 @@ import type { CardLeague } from "@/lib/cards/queries";
 import { submitLineupAction } from "@/lib/fantasy/actions";
 import { FANTASY_ROLES, SALARY_CAP, type FantasyRole } from "@/lib/fantasy/config";
 import { validateLineup, type LineupSlotInput } from "@/lib/fantasy/validate";
+import { editionLabel, weekDayLabel } from "@/lib/packs/week";
 
 /** An owned copy, reduced to what the picker needs — a plain object so the
  *  server page can hand it across the boundary without the full card json. */
@@ -23,18 +24,8 @@ export type LineupSelection = Record<FantasyRole, number | null>;
 
 const EMPTY: LineupSelection = { Top: null, Jungle: null, Mid: null, Bot: null, Support: null };
 
-/** "Aug 24" for a `YYYY-MM-DD` Monday. Explicit locale + UTC so the server
- *  and client render the same string (weeks are UTC-Monday by definition). */
-function monthDay(weekStart: string): string {
-  return new Date(`${weekStart}T00:00:00.000Z`).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-}
-
 function optionLabel(card: LineupInventoryOption): string {
-  return `${card.playerName} — ${card.overall} OVR · WK ${monthDay(card.editionWeek)}${card.foil ? " ✦" : ""}`;
+  return `${card.playerName} — ${card.overall} OVR · ${editionLabel(card.editionWeek)}${card.foil ? " ✦" : ""}`;
 }
 
 function countdown(lockAtIso: string, now: number): string {
@@ -135,7 +126,7 @@ export default function LineupBuilder({
         setError(result.error);
         return;
       }
-      setMsg(`Lineup locked in for the week of ${monthDay(result.weekStart)}.`);
+      setMsg(`Lineup locked in for the week of ${weekDayLabel(result.weekStart)}.`);
       router.refresh();
     });
   }
@@ -147,7 +138,7 @@ export default function LineupBuilder({
   return (
     <div className="card-brand p-5" data-testid="lineup-builder">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="type-display text-2xl">Week of {monthDay(week)}</h2>
+        <h2 className="type-display text-2xl">Week of {weekDayLabel(week)}</h2>
         <span className="text-xs text-steel">
           {lockIn === "Locked" ? "Locked" : lockIn ? <>Locks in <b className="text-white">{lockIn}</b></> : " "}
         </span>

@@ -16,10 +16,7 @@ import type {
 } from "@/lib/match-draft/types";
 import { createServerSupabase } from "@/lib/supabase/server";
 import workspaceStyles from "@/components/league/LeagueToolWorkspace.module.css";
-
-function firstParam(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
+import { firstParam } from "@/lib/searchParams";
 
 function gameParam(value: string | undefined, bestOf: number): number {
   const parsed = Number(value);

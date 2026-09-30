@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lastCompletedWeekMonday, mondayOf } from "./week";
+import { editionLabel, lastCompletedWeekMonday, mondayOf, weekDayLabel } from "./week";
 
 describe("mondayOf", () => {
   it("returns the same Monday for every day of that EASTERN week", () => {
@@ -60,5 +60,18 @@ describe("lastCompletedWeekMonday", () => {
 
   it("crosses the year boundary", () => {
     expect(lastCompletedWeekMonday(new Date("2026-01-01T12:00:00Z"))).toBe("2025-12-22");
+  });
+});
+
+describe("week labels", () => {
+  it("formats the stored calendar date in UTC", () => {
+    expect(weekDayLabel("2026-08-17")).toBe("Aug 17");
+    expect(weekDayLabel("2026-01-05")).toBe("Jan 5");
+    expect(editionLabel("2026-08-17")).toBe("WK Aug 17");
+  });
+
+  it("returns unparseable input unchanged", () => {
+    expect(weekDayLabel("not-a-week")).toBe("not-a-week");
+    expect(editionLabel("not-a-week")).toBe("not-a-week");
   });
 });

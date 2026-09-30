@@ -10,10 +10,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { leaguePath } from "@/lib/league/links";
 import { teamSlug } from "@/lib/teams/teamPage";
-
-function firstParam(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
+import { firstParam } from "@/lib/searchParams";
 
 function gameParam(value: string | undefined, bestOf: number): number {
   const parsed = Number(value);

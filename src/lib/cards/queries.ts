@@ -11,7 +11,7 @@
 
 import { fetchAllPages } from "@/lib/supabase/pagination";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { mondayOf } from "@/lib/packs/week";
+import { mondayOf, weekDayLabel } from "@/lib/packs/week";
 import {
   exitsInWeek,
   firstPlayoffWeek,
@@ -736,17 +736,6 @@ export interface EditionWeekInfo {
   /** Set on a send-off week. `closesAt` is when the whole send-off vault
    *  shuts (ISO), or null while the finals have no date yet. */
   sendoff: { closesAt: string | null } | null;
-}
-
-/** "Sep 8" — the edition's Monday, formatted as UTC. The stored week is a
- *  plain calendar date, so letting a local timezone parse it would slide a
- *  chunk of the world back a day and name the wrong print run. */
-function weekDayLabel(week: string): string {
-  return new Date(`${week}T12:00:00.000Z`).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
 }
 
 /**

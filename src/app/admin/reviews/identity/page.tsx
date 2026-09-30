@@ -6,6 +6,7 @@ import IdentityClaimQueueRow from "@/components/players/IdentityClaimQueueRow";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { resolveAdminLeagueSeason } from "@/lib/admin/scope";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { firstParam } from "@/lib/searchParams";
 
 export const metadata = { title: "Roster identity reviews — FPL Admin" };
 
@@ -38,9 +39,9 @@ export default async function AdminIdentityReviewsPage({
 
   const params = await searchParams;
   const context = await resolveAdminLeagueSeason(supabase, params);
-  const pageParam = Array.isArray(params.page) ? params.page[0] : params.page;
+  const pageParam = firstParam(params.page);
   const page = pageParam && /^\d+$/.test(pageParam) ? Math.max(1, Number(pageParam)) : 1;
-  const recordParam = Array.isArray(params.record) ? params.record[0] : params.record;
+  const recordParam = firstParam(params.record);
   const selectedId = recordParam && /^[0-9a-f-]{36}$/i.test(recordParam) ? recordParam : undefined;
 
   const [pageResult, countResult] = await Promise.all([
