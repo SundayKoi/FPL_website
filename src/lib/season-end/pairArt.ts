@@ -1,19 +1,9 @@
-import { championByName } from "@/lib/match-draft/champions";
 import { cardPlayerKey } from "@/lib/cards/build";
 import { canonicalChampion } from "./best-of";
 import type { DuoChampionEvidence, DuoMemberEvidence } from "./duo";
 import type { SeasonRow } from "./derive";
 
 export type PairArtRole = "Top" | "Jungle" | "Mid" | "Bot" | "Support";
-export interface PairArtAppearance {
-  playerKey: string;
-  playerName: string;
-  team: string;
-  role: PairArtRole;
-  champion: string;
-  win: boolean;
-  performance: number | null;
-}
 export interface PairArtChampion {
   id: string;
   name: string;
@@ -99,54 +89,6 @@ export function selectPairChampion(
   return summaries[0] ?? null;
 }
 
-function selectPairArtChampion(appearances: readonly PairArtAppearance[], member: Pick<PairArtMember, "playerKey" | "role">): PairArtChampion | null {
-  const candidates = new Map<string, PairArtAppearance[]>();
-  for (const appearance of appearances) {
-    if (appearance.playerKey !== member.playerKey || appearance.role !== member.role || !appearance.champion.trim()) continue;
-    const champion = canonicalChampion(appearance.champion.trim());
-    candidates.set(champion.id, [...(candidates.get(champion.id) ?? []), appearance]);
-  }
-  if (!candidates.size) return null;
-
-  const performanceCovered = [...candidates.values()].every((candidate) => candidate.every((row) => finite(row.performance) !== null));
-  const summaries = [...candidates.entries()].map(([id, rows]) => {
-    const champion = canonicalChampion(rows[0].champion.trim());
-    const wins = rows.filter((row) => row.win).length;
-    return {
-      id,
-      name: champion.displayName,
-      games: rows.length,
-      wins,
-      winRate: wins / rows.length,
-      ...(performanceCovered ? { meanPerformance: rows.reduce((total, row) => total + finite(row.performance)!, 0) / rows.length } : {}),
-    };
-  });
-  summaries.sort((left, right) => {
-    if (left.wins !== right.wins) return right.wins - left.wins;
-    const rightRate = BigInt(right.wins) * BigInt(left.games);
-    const leftRate = BigInt(left.wins) * BigInt(right.games);
-    if (rightRate !== leftRate) return rightRate > leftRate ? 1 : -1;
-    if (performanceCovered && left.meanPerformance !== undefined && right.meanPerformance !== undefined && left.meanPerformance !== right.meanPerformance) {
-      return right.meanPerformance - left.meanPerformance;
-    }
-    return compareOrdinal(left.id, right.id);
-  });
-  return summaries[0] ?? null;
-}
-
-export function selectPairArt({
-  team,
-  members,
-  appearances,
-}: {
-  team: string;
-  members: readonly Pick<PairArtMember, "playerKey" | "name" | "role">[];
-  appearances: readonly PairArtAppearance[];
-}): [PairArtMember, PairArtMember] {
-  const scoped = appearances.filter((appearance) => teamKey(appearance.team) === teamKey(team));
-  return members.map((member) => ({ ...member, champion: selectPairArtChampion(scoped, member) })) as [PairArtMember, PairArtMember];
-}
-
 export function withPairChampionEvidence(
   rows: readonly SeasonRow[],
   members: readonly [DuoMemberEvidence, DuoMemberEvidence],
@@ -156,9 +98,4 @@ export function withPairChampionEvidence(
     ...member,
     champion: selectPairChampion(rows, member, team),
   })) as [DuoMemberEvidence, DuoMemberEvidence];
-}
-
-/** Unknown champions deliberately return no URL; the card renders a neutral panel. */
-export function pairChampionHasArt(champion: DuoChampionEvidence | null): boolean {
-  return Boolean(champion && championByName(champion.champion));
 }

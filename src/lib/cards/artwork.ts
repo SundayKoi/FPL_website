@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchAllPages } from "@/lib/supabase/pagination";
 import { championDisplayName } from "@/lib/match-draft/champions";
-import { fetchChampionSkinCatalog, type ChampionSkin } from "@/lib/packs/skins";
 
 export interface PlayedChampion {
   champion: string;
@@ -11,11 +10,6 @@ export interface PlayedChampion {
 export interface PlayedChampionsResult {
   available: boolean;
   champions: PlayedChampion[];
-}
-
-export interface ArtCatalogResult {
-  available: boolean;
-  skins: ChampionSkin[];
 }
 
 /** The same canonical display name used by card statistics and art URLs. */
@@ -66,9 +60,4 @@ export async function fetchPlayedChampions(
 export function isPlayedChampion(champions: PlayedChampion[], champion: string): boolean {
   const key = canonicalArtChampion(champion);
   return champions.some((entry) => canonicalArtChampion(entry.champion) === key);
-}
-
-export async function fetchArtCatalog(champion: string): Promise<ArtCatalogResult> {
-  const result = await fetchChampionSkinCatalog(champion);
-  return { available: result.available, skins: result.skins };
 }

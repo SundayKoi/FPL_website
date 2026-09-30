@@ -1,9 +1,8 @@
 import { DEFAULT_FOIL_TYPE, FOIL_CHANCE, FOIL_TYPE_WEIGHTS, SIGNED_CHANCE_CAP, type MintableFoilType } from "./config";
 import { validateSeasonEndCatalog, type SeasonEndCatalog, type SeasonEndCollectible, type SeasonEndKind } from "@/lib/season-end/collectibles";
-import { SEASON_END_PACK_PRICE, SEASON_END_PACK_SIZE, SEASON_END_RELEASE_RULES, validateSeasonEndReleaseRules } from "@/lib/season-end/release";
+import { SEASON_END_PACK_SIZE, SEASON_END_RELEASE_RULES, validateSeasonEndReleaseRules } from "@/lib/season-end/release";
 
 export { SEASON_END_PACK_SIZE };
-export const SEASON_END_PRICE = SEASON_END_PACK_PRICE;
 
 export interface SeasonEndRollRules {
   foilChance: number;
@@ -244,15 +243,4 @@ export function signableCopyDistribution(
     distribution.set(signable, (distribution.get(signable) ?? 0) + 1 / samples);
   }
   return distribution;
-}
-
-export function seasonEndDesignLabel(design: SeasonEndCollectible): string {
-  return `${design.display.title} · ${designSubjectLabel(design)}`;
-}
-
-function designSubjectLabel(design: SeasonEndCollectible): string {
-  if (design.kind === "season" || design.kind === "best_of") return design.player.name;
-  if (design.subject.kind === "player") return design.subject.player.name;
-  if (design.subject.kind === "team") return design.subject.team.name;
-  return design.subject.members.map((member) => member.name).join(" + ");
 }
