@@ -1,3 +1,4 @@
+import { rankClass } from "@/components/betting/rankClass";
 import { fmtPoints } from "@/lib/betting/format";
 import { FANTASY_ROLES, type FantasyRole } from "@/lib/fantasy/config";
 import type { LineupBreakdown } from "@/lib/fantasy/scoring";
@@ -26,13 +27,6 @@ export interface FantasySeasonRow {
   username: string;
   weeks: number;
   total: number;
-}
-
-function rankClass(rank: number | null): string {
-  if (rank === 1) return "text-gold";
-  if (rank === 2) return "text-muted";
-  if (rank === 3) return "text-amber-600";
-  return "text-muted/60";
 }
 
 /** "Top Rutledge 76.8 · Jng Bandit 60.2 · …" */

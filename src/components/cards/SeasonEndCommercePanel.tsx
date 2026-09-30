@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import CollectibleRenderer from "./CollectibleRenderer";
+import { copyPull, money } from "./seasonEndCopy";
 import type { SeasonEndCatalog } from "@/lib/season-end/collectibles";
 import type { SeasonEndOwnedCopy } from "@/lib/season-end/release-queries";
 import type { SeasonEndMarketListing, SeasonEndMarketWant, SeasonEndTradeOffer } from "@/lib/season-end/commerce-queries";
@@ -22,14 +23,6 @@ import {
 } from "@/lib/season-end/commerce-actions";
 
 type Market = { listings: SeasonEndMarketListing[]; wants: SeasonEndMarketWant[]; trades: SeasonEndTradeOffer[] };
-
-function money(value: number): string {
-  return value.toLocaleString("en-US");
-}
-
-function copyPull(copy: SeasonEndOwnedCopy) {
-  return { design: copy.payload, foil: copy.foil, foilType: copy.foilType as never, signed: copy.signed, autograph: copy.autograph, guaranteedFoil: copy.slotPosition === 5, inventoryId: copy.inventoryId };
-}
 
 function parseIds(value: string): number[] {
   if (!value.trim()) return [];

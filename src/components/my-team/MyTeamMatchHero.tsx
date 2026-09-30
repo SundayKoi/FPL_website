@@ -2,8 +2,7 @@ import Link from "next/link";
 import { matchDraftHref } from "@/lib/match-draft/rules";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
-
-const LINK_CLASS = "inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
+import { LINK_CLASS } from "./linkClass";
 
 export function MyTeamMatchHero({
   fixture,

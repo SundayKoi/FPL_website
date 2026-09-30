@@ -29,7 +29,7 @@ import {
   type SendoffStage,
 } from "@/lib/cards/sendoff";
 import { SENDOFF_LOOKS, sendoffLookOverlay } from "@/lib/cards/sendoffLooks";
-import { CURRENT_LINE, LINE_TIERS, lineTierLabel, skinLineByKey, type LineTier, type SkinLine } from "@/lib/cards/skinLines";
+import { CURRENT_LINE, LINE_TIERS, linePreviewOf, lineTierLabel, skinLineByKey } from "@/lib/cards/skinLines";
 import { mondayOf } from "@/lib/packs/week";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { firstParam } from "@/lib/searchParams";
@@ -54,19 +54,6 @@ const MOCKUP_EXIT: Record<SendoffStage, SendoffExitStage> = {
  *  one winner. Three is enough to see a ladder and few enough that six
  *  looks still fit on a screen the owner can compare across. */
 const LOOK_STAGES: SendoffStage[] = ["quarterfinalist", "finalist", "champion"];
-
-/** The skin-line preview the reference row shows, built the way
- *  /skin-lines builds it — the same shape PlayerCard3D's `preview` takes. */
-function previewOf(line: SkinLine, tier: LineTier) {
-  return {
-    label: lineTierLabel(line, tier),
-    className: line.className,
-    modifier: tier.modifier,
-    blend: line.blend,
-    accent: line.accent,
-    layers: tier.layers,
-  };
-}
 
 /** A day, in Eastern, the way every other card date on the site reads. */
 function day(iso: string): string {
@@ -372,7 +359,7 @@ export default async function SendoffPreviewPage({
                       interactive
                       forceFoil
                       foilType={chromaTier.replaces}
-                      preview={previewOf(currentLine, chromaTier)}
+                      preview={linePreviewOf(currentLine, chromaTier)}
                     />
                   ) : (
                     <PlayerCard3D card={best[0]} edition="season" interactive forceFoil />

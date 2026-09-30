@@ -21,7 +21,6 @@ import type { Atlas } from "@/lib/expeditions/atlas";
 import type { Rivalry } from "@/lib/expeditions/company";
 import { EXPEDITION_TIERS, SURGE_BONUS, type CardCopy, type ExpeditionTierKey } from "@/lib/expeditions/config";
 import type { ExpeditionRun, Grave } from "@/lib/expeditions/queries";
-import type { CardFate } from "@/lib/expeditions/routes";
 import { ACCOLADES, accoladesOf, rankStandings, type Accolade, type StandingRow } from "@/lib/expeditions/standings";
 import { milesOf, trailTitleOf } from "@/lib/expeditions/trail";
 import type { LeagueBoard } from "@/lib/expeditions/league";
@@ -30,10 +29,8 @@ import CampaignPanel from "../CampaignPanel";
 import CampPanel, { type CampPanelProps } from "../CampPanel";
 import ExpeditionRules from "../ExpeditionRules";
 import LeagueGoalPanel from "../LeagueGoalPanel";
+import { FATE_CLASS, FATE_LABEL } from "./fate";
 import { OPEN_RULES_EVENT } from "./Term";
-
-const FATE_LABEL: Record<CardFate["fate"], string> = { home: "Home", wounded: "Wounded", lost: "Lost", dead: "Dead" };
-const FATE_CLASS: Record<CardFate["fate"], string> = { home: "text-mint", wounded: "text-gold", lost: "text-coral", dead: "text-red-300" };
 
 export type DrawerTab = "log" | "standings" | "campaigns" | "camp" | "league" | "atlas" | "graveyard" | "rules";
 type TabKey = DrawerTab;

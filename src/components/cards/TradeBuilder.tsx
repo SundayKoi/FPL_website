@@ -30,6 +30,7 @@ import { createTradeAction, fetchInventoryCardAction, fetchPartnerInventoryActio
 import type { Collector } from "@/lib/trades/queries";
 import CardCopyPreview, { tierLabel } from "./CardCopyPreview";
 import EmptyShelf from "./EmptyShelf";
+import { byValue } from "./tradeCardOrder";
 
 /** An owned copy as the builder lists it — flat columns, plus the frozen card
  *  when the caller happens to hold it (your own shelf does; a partner's
@@ -53,11 +54,6 @@ export interface TradeCardOption {
  *  Duplicated rather than imported because that module is "use server" —
  *  importing a constant out of it would drag the actions into the bundle. */
 const MAX_CARDS = 20;
-
-/** Best card first — the thing a trader scans for. */
-function byValue(a: TradeCardOption, b: TradeCardOption): number {
-  return b.overall - a.overall || a.playerName.localeCompare(b.playerName);
-}
 
 /** A "" / "0" / "150" input as dollars, or null if it isn't a whole number. */
 function parseDollars(raw: string): number | null {
