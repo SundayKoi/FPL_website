@@ -19,22 +19,13 @@ import { FANTASY_ROLES, SALARY_CAP, WEEKLY_PAYOUTS, type FantasyRole } from "@/l
 import { fetchBettingUsernames, fetchLineup, fetchSeasonTotals, fetchWeekLineups } from "@/lib/fantasy/queries";
 import { currentFantasyWeek, lastCompletedWeek, lockTimeOf } from "@/lib/fantasy/week";
 import { fetchInventory } from "@/lib/packs/queries";
+import { weekDayLabel } from "@/lib/packs/week";
 
 export const metadata: Metadata = {
   title: "Fantasy — FPL",
   description: "Field a weekly lineup from the cards you own and play for betting dollars.",
 };
 
-
-/** "Aug 24" — explicit locale + UTC, matching LineupBuilder's monthDay so
- *  the two surfaces never disagree about which Monday a week is. */
-function monthDay(weekStart: string): string {
-  return new Date(`${weekStart}T00:00:00.000Z`).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-}
 
 /** The weekly deadline as the league reads it — "6:00 PM EDT" — derived from
  *  LOCK_HOUR_ET rather than written out, so a tuning change moves the copy. */
@@ -199,7 +190,7 @@ export async function FantasyPageView({
         initialSlots={initialSlots}
       />
 
-      <FantasyLeaderboard weekLabel={monthDay(scoredWeek)} weekly={weekly} season={seasonRows} />
+      <FantasyLeaderboard weekLabel={weekDayLabel(scoredWeek)} weekly={weekly} season={seasonRows} />
     </main>
   );
 }

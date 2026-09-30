@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { supabaseQuery } from "@/test-utils/supabaseQuery";
 
 const { createServerSupabase } = vi.hoisted(() => ({ createServerSupabase: vi.fn() }));
 
@@ -43,8 +44,8 @@ function mutationClient({
   const profileQuery = {
     select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn(async () => ({ data: profile, error: null })) })) })),
   };
-  const settingsQuery = readChain({ current_season: currentSeason, academy_season: academySeason });
-  const teamsQuery = readChain(activeTeams);
+  const settingsQuery = supabaseQuery({ data: { current_season: currentSeason, academy_season: academySeason }, error: null });
+  const teamsQuery = supabaseQuery({ data: activeTeams, error: null });
   const rpc = vi.fn(async (_functionName: string, params: { p_league_team_id: string }) => ({
     data: rosteredTeamIds.includes(params.p_league_team_id),
     error: rosterLookupErrorTeamIds.includes(params.p_league_team_id)
@@ -63,16 +64,6 @@ function mutationClient({
     }),
   };
   return { client, insert, update, updateChain, remove, profileQuery, rpc };
-}
-
-function readChain(data: unknown) {
-  const chain: Record<string, unknown> = {
-    select: vi.fn(() => chain),
-    eq: vi.fn(() => chain),
-    single: vi.fn(async () => ({ data, error: null })),
-    then: (resolve: (value: { data: unknown; error: null }) => unknown) => Promise.resolve({ data, error: null }).then(resolve),
-  };
-  return chain;
 }
 
 function mutationChain(result: { data?: { id: string }[] | null; error: { code?: string; message: string } | null }) {

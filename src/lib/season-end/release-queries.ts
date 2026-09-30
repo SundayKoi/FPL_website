@@ -301,7 +301,3 @@ export async function fetchSeasonEndPublicCopy(client: SupabaseClient, inventory
     economyVersion: String(row.economy_version ?? ""), rulesVersion: String(row.rules_version ?? ""),
   };
 }
-
-export async function fetchSeasonEndAdminRelease(client: SupabaseClient, league: CardLeague, season: string): Promise<SeasonEndRelease | null> {
-  return fetchSeasonEndRelease(client, league, season);
-}

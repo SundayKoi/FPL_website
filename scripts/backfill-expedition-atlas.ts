@@ -30,19 +30,14 @@
  * Safe to run twice: a stamped run is skipped, and both RPCs are
  * idempotent.
  */
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import { pathToFileURL } from "node:url";
 import { ROAD_REWARDS, ROAD_SIZES, placeTitle, readAtlasStamp, walkedBy, type AtlasRun, type AtlasStamp, type RoadReward } from "../src/lib/expeditions/atlas";
 import { EXPEDITION_TIERS, type ExpeditionTierKey } from "../src/lib/expeditions/config";
 import { fetchFixturesSince } from "../src/lib/expeditions/queries";
 import { watchWeeksOf, weatherOfRun, type WeatherKey } from "../src/lib/expeditions/weather";
 import { fetchAllPages } from "../src/lib/supabase/pagination";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
-}
+import { createServiceClientFromEnv } from "./lib/env";
 
 // === the plan (pure) =========================================================
 
@@ -326,9 +321,7 @@ export async function backfillAtlas(supabase: SupabaseClient, args: BackfillArgs
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
-    auth: { persistSession: false },
-  });
+  const supabase = createServiceClientFromEnv();
   await backfillAtlas(supabase, args);
 }
 

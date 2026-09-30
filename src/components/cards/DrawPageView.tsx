@@ -8,17 +8,12 @@ import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { fetchBettingUsernames } from "@/lib/fantasy/queries";
 import { WEEKLY_DRAW_POT } from "@/lib/packs/config";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { weekDayLabel } from "@/lib/packs/week";
 
 
 /** "Week of Aug 24" — the stored week is a plain calendar date, so it is
  *  read back and printed as UTC. Letting the browser's timezone parse it
  *  would slide a chunk of the world back a day onto the wrong Sunday. */
-function weekLabel(weekStart: string): string {
-  const date = new Date(`${weekStart}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime())) return weekStart;
-  return `Week of ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`;
-}
-
 /**
  * Display names for the winners. weekly_draws stores the Discord id and
  * betting_profiles has no public read policy, so the names come back
@@ -90,7 +85,7 @@ export async function DrawPageView({ league = "premier" }: { league?: CardLeague
                   which may have been dusted since. */}
               <PlayerCard3D card={draw.card} interactive />
               <figcaption className="flex flex-col items-center gap-1 text-center">
-                <span className="label-dash">{weekLabel(draw.weekStart)}</span>
+                <span className="label-dash">Week of {weekDayLabel(draw.weekStart)}</span>
                 <span className="text-sm font-semibold text-white">
                   {names.get(draw.discordId) ?? draw.discordId}
                 </span>

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchRosterClaimStates } from "./rosterClaims";
+import { draftRosterClaimEntries, fetchRosterClaimStates, loadRosterClaimTargets } from "./rosterClaims";
 
 type OwnRow = { id: string; player_pool_id: string; status: "pending" | "approved" } | null;
 
@@ -84,5 +84,59 @@ describe("fetchRosterClaimStates", () => {
 
     await expect(fetchRosterClaimStates(client as never, roster, "premier", "S5", "profile-1"))
       .rejects.toThrow("Roster claim status is unavailable");
+  });
+});
+
+describe("draftRosterClaimEntries", () => {
+  const teams = [
+    { id: "draft-team-1", name: "Academy Wolves" },
+    { id: "draft-team-2", name: "Retired Owls" },
+  ];
+  const activeLeagueTeams = [{ id: "league-team-1", name: " academy wolves " }];
+
+  it("targets canonical players whose draft team is an active league team", () => {
+    const entries = draftRosterClaimEntries(
+      [
+        { canonical_player_id: "pool-1", team_id: "draft-team-1" },
+        { canonical_player_id: "pool-1", team_id: "draft-team-1" },
+        { canonical_player_id: "pool-2", team_id: "draft-team-2" },
+        { canonical_player_id: null, team_id: "draft-team-1" },
+        { canonical_player_id: "pool-3", team_id: null },
+      ],
+      teams,
+      activeLeagueTeams,
+      (teamName) => `/academy/teams/${teamName}`,
+    );
+
+    expect(entries).toEqual([
+      { playerPoolId: "pool-1", leagueTeamId: "league-team-1", returnPath: "/academy/teams/Academy Wolves" },
+    ]);
+  });
+});
+
+describe("loadRosterClaimTargets", () => {
+  const entries = [{ playerPoolId: "pool-1", leagueTeamId: "league-team-1", returnPath: "/academy/players" }];
+
+  it("returns no targets without a season", async () => {
+    const { client, rpc } = clientFor({});
+
+    await expect(loadRosterClaimTargets(client as never, entries, "academy", null, null)).resolves.toEqual({});
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("marks targets unavailable when the claim state cannot be read", async () => {
+    const { client } = clientFor({}, null, { rpcPlayerId: "pool-1" });
+
+    await expect(loadRosterClaimTargets(client as never, entries, "academy", "A2", "profile-1")).resolves.toEqual({
+      "pool-1": {
+        ...entries[0],
+        league: "academy",
+        season: "A2",
+        signedIn: true,
+        unavailable: true,
+        state: "unclaimed",
+        claimLinkId: null,
+      },
+    });
   });
 });

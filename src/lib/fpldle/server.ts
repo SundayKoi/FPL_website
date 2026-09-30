@@ -8,6 +8,7 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { premiumAccess } from "@/lib/premium/access";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { dailyGameDate, dailyGameResetAt } from "@/lib/dailyDay";
+import { isIsoDate, isRecord } from "@/lib/validation";
 import {
   compareFpldleGuess,
   type FpldleCandidate,
@@ -181,12 +182,6 @@ function isFpldleLeague(value: unknown): value is FpldleLeague {
   return value === "premier" || value === "academy";
 }
 
-function isIsoDate(value: unknown): value is string {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-}
-
 function parseLeague(league: unknown): FpldleLeague {
   if (!isFpldleLeague(league)) {
     throw new FpldleError("INVALID_INPUT", "Choose a valid FPL'dle league.");
@@ -338,10 +333,6 @@ async function loadFpldleStreakSnapshot(
     leaderboard: rows,
     personal: rows.find((row) => row.isCurrentUser) ?? null,
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function cardToCandidate(

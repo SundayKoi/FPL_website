@@ -6,26 +6,13 @@ import IdentityClaimQueueRow from "@/components/players/IdentityClaimQueueRow";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { resolveAdminLeagueSeason } from "@/lib/admin/scope";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { firstParam } from "@/lib/searchParams";
+import { type PendingIdentityRow } from "@/lib/players/identity";
+import { utcDateLabel } from "@/lib/time";
 
 export const metadata = { title: "Roster identity reviews — FPL Admin" };
 
 const PAGE_SIZE = 30;
-type PendingIdentityRow = {
-  id: string;
-  player_pool_id: string;
-  profile_id: string;
-  league_team_id: string;
-  league: "premier" | "academy";
-  season: string;
-  source: "team" | "card" | "admin";
-  requested_at: string;
-};
-
-function formatRequested(iso: string) {
-  const date = new Date(iso);
-  if (!Number.isFinite(date.getTime())) return "—";
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-}
 
 export default async function AdminIdentityReviewsPage({
   searchParams,
@@ -38,9 +25,9 @@ export default async function AdminIdentityReviewsPage({
 
   const params = await searchParams;
   const context = await resolveAdminLeagueSeason(supabase, params);
-  const pageParam = Array.isArray(params.page) ? params.page[0] : params.page;
+  const pageParam = firstParam(params.page);
   const page = pageParam && /^\d+$/.test(pageParam) ? Math.max(1, Number(pageParam)) : 1;
-  const recordParam = Array.isArray(params.record) ? params.record[0] : params.record;
+  const recordParam = firstParam(params.record);
   const selectedId = recordParam && /^[0-9a-f-]{36}$/i.test(recordParam) ? recordParam : undefined;
 
   const [pageResult, countResult] = await Promise.all([
@@ -103,7 +90,7 @@ export default async function AdminIdentityReviewsPage({
                 playerName={players.get(row.player_pool_id) ?? "Unknown player"}
                 claimantName={profiles.get(row.profile_id) ?? "a signed-in player"}
                 source={row.source}
-                requestedLabel={formatRequested(row.requested_at)}
+                requestedLabel={utcDateLabel(row.requested_at)}
               />
             ))}
           </div>

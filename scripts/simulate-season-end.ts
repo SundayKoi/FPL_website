@@ -9,24 +9,18 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, extname } from "node:path";
 import { createHash } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
 import { simulateSeasonEnd } from "../src/lib/season-end/simulator";
 import { catalogHash, releaseRevisionDigest, stableJson, validateSeasonEndCatalogForLock, type SeasonEndCatalog, type SeasonEndCollectible } from "../src/lib/season-end/collectibles";
 import { type SeasonEndRollRules } from "../src/lib/packs/season-end";
 import { validateSeasonEndEconomy, type SeasonEndEconomyRules } from "../src/lib/season-end/release";
-
-function env(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing ${name}`);
-  return value;
-}
+import { createServiceClientFromEnv } from "./lib/env";
 
 function arg(name: string): string | undefined {
   return process.argv.find((value) => value.startsWith(`--${name}=`))?.slice(name.length + 3);
 }
 
 async function main(): Promise<void> {
-  const client = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
+  const client = createServiceClientFromEnv();
   const releaseId = arg("release");
   const releaseQuery = client.from("season_end_releases").select("id, league, season, state, price, catalog_hash, revision_digest, rules_version, economy_version, rules_payload, economy_payload, signing_book, signature_calibration, source_completeness, withheld_awards, published_at");
   const { data: release, error: releaseError } = releaseId

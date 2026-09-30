@@ -18,6 +18,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { patronActive } from "@/lib/patron/flames";
 import styles from "@/components/cards/CardsPageShell.module.css";
+import { firstParam } from "@/lib/searchParams";
 
 /** The card's recorded weekly readings — the season arc. Tier changes get a
  *  highlighted marker. Hidden until two points exist.
@@ -116,11 +117,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 /** A query flag is "on" when it reads `1`; repeated params arrive as an
  *  array, so take the first. */
 function flag(value: string | string[] | undefined): boolean {
-  return (Array.isArray(value) ? value[0] : value) === "1";
+  return firstParam(value) === "1";
 }
 
 function cardEdition(value: string | string[] | undefined): CardEdition {
-  return (Array.isArray(value) ? value[0] : value) === "season" ? "season" : "weekly";
+  return firstParam(value) === "season" ? "season" : "weekly";
 }
 
 export default async function CardSharePage({

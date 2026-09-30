@@ -12,18 +12,12 @@
  * Run: npx tsx scripts/inspect-card-scores.ts [top N per role]
  * Needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY. Read-only.
  */
-import { createClient } from "@supabase/supabase-js";
 import { OVR_BASE, OVR_SCALE, scoreWeightsForRole } from "../src/lib/cards/build";
 import { fetchAllCardSeasons, fetchCurrentWeekCards } from "../src/lib/cards/queries";
 import type { PlayerCardData } from "../src/lib/cards/build";
 import { STYLE_WEIGHT, WIN_WEIGHT, fundamentalWeightsForRole } from "../src/lib/cards/styleRating";
 import { styleYardstickFor } from "../src/lib/cards/styleYardsticks";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
-}
+import { createServiceClientFromEnv } from "./lib/env";
 
 /** raw_stats' spelling, which is what the weights are keyed by. */
 const ROLE_ORDER = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"];
@@ -79,9 +73,7 @@ function describe(card: PlayerCardData): string {
 
 async function main(): Promise<void> {
   const top = Number(process.argv[2] ?? 3);
-  const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
-    auth: { persistSession: false },
-  });
+  const supabase = createServiceClientFromEnv();
 
   for (const { league, season } of await fetchAllCardSeasons(supabase)) {
     const cards = await fetchCurrentWeekCards(supabase, season);

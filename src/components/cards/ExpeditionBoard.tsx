@@ -40,7 +40,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
-import { teamBadgeKey } from "@/lib/cards/build";
+import { teamBadgeKey } from "@/lib/cards/cardKeys";
 import {
   abandonCampaignAction,
   claimExpeditionAction,

@@ -4,6 +4,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchAcademyDraftData } from "@/lib/academy/draft";
 import { fetchLeagueSeasons } from "@/lib/league/season";
 import LeaguePageShell from "@/components/league/LeaguePageShell";
+import { firstParam } from "@/lib/searchParams";
 
 export const metadata: Metadata = {
   title: "Stats — FPL Academy",
@@ -17,7 +18,6 @@ export default async function AcademyStatsPage({ searchParams }: { searchParams:
     fetchLeagueSeasons(supabase),
   ]);
   const teamNames = academy.teams.map((team) => team.name);
-  const first = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
   return (
     <LeaguePageShell
       league="academy"
@@ -27,11 +27,11 @@ export default async function AcademyStatsPage({ searchParams }: { searchParams:
       description="Season records, player performance, team results, and head-to-head views for Academy."
     >
       <StatsTabs
-        initialPlayer={first(params.player)}
-        initialTab={first(params.tab)}
-        initialTeam={first(params.team)}
-        initialSeason={first(params.season)}
-        initialPhase={first(params.phase)}
+        initialPlayer={firstParam(params.player)}
+        initialTab={firstParam(params.tab)}
+        initialTeam={firstParam(params.team)}
+        initialSeason={firstParam(params.season)}
+        initialPhase={firstParam(params.phase)}
         teamNames={teamNames}
         allowedSeasons={[seasons.academy]}
       />

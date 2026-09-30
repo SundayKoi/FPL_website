@@ -14,23 +14,12 @@
 
 import { championSplashUrl } from "@/lib/match-draft/champions";
 import { mintOrdinal } from "@/lib/cards/moments";
-import { FOIL_TYPE_LABELS, foilTypeOf, type FoilType } from "@/lib/packs/config";
+import { FOIL_TYPE_LABELS, foilTypeOf } from "@/lib/packs/config";
 import type { PlayerCardData } from "@/lib/cards/build";
 import AutographMark from "./AutographMark";
 import DrawLaurel from "./DrawLaurel";
 import ExpeditionMark from "./ExpeditionMark";
-
-/** Same layer classes PlayerCard3D composes for each parallel. */
-const FOIL_LAYERS: Record<FoilType, { className: string; blend: "color-dodge" | "screen" }> = {
-  prisma: { className: "card-foil-holo", blend: "color-dodge" },
-  aurora: { className: "card-foil-aurora", blend: "screen" },
-  refractor: { className: "card-foil-refractor", blend: "color-dodge" },
-  ice: { className: "card-foil-ice", blend: "color-dodge" },
-  // Eclipse rides its own GROUND layers as well (the drain and the
-  // corona, rendered outside the tilt-swung wrapper). This entry is the
-  // bead of gold that moves with the pointer.
-  eclipse: { className: "card-foil-eclipse", blend: "screen" },
-};
+import { FOIL_LAYERS } from "./cardStyles";
 
 /**
  * The center logo draws at ~145px CSS (290px on retina), and most stored

@@ -1,8 +1,7 @@
 import Link from "next/link";
 import type { MyTeamOpponent } from "@/lib/my-team/types";
 import TeamStatsRadar from "@/components/stats/TeamStatsRadar";
-
-const LINK_CLASS = "inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
+import { LINK_CLASS } from "./linkClass";
 
 type OpponentTeamStatsCardProps = {
   opponent: MyTeamOpponent;

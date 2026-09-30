@@ -48,13 +48,12 @@ with distinct player identities and consistent five-player teams/results count.
 Missing required numeric fields withhold the corresponding award. All awards are
 provisional until the ingest and fixtures have been reviewed.
 
-The older `src/lib/cards/seasonsEnd/awards.ts` adapter remains a separate legacy
-engine with its own assignment contract and tests. This results-based selector
-applies to the active `/admin/seasons-end` preview only.
+This results-based selector applies to the active `/admin/seasons-end` preview
+only. (The older `src/lib/cards/seasonsEnd` engine had no remaining callers and
+was removed on 2026-09-30.)
 
 Verification: `src/lib/season-end/best-of.test.ts` and
 `src/lib/season-end/derive.test.ts` cover thresholds, ranking, caps, ties,
-aliases, pagination and isolation; `src/lib/cards/seasonsEnd/*.test.ts` keeps
-the legacy assignment engine covered; `src/app/admin/seasons-end/page.test.tsx`
+aliases, pagination and isolation; `src/app/admin/seasons-end/page.test.tsx`
 covers the staff/patron server gate, the patron-safe card view, and read-error/
 empty states. No migration is required.

@@ -329,26 +329,6 @@ export async function fetchOpenWants(supabase: SupabaseClient, season: string): 
   return hydrateWants(supabase, rows);
 }
 
-/** One collector's own wants, open first then recent history. */
-export async function fetchWantsBy(
-  supabase: SupabaseClient,
-  discordId: string,
-  season: string,
-): Promise<MarketWant[]> {
-  const rows = await pageAll<WantDbRow>((from, to) =>
-    supabase
-      .from("card_wants")
-      .select(WANT_COLUMNS)
-      .eq("discord_id", discordId)
-      .eq("season", season)
-      .order("id", { ascending: false })
-      .range(from, to),
-  );
-  const open = rows.filter((row) => row.status === "open");
-  const closed = rows.filter((row) => row.status !== "open").slice(0, HISTORY_LIMIT);
-  return hydrateWants(supabase, [...open, ...closed]);
-}
-
 /**
  * Who a want may be posted for: this season's printed cards, by slug.
  *

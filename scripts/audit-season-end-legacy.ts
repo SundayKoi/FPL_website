@@ -6,16 +6,10 @@
  *   npm run audit:season-end-legacy
  */
 
-import { createClient } from "@supabase/supabase-js";
-
-function env(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing ${name}`);
-  return value;
-}
+import { createServiceClientFromEnv } from "./lib/env";
 
 async function main(): Promise<void> {
-  const client = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
+  const client = createServiceClientFromEnv();
   const { data: releases, error: releaseError } = await client
     .from("season_end_releases")
     .select("id, league, season, state, revision_digest, economy_version, rules_payload, economy_payload, signing_book")

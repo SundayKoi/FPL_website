@@ -7,7 +7,7 @@ import { fetchHomepageFeaturedSettings } from "@/lib/home/homepageSettings";
 import { fetchHomepageSchedule, selectHomepageFeaturedFixture } from "@/lib/home/schedule";
 import { fetchAcademyDraftData } from "@/lib/academy/draft";
 import { filterAcademyFixtures } from "@/lib/academy/filtering";
-import { academyTeamNames } from "@/lib/league/context";
+import { academyTeamNames, resolveLeagueView } from "@/lib/league/context";
 import { resolveAdminLeagueSeason } from "@/lib/admin/scope";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
 import { FIXTURE_STAGES } from "@/lib/schedule/types";
@@ -30,10 +30,6 @@ type RecentIdentityRow = {
   league_team_id: string | null;
   decided_at: string | null;
 };
-
-function first(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
 
 function timeAgo(value: string, now = Date.now()) {
   const timestamp = Date.parse(value);
@@ -66,8 +62,7 @@ export default async function AdminPage({
   if (!isFullAdmin && !isBroadcaster) redirect("/");
 
   const params: AdminSearchParams = await (searchParams ?? Promise.resolve({} as AdminSearchParams));
-  const requestedLeague = first(params.league);
-  const homepageLeague = requestedLeague === "academy" ? "academy" : "premier";
+  const homepageLeague = resolveLeagueView(params.league);
   const [settingsResult, context, homepageSettings] = await Promise.all([
     supabase.from("league_settings").select("current_season, current_phase, signups_open, homepage_mode").eq("id", 1).single(),
     resolveAdminLeagueSeason(supabase, params),

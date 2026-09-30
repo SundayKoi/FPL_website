@@ -4,6 +4,7 @@ import { compareSeasonsNewestFirst } from "@/lib/stats/queries";
 import { seasonBelongsToLeague } from "@/lib/league/season";
 import { compareFixtures } from "@/lib/schedule/format";
 import type { FixtureRow, FixtureStage } from "@/lib/schedule/types";
+import { firstParam } from "@/lib/searchParams";
 
 export type ScheduleLeague = "premier" | "academy";
 export type SchedulePhase = "regular" | "gauntlet" | "playoffs";
@@ -23,10 +24,6 @@ const REGULAR_STAGES = ["week_1", "week_2", "week_3", "week_4", "week_5"] as con
 const PLAYOFF_STAGES = ["quarterfinals", "semifinals", "finals"] as const;
 const GAUNTLET_STAGES = ["gauntlet_r1", "gauntlet_r2"] as const;
 const VALID_PHASES = new Set<SchedulePhase>(["regular", "gauntlet", "playoffs"]);
-
-function first(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
 
 function parseWeek(value: string | undefined): 1 | 2 | 3 | 4 | 5 | null {
   if (!value || !/^[1-5]$/.test(value)) return null;
@@ -82,14 +79,14 @@ export function resolveScheduleViewState(
     ...seasonsOf(leagueRows),
     ...(ownedConfigured ? [ownedConfigured] : []),
   ])).sort(compareSeasonsNewestFirst);
-  const requestedSeason = first(params.season);
+  const requestedSeason = firstParam(params.season);
   const season = requestedSeason && seasons.includes(requestedSeason) ? requestedSeason : seasons[0] ?? null;
   const fixtures = season ? leagueRows.filter((row) => row.season === season) : [];
   const defaultStage = defaultStageFor(fixtures, now);
-  const requestedPhase = first(params.phase);
+  const requestedPhase = firstParam(params.phase);
   const phaseIsValid = requestedPhase !== undefined && VALID_PHASES.has(requestedPhase as SchedulePhase);
   const academyGauntlet = league === "academy" && requestedPhase === "gauntlet";
-  const requestedWeek = parseWeek(first(params.week));
+  const requestedWeek = parseWeek(firstParam(params.week));
 
   let phase = phaseForStage(defaultStage, league);
   let week = phase === "regular" ? weekForStage(defaultStage) : defaultRegularWeek(fixtures);

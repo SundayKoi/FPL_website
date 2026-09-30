@@ -46,17 +46,11 @@
  * Needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY. Re-running a week
  * overwrites it rather than duplicating it.
  */
-import { createClient } from "@supabase/supabase-js";
 import { fetchAllCardSeasons, fetchCardEditionWeeks, fetchSeasonCards } from "../src/lib/cards/queries";
 import { buildEditionForWeek } from "../src/lib/cards/editionBuilder";
 import { ALL_WEEKS, archiveEdition, weeksToArchive } from "../src/lib/cards/editions";
 import { mondayOf } from "../src/lib/packs/week";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
-}
+import { createServiceClientFromEnv } from "./lib/env";
 
 async function main(): Promise<void> {
   // argv first, then the workflow input — an empty string from a
@@ -75,9 +69,7 @@ async function main(): Promise<void> {
     throw new Error(`Edition week must be a Monday (Eastern) in YYYY-MM-DD form; got "${requested}"`);
   }
 
-  const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
-    auth: { persistSession: false },
-  });
+  const supabase = createServiceClientFromEnv();
 
   const seasons = await fetchAllCardSeasons(supabase);
   if (seasons.length === 0) throw new Error("No seasons are configured in league_settings.");

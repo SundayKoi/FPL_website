@@ -19,6 +19,7 @@ import {
   type StyleStat,
   type StyleYardstick,
 } from "./styleRating";
+import { mean } from "./measures";
 
 /** A raw_stats row as the generator reads it: what the card engine and the
  *  weekly aggregation both need, plus the season and side. */
@@ -34,10 +35,6 @@ const OFFSET_SHRINK_GAMES = 30;
 
 /** Four significant figures: plenty for grading, and keeps the file small. */
 const round = (value: number): number => Number(value.toPrecision(4));
-
-function mean(values: number[]): number {
-  return values.reduce((s, v) => s + v, 0) / (values.length || 1);
-}
 
 /** Linear-interpolated quantiles (numpy's default) at every 5th percentile. */
 export function quantiles(values: number[]): number[] {

@@ -1,6 +1,7 @@
-import { cardPlayerKey } from "@/lib/cards/build";
+import { cardPlayerKey } from "@/lib/cards/cardKeys";
 import { BEST_OF_MIN_PLAYER_GAMES } from "./best-of";
 import type { SeasonRow } from "./derive";
+import { finiteField, rowIdentity, teamKey } from "./rowKeys";
 
 export const DUO_FORMULA_VERSION = "duo-impact-v1" as const;
 export const DUO_MIN_GAMES = BEST_OF_MIN_PLAYER_GAMES;
@@ -95,14 +96,6 @@ export type DuoPairScoreResult =
   | { status: "unearned"; note: string; pairs: [] }
   | { status: "ready"; note?: undefined; pairs: DuoPairScore[] };
 
-const finite = (row: SeasonRow, field: string): number | null => {
-  const value = row[field];
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-};
-
-const identity = (row: SeasonRow) => `${row.summoner_name}#${row.tag}`;
-const teamKey = (team: string) => team.trim().toLowerCase();
-
 /**
  * The midrank convention shared by the season-end performance and Duo Impact
  * calculations. Equal observations receive equal scores and a singleton is
@@ -134,7 +127,7 @@ function coverageNote(definition: DuoPairDefinition, roleRows: Map<DuoRole, Seas
   const incomplete = definition.roles.flatMap((role) => {
     const rows = roleRows.get(role) ?? [];
     return DUO_COMPONENTS
-      .filter(({ key }) => !rows.length || rows.some((row) => finite(row, key) === null))
+      .filter(({ key }) => !rows.length || rows.some((row) => finiteField(row, key) === null))
       .map(({ label }) => `${role} ${label}`);
   });
   if (!incomplete.length) return null;
@@ -171,8 +164,8 @@ export function scoreDuoPairs(
     const current: { team: string; members: DuoPairScore["members"]; games: Array<readonly [SeasonRow, SeasonRow]> } = grouped.get(key) ?? {
       team: leftRow.team_name,
       members: [
-        { playerKey: cardPlayerKey(leftRow.summoner_name, leftRow.tag), name: identity(leftRow), role: leftRole },
-        { playerKey: cardPlayerKey(rightRow.summoner_name, rightRow.tag), name: identity(rightRow), role: rightRole },
+        { playerKey: cardPlayerKey(leftRow.summoner_name, leftRow.tag), name: rowIdentity(leftRow), role: leftRole },
+        { playerKey: cardPlayerKey(rightRow.summoner_name, rightRow.tag), name: rowIdentity(rightRow), role: rightRole },
       ] as const,
       games: [],
     };
@@ -201,7 +194,7 @@ export function scoreDuoPairs(
   for (const role of definition.roles) {
     references.set(role, Object.fromEntries(DUO_COMPONENTS.map(({ key }) => [
       key,
-      (roleRows.get(role) ?? []).map((row) => finite(row, key)!),
+      (roleRows.get(role) ?? []).map((row) => finiteField(row, key)!),
     ])) as Record<DuoMetricKey, number[]>);
   }
 
@@ -215,7 +208,7 @@ export function scoreDuoPairs(
       for (const [memberIndex, row] of [leftRow, rightRow].entries()) {
         const roleReference = references.get(definition.roles[memberIndex])!;
         for (const { key: metric, weight } of DUO_COMPONENTS) {
-          const raw = finite(row, metric)!;
+          const raw = finiteField(row, metric)!;
           const percentile = midrankPercentile(raw, roleReference[metric])!;
           memberComponentSums[memberIndex][metric] += percentile;
           rawSums[memberIndex][metric] += raw;

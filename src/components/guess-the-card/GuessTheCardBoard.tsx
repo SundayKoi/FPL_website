@@ -6,18 +6,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
 import GuessTheCard from "./GuessTheCard";
 import type { GuessTheCardGame, GuessTheCardLeague, GuessTheCardPuzzleReset, GuessTheCardSubmission } from "@/lib/guess-the-card/server";
+import { formatCountdown } from "@/lib/time";
 
 type SubmitGuess = (input: unknown) => Promise<GuessTheCardSubmission>;
 type ResetPuzzle = (input: unknown) => Promise<GuessTheCardPuzzleReset>;
-
-function countdownLabel(expiresAt: string, now: number): string {
-  const remaining = Math.max(0, new Date(expiresAt).getTime() - now);
-  const totalSeconds = Math.floor(remaining / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
-}
 
 function shareText(game: GuessTheCardGame): string {
   const squares = game.guesses.map((guess) => (guess.correct ? "🟩" : "⬜")).join("");
@@ -120,7 +112,7 @@ export default function GuessTheCardBoard({
           </div>
           <div className="text-right">
             <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-muted">Next puzzle</span>
-            <span aria-label="Next puzzle countdown" className="font-mono text-lg font-bold text-gold">{now === null ? "--:--:--" : countdownLabel(game.expiresAt, now)}</span>
+            <span aria-label="Next puzzle countdown" className="font-mono text-lg font-bold text-gold">{now === null ? "--:--:--" : formatCountdown(new Date(game.expiresAt).getTime() - now)}</span>
           </div>
         </div>
       </header>

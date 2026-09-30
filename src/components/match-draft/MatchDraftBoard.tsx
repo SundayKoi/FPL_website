@@ -2,223 +2,36 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_OVERLAY_SLOT_WIDTH, type OverlaySlotWidth } from "@/lib/match-draft/overlaySlot";
-import type { CSSProperties } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 import ConnectionBanner from "@/components/system/ConnectionBanner";
-import {
-  connectionStatusForChannel,
-  type LiveConnectionStatus,
-} from "@/lib/realtime/connection";
 import { CHAMPIONS, championLookup, type ChampionRole, type MatchDraftChampion } from "@/lib/match-draft/champions";
 import { actionForStep, DRAFT_TURN_SECONDS, isChampionUnavailable, LCS_DRAFT_STEPS, nextEmptyStepIndex, normalizeChampionName } from "@/lib/match-draft/rules";
-import { overtimeSecondsForDeadline, signedSecondsRemaining, turnAllowanceSeconds, turnDeadlineAt } from "@/lib/match-draft/timing";
-import { draftTurnKey, emptyDraftState, formatFromSettings, stateFromDraftRow, timeoutRetryable } from "@/lib/match-draft/sync";
-import { draftMatchupViewFromState, type DraftMatchupPickView } from "@/lib/match-draft/presentation";
-import { DraftMatchupBoard, DraftPickSlot } from "@/components/match-draft/DraftMatchupBoard";
-import { MATCH_DRAFT_IMAGE_SIZES, MATCH_DRAFT_IMAGE_SIZE_ORDER } from "@/components/match-draft/matchDraftSizes";
-import type { DraftSide, MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftLayout, MatchDraftRow, MatchDraftSeriesFormat, MatchDraftState, OpenDraftLobbyHandle } from "@/lib/match-draft/types";
+import { overtimeSecondsForDeadline } from "@/lib/match-draft/timing";
+import { emptyDraftState } from "@/lib/match-draft/sync";
+import { draftMatchupViewFromState } from "@/lib/match-draft/presentation";
+import { DraftMatchupBoard, sideClass } from "@/components/match-draft/DraftMatchupBoard";
+import { MATCH_DRAFT_IMAGE_SIZE_ORDER } from "@/components/match-draft/matchDraftSizes";
+import { ChampionPool } from "@/components/match-draft/ChampionPool";
+import { CopyLinkButton } from "@/components/match-draft/CopyButtons";
+import { ChangeRequestBanner, DraftCompleteBanner, GameResultPanel, ReadyCheckPanel, SideChooser } from "@/components/match-draft/DraftBanners";
+import { ImageSizeStepper, SeriesFormatControls, SeriesGameTabs } from "@/components/match-draft/DraftControls";
+import { LockInBar } from "@/components/match-draft/LockInBar";
+import { RoleOrderModal } from "@/components/match-draft/RoleOrderModal";
+import { TurnTimer } from "@/components/match-draft/TurnTimer";
+import { sameTeam, saveErrorMessage, teamOnSide, timingForNextStep } from "@/components/match-draft/draftBoardHelpers";
+import { flashTitle, playTurnPing } from "@/components/match-draft/turnAlerts";
+import { useAutoSkip } from "@/components/match-draft/useAutoSkip";
+import { useMatchDraftChannel } from "@/components/match-draft/useMatchDraftChannel";
+import { useRoleOrders } from "@/components/match-draft/useRoleOrders";
+import type { DraftSide, MatchDraftAction, MatchDraftGameTab, MatchDraftLayout, MatchDraftSeriesFormat, MatchDraftState, OpenDraftLobbyHandle } from "@/lib/match-draft/types";
 import type { LeagueView } from "@/lib/league/context";
 import styles from "@/components/league/LeagueToolWorkspace.module.css";
-
-const sideClass: Record<DraftSide, string> = {
-  blue: "border-cyan/50 bg-cyan/10 text-cyan",
-  red: "border-coral/50 bg-coral/10 text-coral",
-};
-
-const imageSizes = MATCH_DRAFT_IMAGE_SIZE_ORDER.map((value) => ({ value, ...MATCH_DRAFT_IMAGE_SIZES[value] }));
-const sizeByValue = MATCH_DRAFT_IMAGE_SIZES;
 
 // OBS contract: the overlay's portrait slots fill their column up to a cap,
 // and the cap is a query switch (?slot=) — see src/lib/match-draft/overlaySlot.ts
 // for the rule and the reason it is a plain module. Both classes are spelled
 // out so Tailwind emits them.
 const OBS_SLOT_CAP: Record<OverlaySlotWidth, string> = { 350: "max-w-[350px]", 700: "max-w-[700px]" };
-
-/** Copies a shareable drafter URL (built from the page's own origin, so it
- *  works on any deploy) with per-button "Copied" feedback. */
-function CopyLinkButton({ label, path }: { label: string; path: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        void navigator.clipboard.writeText(`${window.location.origin}${path}`).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        });
-      }}
-      className="rounded-full border border-border-strong bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
-    >
-      {copied ? "Copied ✓" : label}
-    </button>
-  );
-}
-
-/** The current game's tourney code with a copy button — rendered in the
- *  draft-complete banner so captains go straight from draft to lobby. */
-function TourneyCodeChip({ code }: { code: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <span className="flex items-center gap-2 rounded border border-border-subtle/60 bg-canvas/60 px-2.5 py-1.5">
-      <code className="font-mono text-sm text-white">{code}</code>
-      <button
-        type="button"
-        onClick={() => {
-          void navigator.clipboard.writeText(code).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-          });
-        }}
-        className="rounded-full border border-border-strong bg-surface px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
-      >
-        {copied ? "Copied" : "Copy"}
-      </button>
-    </span>
-  );
-}
-
-const ROLE_LABELS = ["Top", "Jungle", "Mid", "ADC", "Support"] as const;
-type RoleOrders = Partial<Record<DraftSide, (string | null)[]>>;
-
-/** Short sine ping for "it's your turn". Best-effort: browsers may refuse
- *  audio before any user gesture, and that's fine. */
-function playTurnPing() {
-  try {
-    const AudioCtor =
-      window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtor) return;
-    const ctx = new AudioCtor();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.12, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.5);
-    osc.onended = () => void ctx.close();
-  } catch {
-    // audio is polish, never an error
-  }
-}
-
-/** Blink the tab title a few times so an alt-tabbed captain notices. */
-function flashTitle() {
-  if (typeof document === "undefined") return;
-  const original = document.title;
-  let on = false;
-  let count = 0;
-  const interval = setInterval(() => {
-    on = !on;
-    count += 1;
-    document.title = on ? "🔔 Your turn to draft!" : original;
-    if (count >= 8 || document.hasFocus()) {
-      clearInterval(interval);
-      document.title = original;
-    }
-  }, 900);
-}
-
-/** Supabase/Postgrest errors are plain objects, not Error instances — pull a
- *  human message out of whatever was thrown, and translate the RLS rejection
- *  every non-captain visitor hits into plain language. */
-function saveErrorMessage(err: unknown, fallback: string): string {
-  const raw =
-    err instanceof Error
-      ? err.message
-      : typeof (err as { message?: unknown })?.message === "string"
-        ? (err as { message: string }).message
-        : "";
-  if (!raw) return fallback;
-  if (/row-level security|permission denied|violates row-level/i.test(raw)) {
-    return "You don't have permission to draft this match — sign in as one of this fixture's captains or an admin.";
-  }
-  if (/JWT|token|not authenticated/i.test(raw)) {
-    return "You're not signed in — log in as a captain or admin to draft.";
-  }
-  // RPC validation errors read "CODE: human message" — show just the message.
-  if (/^[A-Z_]+:\s/.test(raw)) return raw.replace(/^[A-Z_]+:\s*/, "");
-  return `${fallback} (${raw})`;
-}
-
-const BEST_OF_OPTIONS: MatchDraftBestOf[] = [1, 3, 5];
-
-const ROLE_FILTERS: { value: ChampionRole; label: string }[] = [
-  { value: "top", label: "Top" },
-  { value: "jungle", label: "Jungle" },
-  { value: "mid", label: "Mid" },
-  { value: "adc", label: "ADC" },
-  { value: "support", label: "Support" },
-];
-
-/** Signed seconds on the persisted current deadline, ticking once a second.
- *  Returns null until the clock should be shown. The server still decides
- *  whether a lock is valid; this hook is display-only. */
-function useTurnCountdown(
-  turnStartedAt: string | null,
-  turnDeadlineAt: string | null,
-  running: boolean,
-  clockOffsetMs = 0,
-): number | null {
-  // Keep the server render and the first client render deterministic. Once
-  // mounted, advance from performance.now() so wall-clock jumps and long
-  // background suspensions cannot make the visible timer run backwards.
-  const [now, setNow] = useState<number | null>(null);
-  const clockRef = useRef<{ wall: number; mono: number } | null>(null);
-  useEffect(() => {
-    clockRef.current = { wall: Date.now() + clockOffsetMs, mono: typeof performance === "undefined" ? 0 : performance.now() };
-    if (!running) return;
-    const readNow = () => {
-      if (!clockRef.current) return;
-      const mono = typeof performance === "undefined" ? 0 : performance.now();
-      setNow(clockRef.current.wall + (mono - clockRef.current.mono));
-    };
-    readNow();
-    const timer = setInterval(readNow, 1000);
-    return () => clearInterval(timer);
-  }, [clockOffsetMs, running]);
-  if (!running || now === null || (!turnDeadlineAt && !turnStartedAt)) return null;
-  // Rows created before the overtime migration have a start but no deadline.
-  // They get the old 30-second display until the row is touched/backfilled.
-  const deadline = turnDeadlineAt ?? new Date(new Date(turnStartedAt!).getTime() + DRAFT_TURN_SECONDS * 1000).toISOString();
-  return signedSecondsRemaining(deadline, now);
-}
-
-function TurnTimer({
-  state,
-  currentStep,
-  clockRunning,
-  clockOffsetMs,
-  compact = false,
-}: {
-  state: MatchDraftState;
-  currentStep: (typeof LCS_DRAFT_STEPS)[number] | undefined;
-  clockRunning: boolean;
-  clockOffsetMs: number;
-  compact?: boolean;
-}) {
-  const secondsLeft = useTurnCountdown(state.turnStartedAt, state.turnDeadlineAt, clockRunning, clockOffsetMs);
-  return (
-    <div data-testid={compact ? "match-draft-compact-timer" : undefined} className={compact
-      ? "flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded border border-border-subtle bg-surface px-3 py-2"
-      : "flex min-w-32 flex-col items-center justify-center rounded border border-border-subtle bg-surface px-4 py-4 text-center"}>
-      <span className="label-dash">Game {state.gameNumber}</span>
-      <span className={`type-display ${compact ? "text-2xl" : "mt-1 text-4xl"} ${secondsLeft !== null && secondsLeft <= 5 ? "animate-pulse text-red-400" : "text-white"}`}>
-        {state.status === "complete" ? "Done" : secondsLeft !== null ? `${secondsLeft}s` : "—"}
-      </span>
-      <span className={compact ? "text-right text-[10px] uppercase tracking-wide text-muted" : "mt-1 text-xs uppercase text-muted"}>
-        {state.status === "complete"
-          ? compact ? "Draft complete" : "draft complete"
-          : clockRunning
-            ? `${currentStep?.side} ${currentStep?.kind} ${currentStep?.slot}`
-            : compact ? "Waiting for ready check" : "waiting for ready check"}
-      </span>
-    </div>
-  );
-}
 
 export default function MatchDraftBoard({
   initialState,
@@ -334,25 +147,17 @@ export default function MatchDraftBoard({
   // room as a ghost); the Lock In button confirms. pendingPick is the
   // viewer's own selection, remoteIntents are the other clients', per game.
   const [pendingPick, setPendingPick] = useState<{ gameNumber: number; revision?: number; stepIndex: number; champion: string } | null>(null);
-  // Post-draft role confirmation: each side's working top→support
-  // arrangement stays local until that captain clicks Ready.
-  const [roleOrders, setRoleOrders] = useState<RoleOrders>({});
-  const [roleModalOpen, setRoleModalOpen] = useState(false);
-  const [roleDrag, setRoleDrag] = useState<{ side: DraftSide; index: number } | null>(null);
-  const roleListsRef = useRef<Record<DraftSide, HTMLDivElement | null>>({ blue: null, red: null });
+  const {
+    roleModalOpen,
+    setRoleModalOpen,
+    roleDrag,
+    setRoleDrag,
+    roleOrderForSide,
+    openRoleConfirmation,
+    moveRoleTo,
+    resetRoleOrders,
+  } = useRoleOrders(state);
   const championPoolScrollRef = useRef<HTMLDivElement | null>(null);
-  const [onlineTeams, setOnlineTeams] = useState<Set<string>>(new Set());
-  const [remoteIntents, setRemoteIntents] = useState<Record<number, { gameNumber: number; revision?: number; stepIndex: number; champion: string | null }>>({});
-  const channelRef = useRef<RealtimeChannel | null>(null);
-  const [clockOffsetMs, setClockOffsetMs] = useState(0);
-  const [syncError, setSyncError] = useState<string | null>(null);
-  const catchupInFlightRef = useRef<Promise<void> | null>(null);
-  const catchupRequestedRef = useRef(false);
-  const deletedRevisionsRef = useRef<Record<number, number>>({});
-  const latestSettingsRevisionRef = useRef<number | undefined>(undefined);
-  const [connectionStatus, setConnectionStatus] = useState<LiveConnectionStatus>(
-    onSave ? "connected" : "connecting",
-  );
   // MD is the compact default; LG is the only larger option.
   const [imageSizeIndex, setImageSizeIndex] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -380,7 +185,7 @@ export default function MatchDraftBoard({
   useEffect(() => {
     if (championPoolScrollRef.current) championPoolScrollRef.current.scrollTop = 0;
   }, [query, roleFilter]);
-  const imageSize = imageSizes[imageSizeIndex].value;
+  const imageSize = MATCH_DRAFT_IMAGE_SIZE_ORDER[imageSizeIndex];
   const blockedChampions = useMemo(() => {
     const priorPicks = Object.values(statesByGame)
       .filter((game) => game.gameNumber < gameNumber)
@@ -408,8 +213,6 @@ export default function MatchDraftBoard({
     }
     return merged;
   }, [liveSeriesFormat.fearless, onSave, state.blockedGames, statesByGame, gameNumber]);
-  const sameTeam = (a: string | null | undefined, b: string | null | undefined) =>
-    Boolean(a && b && a.trim().toLowerCase() === b.trim().toLowerCase());
   const viewerSide: DraftSide | null = sameTeam(viewerTeamName, state.blueTeam.name)
     ? "blue"
     : sameTeam(viewerTeamName, state.redTeam.name)
@@ -427,198 +230,26 @@ export default function MatchDraftBoard({
     blue: Math.max(0, state.bluePendingOvertimeSeconds),
     red: Math.max(0, state.redPendingOvertimeSeconds),
   } as const;
-  const timingForNextStep = (nextStepIndex: number | null, startedAt: string, pending: { blue: number; red: number }) => {
-    if (nextStepIndex === null) {
-      return { turnStartedAt: null, turnDeadlineAt: null, turnAllowanceSeconds: null };
-    }
-    const step = LCS_DRAFT_STEPS[nextStepIndex];
-    const allowance = turnAllowanceSeconds(step.kind, step.side, pending);
-    return {
-      turnStartedAt: startedAt,
-      turnDeadlineAt: turnDeadlineAt(startedAt, step.kind, step.side, pending),
-      turnAllowanceSeconds: allowance,
-    };
-  };
 
-  const refreshSnapshot = useCallback(async () => {
-    if (!supabase) return;
-    if (catchupInFlightRef.current) {
-      catchupRequestedRef.current = true;
-      return catchupInFlightRef.current;
-    }
-    const request = (async () => {
-      try {
-        do {
-          catchupRequestedRef.current = false;
-          const startedAt = Date.now();
-          const table = lobby ? "open_drafts" : "match_drafts";
-          const scopeColumn = lobby ? "lobby_id" : "fixture_id";
-          const scopeValue = lobby?.lobbyId ?? initialState.fixtureId;
-          try {
-            const rowsPromise = supabase.from(table).select("*").eq(scopeColumn, scopeValue).order("game_number");
-            const settingsPromise = lobby
-              ? Promise.resolve({ data: null, error: null })
-              : supabase.from("match_draft_settings").select("fixture_id, best_of, fearless, revision").eq("fixture_id", initialState.fixtureId).maybeSingle();
-            const serverTimePromise = supabase.rpc("match_draft_server_time");
-            const [{ data: rows, error: rowsError }, { data: settings, error: settingsError }, { data: serverTime }] = await Promise.all([
-              rowsPromise,
-              settingsPromise,
-              serverTimePromise,
-            ]);
-            if (rowsError) throw rowsError;
-            if (settingsError) throw settingsError;
-            const serverMs = typeof serverTime === "string" ? Date.parse(serverTime) : NaN;
-            if (Number.isFinite(serverMs)) setClockOffsetMs(serverMs - (startedAt + (Date.now() - startedAt) / 2));
-
-            const settingsRow = settings as { best_of?: number; fearless?: boolean; revision?: number } | null;
-            if (settingsRow && (latestSettingsRevisionRef.current === undefined || (settingsRow.revision ?? 0) >= latestSettingsRevisionRef.current)) {
-              latestSettingsRevisionRef.current = settingsRow.revision;
-              setLiveSeriesFormat((current) => formatFromSettings(current, settingsRow));
-            }
-
-            const snapshotRows = (rows ?? []) as MatchDraftRow[];
-            setStatesByGame((current) => {
-              const next = { ...current };
-              const expectedBestOf = settingsRow?.best_of === 1 || settingsRow?.best_of === 5 || settingsRow?.best_of === 3
-                ? settingsRow.best_of
-                : seriesFormatRef.current.bestOf;
-              const rowByGame = new Map(snapshotRows.map((row) => [row.game_number, row]));
-              const base = current[1] ?? initialState;
-              for (let number = 1; number <= expectedBestOf; number += 1) {
-                const existing = current[number] ?? emptyDraftState({ ...base, gameNumber: number });
-                const snapshotRow = rowByGame.get(number);
-                const deletedRevision = deletedRevisionsRef.current[number];
-                const isNewerThanDelete = snapshotRow?.revision === undefined || deletedRevision === undefined || snapshotRow.revision > deletedRevision;
-                const reconciled = snapshotRow && isNewerThanDelete
-                  ? stateFromDraftRow(existing, snapshotRow)
-                  : deletedRevision !== undefined
-                    ? emptyDraftState(existing)
-                    : existing;
-                if (reconciled) next[number] = reconciled;
-              }
-              return next;
-            });
-            setSyncError(null);
-          } catch (err) {
-            setConnectionStatus("reconnecting");
-            setSyncError(saveErrorMessage(err, "Live state is temporarily stale."));
-          }
-        } while (catchupRequestedRef.current);
-      } finally {
-        catchupInFlightRef.current = null;
-      }
-    })();
-    catchupInFlightRef.current = request;
-    return request;
-  }, [initialState, lobby, supabase]);
-
-  const announceDraftChange = useCallback(() => {
-    // Keep the notification payload-free: subscribers refetch through their
-    // own RLS-protected client instead of trusting room messages as state.
-    void channelRef.current?.send({ type: "broadcast", event: "draft-changed", payload: {} });
-  }, []);
-
-  // Live sync: subscribe first, then reconcile a snapshot. Realtime rows and
-  // snapshots share the revision merge rule, so neither ordering can regress
-  // the board. Deletes are scoped by their old row identity and treated as a
-  // reset; routine recovery never navigates away from the draft.
-  useEffect(() => {
-    if (!supabase) return;
-    const channel = supabase
-      .channel(`${lobby ? "open-draft" : "match-draft"}-${initialState.fixtureId}`)
-      .on("presence", { event: "sync" }, () => {
-        const present = new Set<string>();
-        for (const entries of Object.values(channel.presenceState<{ team?: string }>())) {
-          for (const entry of entries) if (entry.team) present.add(entry.team);
-        }
-        setOnlineTeams((current) => {
-          if (current.size === present.size && [...current].every((team) => present.has(team))) return current;
-          return present;
-        });
-      })
-      .on("broadcast", { event: "draft-intent" }, ({ payload }) => {
-        const intent = payload as { gameNumber: number; revision?: number; stepIndex: number; champion: string | null };
-        if (!Number.isInteger(intent.gameNumber) || !Number.isInteger(intent.stepIndex) || (intent.champion !== null && typeof intent.champion !== "string")) return;
-        setRemoteIntents((current) => ({ ...current, [intent.gameNumber]: intent }));
-      })
-      .on("broadcast", { event: "draft-changed" }, () => {
-        void refreshSnapshot();
-      })
-      .on(
-        "postgres_changes",
-        lobby
-          ? { event: "*", schema: "public", table: "open_drafts", filter: `lobby_id=eq.${lobby.lobbyId}` }
-          : { event: "*", schema: "public", table: "match_drafts", filter: `fixture_id=eq.${initialState.fixtureId}` },
-        (payload) => {
-          if (payload.eventType === "DELETE") {
-            const deleted = payload.old as { game_number?: number; revision?: number };
-            if (deleted.game_number !== undefined) {
-              if (deleted.revision !== undefined) deletedRevisionsRef.current[deleted.game_number] = deleted.revision;
-              setStatesByGame((current) => current[deleted.game_number!] ? { ...current, [deleted.game_number!]: emptyDraftState(current[deleted.game_number!]) } : current);
-            }
-            void refreshSnapshot();
-            return;
-          }
-          const row = payload.new as MatchDraftRow;
-          if (!Number.isInteger(row.game_number)) return;
-          const deletedRevision = deletedRevisionsRef.current[row.game_number];
-          if (deletedRevision !== undefined && (row.revision === undefined || row.revision <= deletedRevision)) return;
-          if (deletedRevision !== undefined) delete deletedRevisionsRef.current[row.game_number];
-          setRemoteIntents((current) => {
-            if (!current[row.game_number]) return current;
-            const next = { ...current };
-            delete next[row.game_number];
-            return next;
-          });
-          setStatesByGame((current) => {
-            const base = current[1] ?? initialState;
-            const game = current[row.game_number] ?? emptyDraftState({ ...base, gameNumber: row.game_number });
-            const reconciled = stateFromDraftRow(game, row);
-            return reconciled ? { ...current, [row.game_number]: reconciled } : current;
-          });
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "match_draft_settings", filter: `fixture_id=eq.${initialState.fixtureId}` },
-        (payload) => {
-          if (payload.eventType === "DELETE") return;
-          const row = payload.new as { best_of?: number; fearless?: boolean; revision?: number };
-          const revision = row.revision;
-          if (revision !== undefined && latestSettingsRevisionRef.current !== undefined && revision < latestSettingsRevisionRef.current) return;
-          latestSettingsRevisionRef.current = revision;
-          setLiveSeriesFormat((current) => formatFromSettings(current, row));
-        },
-      )
-      .subscribe((status) => {
-        const next = connectionStatusForChannel(status);
-        if (!next) return;
-        setConnectionStatus(next);
-        if (next === "connected") {
-          void channel.track({ team: viewerTeamName?.trim().toLowerCase() ?? "spectator" });
-          void refreshSnapshot();
-        }
-      });
-    channelRef.current = channel;
-    return () => {
-      channelRef.current = null;
-      void supabase.removeChannel(channel);
-    };
-  }, [initialState, lobby, refreshSnapshot, supabase, viewerTeamName]);
-
-  useEffect(() => {
-    const resync = () => {
-      if (document.visibilityState === "visible" && navigator.onLine) void refreshSnapshot();
-    };
-    window.addEventListener("focus", resync);
-    window.addEventListener("online", resync);
-    document.addEventListener("visibilitychange", resync);
-    return () => {
-      window.removeEventListener("focus", resync);
-      window.removeEventListener("online", resync);
-      document.removeEventListener("visibilitychange", resync);
-    };
-  }, [refreshSnapshot]);
+  const {
+    connectionStatus,
+    syncError,
+    clockOffsetMs,
+    onlineTeams,
+    remoteIntents,
+    refreshSnapshot,
+    announceDraftChange,
+    broadcastIntent,
+  } = useMatchDraftChannel({
+    supabase,
+    lobby,
+    initialState,
+    viewerTeamName,
+    preview: Boolean(onSave),
+    seriesFormatRef,
+    setStatesByGame,
+    setLiveSeriesFormat,
+  });
 
   const commitMutation = (next: MatchDraftState) => {
     // Preview mode has no realtime authority. Live mode waits for the row
@@ -630,7 +261,7 @@ export default function MatchDraftBoard({
   const setLayout = (layout: MatchDraftLayout) => setState({ ...state, layout });
   const captainOnline = (side: DraftSide): boolean | undefined =>
     onSave ? undefined : onlineTeams.has(teamForSide(side).name.trim().toLowerCase());
-  const teamForSide = (side: DraftSide) => (side === "blue" ? state.blueTeam : state.redTeam);
+  const teamForSide = (side: DraftSide) => teamOnSide(state, side);
   const playersForSide = (side: DraftSide) => teamForSide(side).players;
   // Null when the team has no roster (public lobbies without entered names):
   // the slot then shows just the champion instead of a placeholder.
@@ -684,11 +315,7 @@ export default function MatchDraftBoard({
   );
 
   const sendIntent = (champion: string | null) => {
-    void channelRef.current?.send({
-      type: "broadcast",
-      event: "draft-intent",
-      payload: { gameNumber: state.gameNumber, revision: state.revision, stepIndex: state.currentStepIndex, champion },
-    });
+    broadcastIntent({ gameNumber: state.gameNumber, revision: state.revision, stepIndex: state.currentStepIndex, champion });
   };
 
   /** Step one of drafting: select a champion as your intent (ghosted for the
@@ -979,46 +606,6 @@ export default function MatchDraftBoard({
   const seriesWinner =
     winsA >= winsNeeded ? state.scheduledTeams[0] : winsB >= winsNeeded ? state.scheduledTeams[1] : null;
 
-  /** The side's five picks in the order they were drafted (nulls = skips) —
-   *  the starting arrangement for role confirmation. */
-  const picksInDraftOrder = (side: DraftSide): (string | null)[] =>
-    LCS_DRAFT_STEPS.filter((step) => step.side === side && step.kind === "pick").map(
-      (step) => actionForStep(state.actions, step)?.champion ?? null,
-    );
-
-  const roleOrderForSide = (side: DraftSide): (string | null)[] =>
-    roleOrders[side] ?? state.positions?.[side] ?? picksInDraftOrder(side);
-
-  const openRoleConfirmation = () => {
-    setRoleOrders({
-      blue: state.positions?.blue ?? picksInDraftOrder("blue"),
-      red: state.positions?.red ?? picksInDraftOrder("red"),
-    });
-    setRoleModalOpen(true);
-  };
-
-  /** Move the entry at `from` to position `to` (others shift, drag-style). */
-  const moveRoleTo = (side: DraftSide, from: number, to: number) =>
-    setRoleOrders((current) => {
-      const currentOrder = current[side] ?? state.positions?.[side] ?? picksInDraftOrder(side);
-      if (from === to || from < 0 || to < 0 || from >= currentOrder.length || to >= currentOrder.length) return current;
-      const order = [...currentOrder];
-      const [moved] = order.splice(from, 1);
-      order.splice(to, 0, moved);
-      return { ...current, [side]: order };
-    });
-
-  const roleRowAtY = (side: DraftSide, clientY: number): number | null => {
-    const list = roleListsRef.current[side];
-    if (!list) return null;
-    const rows = Array.from(list.children) as HTMLElement[];
-    for (let i = 0; i < rows.length; i += 1) {
-      const rect = rows[i].getBoundingClientRect();
-      if (clientY < rect.top + rect.height / 2) return i;
-    }
-    return rows.length - 1;
-  };
-
   const saveRoles = async (side: DraftSide) => {
     if (!supabase) return;
     const order = roleOrderForSide(side);
@@ -1062,73 +649,18 @@ export default function MatchDraftBoard({
     }
   };
 
-  // Expired bans are scheduled independently of the display tick. A clock
-  // skew can make the first request early, so TOO_SOON and transient network
-  // failures retry while this exact revision/step/deadline remains current.
-  const skipJobsRef = useRef(new Map<string, { cancelled: boolean; timer?: ReturnType<typeof setTimeout> }>());
-  useEffect(() => {
-    const jobs = skipJobsRef.current;
-    const wanted = new Set<string>();
-    if (supabase && !onSave) {
-      for (const candidate of Object.values(statesByGame)) {
-        const candidateStep = LCS_DRAFT_STEPS[candidate.currentStepIndex];
-        const eligible = candidate.status !== "complete" &&
-          (candidate.actions.length > 0 || (candidate.blueReady && candidate.redReady)) &&
-          candidate.blueReady && candidate.redReady &&
-          candidateStep?.kind === "ban" &&
-          (canReset || sameTeam(viewerTeamName, candidate.blueTeam.name) || sameTeam(viewerTeamName, candidate.redTeam.name));
-        if (!eligible) continue;
-        const deadline = candidate.turnDeadlineAt ?? (candidate.turnStartedAt
-          ? new Date(Date.parse(candidate.turnStartedAt) + DRAFT_TURN_SECONDS * 1000).toISOString()
-          : null);
-        if (!deadline) continue;
-        const key = draftTurnKey({ ...candidate, turnDeadlineAt: deadline });
-        wanted.add(key);
-        if (jobs.has(key)) continue;
-        const job: { cancelled: boolean; timer?: ReturnType<typeof setTimeout> } = { cancelled: false };
-        jobs.set(key, job);
-        const attempt = async (delay: number): Promise<void> => {
-          job.timer = setTimeout(async () => {
-            if (job.cancelled) return;
-            try {
-              const result = await draftRpc(supabase, "skip_match_draft_step", { p_game: candidate.gameNumber });
-              if (!result.error) {
-                jobs.delete(key);
-                void refreshSnapshot();
-                return;
-              }
-              if (!timeoutRetryable(result.error)) {
-                jobs.delete(key);
-                setError(saveErrorMessage(result.error, "The expired ban could not be advanced."));
-                return;
-              }
-            } catch (err) {
-              if (!timeoutRetryable(err)) {
-                jobs.delete(key);
-                setError(saveErrorMessage(err, "The expired ban could not be advanced."));
-                return;
-              }
-            }
-            if (!job.cancelled) void attempt(Math.min(5000, Math.max(750, delay * 1.5)));
-          }, delay);
-        };
-        void attempt(Math.max(0, Date.parse(deadline) - (Date.now() + clockOffsetMs) + 3250));
-      }
-    }
-    for (const [key, job] of jobs) {
-      if (!wanted.has(key)) {
-        job.cancelled = true;
-        if (job.timer) clearTimeout(job.timer);
-        jobs.delete(key);
-      }
-    }
-  }, [canReset, clockOffsetMs, draftRpc, lobby, onSave, refreshSnapshot, statesByGame, supabase, viewerTeamName]);
-  useEffect(() => () => {
-    for (const job of skipJobsRef.current.values()) {
-      job.cancelled = true;
-      if (job.timer) clearTimeout(job.timer);
-    }
-  }, []);
+  useAutoSkip({
+    supabase,
+    onSave,
+    lobby,
+    canReset,
+    viewerTeamName,
+    statesByGame,
+    clockOffsetMs,
+    draftRpc,
+    refreshSnapshot,
+    setError,
+  });
 
   // Ping + flash the tab when a NEW turn becomes the viewer's.
   const lastTurnKey = useRef<string | null>(null);
@@ -1142,11 +674,6 @@ export default function MatchDraftBoard({
     }
     lastTurnKey.current = key;
   }, [onSave, clockRunning, currentStep, myTurn, gameNumber]);
-
-  const stepLabel = (stepIndex: number) => {
-    const step = LCS_DRAFT_STEPS[stepIndex];
-    return step ? `${step.side} ${step.kind} ${step.slot}` : `step ${stepIndex + 1}`;
-  };
 
   /** ↺ affordance for a drafted step the viewer may ask to redo. */
   const requestChangeFor = (stepIndex: number): (() => void) | null => {
@@ -1211,78 +738,28 @@ export default function MatchDraftBoard({
   const switchGame = (game: MatchDraftGameTab) => {
     if (!statesByGame[game.gameNumber]) return;
     setGameNumber(game.gameNumber);
-    setRoleModalOpen(false);
-    setRoleOrders({});
-    setRoleDrag(null);
+    resetRoleOrders();
     setPendingPick(null);
     // Keep the URL shareable/refreshable without a navigation.
     window.history.replaceState(null, "", game.href);
   };
 
   const gameTabs = seriesGames.length > 1 ? (
-    <nav aria-label="Series games" className="flex flex-wrap items-center gap-1.5">
-      {seriesGames.map((game) => {
-        const active = game.gameNumber === state.gameNumber;
-        // Live status from the client store (falls back to the server prop).
-        const liveGame = statesByGame[game.gameNumber];
-        const status = liveGame ? (liveGame.actions.length === 0 ? null : liveGame.status) : game.status;
-        return (
-          <button
-            key={game.gameNumber}
-            type="button"
-            aria-current={active ? "page" : undefined}
-            onClick={() => switchGame(game)}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
-              active ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
-            }`}
-          >
-            Game {game.gameNumber}
-            {status === "complete" ? <span aria-label="complete" className={active ? "text-canvas" : "text-mint"}>✓</span> : null}
-            {status === "drafting" ? <span aria-label="in progress" className={active ? "text-canvas" : "text-gold"}>●</span> : null}
-          </button>
-        );
-      })}
-    </nav>
+    <SeriesGameTabs games={seriesGames} activeGameNumber={state.gameNumber} statesByGame={statesByGame} onSelect={switchGame} />
   ) : null;
 
-  // Pops up where the action is: pinned to the bottom of the viewport the
-  // moment a champion is selected, so confirming never means scrolling back
-  // to the header.
-  const pendingChampion = activePendingPick ? resolveChampion(activePendingPick.champion) : null;
   const lockInBar = activePendingPick ? (
-    <div className="fixed inset-x-0 bottom-5 z-50 flex justify-center px-4" role="dialog" aria-label="Confirm pick">
-      <div className="flex items-center gap-3 rounded-full border border-coral/60 bg-canvas/95 py-2 pl-2 pr-2 shadow-[0_8px_32px_rgb(0_0_0/0.6)] backdrop-blur">
-        {pendingChampion ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={pendingChampion.iconUrl} alt="" className="h-10 w-10 rounded-full border border-border-subtle object-cover" />
-        ) : null}
-        <div className="min-w-0">
-          <p className="font-display text-sm font-bold not-italic text-white">{activePendingPick.champion}</p>
-          <p className="text-[10px] uppercase tracking-wide text-muted">
-            {currentStep?.side} {currentStep?.kind} {currentStep?.slot}
-          </p>
-        </div>
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => {
-            setPendingPick(null);
-            sendIntent(null);
-          }}
-          className="rounded-full border border-border-subtle px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-40"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => void lockIn()}
-          className="btn-primary px-4 py-1.5 text-xs disabled:opacity-40"
-        >
-          Lock in {activePendingPick.champion}
-        </button>
-      </div>
-    </div>
+    <LockInBar
+      champion={activePendingPick.champion}
+      resolve={resolveChampion}
+      currentStep={currentStep}
+      saving={saving}
+      onCancel={() => {
+        setPendingPick(null);
+        sendIntent(null);
+      }}
+      onLockIn={() => void lockIn()}
+    />
   ) : null;
 
   // The code for the game being viewed — captains-only by construction
@@ -1293,331 +770,70 @@ export default function MatchDraftBoard({
   const roleModalVisible = canConfirmRoles && (roleModalOpen || !rolesFullyReady);
 
   const completeBanner = state.status === "complete" ? (
-    <section className="card-brand flex flex-wrap items-center gap-3 border-mint/40 p-3" aria-label="Draft complete">
-      <span className="rounded-full border border-mint/50 bg-mint/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-mint">
-        Draft complete
-      </span>
-      <span className="text-sm text-muted">
-        All picks and bans are locked in.
-        {currentTourneyCode
-          ? " Create the custom lobby with this game's tourney code:"
-          : seriesGames.length > 1
-            ? " Use the game tabs to move to the next game."
-            : ""}
-      </span>
-      {currentTourneyCode ? <TourneyCodeChip code={currentTourneyCode} /> : null}
-      {canConfirmRoles && rolesFullyReady ? (
-        <button
-          type="button"
-          disabled={saving}
-          onClick={openRoleConfirmation}
-          className="ml-auto rounded-full border border-border-strong px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-40"
-        >
-          Adjust roles
-        </button>
-      ) : null}
-    </section>
+    <DraftCompleteBanner
+      tourneyCode={currentTourneyCode}
+      hasGameTabs={seriesGames.length > 1}
+      canAdjustRoles={canConfirmRoles && rolesFullyReady}
+      saving={saving}
+      onAdjustRoles={openRoleConfirmation}
+    />
   ) : null;
 
-  // Either captain (or an admin, on fixture drafts) records who won the
-  // finished game; the tally calls the series at the majority.
   const winnerPicker = !onSave && state.status === "complete" ? (
-    <section className="card-brand flex flex-wrap items-center gap-3 p-3" aria-label="Game result">
-      <span className="label-dash">Game {state.gameNumber} result</span>
-      {state.scheduledTeams.map((team) => {
-        const won = sameTeam(state.winnerTeam, team.name);
-        return (
-          <button
-            key={team.name}
-            type="button"
-            disabled={saving || !(viewerSide || canReset)}
-            aria-pressed={won}
-            onClick={() => void setWinner(team.name)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
-              won ? "border border-mint/60 bg-mint/15 text-mint" : "border border-border-subtle bg-surface text-muted hover:text-white"
-            }`}
-          >
-            {team.abbreviation} won{won ? " ✓" : ""}
-          </button>
-        );
-      })}
-      <span className="text-sm text-muted">
-        {winsA + winsB > 0
-          ? // Just the score, no series call — scrim blocks play every game
-            // regardless, and all games stay open either way.
-            `Series score: ${state.scheduledTeams[0].abbreviation} ${winsA}–${winsB} ${state.scheduledTeams[1].abbreviation}.${
-              winsA + winsB < liveSeriesFormat.bestOf ? " Remaining games stay open." : ""
-            }`
-          : viewerSide || canReset
-            ? "Either captain can record it — recorded results prefill your match report."
-            : "Waiting on a captain to record the result."}
-      </span>
-      {/* Once the series is called, the shortest path to the paperwork. */}
-      {!lobby && reportHref && seriesWinner ? (
-        <a
-          href={reportHref}
-          className="ml-auto inline-flex rounded-full border border-coral/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-canvas"
-        >
-          Report this result →
-        </a>
-      ) : null}
-    </section>
+    <GameResultPanel
+      state={state}
+      canRecord={Boolean(viewerSide || canReset)}
+      saving={saving}
+      winsA={winsA}
+      winsB={winsB}
+      bestOf={liveSeriesFormat.bestOf}
+      reportHref={!lobby && seriesWinner ? reportHref : null}
+      onSetWinner={(teamName) => void setWinner(teamName)}
+    />
   ) : null;
 
   const roleModal = roleModalVisible ? (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4" role="dialog" aria-modal="true" aria-label="Confirm roles">
-      <div className="card-brand w-full max-w-5xl p-4 shadow-[0_16px_64px_rgb(0_0_0/0.65)] sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <span className="label-dash">Post-draft role confirmation</span>
-            <h2 className="type-display mt-1 text-2xl text-white sm:text-3xl">Set your team&apos;s roles</h2>
-            <p className="mt-2 max-w-2xl text-sm text-muted">
-              Drag the champion pick tiles into Top, Jungle, Mid, ADC, and Support order. Both captains must click Ready before the roles are locked in.
-            </p>
-          </div>
-          {rolesFullyReady ? (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => setRoleModalOpen(false)}
-              className="rounded-full border border-border-subtle px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-40"
-            >
-              Close
-            </button>
-          ) : null}
-        </div>
-        <div className="mt-5 grid gap-4 lg:grid-cols-2">
-          {(["blue", "red"] as DraftSide[]).map((side) => {
-            const editable = canReset || viewerSide === side;
-            const confirmed = Boolean(state.positions?.[side]);
-            const order = roleOrderForSide(side);
-            const roster = playersForSide(side);
-            return (
-              <section key={side} className={`rounded border p-3 ${sideClass[side]}`} aria-label={`${teamForSide(side).abbreviation} role confirmation`}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <span className="text-xs font-bold uppercase tracking-wide">{teamForSide(side).abbreviation}</span>
-                    <p className="mt-1 text-xs text-muted">{teamForSide(side).name}</p>
-                  </div>
-                  <span className={`text-[11px] font-semibold uppercase tracking-wide ${confirmed ? "text-mint" : "text-muted"}`}>
-                    {confirmed ? "Ready ✓" : editable ? "Arrange picks" : "Waiting for captain"}
-                  </span>
-                </div>
-                <div
-                  ref={(element) => {
-                    roleListsRef.current[side] = element;
-                  }}
-                  role="list"
-                  aria-label={`${teamForSide(side).abbreviation} champion picks`}
-                  className="mt-3 grid gap-2"
-                >
-                  {order.map((champion, index) => {
-                    const action = champion
-                      ? state.actions.find(
-                          (entry) =>
-                            entry.kind === "pick" &&
-                            entry.side === side &&
-                            entry.champion &&
-                            normalizeChampionName(entry.champion) === normalizeChampionName(champion),
-                        ) ?? null
-                      : null;
-                    const pick: DraftMatchupPickView = {
-                      side,
-                      slot: index + 1,
-                      pickNumber: action?.slot ?? null,
-                      stepIndex: action?.stepIndex ?? null,
-                      champion: action?.champion ?? null,
-                      playerName: roster[index] ?? action?.playerName ?? null,
-                      role: ROLE_LABELS[index],
-                      state: action ? action.skipped || !action.champion ? "skipped" : "recorded" : "missing",
-                    };
-                    const dragging = roleDrag?.side === side && roleDrag.index === index;
-                    const interactive = editable && (!confirmed || roleModalOpen);
-                    return (
-                      <DraftPickSlot
-                        key={`${side}-role-modal-${index}`}
-                        side={side}
-                        pick={pick}
-                        active={false}
-                        imageSize="md"
-                        resolve={resolveChampion}
-                        label={ROLE_LABELS[index]}
-                        emptyLabel="Skipped"
-                        role="listitem"
-                        interactive={interactive}
-                        ariaLabel={`${champion ?? "Skipped pick"} — ${ROLE_LABELS[index]} role${interactive ? ", drag to reorder" : ""}`}
-                        onPointerDown={
-                          interactive
-                            ? (event) => {
-                                event.preventDefault();
-                                event.currentTarget.setPointerCapture(event.pointerId);
-                                setRoleDrag({ side, index });
-                              }
-                            : undefined
-                        }
-                        onPointerMove={
-                          interactive
-                            ? (event) => {
-                                if (roleDrag?.side !== side || roleDrag.index === null) return;
-                                const target = roleRowAtY(side, event.clientY);
-                                if (target !== null && target !== roleDrag.index) {
-                                  moveRoleTo(side, roleDrag.index, target);
-                                  setRoleDrag({ side, index: target });
-                                }
-                              }
-                            : undefined
-                        }
-                        onPointerUp={interactive ? () => setRoleDrag(null) : undefined}
-                        onPointerCancel={interactive ? () => setRoleDrag(null) : undefined}
-                        onKeyDown={
-                          interactive
-                            ? (event) => {
-                                if (event.key === "ArrowUp") {
-                                  event.preventDefault();
-                                  moveRoleTo(side, index, index - 1);
-                                } else if (event.key === "ArrowDown") {
-                                  event.preventDefault();
-                                  moveRoleTo(side, index, index + 1);
-                                }
-                              }
-                            : undefined
-                        }
-                        slotClassName={dragging ? "shadow-[0_0_0_2px] shadow-coral" : ""}
-                      />
-                    );
-                  })}
-                </div>
-                {editable ? (
-                  <button
-                    type="button"
-                    disabled={saving}
-                    aria-pressed={confirmed}
-                    onClick={() => void saveRoles(side)}
-                    className={`mt-3 w-full rounded-full border-2 px-4 py-2 text-sm font-bold uppercase tracking-wide transition disabled:opacity-40 ${
-                      confirmed ? "border-mint/70 bg-mint/15 text-mint" : "border-coral/70 bg-coral/15 text-coral hover:bg-coral/25"
-                    }`}
-                  >
-                    {teamForSide(side).abbreviation} {confirmed ? "ready ✓" : "ready"}
-                  </button>
-                ) : null}
-              </section>
-            );
-          })}
-        </div>
-        <p className="mt-4 text-center text-xs uppercase tracking-wide text-muted">
-          {rolesFullyReady ? "Both captains are ready — roles confirmed." : `Waiting on ${(["blue", "red"] as DraftSide[]).filter((side) => !state.positions?.[side]).map((side) => teamForSide(side).abbreviation).join(" and ")} to click Ready.`}
-        </p>
-      </div>
-    </div>
+    <RoleOrderModal
+      state={state}
+      canReset={canReset}
+      viewerSide={viewerSide}
+      saving={saving}
+      roleModalOpen={roleModalOpen}
+      rolesFullyReady={rolesFullyReady}
+      roleOrderForSide={roleOrderForSide}
+      resolveChampion={resolveChampion}
+      roleDrag={roleDrag}
+      onRoleDragChange={setRoleDrag}
+      moveRoleTo={moveRoleTo}
+      onClose={() => setRoleModalOpen(false)}
+      onReady={(side) => void saveRoles(side)}
+    />
   ) : null;
 
   const changeBanner = state.changeRequest ? (
-    <section className="card-brand flex flex-wrap items-center gap-3 border-gold/40 p-3" aria-label="Change request">
-      <span className="rounded-full border border-gold/50 bg-gold/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-gold">
-        Change requested
-      </span>
-      <span className="text-sm text-muted">
-        {teamForSide(state.changeRequest.side).abbreviation} wants to redo{" "}
-        <span className="font-semibold uppercase text-white">{stepLabel(state.changeRequest.stepIndex)}</span>
-        {state.changeRequest.champion ? ` (${state.changeRequest.champion})` : " (skipped)"}.
-      </span>
-      {!onSave && (canReset || (viewerSide && viewerSide !== state.changeRequest.side)) ? (
-        <span className="flex gap-2">
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => void respondChange(true)}
-            className="rounded-full border border-mint/60 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-mint transition hover:bg-mint/15 disabled:opacity-40"
-          >
-            Approve
-          </button>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => void respondChange(false)}
-            className="rounded-full border border-red-400/60 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-red-400 transition hover:bg-red-500/15 disabled:opacity-40"
-          >
-            Deny
-          </button>
-        </span>
-      ) : !onSave && viewerSide === state.changeRequest.side ? (
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => void respondChange(false)}
-          className="rounded-full border border-border-subtle px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-40"
-        >
-          Withdraw
-        </button>
-      ) : (
-        <span className="text-xs uppercase tracking-wide text-muted">Waiting for the other team…</span>
-      )}
-    </section>
+    <ChangeRequestBanner
+      request={state.changeRequest}
+      requester={teamForSide(state.changeRequest.side).abbreviation}
+      preview={Boolean(onSave)}
+      canReset={canReset}
+      viewerSide={viewerSide}
+      saving={saving}
+      onRespond={(approve) => void respondChange(approve)}
+    />
   ) : null;
 
-  const notReadyTeams = (["blue", "red"] as DraftSide[])
-    .filter((side) => !(side === "blue" ? state.blueReady : state.redReady))
-    .map((side) => teamForSide(side).abbreviation);
   const readyCheck = drafting && !draftStarted ? (
-    <section className="card-brand flex flex-col items-center gap-4 border-gold/50 p-6 text-center" aria-label="Ready check">
-      <span className="rounded-full border border-gold/50 bg-gold/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-gold">
-        Ready check
-      </span>
-      <h2 className="type-display text-2xl text-white sm:text-3xl">
-        {state.sideChoiceRequired
-          ? "Choose sides first, then ready up"
-          : bothReady
-            ? "Both teams ready — the draft is live!"
-            : "Both teams must ready up to start"}
-      </h2>
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        {(["blue", "red"] as DraftSide[]).map((side) => {
-          const isReady = side === "blue" ? state.blueReady : state.redReady;
-          const canPress = !saving && !state.sideChoiceRequired && mayActFor(side);
-          return (
-            <button
-              key={side}
-              type="button"
-              disabled={saving || state.sideChoiceRequired || !mayActFor(side)}
-              aria-pressed={isReady}
-              onClick={() => void toggleReady(side)}
-              className={`rounded-full border-2 px-6 py-3 text-sm font-bold uppercase tracking-wide transition disabled:opacity-40 ${
-                isReady
-                  ? "border-mint/70 bg-mint/15 text-mint"
-                  : `${sideClass[side]} ${canPress && !isReady ? "animate-pulse hover:brightness-125" : ""}`
-              }`}
-            >
-              {teamForSide(side).abbreviation} {isReady ? "ready ✓" : "ready?"}
-            </button>
-          );
-        })}
-      </div>
-      <span className="text-xs uppercase tracking-wide text-muted">
-        {state.sideChoiceRequired
-          ? "Pick which team takes blue side above."
-          : bothReady
-            ? "The clock is running — blue's first ban is up."
-            : `Waiting on ${notReadyTeams.join(" and ")} — picks unlock once both teams check in.`}
-      </span>
-    </section>
+    <ReadyCheckPanel
+      state={state}
+      bothReady={bothReady}
+      saving={saving}
+      mayActFor={mayActFor}
+      onToggleReady={(side) => void toggleReady(side)}
+    />
   ) : null;
 
   const sideChooser = state.canChooseSides && state.actions.length === 0 ? (
-    <section className="card-brand flex flex-wrap items-center gap-3 p-3" aria-label="Side selection">
-      <span className="label-dash">{state.sideChoiceRequired ? "Choose sides to start" : "Choose sides"}</span>
-      {state.scheduledTeams.map((team) => (
-        <button
-          key={team.name}
-          type="button"
-          disabled={saving}
-          onClick={() => void chooseBlueTeam(team)}
-          aria-pressed={state.blueTeam.name === team.name}
-          className="btn-pill px-3 py-1.5 text-xs"
-        >
-          {team.name} blue side
-        </button>
-      ))}
-    </section>
+    <SideChooser state={state} saving={saving} onChooseBlue={(team) => void chooseBlueTeam(team)} />
   ) : null;
 
   // Only on a BAN, only on your own turn, only while the draft is live.
@@ -1635,137 +851,28 @@ export default function MatchDraftBoard({
   );
 
   const championPool = (
-    <section className={`flex h-full min-h-0 max-h-[60vh] min-w-0 flex-col rounded border border-border-subtle bg-canvas/60 p-3 ${state.layout === "board" ? "xl:max-h-none" : "xl:max-h-[60vh]"}`} aria-label="Champion pool">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs text-muted sm:max-w-xs">
-          Search champions
-          <input value={query} onChange={(e) => setQuery(e.target.value)} className="input-brand px-3 py-2 text-sm" />
-        </label>
-        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Role filter">
-          <button
-            type="button"
-            aria-pressed={roleFilter === null}
-            onClick={() => setRoleFilter(null)}
-            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-              roleFilter === null ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
-            }`}
-          >
-            All
-          </button>
-          {ROLE_FILTERS.map((role) => (
-            <button
-              key={role.value}
-              type="button"
-              aria-pressed={roleFilter === role.value}
-              onClick={() => setRoleFilter((current) => (current === role.value ? null : role.value))}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-                roleFilter === role.value ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
-              }`}
-            >
-              {role.label}
-            </button>
-          ))}
-        </div>
-        {canPassBan ? (
-          <div className="ml-auto flex items-center gap-2">
-            {confirmingPass ? (
-              <>
-                <span className="text-[11px] uppercase tracking-wide text-muted">Ban nothing?</span>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => setConfirmingPassAt(null)}
-                  className="rounded-full border border-border-subtle px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-40"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => void passBan()}
-                  className="rounded-full border border-red-400/60 bg-red-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-red-300 transition hover:bg-red-400/20 disabled:opacity-40"
-                >
-                  Confirm pass
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => setConfirmingPassAt(passStepKey)}
-                className="rounded-full border border-border-subtle px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-red-400/60 hover:text-red-300 disabled:opacity-40"
-              >
-                Pass ban
-              </button>
-            )}
-          </div>
-        ) : null}
-      </div>
-      <div
-        ref={championPoolScrollRef}
-        className="mt-3 min-h-0 flex-1 grid content-start gap-1 overflow-y-auto overscroll-contain pr-1 touch-pan-y [grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--pool-min-width)),1fr))]"
-        data-testid="champion-pool-grid"
-        data-size={imageSize}
-        style={{
-          "--pool-min-width": sizeByValue[imageSize].poolMinWidth,
-          gridAutoRows: `minmax(${sizeByValue[imageSize].poolMinWidth}, auto)`,
-        } as CSSProperties}
-      >
-        {filteredChampions.map((champion) => {
-          const unavailable = isChampionUnavailable(champion.name, state.actions, blockedChampions);
-          const selected = activePendingPick?.champion === champion.name;
-          // Taken by an EARLIER game (fearless) rather than merely used in this
-          // one — the two states share `unavailable` but must never look alike.
-          const takenInGame = blockedGames[normalizeChampionName(champion.name)];
-          const fearlessBlocked = unavailable && takenInGame !== undefined;
-          return (
-            <button
-              key={champion.id}
-              type="button"
-              disabled={unavailable || saving || state.sideChoiceRequired || state.status === "complete" || (!draftStarted && !bothReady) || !currentStep || !mayActFor(currentStep.side)}
-              aria-pressed={selected}
-              onClick={() => chooseChampion(champion.name)}
-              aria-label={`${champion.name}${unavailable ? " unavailable" : ""}${fearlessBlocked ? ` — picked in game ${takenInGame}` : ""}`}
-              className={`group relative aspect-square overflow-hidden border text-left font-semibold text-white disabled:cursor-not-allowed ${
-                selected
-                  ? "border-gold bg-gold/20 ring-2 ring-inset ring-gold/70"
-                  : fearlessBlocked
-                  ? "border-red-500/40 bg-surface disabled:opacity-60"
-                  : "border-border-strong bg-surface hover:border-action-text disabled:opacity-35"
-              } ${sizeByValue[imageSize].name}`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={champion.iconUrl}
-                alt=""
-                className={`h-full w-full object-cover transition group-hover:scale-105 ${fearlessBlocked ? "grayscale" : ""}`}
-                loading="lazy"
-              />
-              {fearlessBlocked ? (
-                <>
-                  {/* The strike itself: two hairlines corner to corner, drawn
-                      over the art so it reads at every grid size. */}
-                  <svg
-                    data-testid="fearless-cross"
-                    aria-hidden
-                    viewBox="0 0 100 100"
-                    preserveAspectRatio="none"
-                    className="pointer-events-none absolute inset-0 h-full w-full"
-                  >
-                    <line x1="4" y1="4" x2="96" y2="96" stroke="rgb(248 113 113 / 0.85)" strokeWidth="6" />
-                    <line x1="96" y1="4" x2="4" y2="96" stroke="rgb(248 113 113 / 0.85)" strokeWidth="6" />
-                  </svg>
-                  <span className="absolute right-0 top-0 bg-red-500/85 px-1 text-[10px] font-bold leading-tight text-white">
-                    G{takenInGame}
-                  </span>
-                </>
-              ) : null}
-              <span className="absolute inset-x-0 bottom-0 truncate bg-black/75 px-1.5 py-1 text-[11px] leading-tight">{champion.name}</span>
-            </button>
-          );
-        })}
-      </div>
-    </section>
+    <ChampionPool
+      layout={state.layout}
+      query={query}
+      onQueryChange={setQuery}
+      roleFilter={roleFilter}
+      onRoleFilterChange={setRoleFilter}
+      canPassBan={canPassBan}
+      confirmingPass={confirmingPass}
+      onStartPass={() => setConfirmingPassAt(passStepKey)}
+      onCancelPass={() => setConfirmingPassAt(null)}
+      onConfirmPass={() => void passBan()}
+      saving={saving}
+      scrollRef={championPoolScrollRef}
+      imageSize={imageSize}
+      champions={filteredChampions}
+      actions={state.actions}
+      blockedChampions={blockedChampions}
+      blockedGames={blockedGames}
+      selectedChampion={activePendingPick?.champion}
+      pickDisabled={saving || state.sideChoiceRequired || state.status === "complete" || (!draftStarted && !bothReady) || !currentStep || !mayActFor(currentStep.side)}
+      onChoose={chooseChampion}
+    />
   );
 
   // The turn clock card — center column on stage, top strip on board.
@@ -1901,34 +1008,7 @@ export default function MatchDraftBoard({
 
       <section className="card-brand flex flex-wrap items-end gap-3 p-3">
         {!onSave && !lobby ? (
-          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Series format">
-            <span className="label-dash">Format</span>
-            {BEST_OF_OPTIONS.map((option) => (
-              <button
-                key={option}
-                type="button"
-                disabled={saving}
-                aria-pressed={liveSeriesFormat.bestOf === option}
-                onClick={() => (liveSeriesFormat.bestOf === option ? undefined : void saveSeriesFormat({ bestOf: option }))}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
-                  liveSeriesFormat.bestOf === option ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
-                }`}
-              >
-                Bo{option}
-              </button>
-            ))}
-            <button
-              type="button"
-              disabled={saving}
-              aria-pressed={liveSeriesFormat.fearless}
-              onClick={() => void saveSeriesFormat({ fearless: !liveSeriesFormat.fearless })}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
-                liveSeriesFormat.fearless ? "bg-mint/15 text-mint border border-mint/50" : "border border-border-subtle bg-surface text-muted hover:text-white"
-              }`}
-            >
-              Fearless {liveSeriesFormat.fearless ? "on" : "off"}
-            </button>
-          </div>
+          <SeriesFormatControls format={liveSeriesFormat} saving={saving} onChange={saveSeriesFormat} />
         ) : null}
         {!lobby && !onSave ? (
           // Public lobbies hand out their three secret links at creation;
@@ -1939,28 +1019,7 @@ export default function MatchDraftBoard({
             <CopyLinkButton label="OBS overlay" path={`/match-draft/${state.fixtureId}?overlay=1&bg=transparent`} />
           </div>
         ) : null}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="label-dash">Image size</span>
-          <button
-            type="button"
-            aria-label="Decrease image size"
-            disabled={imageSizeIndex === 0}
-            onClick={() => setImageSizeIndex((current) => Math.max(0, current - 1))}
-            className="btn-pill px-3 py-1.5 text-xs disabled:opacity-40"
-          >
-            -
-          </button>
-          <span className="min-w-8 text-center text-xs font-semibold text-white">{imageSizes[imageSizeIndex].label}</span>
-          <button
-            type="button"
-            aria-label="Increase image size"
-            disabled={imageSizeIndex === imageSizes.length - 1}
-            onClick={() => setImageSizeIndex((current) => Math.min(imageSizes.length - 1, current + 1))}
-            className="btn-pill px-3 py-1.5 text-xs disabled:opacity-40"
-          >
-            +
-          </button>
-        </div>
+        <ImageSizeStepper index={imageSizeIndex} onIndexChange={setImageSizeIndex} />
         {!onSave || viewerTeamName !== undefined ? (
           <span
             className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${

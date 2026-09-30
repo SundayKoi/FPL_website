@@ -29,7 +29,6 @@
 // not a workbench.
 
 import { useState, useTransition } from "react";
-import { copyEditionLabel } from "@/lib/cards/copyEdition";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/system/Toast";
 import { useUrlState } from "@/lib/ui/useUrlState";
@@ -38,363 +37,33 @@ import EmptyShelf from "./EmptyShelf";
 import { printRunKey } from "@/lib/packs/printRuns";
 import type { InventoryRow } from "@/lib/packs/queries";
 import { editionLabel } from "@/lib/packs/week";
-import {
-  ALT_SKIN_CHANCE,
-  canDust,
-  DEFAULT_FOIL_TYPE,
-  ECLIPSE_FOIL_TYPE,
-  FOIL_CHANCE,
-  FOIL_TYPE_LABELS,
-  foilTypeOf,
-  MAX_DUST_BATCH,
-  patronDustValue,
-  SIGNED_CHANCE,
-} from "@/lib/packs/config";
+import { MAX_DUST_BATCH, patronDustValue } from "@/lib/packs/config";
 import { fmtPoints } from "@/lib/betting/format";
 import { dustManyAction } from "@/lib/trades/actions";
 import BinderPinButton from "./BinderPinButton";
 import DustControls from "./DustControls";
 import PlayerCard3D from "./PlayerCard3D";
-import { parallelLabelFor, seasonLineOf } from "@/lib/cards/skinLines";
-
-type VariantFilter = "all" | "foil" | "signed" | "alt";
-
-/** How the shelf can be ordered. "best" is the showcase order the shelf
- *  always had — Eclipse, ink, overall, foil. The rest are the questions a
- *  collector actually asks of a big shelf: is it here (name), what did
- *  last week's packs give me (newest / week), what is my top end (rating). */
-export type ShelfSort = "best" | "name" | "newest" | "rating" | "week";
-
-export const SHELF_SORTS: { key: ShelfSort; label: string }[] = [
-  { key: "best", label: "Best first" },
-  { key: "name", label: "Name A–Z" },
-  { key: "newest", label: "Newest pull" },
-  { key: "rating", label: "Highest rating" },
-  { key: "week", label: "Newest edition" },
-];
-
-/** A comparator for the chosen order. Ties fall back to the showcase order
- *  so two same-named or same-rated copies still line up by quality. */
-export function copyOrder(sort: ShelfSort): (a: InventoryRow, b: InventoryRow) => number {
-  switch (sort) {
-    case "name":
-      return (a, b) => a.playerName.localeCompare(b.playerName) || showcaseOrder(a, b);
-    case "newest":
-      return (a, b) => b.acquiredAt.localeCompare(a.acquiredAt) || b.id - a.id;
-    case "rating":
-      return (a, b) => b.overall - a.overall || showcaseOrder(a, b);
-    case "week":
-      return (a, b) => b.editionWeek.localeCompare(a.editionWeek) || showcaseOrder(a, b);
-    default:
-      return showcaseOrder;
-  }
-}
-
-/** Name and week, the two things typed or picked into the finder. The
- *  name match is a substring, case-blind — nobody types a tag. */
-export function matchesFinder(row: InventoryRow, query: string, week: string): boolean {
-  const needle = query.trim().toLowerCase();
-  if (needle && !row.playerName.toLowerCase().includes(needle)) return false;
-  if (week && row.editionWeek !== week) return false;
-  return true;
-}
-
-const FILTERS: { key: VariantFilter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "foil", label: "✦ Foils" },
-  { key: "signed", label: "✍ Signed" },
-  { key: "alt", label: "Alt arts" },
-];
-
-/** Each empty state names the odds, because "you have none" and "these are
- *  hard to get" are the same sentence in a pack economy. Read off the
- *  gates that actually roll, so a balance pass can never leave a stale
- *  number on the shelf. */
-const EMPTY_COPY: Record<Exclude<VariantFilter, "all">, string> = {
-  foil: `No foils yet — they're a ${Math.round(FOIL_CHANCE * 100)}% pull.`,
-  signed: `No signed cards yet — 1-in-${Math.round(1 / SIGNED_CHANCE)} pulls.`,
-  alt: `No alternate prints yet — ${Math.round(ALT_SKIN_CHANCE * 100)}% of pulls come in an alternate skin.`,
-};
-
-/** The skin this copy printed in; 0 is the champion's base splash. Read off
- *  the frozen json rather than a flat column — the roll is only recorded
- *  there (src/lib/packs/skins.ts). */
-function skinOf(row: InventoryRow): number {
-  return row.card?.artSkin ?? 0;
-}
-
-const MATCHES: Record<Exclude<VariantFilter, "all">, (row: InventoryRow) => boolean> = {
-  foil: (row) => row.foil,
-  signed: (row) => row.signed,
-  alt: (row) => skinOf(row) > 0,
-};
-
-/** Which parallel a copy wears, for grouping. A matte copy is "", and so
- *  is a pre-parallels foil that was backfilled to Prisma: they are the base
- *  look. Anything else is its own print — a Cracked Ice is not a Prisma. */
-function parallelOf(row: InventoryRow): string {
-  if (!row.foil) return "";
-  return row.foilType && row.foilType !== DEFAULT_FOIL_TYPE ? row.foilType : "";
-}
-
-/** The one copy that outranks every rule below it. */
-function isEclipse(row: InventoryRow): boolean {
-  return row.foilType === ECLIPSE_FOIL_TYPE;
-}
-
-/** What makes two copies the same *print*: the cosmetic rolls. Two copies
- *  of a player from different weeks at different ratings are still the same
- *  thing to look at if they match.
- *
- *  The parallel is part of the key. The first cut keyed on foil-or-not, and
- *  the first Eclipse ever pulled — a signed foil, technically — stacked
- *  behind a signed Prisma of the same player and showed as "×2". A
- *  one-of-one that reads as a duplicate is the exact opposite of what it
- *  is, and the same is true, more quietly, of a Cracked Ice filed under a
- *  Prisma. */
-function printKey(row: InventoryRow): string {
-  return `${skinOf(row)}|${row.foil ? "f" : ""}|${row.signed ? "s" : ""}|${parallelOf(row)}`;
-}
-
-/** The copy to put on the shelf: an Eclipse over everything, because there
- *  is nothing rarer and nothing else that can happen to a pull; then an
- *  autographed copy — the ink is the rarest ordinary thing and nobody
- *  shelves a plain copy over a signed one — then highest overall, foil
- *  winning a tie (identical ratings are the same card, and the foil is the
- *  nicer print). */
-function betterCopy(a: InventoryRow, b: InventoryRow): InventoryRow {
-  if (isEclipse(a) !== isEclipse(b)) return isEclipse(b) ? b : a;
-  if (a.signed !== b.signed) return b.signed ? b : a;
-  if (b.overall !== a.overall) return b.overall > a.overall ? b : a;
-  return b.foil && !a.foil ? b : a;
-}
-
-/** Showcase order: Eclipse, then the ink, then rating. Same rule the shelf
- *  ranks a player's copies by, so a strip and a filtered wall agree. */
-function showcaseOrder(a: InventoryRow, b: InventoryRow): number {
-  return (
-    Number(isEclipse(b)) - Number(isEclipse(a)) ||
-    Number(b.signed) - Number(a.signed) ||
-    b.overall - a.overall ||
-    a.id - b.id
-  );
-}
-
-const CHIP = "rounded-full border border-line bg-panel px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-steel";
-const GOLD_CHIP = "rounded-full border border-gold/50 bg-gold/10 px-2 py-0.5 text-[10px] font-black tracking-[0.2em] text-gold";
-
-/**
- * "#7 of 43" for one copy, or null when either half is unknown.
- *
- * Both halves have to be there: a serial with no run size is a number
- * nobody can read, and a run size with no serial belongs to a different
- * copy. The map is keyed by print (week + slug), not by copy, because one
- * print's total is the same for every copy of it — see fetchPrintRuns.
- */
-function printOf(
-  row: InventoryRow,
-  printRuns?: ReadonlyMap<string, number>,
-): { number: number; of: number; editionWeek: string } | null {
-  if (row.printNumber == null) return null;
-  const minted = printRuns?.get(printRunKey(row.editionWeek, row.slug));
-  if (!minted) return null;
-  return { number: row.printNumber, of: minted, editionWeek: row.editionWeek };
-}
-
-/** The line under a single copy: whose it is, which print run it came from,
- *  what tier it printed at, and every marker that makes it a variant. */
-function CopyCaption({
-  row,
-  count = 1,
-  pinned,
-  printRuns,
-}: {
-  row: InventoryRow;
-  count?: number;
-  /** Omitted where the caller can't say — the strip inside a print group
-   *  shows a representative copy, and pinning "a representative" would be
-   *  a lie about which copy went on display. */
-  pinned?: ReadonlySet<number>;
-  /** Minted-to-date per print, keyed by printRunKey. Optional throughout:
-   *  a shelf whose page hasn't read the counters still renders, it just
-   *  doesn't say which copy this is. */
-  printRuns?: ReadonlyMap<string, number>;
-}) {
-  const skin = skinOf(row);
-  const print = printOf(row, printRuns);
-  return (
-    <div className="flex flex-col items-center gap-1.5 text-center">
-      <span className="text-sm font-semibold text-white">
-        {row.playerName}
-        {count > 1 ? <span className="ml-1.5 text-xs font-bold text-steel">×{count}</span> : null}
-      </span>
-      <div className="flex flex-wrap justify-center gap-1">
-        <span className={CHIP}>{copyEditionLabel(row.editionWeek, row.card)}</span>
-        <span className={CHIP}>{row.card.tier.label}</span>
-        {print ? (
-          <span
-            className={CHIP}
-            title={`Copy ${print.number} of the ${print.of} this print has ever stamped`}
-          >
-            #{print.number} of {print.of}
-          </span>
-        ) : null}
-        {row.signed ? (
-          <span className="rounded-full border border-gold bg-gold/20 px-2 py-0.5 text-[10px] font-black tracking-[0.2em] text-gold" title="Autographed copy">
-            ✍
-          </span>
-        ) : null}
-        {isEclipse(row) ? (
-          <span className={GOLD_CHIP} title="Eclipse — the only copy of this print that will ever exist">
-            ◐ 1 of 1
-          </span>
-        ) : row.foil ? (
-          <span className={GOLD_CHIP} title={`${parallelLabelFor(row.season, foilTypeOf(row.foilType), FOIL_TYPE_LABELS[foilTypeOf(row.foilType)])} foil copy`}>
-            {/* The parallel by name where it is more than the base foil —
-                a Cracked Ice beside a Prisma should not wear the same ✦.
-                Under a season line every tier is named, Standard too. */}
-            {parallelOf(row) || seasonLineOf(row.season)
-              ? parallelLabelFor(row.season, foilTypeOf(row.foilType), FOIL_TYPE_LABELS[foilTypeOf(row.foilType)])
-              : "✦"}
-          </span>
-        ) : null}
-        {skin > 0 ? (
-          <span className={GOLD_CHIP} title={`Alternate skin #${skin}`}>
-            Alt art
-          </span>
-        ) : null}
-      </div>
-      {pinned ? <BinderPinButton inventoryId={row.id} pinned={pinned.has(row.id)} playerName={row.playerName} /> : null}
-    </div>
-  );
-}
-
-/** One copy on display, sized and spaced like every other card grid. */
-function CopyCell({
-  row,
-  count,
-  pinned,
-  flame,
-  printRuns,
-}: {
-  row: InventoryRow;
-  count?: number;
-  pinned?: ReadonlySet<number>;
-  flame?: string | null;
-  printRuns?: ReadonlyMap<string, number>;
-}) {
-  return (
-    <div className="card-cell flex flex-col items-center gap-2">
-      <PlayerCard3D
-        card={row.card}
-        interactive
-        forceFoil={row.foil}
-        foilType={row.foilType}
-        flame={flame}
-        print={printOf(row, printRuns)}
-      />
-      <CopyCaption row={row} count={count} pinned={pinned} printRuns={printRuns} />
-    </div>
-  );
-}
-
-/**
- * A copy in select mode: the card, and a tap target over the whole cell.
- *
- * The card itself is the button rather than a checkbox beside it — on a
- * phone a 14px tickbox next to a 200px card is the wrong half to aim at,
- * and the cell already reads as one object.
- */
-function PickCell({
-  row,
-  picked,
-  locked,
-  atCap,
-  flame,
-  value,
-  onToggle,
-}: {
-  row: InventoryRow;
-  picked: boolean;
-  /** Away on an expedition — the database would refuse the delete, so the
-   *  cell says why instead of failing on tap. */
-  locked: boolean;
-  /** The batch is full and this copy is not in it. */
-  atCap: boolean;
-  flame?: string | null;
-  value: number;
-  onToggle: () => void;
-}) {
-  // A one-of-one is never pickable for dust — not a situation like a lock
-  // that lifts when the expedition returns, but a property of the copy.
-  const keepsake = !canDust(row);
-  const disabled = locked || keepsake || (atCap && !picked);
-  return (
-    <div className="card-cell flex flex-col items-center gap-2">
-      <button
-        type="button"
-        aria-pressed={picked}
-        disabled={disabled}
-        onClick={onToggle}
-        title={
-          keepsake
-            ? "An Eclipse is a one-of-one — it can't be dusted, but you can trade it."
-            : locked
-              ? "On expedition — back soon."
-              : undefined
-        }
-        className={`flex flex-col items-center gap-2 rounded-xl border-2 p-1 transition disabled:cursor-not-allowed disabled:opacity-40 ${
-          picked ? "border-gold bg-gold/10" : "border-transparent hover:border-gold/40"
-        }`}
-      >
-        <PlayerCard3D card={row.card} forceFoil={row.foil} foilType={row.foilType} flame={flame} />
-        <span className="flex w-full items-center justify-center gap-1.5 text-xs">
-          <span className="truncate font-semibold text-white">{row.playerName}</span>
-          <span className={picked ? "font-bold text-gold" : "text-steel"}>
-            {keepsake ? "1 of 1" : `${picked ? "✓ " : ""}+${fmtPoints(value)}`}
-          </span>
-        </span>
-        <span className="text-[10px] uppercase tracking-wide text-steel">
-          {keepsake ? "Can't be dusted" : locked ? "On expedition" : copyEditionLabel(row.editionWeek, row.card)}
-        </span>
-      </button>
-    </div>
-  );
-}
+import { CHIP, CopyCaption, CopyCell, GOLD_CHIP, PickCell, ShowMore } from "./CollectionCells";
+import {
+  EMPTY_COPY,
+  FILTERS,
+  MATCHES,
+  SHELF_SORTS,
+  betterCopy,
+  copyOrder,
+  isEclipse,
+  matchesFinder,
+  printKey,
+  printOf,
+  showcaseOrder,
+  type ShelfSort,
+  type VariantFilter,
+} from "./collectionShelf";
 
 /** How many cells a shelf mounts at a time. Sized so a normal collection
  *  never sees the button at all, and a big one pays for what it looks at
  *  rather than for everything it owns. */
 const PAGE_SIZE = 60;
-
-/** The bottom of a paged shelf. Says what is left rather than just "more",
- *  because "more" cannot tell you whether you are near the end — and it
- *  renders nothing at all once everything is on screen. */
-function ShowMore({
-  shown,
-  total,
-  onMore,
-  noun,
-}: {
-  shown: number;
-  total: number;
-  onMore: () => void;
-  noun: string;
-}) {
-  if (shown >= total) return null;
-  const left = total - shown;
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <button type="button" onClick={onMore} className="btn-pill px-5 py-2 text-sm">
-        Show more
-      </button>
-      <span className="text-xs text-steel">
-        {shown.toLocaleString()} of {total.toLocaleString()} {noun}
-        {total === 1 ? "" : "s"} · {left.toLocaleString()} more
-      </span>
-    </div>
-  );
-}
 
 export default function CollectionGrid({
   inventory,
@@ -438,7 +107,6 @@ export default function CollectionGrid({
   const setQuery = (next: string) => setView({ q: next });
   const setWeek = (next: string) => setView({ week: next });
   const setSort = (next: ShelfSort) => setView({ sort: next });
-  // Which players have their print strip open. A Set rather than a single
   // How many cells are mounted. Every card is a 3D flip with two rendered
   // faces, and a large shelf mounted several hundred of them on first
   // paint — content-visibility skips the PAINT for the ones off screen, but

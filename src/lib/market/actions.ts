@@ -38,6 +38,8 @@ import {
   normalizeNote,
   validPrice,
 } from "./config";
+import { siteUrl } from "@/lib/site/url";
+import { fetchBettingUsernames } from "@/lib/fantasy/queries";
 
 type Result = { ok: true } | { ok: false; error: string };
 type CreateResult = { ok: true; id: number } | { ok: false; error: string };
@@ -165,17 +167,10 @@ async function announceSale(
   },
 ): Promise<void> {
   try {
-    const { data } = await service
-      .from("betting_profiles")
-      .select("discord_id, username")
-      .in("discord_id", [input.buyerDiscordId, input.sellerDiscordId]);
-    const names = new Map<string, string>();
-    for (const row of ((data as { discord_id: string; username: string | null }[]) ?? [])) {
-      names.set(row.discord_id, row.username ?? row.discord_id);
-    }
+    const names = await fetchBettingUsernames(service, [input.buyerDiscordId, input.sellerDiscordId]);
     const buyer = names.get(input.buyerDiscordId) ?? "Someone";
     const seller = names.get(input.sellerDiscordId) ?? "someone";
-    const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+    const site = siteUrl();
     const edition = input.editionWeek ? ` — ${editionLabel(input.editionWeek)} edition` : "";
     await postCardsWebhook({
       title: "💸 SOLD",

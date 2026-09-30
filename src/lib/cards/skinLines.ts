@@ -282,10 +282,9 @@ export interface LineTreatment {
   tier: LineTierKey;
 }
 
-export function lineTreatmentFor(season: string | null | undefined, foilType: string | null | undefined): LineTreatment | null {
-  const line = seasonLineOf(season);
-  const tier = line ? lineTierOf(foilType) : null;
-  if (!line || !tier) return null;
+/** A line at a tier in the shape PlayerCard3D's `preview` takes — what the
+ *  mockup pages pass, and a LineTreatment without its tier key. */
+export function linePreviewOf(line: SkinLine, tier: LineTier): Omit<LineTreatment, "tier"> {
   return {
     label: lineTierLabel(line, tier),
     className: line.className,
@@ -293,6 +292,12 @@ export function lineTreatmentFor(season: string | null | undefined, foilType: st
     blend: line.blend,
     accent: line.accent,
     layers: tier.layers,
-    tier: tier.key,
   };
+}
+
+export function lineTreatmentFor(season: string | null | undefined, foilType: string | null | undefined): LineTreatment | null {
+  const line = seasonLineOf(season);
+  const tier = line ? lineTierOf(foilType) : null;
+  if (!line || !tier) return null;
+  return { ...linePreviewOf(line, tier), tier: tier.key };
 }

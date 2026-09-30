@@ -11,6 +11,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchLeagueSeasons } from "@/lib/league/season";
 import type { Draft, Player, Profile, Team } from "@/lib/draft/types";
 import { toRosterTeams } from "@/lib/teams/roster";
+import { resolveLeagueView } from "@/lib/league/context";
 
 export const metadata = { title: "Teams & rosters — FPL Admin" };
 
@@ -23,8 +24,7 @@ export default async function AdminTeamsPage({
   const { isAdmin, isOwner } = await fetchStaffTier(supabase);
   if (!isAdmin && !isOwner) redirect("/admin");
   const params = await searchParams;
-  const leagueValue = Array.isArray(params.league) ? params.league[0] : params.league;
-  const league = leagueValue === "academy" ? "academy" : "premier";
+  const league = resolveLeagueView(params.league);
 
   const [settingsResult, academyDraftResult, draftsResult, leagueSeasons] = await Promise.all([
     supabase.from("league_settings").select("featured_draft_id, academy_draft_id").eq("id", 1).single(),

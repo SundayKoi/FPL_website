@@ -20,9 +20,9 @@ import { commandHandlers } from "./registry";
 import type { DiscordInteraction } from "./registry";
 import { BRAND, GREEN, deferred, errMsg } from "./respond";
 import type { DiscordEmbed } from "./respond";
-import { ensureUser, requireMember, siteUrl } from "./shared";
+import { callerName, ensureUser, leagueOption, postFollowup, requireMember, siteUrl, stringOption } from "./shared";
 import { TIER_COLORS } from "./tierColors";
-import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardEditionWeeks, fetchCardSeason } from "@/lib/cards/queries";
 import { cardImageUrl } from "@/lib/cards/shareImage";
 import { editionLabel } from "@/lib/packs/week";
 
@@ -108,20 +108,6 @@ export function ripFollowup(result: OpenPackResult, username: string): { embeds:
   return { embeds: [header, ...result.cards.map((pull) => pullEmbed(pull, site, result.editionWeek))] };
 }
 
-/** League option; defaults to premier — the daily is a ritual, not a menu. */
-function leagueOf(interaction: DiscordInteraction): CardLeague {
-  const options = (interaction.data?.options ?? []) as { name: string; value?: unknown }[];
-  const raw = options.find((option) => option.name === "league")?.value;
-  return raw === "academy" ? "academy" : "premier";
-}
-
-/** The raw `week` option, if one was typed. */
-function weekOptionOf(interaction: DiscordInteraction): string | null {
-  const options = (interaction.data?.options ?? []) as { name: string; value?: unknown }[];
-  const raw = options.find((option) => option.name === "week")?.value;
-  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
-}
-
 /**
  * "1" / "2" / a Monday date -> the archived edition week it names, against
  * `weeks` as fetchCardEditionWeeks returns them (newest first). Week
@@ -150,11 +136,10 @@ async function handleRip(interaction: DiscordInteraction): Promise<object> {
   const service = createBettingServiceClient();
   await ensureUser(service, member);
 
-  const league = leagueOf(interaction);
-  const username = member.global_name ?? member.username ?? "Someone";
-  const followupUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}`;
-
-  const rawWeek = weekOptionOf(interaction);
+  // The daily is a ritual, not a menu: no league option means Premier.
+  const league = leagueOption(interaction);
+  const username = callerName(member);
+  const rawWeek = stringOption(interaction, "week");
 
   after(async () => {
     let body: object;
@@ -167,11 +152,7 @@ async function handleRip(interaction: DiscordInteraction): Promise<object> {
         const season = await fetchCardSeason(service, league);
         const resolved = resolveRipWeek(rawWeek, season ? await fetchCardEditionWeeks(service, season) : []);
         if ("error" in resolved) {
-          await fetch(followupUrl, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ content: `❌ ${resolved.error}` }),
-          });
+          await postFollowup(interaction, { content: `❌ ${resolved.error}` });
           return;
         }
         requestedWeek = resolved.week;
@@ -182,11 +163,7 @@ async function handleRip(interaction: DiscordInteraction): Promise<object> {
       // there forever, so any crash still answers something.
       body = { content: "❌ Something went wrong opening the pack." };
     }
-    await fetch(followupUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    await postFollowup(interaction, body);
   });
 
   return deferred();

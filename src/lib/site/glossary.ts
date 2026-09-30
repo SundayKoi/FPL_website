@@ -141,8 +141,3 @@ export const GLOSSARY: GlossaryTerm[] = [
     linkLabel: "Premium and Patron, side by side",
   },
 ];
-
-/** A term by its anchor. */
-export function glossaryTerm(key: string): GlossaryTerm | undefined {
-  return GLOSSARY.find((term) => term.key === key);
-}

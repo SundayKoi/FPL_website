@@ -10,12 +10,9 @@ import type { ScoutFixtureRow, ScoutRosterPlayer } from "@/lib/scouting/types";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { normalizeName } from "@/lib/captain/teamNames";
 import LeaguePageShell, { LeagueToolbar } from "@/components/league/LeaguePageShell";
+import { firstParam } from "@/lib/searchParams";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
-
-function first(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
 
 function nextFixtureForTeam(fixtures: ScoutFixtureRow[], teamName: string): ScoutFixtureRow | undefined {
   const target = normalizeName(teamName);
@@ -62,8 +59,8 @@ export async function MyTeamScoutingPageView({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  const requestedTeamId = first(params.team);
-  const requestedScoutId = first(params.scout);
+  const requestedTeamId = firstParam(params.team);
+  const requestedScoutId = firstParam(params.scout);
   const hasScoutTarget = params.scout !== undefined;
   const supabase = await createServerSupabase();
 

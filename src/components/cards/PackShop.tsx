@@ -28,6 +28,7 @@ import { dustManyAction } from "@/lib/trades/actions";
 import { flameUnlocked, PATRON_FLAMES, PATRON_FLAME_KEYS, patronFlameOf, SOVEREIGN_TENURE_DAYS, type PatronFlameKey } from "@/lib/patron/flames";
 import { getMuted, getMutedServer, setMuted, subscribeMuted } from "@/lib/packs/sounds";
 import PackOpening, { type AutoDusted, type OpenResult, type Pull } from "./PackOpening";
+import { weekDayLabel } from "@/lib/packs/week";
 
 function openingRequestId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
@@ -59,9 +60,7 @@ async function measureOpen<T>(kind: "standard" | "daily" | "champions", task: ()
  *  which knows which weeks are send-offs and numbers the weekly prints
  *  around them. */
 function editionLabel(week: string, number: number): string {
-  const date = new Date(`${week}T12:00:00.000Z`);
-  const when = date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-  return `Week ${number} · ${when}`;
+  return `Week ${number} · ${weekDayLabel(week)}`;
 }
 
 /** "Sep 30" on the league's own clock — the vault shuts at an instant, and

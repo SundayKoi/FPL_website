@@ -151,6 +151,11 @@ export function gameTotals(games: CardGameRow[], durations?: Map<string, number>
   };
 }
 
+/** The arithmetic mean; 0 for an empty list. */
+export function mean(values: number[]): number {
+  return values.reduce((sum, value) => sum + value, 0) / (values.length || 1);
+}
+
 /**
  * Percentile (0-100) of `value` within `values` — rank position over cohort
  * size, matching how build.ts's pct() reads a PlayerAggRow field.

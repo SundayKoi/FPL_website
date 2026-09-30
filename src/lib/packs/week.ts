@@ -68,18 +68,33 @@ export function lastCompletedWeekMonday(now: Date): string {
   return mondayOf(new Date(new Date(`${thisWeek}T12:00:00.000Z`).getTime() - 7 * DAY_MS));
 }
 
+/** A stored week ("2026-08-17") as UTC midnight, or null if unparseable. */
+function weekDate(week: string): Date | null {
+  const date = new Date(`${week}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatWeekDay(date: Date): string {
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
 /**
- * An edition week as a chip label: "2026-08-17" → "WK Aug 17".
+ * A stored week as a short date: "2026-08-17" → "Aug 17".
  *
  * The stored week is a plain calendar date, so it is read back as UTC
  * midnight and formatted as UTC — letting the browser's local timezone
  * parse it would slide a chunk of the world back a day and print the
- * wrong print run.
+ * wrong print run. Unparseable input comes back unchanged.
  */
+export function weekDayLabel(week: string): string {
+  const date = weekDate(week);
+  return date ? formatWeekDay(date) : week;
+}
+
+/** An edition week as a chip label: "2026-08-17" → "WK Aug 17". */
 export function editionLabel(week: string): string {
-  const date = new Date(`${week}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) return week;
-  return `WK ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`;
+  const date = weekDate(week);
+  return date ? `WK ${formatWeekDay(date)}` : week;
 }
 
 /**

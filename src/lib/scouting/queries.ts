@@ -14,6 +14,7 @@ import {
   type InhouseGameRow,
   type InhousePlayerStats,
 } from "./inhouse";
+import { fetchAllPages } from "@/lib/supabase/pagination";
 
 export const FIXTURE_COLUMNS =
   "id, season, stage, team_a, team_b, scheduled_at, best_of, score_a, score_b";
@@ -24,8 +25,6 @@ export const INGESTED_SCOUTING_COLUMNS =
 const TEAM_COLUMNS = "id, name, abbreviation";
 const REPORT_COLUMNS = "id, fixture_id, season, draft_url, team_a_id, team_b_id, status, forfeit_team_id";
 const REPORT_GAME_COLUMNS = "id, report_id, game_number, match_id, blue_team_id";
-const SCOUTING_PAGE_SIZE = 1000;
-const SCOUTING_MAX_PAGES = 100;
 
 export interface FetchScoutingHistoryInput {
   league: "premier" | "academy";
@@ -39,21 +38,6 @@ const asRows = (data: unknown): UnknownRow[] =>
 
 const asNullableString = (value: unknown): string | null => typeof value === "string" ? value : null;
 const asNumber = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) ? value : null;
-
-async function fetchAllScoutingRows<T>(
-  buildPage: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>,
-): Promise<T[]> {
-  const rows: T[] = [];
-  for (let page = 0; page < SCOUTING_MAX_PAGES; page += 1) {
-    const from = page * SCOUTING_PAGE_SIZE;
-    const { data, error } = await buildPage(from, from + SCOUTING_PAGE_SIZE - 1);
-    if (error) throw error;
-    const batch = (data as T[]) ?? [];
-    rows.push(...batch);
-    if (batch.length < SCOUTING_PAGE_SIZE) return rows;
-  }
-  throw new Error("scouting query exceeded the page limit");
-}
 
 function validAction(value: unknown): value is MatchDraftAction {
   if (!value || typeof value !== "object") return false;
@@ -330,11 +314,11 @@ export async function fetchScoutingHistory(
   input: FetchScoutingHistoryInput,
 ): Promise<ScoutHistory> {
   const [fixtureRows, draftRows, teamRows, reportRows, reportGameRows] = await Promise.all([
-    fetchAllScoutingRows<UnknownRow>((from, to) => supabase.from("fixtures").select(FIXTURE_COLUMNS).order("id").range(from, to)),
-    fetchAllScoutingRows<UnknownRow>((from, to) => supabase.from("match_drafts").select(DRAFT_COLUMNS).order("id").range(from, to)),
-    fetchAllScoutingRows<UnknownRow>((from, to) => supabase.from("league_teams").select(TEAM_COLUMNS).order("id").range(from, to)),
-    fetchAllScoutingRows<UnknownRow>((from, to) => supabase.from("match_reports").select(REPORT_COLUMNS).order("id").range(from, to)),
-    fetchAllScoutingRows<UnknownRow>((from, to) => supabase.from("match_report_games").select(REPORT_GAME_COLUMNS).order("id").range(from, to)),
+    fetchAllPages<UnknownRow>((from, to) => supabase.from("fixtures").select(FIXTURE_COLUMNS).order("id").range(from, to)),
+    fetchAllPages<UnknownRow>((from, to) => supabase.from("match_drafts").select(DRAFT_COLUMNS).order("id").range(from, to)),
+    fetchAllPages<UnknownRow>((from, to) => supabase.from("league_teams").select(TEAM_COLUMNS).order("id").range(from, to)),
+    fetchAllPages<UnknownRow>((from, to) => supabase.from("match_reports").select(REPORT_COLUMNS).order("id").range(from, to)),
+    fetchAllPages<UnknownRow>((from, to) => supabase.from("match_report_games").select(REPORT_GAME_COLUMNS).order("id").range(from, to)),
   ]);
 
   const scope = createLeagueFixtureScope(input.leagueTeamNames);
@@ -439,7 +423,7 @@ export async function fetchIngestedScoutingGames(
   fixtures: ScoutFixtureRow[] = [],
   league: FetchScoutingHistoryInput["league"] = "premier",
 ): Promise<IngestedScoutingData> {
-  const allRows = await fetchAllScoutingRows<IngestedScoutingGameRow>((from, to) => supabase
+  const allRows = await fetchAllPages<IngestedScoutingGameRow>((from, to) => supabase
       .from("raw_stats")
       .select(INGESTED_SCOUTING_COLUMNS)
       .order("id")
@@ -447,19 +431,19 @@ export async function fetchIngestedScoutingGames(
   if (allRows.length === 0) return buildIngestedScoutingGames(roster, allRows);
 
   const [reportGames, reports] = await Promise.all([
-    fetchAllScoutingRows<{ id: string; match_id: string | null; report_id: string | null; game_number: number | null }>((from, to) => supabase
+    fetchAllPages<{ id: string; match_id: string | null; report_id: string | null; game_number: number | null }>((from, to) => supabase
       .from("match_report_games")
       .select("id, match_id, report_id, game_number")
       .order("id")
       .range(from, to)),
-    fetchAllScoutingRows<UnknownRow>((from, to) => supabase
+    fetchAllPages<UnknownRow>((from, to) => supabase
       .from("match_reports")
       .select(REPORT_COLUMNS)
       .order("id")
       .range(from, to)),
   ]);
   const teamRows = fixtures.length
-    ? await fetchAllScoutingRows<UnknownRow>((from, to) => supabase.from("league_teams").select(TEAM_COLUMNS).order("id").range(from, to))
+    ? await fetchAllPages<UnknownRow>((from, to) => supabase.from("league_teams").select(TEAM_COLUMNS).order("id").range(from, to))
     : [];
   const fixtureIdsByReportId = new Map(
     (fixtures.length

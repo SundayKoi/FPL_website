@@ -1,3 +1,5 @@
+import { firstParam } from "@/lib/searchParams";
+
 export type LeagueView = "premier" | "academy";
 
 export type LeagueTeamNameRow = { name: string | null | undefined };
@@ -11,5 +13,5 @@ export function academyTeamNames(rows: LeagueTeamNameRow[]): Set<string> {
 }
 
 export function resolveLeagueView(value: string | string[] | undefined): LeagueView {
-  return (Array.isArray(value) ? value[0] : value) === "academy" ? "academy" : "premier";
+  return firstParam(value) === "academy" ? "academy" : "premier";
 }

@@ -4,7 +4,7 @@ import { readBettingIdentity } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { fetchRuns } from "@/lib/expeditions/queries";
-import { openFork } from "@/lib/expeditions/routes";
+import { openFork } from "@/lib/expeditions/forks";
 
 export interface ShelfStatus {
   /** Betting dollars, or null when nobody is signed in. */

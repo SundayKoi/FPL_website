@@ -30,7 +30,7 @@ import { autocompleteHandlers, commandHandlers } from "./registry";
 import type { DiscordInteraction } from "./registry";
 import { AUTOCOMPLETE_LIMIT, BRAND, autocomplete, deferred, errMsg } from "./respond";
 import type { AutocompleteChoice, DiscordEmbed } from "./respond";
-import { ensureUser, requireMember, siteUrl } from "./shared";
+import { callerName, ensureUser, leagueOption, postFollowup, requireMember, siteUrl, stringOption } from "./shared";
 import { TIER_COLORS } from "./tierColors";
 import { resolveRipWeek } from "./rip";
 import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
@@ -295,19 +295,6 @@ export function flexEmbed(row: InventoryRow, { username, site, printRun }: FlexC
   };
 }
 
-/** League option; defaults to premier, like /rip's. */
-function leagueOf(interaction: DiscordInteraction): CardLeague {
-  const options = (interaction.data?.options ?? []) as { name: string; value?: unknown }[];
-  const raw = options.find((option) => option.name === "league")?.value;
-  return raw === "academy" ? "academy" : "premier";
-}
-
-function stringOption(interaction: DiscordInteraction, name: string): string | null {
-  const options = (interaction.data?.options ?? []) as { name: string; value?: unknown }[];
-  const raw = options.find((option) => option.name === name)?.value;
-  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
-}
-
 /** The option the caller is typing in right now, and what is in it so far.
  *  An autocomplete interaction marks exactly one option `focused`. */
 function focusedOption(interaction: DiscordInteraction): { name: string; value: string } | null {
@@ -329,12 +316,11 @@ async function handleFlex(interaction: DiscordInteraction): Promise<object> {
   const service = createBettingServiceClient();
   await ensureUser(service, member);
 
-  const league = leagueOf(interaction);
+  const league = leagueOption(interaction);
   const player = stringOption(interaction, "player") ?? "";
   const copy = stringOption(interaction, "copy");
   const rawWeek = stringOption(interaction, "week");
-  const username = member.global_name ?? member.username ?? "Someone";
-  const followupUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}`;
+  const username = callerName(member);
 
   after(async () => {
     let body: object;
@@ -352,11 +338,7 @@ async function handleFlex(interaction: DiscordInteraction): Promise<object> {
       // there forever, so any crash still answers something.
       body = refusal("Something went wrong finding that card.");
     }
-    await fetch(followupUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    await postFollowup(interaction, body);
   });
 
   return deferred();
@@ -443,7 +425,7 @@ async function handleFlexAutocomplete(interaction: DiscordInteraction): Promise<
 
   try {
     const service = createBettingServiceClient();
-    const league = leagueOf(interaction);
+    const league = leagueOption(interaction);
     const season = await fetchCardSeason(service, league);
     if (!season) return autocomplete([]);
 

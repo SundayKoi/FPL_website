@@ -14,6 +14,7 @@ import {
   utcWeekStart,
 } from "./rules";
 import { dailyGameDate, dailyGameResetAt } from "@/lib/dailyDay";
+import { isIsoDate, isRecord } from "@/lib/validation";
 import { HigherLowerSnapshotError, refreshHigherLowerSnapshot } from "./snapshot";
 import type {
   HigherLowerChoice,
@@ -23,7 +24,6 @@ import type {
   HigherLowerLastChoice,
   HigherLowerLeague,
   HigherLowerRunState,
-  HigherLowerSettlement,
 } from "./types";
 
 export type {
@@ -79,14 +79,6 @@ type CandidateRow = {
 
 type LeaderboardRunRow = { profile_id: string; run_score: number; league: HigherLowerLeague; puzzle_date: string };
 type WalletRow = { profile_id: string; username: string | null; avatar_url: string | null };
-type SettlementRpcRow = {
-  week_start: string;
-  top_score: number;
-  prize_pool: number;
-  winner_count: number;
-  settled_at: string | null;
-  status: "settled";
-};
 
 export type HigherLowerErrorCode =
   | "INVALID_INPUT"
@@ -109,21 +101,11 @@ export class HigherLowerError extends Error {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 function parseLeague(value: unknown): HigherLowerLeague {
   if (value !== "premier" && value !== "academy") {
     throw new HigherLowerError("INVALID_INPUT", "Choose a valid Higher or Lower league.");
   }
   return value;
-}
-
-function isIsoDate(value: unknown): value is string {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
 function parseRunInput(input: unknown, action: "choice" | "advance"): {
@@ -443,25 +425,6 @@ export async function advanceHigherLowerRound(input: unknown): Promise<HigherLow
   });
   if (error) throwRpcError(error);
   return buildGame(service, parsed.league, parsed.puzzleDate, profileId, canReplay, isAdmin);
-}
-
-export async function settleHigherLowerWeek(weekStart: string): Promise<HigherLowerSettlement> {
-  if (!isIsoDate(weekStart) || utcWeekStart(new Date(`${weekStart}T12:00:00.000Z`)) !== weekStart) {
-    throw new HigherLowerError("INVALID_INPUT", "Higher or Lower settlement requires a Monday UTC date.");
-  }
-  const service = createBettingServiceClient();
-  const { data, error } = await service.rpc("settle_higher_lower_week", { p_week_start: weekStart });
-  if (error) throwRpcError(error);
-  const row = (data as SettlementRpcRow[] | null)?.[0];
-  if (!row) throw new HigherLowerError("PUZZLE_UNAVAILABLE", "Weekly settlement did not return a result.");
-  return {
-    weekStart: row.week_start,
-    topScore: Number(row.top_score),
-    prizePool: Number(row.prize_pool),
-    winnerCount: Number(row.winner_count),
-    settledAt: row.settled_at,
-    status: "settled",
-  };
 }
 
 export { HIGHER_LOWER_TIMER_SECONDS };

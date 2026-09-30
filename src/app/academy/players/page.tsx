@@ -5,11 +5,7 @@ import { fetchAcademyDraftData } from "@/lib/academy/draft";
 import { fetchAcademyPlayers, mergeAcademyPlayers } from "@/lib/academy/playerSheet";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchLeagueSeasons } from "@/lib/league/season";
-import {
-  buildRosterClaimTargets,
-  fetchRosterClaimTargets,
-  type RosterClaimTarget,
-} from "@/lib/teams/rosterClaims";
+import { draftRosterClaimEntries, loadRosterClaimTargets } from "@/lib/teams/rosterClaims";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 
 export const metadata: Metadata = {
@@ -35,53 +31,19 @@ export default async function AcademyPlayersPage() {
   ]);
 
   const players = draftData.draft ? mergeAcademyPlayers(draftData.players, sheetPlayers) : [];
-  const activeTeamByName = new Map(
-    (((activeLeagueTeams as { id: string; name: string }[] | null) ?? [])).map((team) => [
-      team.name.trim().toLowerCase(),
-      team.id,
-    ]),
+  const claimEntries = draftRosterClaimEntries(
+    draftData.players,
+    draftData.teams,
+    (activeLeagueTeams as { id: string; name: string }[] | null) ?? [],
+    () => "/academy/players",
   );
-  const claimEntries = [
-    ...new Map(
-      draftData.players.flatMap((player) => {
-        if (!player.canonical_player_id || !player.team_id) return [];
-        const draftTeam = draftData.teams.find((team) => team.id === player.team_id);
-        const leagueTeamId = draftTeam
-          ? activeTeamByName.get(draftTeam.name.trim().toLowerCase())
-          : undefined;
-        if (!leagueTeamId) return [];
-        return [[
-          player.canonical_player_id,
-          {
-            playerPoolId: player.canonical_player_id,
-            leagueTeamId,
-            returnPath: "/academy/players",
-          },
-        ] as const];
-      }),
-    ).values(),
-  ];
-  let playerClaims: Record<string, RosterClaimTarget> = {};
-  if (claimEntries.length && leagueSeasons.academy) {
-    try {
-      playerClaims = await fetchRosterClaimTargets(
-        supabase,
-        claimEntries,
-        "academy",
-        leagueSeasons.academy,
-        userData.user?.id ?? null,
-      );
-    } catch {
-      playerClaims = buildRosterClaimTargets(
-        claimEntries,
-        {},
-        "academy",
-        leagueSeasons.academy,
-        userData.user?.id != null,
-        true,
-      );
-    }
-  }
+  const playerClaims = await loadRosterClaimTargets(
+    supabase,
+    claimEntries,
+    "academy",
+    leagueSeasons.academy,
+    userData.user?.id ?? null,
+  );
 
   return (
     <>

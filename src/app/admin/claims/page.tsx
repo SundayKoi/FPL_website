@@ -7,6 +7,8 @@ import { cardSlug } from "@/lib/cards/build";
 import { fetchAllCardSeasons, type CardLeague } from "@/lib/cards/queries";
 import { seasonBelongsToLeague } from "@/lib/league/season";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { firstParam } from "@/lib/searchParams";
+import { utcDateLabel } from "@/lib/time";
 
 export const metadata: Metadata = {
   title: "Player claims — FPL",
@@ -30,13 +32,6 @@ interface QueueSection {
   actionable: QueueClaim[];
   /** Pending claims belonging to someone else's roster — a count, not rows. */
   otherCount: number;
-}
-
-/** Fixed locale + UTC so the server render and the hydrated client agree. */
-function formatCreated(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
 /** Every pending claim in one season, split into the ones this viewer may
@@ -89,7 +84,7 @@ async function loadSeason(
       slug: cardSlug(row.summoner_name, row.tag),
       profileId: row.profile_id,
       claimantName: names.get(row.profile_id) ?? "a player",
-      createdLabel: formatCreated(row.created_at),
+      createdLabel: utcDateLabel(row.created_at),
     });
   }
   return section;
@@ -127,8 +122,8 @@ async function PlayerClaimsPage(props?: PlayerClaimsPageProps) {
 
   const staffTier = await fetchStaffTier(supabase);
   const params = await (searchParams ?? Promise.resolve<Record<string, string | string[] | undefined>>({}));
-  const leagueValue = Array.isArray(params.league) ? params.league[0] : params.league;
-  const seasonValue = Array.isArray(params.season) ? params.season[0] : params.season;
+  const leagueValue = firstParam(params.league);
+  const seasonValue = firstParam(params.season);
   const selectedLeague: CardLeague | null = leagueValue === "premier" || leagueValue === "academy" ? leagueValue : null;
   const selectedSeason = selectedLeague
     && typeof seasonValue === "string"

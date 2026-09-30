@@ -23,8 +23,10 @@ const ROOT = process.cwd();
 const SRC = join(ROOT, "src");
 const rel = (file: string) => relative(ROOT, file);
 
-/** The three modules the browser must never hold. */
-const FORBIDDEN = ["routes", "journal", "views"].map((name) => join(SRC, "lib/expeditions", `${name}.ts`));
+/** The three modules the browser must never hold, and the files routes.ts
+ *  and journal.ts are split across (the road, its edges, the fork options,
+ *  the resolver, the journal's lines). */
+const FORBIDDEN = ["routes", "journal", "views", "roads", "routeEdges", "forkOptions", "resolveRoute", "journalLines"].map((name) => join(SRC, "lib/expeditions", `${name}.ts`));
 
 /** The board's own client modules, named so they are checked even if
  *  nothing imports them any more — the living map's among them: it draws
@@ -143,7 +145,7 @@ describe("the expedition board's client bundle", () => {
       "components/cards/CampaignPanel.tsx",
       "components/cards/expeditions/ExpeditionsHeader.tsx",
       "lib/expeditions/forks.ts",
-      "lib/expeditions/queries.ts",
+      "lib/expeditions/runRows.ts",
       "lib/expeditions/config.ts",
     ]) {
       expect(graph.has(join(SRC, path)), path).toBe(true);

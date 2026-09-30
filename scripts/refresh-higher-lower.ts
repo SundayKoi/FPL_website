@@ -6,22 +6,14 @@
  * Run: npx tsx scripts/refresh-higher-lower.ts
  * Needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY.
  */
-import { createClient } from "@supabase/supabase-js";
 import { pathToFileURL } from "node:url";
 import { dailyGameDate } from "../src/lib/dailyDay";
 import { refreshHigherLowerSnapshot } from "../src/lib/higher-lower/snapshot";
 import { fetchAllCardSeasons } from "../src/lib/cards/queries";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
-}
+import { createServiceClientFromEnv } from "./lib/env";
 
 async function main(): Promise<void> {
-  const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
-    auth: { persistSession: false },
-  });
+  const supabase = createServiceClientFromEnv();
   const puzzleDate = dailyGameDate();
   const seasons = await fetchAllCardSeasons(supabase);
   if (seasons.length === 0) throw new Error("league_settings has no seasons configured");

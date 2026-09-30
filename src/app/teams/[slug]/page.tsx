@@ -6,6 +6,7 @@ import { toRosterTeams } from "@/lib/teams/roster";
 import {
   didWin,
   opponentOf,
+  sameTeam,
   splitTeamFixtures,
   teamRecord,
   teamSlug,
@@ -101,7 +102,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
   const season = (league === "academy" ? settings?.academy_season : settings?.current_season) ?? null;
   const fixtures = season ? allFixtures.filter((f) => f.season === season) : allFixtures;
   const leagueTeamId = ((leagueTeamsResult.data as { id: string; name: string }[] | null) ?? [])
-    .find((candidate) => candidate.name.trim().toLowerCase() === team.name.trim().toLowerCase())?.id ?? null;
+    .find((candidate) => sameTeam(candidate.name, team.name))?.id ?? null;
   const viewerProfileId = viewerResult.data.user?.id ?? null;
   const draftPlayerById = new Map(draftPlayers.map((player) => [player.id, player]));
   let rosterClaimStates = {} as Awaited<ReturnType<typeof fetchRosterClaimStates>>;
@@ -148,8 +149,6 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
     actions: MatchDraftAction[] | null;
     positions: MatchDraftPositions | null;
   }[];
-  const sameName = (a?: string | null, b?: string | null) =>
-    Boolean(a && b && a.trim().toLowerCase() === b.trim().toLowerCase());
   const recentDraftRows: TeamDraftRow[] = recentFixtures.flatMap((fixture) => {
     const drafted = teamDraftRowsRaw.filter(
       (row) =>
@@ -166,9 +165,9 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
       actions: (first.actions ?? []).filter((action) => Boolean(action && (action.champion || action.skipped))),
       positions: first.positions ?? null,
     };
-    const side = sameName(game.blueTeamName, team.name)
+    const side = sameTeam(game.blueTeamName, team.name)
       ? ("blue" as const)
-      : sameName(game.redTeamName, team.name)
+      : sameTeam(game.redTeamName, team.name)
         ? ("red" as const)
         : null;
     if (!side) return [];

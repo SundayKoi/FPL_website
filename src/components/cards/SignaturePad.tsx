@@ -16,16 +16,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { MAX_SIGNATURE_CHARS } from "@/lib/cards/signing";
 import { createClient } from "@/lib/supabase/client";
 
 /** Canvas size in CSS pixels. The backing store is scaled by the device
  *  pixel ratio so a phone signature isn't a blurry upscale. */
 const PAD_WIDTH = 480;
 const PAD_HEIGHT = 160;
-
-/** Matches the column's check in 20260826000016 — guarded here so a too-
- *  detailed scrawl gets an explanation instead of a Postgres error. */
-const MAX_SIGNATURE_CHARS = 80000;
 
 const INK_WIDTH = 3;
 
@@ -157,6 +154,8 @@ export default function SignaturePad({
     const canvas = canvasRef.current;
     if (!canvas) return;
     const signature = canvas.toDataURL("image/png");
+    // The column's check in 20260826000016, guarded here so a too-detailed
+    // scrawl gets an explanation instead of a Postgres error.
     if (signature.length > MAX_SIGNATURE_CHARS) {
       setError("That signature is too detailed — try a simpler one.");
       return;

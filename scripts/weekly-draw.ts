@@ -12,10 +12,11 @@
  * Scheduled by .github/workflows/weekly-draw.yml Tuesdays after the card
  * drop, so the draw covers a finished week of pulls.
  */
-import { createClient } from "@supabase/supabase-js";
 import { fetchAllCardSeasons } from "../src/lib/cards/queries";
 import { WEEKLY_DRAW_POT } from "../src/lib/packs/config";
 import { lastCompletedWeekMonday, mondayOf } from "../src/lib/packs/week";
+import { createServiceClientFromEnv } from "./lib/env";
+import { postWebhookEmbed } from "./lib/discord";
 
 /** announce.ts's GOLD, restated: that module is `server-only` and throws
  *  the moment a plain node script imports it, so scripts post their own
@@ -28,27 +29,8 @@ interface DrawRow {
   already: boolean;
 }
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
-}
-
-async function postEmbed(webhookUrl: string, title: string, description: string): Promise<void> {
-  const response = await fetch(webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ embeds: [{ title, description: description.slice(0, 4000), color: GOLD }] }),
-  });
-  if (!response.ok) {
-    throw new Error(`Discord webhook failed: HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
-  }
-}
-
 async function main(): Promise<void> {
-  const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
-    auth: { persistSession: false },
-  });
+  const supabase = createServiceClientFromEnv();
   const webhookUrl = process.env.DISCORD_CARDS_WEBHOOK_URL ?? null;
 
   // DRAW_WEEK (manual runs) draws a specific Monday — for a week the cron
@@ -94,13 +76,14 @@ async function main(): Promise<void> {
       .eq("week_start", week)
       .maybeSingle();
     const card = (drawRow as { card?: { name?: string } } | null)?.card;
-    await postEmbed(
-      webhookUrl,
-      "🎟️ The Weekly Draw",
-      `**${card?.name ?? "A card"}** came up — held by <@${row.discord_id}>. ` +
+    await postWebhookEmbed(webhookUrl, {
+      title: "🎟️ The Weekly Draw",
+      description:
+        `**${card?.name ?? "A card"}** came up — held by <@${row.discord_id}>. ` +
         `**${WEEKLY_DRAW_POT}** betting dollars and a free pack.\n` +
         `Every copy is a ticket. One card wins every week — is it yours?`,
-    );
+      color: GOLD,
+    });
   }
 }
 

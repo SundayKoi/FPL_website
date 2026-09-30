@@ -71,6 +71,53 @@ export async function fetchRosterClaimTargets(
   return buildRosterClaimTargets(entries, states, league, season, viewerProfileId !== null);
 }
 
+/** fetchRosterClaimTargets for a public roster page: no season means no
+ *  claims, and a failed state read degrades to "status unavailable"
+ *  targets so the roster still renders. */
+export async function loadRosterClaimTargets(
+  supabase: SupabaseClient,
+  entries: RosterClaimTargetInput[],
+  league: LeagueKey,
+  season: string | null | undefined,
+  viewerProfileId: string | null,
+): Promise<Record<string, RosterClaimTarget>> {
+  if (!entries.length || !season) return {};
+  try {
+    return await fetchRosterClaimTargets(supabase, entries, league, season, viewerProfileId);
+  } catch {
+    return buildRosterClaimTargets(entries, {}, league, season, viewerProfileId !== null, true);
+  }
+}
+
+type DraftRosterPlayer = { canonical_player_id?: string | null; team_id: string | null };
+type NamedTeam = { id: string; name: string };
+
+/** One claim target per canonical player whose draft team matches an
+ *  active league team by name. */
+export function draftRosterClaimEntries(
+  players: DraftRosterPlayer[],
+  draftTeams: NamedTeam[],
+  activeLeagueTeams: NamedTeam[],
+  returnPath: (draftTeamName: string) => string,
+): RosterClaimTargetInput[] {
+  const activeTeamByName = new Map(activeLeagueTeams.map((team) => [team.name.trim().toLowerCase(), team.id]));
+  return [
+    ...new Map(
+      players.flatMap((player) => {
+        if (!player.canonical_player_id || !player.team_id) return [];
+        const draftTeam = draftTeams.find((team) => team.id === player.team_id);
+        if (!draftTeam) return [];
+        const leagueTeamId = activeTeamByName.get(draftTeam.name.trim().toLowerCase());
+        if (!leagueTeamId) return [];
+        return [[
+          player.canonical_player_id,
+          { playerPoolId: player.canonical_player_id, leagueTeamId, returnPath: returnPath(draftTeam.name) },
+        ] as const];
+      }),
+    ).values(),
+  ];
+}
+
 /** Combines a public-safe neutral state with, for an authenticated viewer,
  * one separately RLS-scoped self row. Profile IDs never leave this mapper. */
 export async function fetchRosterClaimStates(

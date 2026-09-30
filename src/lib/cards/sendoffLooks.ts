@@ -41,7 +41,7 @@
 // cannot.
 
 import type { OverlayPreview } from "@/components/cards/PlayerCard3D";
-import { EXIT_LABELS, SENDOFF_META, type SendoffMark, type SendoffStage } from "./sendoff";
+import { EXIT_LABELS, SENDOFF_META, type SendoffMark, type SendoffStage } from "./sendoffStages";
 
 export interface SendoffLook {
   key: string;

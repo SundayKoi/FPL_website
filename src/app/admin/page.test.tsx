@@ -2,6 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FixtureRow } from "@/lib/schedule/types";
 import AdminPage from "./page";
+import { supabaseQuery } from "@/test-utils/supabaseQuery";
 
 const { redirect, fetchStaffTier, fetchHomepageSchedule, fetchHomepageFeaturedSettings, fetchAcademyDraftData, fetchLeagueSeasons } = vi.hoisted(() => ({
   redirect: vi.fn(),
@@ -30,28 +31,15 @@ vi.mock("@/lib/league/season", async (importOriginal) => ({
   fetchLeagueSeasons,
 }));
 
-function chain(result: unknown) {
-  const query = {
-    select: vi.fn(() => query),
-    order: vi.fn(() => query),
-    eq: vi.fn(() => query),
-    in: vi.fn(() => query),
-    single: vi.fn().mockResolvedValue(result),
-    limit: vi.fn().mockResolvedValue(result),
-    then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve),
-  };
-  return query;
-}
-
 function defaultFrom(table: string) {
   if (table === "league_settings") {
-    return chain({ data: { current_season: "S5", current_phase: "week_1", signups_open: true, homepage_mode: "auto" }, error: null });
+    return supabaseQuery({ data: { current_season: "S5", current_phase: "week_1", signups_open: true, homepage_mode: "auto" }, error: null });
   }
-  if (table === "fixtures") return chain({ data: [{ season: "S5" }, { season: "A1" }], error: null });
+  if (table === "fixtures") return supabaseQuery({ data: [{ season: "S5" }, { season: "A1" }], error: null });
   if (table === "match_reports" || table === "card_claims" || table === "player_identity_links") {
-    return chain({ data: [], count: 0, error: null });
+    return supabaseQuery({ data: [], count: 0, error: null });
   }
-  return chain({ data: [], error: null });
+  return supabaseQuery({ data: [], error: null });
 }
 
 const supabase = { from: vi.fn(defaultFrom) };

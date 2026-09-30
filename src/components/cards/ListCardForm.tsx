@@ -23,11 +23,7 @@ import { MAX_LISTING_ASK, MAX_NOTE_CHARS, LISTING_DAYS } from "@/lib/market/conf
 import { fetchInventoryCardAction } from "@/lib/trades/actions";
 import CardCopyPreview, { tierLabel } from "./CardCopyPreview";
 import type { TradeCardOption } from "./TradeBuilder";
-
-/** Best card first — the same order the trade builder puts a shelf in. */
-function byValue(a: TradeCardOption, b: TradeCardOption): number {
-  return b.overall - a.overall || a.playerName.localeCompare(b.playerName);
-}
+import { byValue } from "./tradeCardOrder";
 
 /** A "" / "500" input as dollars, or null if it isn't a whole number. */
 export function parseAsk(raw: string): number | null {

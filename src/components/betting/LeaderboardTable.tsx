@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { LeaderboardRow } from "@/lib/betting/types";
 import { fmtPoints } from "@/lib/betting/format";
 import { PATRON_FLAMES, patronFlameOf } from "@/lib/patron/flames";
+import { rankClass } from "./rankClass";
 
 /** The patron flame as a table-sized dot — the same palette the card
  *  flame burns in, shrunk to ride beside a name. */
@@ -24,13 +25,6 @@ const MODES: { mode: Mode; label: string }[] = [
   { mode: "balance", label: "Richest" },
   { mode: "profit", label: "Top Profit" },
 ];
-
-function rankClass(rank: number): string {
-  if (rank === 1) return "text-gold";
-  if (rank === 2) return "text-muted";
-  if (rank === 3) return "text-amber-600";
-  return "text-muted/60";
-}
 
 /** Balance/profit leaderboard, ported from
  * c:\fpl_gambling\web\src\pages\LeaderboardPage.tsx — the two rankings are

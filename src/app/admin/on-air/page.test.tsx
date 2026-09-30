@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ON_AIR_COPIES } from "@/lib/packs/config";
 
 const { fetchStaffTier, redirect, fetchOnAirDesk, countOnAirThisSeason, maybeSingle } = vi.hoisted(() => ({
@@ -48,7 +48,6 @@ beforeEach(() => {
   countOnAirThisSeason.mockResolvedValue({});
   maybeSingle.mockResolvedValue({ data: { current_season: "S5" } });
 });
-afterEach(cleanup);
 
 describe("/admin/on-air", () => {
   it("sends a visitor who is not staff back to the admin hub", async () => {

@@ -60,10 +60,3 @@ export function isChampionArtReviewed(name: string, skin = 0): boolean {
   const champion = championByName(name);
   return Boolean(champion && Object.hasOwn(CHAMPION_ART_CROPS, `${champion.id}:${skin}`));
 }
-
-/** Stable, readable export used by the developer crop-audit surface. */
-export function exportChampionArtCrops(): Record<string, ChampionArtCrop> {
-  return Object.fromEntries(
-    CHAMPIONS.map((champion) => [champion.name, championArtCrop(champion.name, 0)]),
-  );
-}

@@ -11,6 +11,7 @@ import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchBangerPosts, fetchDailyBanger } from "@/lib/bangers/queries";
 import { rating, type BangerPost } from "@/lib/bangers/feed";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { resolveLeagueView } from "@/lib/league/context";
 import type { EventSummary, MarketCardData } from "@/lib/betting/types";
 
 export type PreviewResult<T> =
@@ -67,7 +68,7 @@ export interface PremiumHubSnapshot {
 }
 
 export function resolvePremiumLeague(value: string | string[] | undefined): CardLeague {
-  return (Array.isArray(value) ? value[0] : value) === "academy" ? "academy" : "premier";
+  return resolveLeagueView(value);
 }
 
 /** Prefer member-owned card, then choose a live card without exposing a list. */

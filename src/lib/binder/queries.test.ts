@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fetchBinderByToken } from "./queries";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { supabaseQuery, type SupabaseQueryResult } from "@/test-utils/supabaseQuery";
 
 const TOKEN = "11111111-2222-3333-4444-555555555555";
 
@@ -9,14 +10,7 @@ const TOKEN = "11111111-2222-3333-4444-555555555555";
 function client(tables: Record<string, unknown>): SupabaseClient {
   return {
     from(table: string) {
-      const result = tables[table] ?? { data: null, error: null };
-      const chain: Record<string, unknown> = {};
-      for (const method of ["select", "eq", "order"]) {
-        chain[method] = () => chain;
-      }
-      chain.maybeSingle = async () => result;
-      chain.then = (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve);
-      return chain;
+      return supabaseQuery((tables[table] ?? { data: null, error: null }) as SupabaseQueryResult);
     },
   } as unknown as SupabaseClient;
 }

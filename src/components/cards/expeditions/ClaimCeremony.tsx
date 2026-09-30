@@ -26,33 +26,20 @@ import {
   type OutcomeGrade,
 } from "@/lib/expeditions/config";
 import type { ExpeditionRun } from "@/lib/expeditions/queries";
-import type { CardFate, RouteResult } from "@/lib/expeditions/routes";
+import type { RouteResult } from "@/lib/expeditions/routes";
 import type { ClaimAtlas } from "@/lib/expeditions/runs";
 import { MILES_BY_TIER, milesOf, trailTitleOf } from "@/lib/expeditions/trail";
 import { easternDateOf } from "@/lib/packs/week";
 import ExpeditionIcon from "../expeditionIcons";
 import PlayerCard3D from "../PlayerCard3D";
 import { easternClock } from "./clock";
+import { FATE_CLASS, FATE_LABEL } from "./fate";
 
 /** How a claim reads before you get to the numbers. */
 const GRADE_HEADLINE: Record<OutcomeGrade, string> = {
   poor: "They made it back",
   solid: "A good run",
   jackpot: "They struck gold",
-};
-
-const FATE_LABEL: Record<CardFate["fate"], string> = {
-  home: "Home",
-  wounded: "Wounded",
-  lost: "Lost",
-  dead: "Dead",
-};
-
-const FATE_CLASS: Record<CardFate["fate"], string> = {
-  home: "text-mint",
-  wounded: "text-gold",
-  lost: "text-coral",
-  dead: "text-red-300",
 };
 
 export interface Ceremony {
