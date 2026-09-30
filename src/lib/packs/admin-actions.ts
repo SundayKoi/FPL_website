@@ -22,6 +22,8 @@ import { oneIn } from "@/lib/cards/rarityGuide";
 import { chaseCriteriaFromPreset, chaseRoleOf, type ChasePreset } from "./chase";
 import { GOLD, LIVE_RED, postCardsWebhook } from "./announce";
 import { editionLabel, lastCompletedWeekMonday } from "./week";
+import { siteUrl } from "@/lib/site/url";
+import { requireOwner } from "@/lib/auth/staffGuards";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -29,12 +31,6 @@ async function requireAdmin(): Promise<boolean> {
   const supabase = await createServerSupabase();
   const { isAdmin } = await fetchStaffTier(supabase);
   return isAdmin;
-}
-
-async function requireOwner(): Promise<boolean> {
-  const supabase = await createServerSupabase();
-  const { isOwner } = await fetchStaffTier(supabase);
-  return isOwner;
 }
 
 const LIVE_HOURS = [2, 3, 4] as const;
@@ -184,7 +180,7 @@ export async function armChaseAction(input: {
 
   // A player-specific chase can show its target; the other presets have no
   // single card to picture.
-  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const site = siteUrl();
   await postCardsWebhook({
     title: "★ This week's chase is live",
     description: `**${title}**\nFirst to pull it${bounty > 0 ? ` wins **${bounty}** betting dollars and` : ""} takes the CHASE stamp — ${editionLabel(week)} packs only, premier or academy.`,

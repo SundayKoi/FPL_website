@@ -14,12 +14,7 @@ type BettingServiceClient = ReturnType<typeof createBettingServiceClient>;
  * uses on the web login path, so the two can never drift. */
 export const SIGNUP_BONUS = SIGNUP_BONUS_AMOUNT;
 
-/** SITE_URL is the spec'd/primary name; NEXT_PUBLIC_SITE_URL (the rest of
- * the repo's canonical-origin var — see auth/siteOrigin.ts) is accepted as a
- * fallback so a deploy only has to set one of the two. */
-export function siteUrl(): string {
-  return process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
-}
+export { siteUrl } from "@/lib/site/url";
 
 export interface DiscordUser {
   id: string;

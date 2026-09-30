@@ -48,6 +48,7 @@ import {
   type RecordedChoice,
   type RouteResult,
 } from "./routes";
+import { siteUrl } from "@/lib/site/url";
 
 // The expedition core. Takes a bare Discord id ON TRUST, so it is
 // `server-only` and never exported from a "use server" module: ./actions.ts
@@ -1065,7 +1066,7 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
     errors.push(`forks: ${error.message}`);
     return { pinged, buried, storms, errors };
   }
-  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const site = siteUrl();
   // The playoff weeks, for the weather each run launched under — one read
   // for the whole sweep, from a day before the oldest run in the field.
   const rows = (data as { started_at: string }[]) ?? [];

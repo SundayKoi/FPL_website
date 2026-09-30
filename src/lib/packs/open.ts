@@ -34,6 +34,7 @@ import { applyAutographs, signedChance } from "./signatures";
 import { fetchChampionSkinNums, printArtExists, rollPrint, splashArtExists } from "./skins";
 import { editionLabel, mondayOf } from "./week";
 import { PackOpenTiming } from "./timing";
+import { siteUrl } from "@/lib/site/url";
 
 /** slug -> that player's inked signature, for everyone who has drawn one.
  *
@@ -950,7 +951,7 @@ async function announceEclipseClaim(
 ): Promise<void> {
   const who = await announcementCollectorName(service, discordId);
   const { card } = print;
-  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const site = siteUrl();
   // Where the news goes next. An Eclipse falling is the one moment people
   // ask "what else is out there" — the Vault is the answer, and it is the
   // league's OWN register, so the announcement points at it rather than
@@ -983,7 +984,7 @@ async function announceDribbClaim(
   league: CardLeague,
 ): Promise<void> {
   const who = await announcementCollectorName(service, discordId);
-  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const site = siteUrl();
   const raritiesUrl = site ? `${site}${league === "academy" ? "/academy/cards/rarities" : "/cards/rarities"}` : "";
   const left = dribb.of - dribb.number;
   await postPackAnnouncement({
@@ -1009,7 +1010,7 @@ async function announceOnAirClaim(
   league: CardLeague,
 ): Promise<void> {
   const who = await announcementCollectorName(service, discordId);
-  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const site = siteUrl();
   const raritiesUrl = site ? `${site}${league === "academy" ? "/academy/cards/rarities" : "/cards/rarities"}` : "";
   const left = onAir.of - onAir.number;
   await postPackAnnouncement({
@@ -1035,7 +1036,7 @@ async function announceSecretClaim(
 ): Promise<void> {
   const who = await announcementCollectorName(service, discordId);
   const { card } = print;
-  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const site = siteUrl();
   const raritiesUrl = site ? `${site}${league === "academy" ? "/academy/cards/rarities" : "/cards/rarities"}` : "";
   const traits = [
     `${card.tier.label} ${card.role}`,
@@ -1068,7 +1069,7 @@ async function announceSignatureClaim(
 ): Promise<void> {
   const who = await announcementCollectorName(service, discordId);
   const { card } = print;
-  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const site = siteUrl();
   const raritiesUrl = site ? `${site}${league === "academy" ? "/academy/cards/rarities" : "/cards/rarities"}` : "";
   const traits = [
     `${card.tier.label} ${card.role}`,
@@ -1110,7 +1111,7 @@ async function announceChaseClaim(
   ].join(" · ");
   // The card itself rides the embed, via the share renderer the site
   // already serves. SITE_URL missing just drops the picture, not the news.
-  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const site = siteUrl();
   await postPackAnnouncement({
     title: "🏆 The chase has fallen",
     description: `**${who}** pulled it: ${title}\n${card.name} — ${card.overall} OVR · ${traits}${bounty > 0 ? `\nBounty: **+${bounty}**` : ""}`,
@@ -1132,7 +1133,7 @@ async function announceChampionSignatureClaim(
   const who = await announcementCollectorName(service, discordId);
   const { card } = print;
   const hand = card.champWin;
-  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const site = siteUrl();
   const raritiesUrl = site ? `${site}${league === "academy" ? "/academy/cards/rarities" : "/cards/rarities"}` : "";
   const traits = [
     `${card.tier.label} relic`,
