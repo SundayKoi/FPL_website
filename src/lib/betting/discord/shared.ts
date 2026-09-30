@@ -5,6 +5,7 @@ import "server-only";
 import type { createBettingServiceClient } from "../service-client";
 import type { DiscordInteraction } from "./registry";
 import { SIGNUP_BONUS_AMOUNT } from "../daily";
+import type { CardLeague } from "@/lib/cards/queries";
 
 type BettingServiceClient = ReturnType<typeof createBettingServiceClient>;
 
@@ -45,5 +46,35 @@ export async function ensureUser(service: BettingServiceClient, user: DiscordUse
     p_username: user.username ?? user.id,
     p_avatar: avatarUrl(user),
     p_amount: SIGNUP_BONUS,
+  });
+}
+
+function rawOption(interaction: DiscordInteraction, name: string): unknown {
+  const options = (interaction.data?.options ?? []) as { name: string; value?: unknown }[];
+  return options.find((option) => option.name === name)?.value;
+}
+
+/** A string option, trimmed; absent or blank is null. */
+export function stringOption(interaction: DiscordInteraction, name: string): string | null {
+  const raw = rawOption(interaction, name);
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+}
+
+/** The card commands' `league` option; defaults to premier. */
+export function leagueOption(interaction: DiscordInteraction): CardLeague {
+  return rawOption(interaction, "league") === "academy" ? "academy" : "premier";
+}
+
+/** How a card command's public follow-up names its caller. */
+export function callerName(member: DiscordUser): string {
+  return member.global_name ?? member.username ?? "Someone";
+}
+
+/** Answers a deferred interaction through its follow-up webhook. */
+export async function postFollowup(interaction: DiscordInteraction, body: object): Promise<void> {
+  await fetch(`https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
   });
 }
