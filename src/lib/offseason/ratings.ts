@@ -13,7 +13,10 @@ import { cardPlayerKey } from "@/lib/cards/cardKeys";
 import { styleYardstickFor } from "@/lib/cards/styleYardsticks";
 import type { LolRole } from "@/lib/draft/types";
 import { aggregateWeeklyPlayerRows, type WeeklyRawStatRow } from "@/lib/stats/weekly";
+import { compareByRating } from "./order";
 import { splitRiotId, type OffseasonEntrant } from "./types";
+
+export { compareByRating };
 
 /** One player's row from one game, as offseason_stats stores it. */
 export type OffseasonStatRow = CardGameRow & WeeklyRawStatRow & { team_side?: string | null };
@@ -134,26 +137,10 @@ export function rateEntrants({
   return ratings;
 }
 
-/** Best first; players with no rating yet sort last, in sign-up order. */
-export function compareByRating(
-  ratings: Map<string, EntrantRating>,
-): (a: Pick<OffseasonEntrant, "id" | "signed_up_at">, b: Pick<OffseasonEntrant, "id" | "signed_up_at">) => number {
-  return (a, b) => {
-    const ra = ratings.get(a.id)?.overall ?? null;
-    const rb = ratings.get(b.id)?.overall ?? null;
-    if (ra !== rb) {
-      if (ra === null) return 1;
-      if (rb === null) return -1;
-      return rb - ra;
-    }
-    return a.signed_up_at.localeCompare(b.signed_up_at);
-  };
-}
-
 /** Each role's players, best rated first — the event's leaderboards. */
 export function leaderboards(
   entrants: OffseasonEntrant[],
-  ratings: Map<string, EntrantRating>,
+  ratings: Map<string, Pick<EntrantRating, "overall">>,
 ): Record<LolRole, OffseasonEntrant[]> {
   const boards: Record<LolRole, OffseasonEntrant[]> = { top: [], jungle: [], mid: [], adc: [], support: [] };
   for (const entrant of entrants) {

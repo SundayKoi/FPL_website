@@ -3,7 +3,7 @@
 // here is a proposal staff can change before locking.
 
 import { ROLE_ORDER, type LolRole } from "@/lib/draft/types";
-import { compareByRating, type EntrantRating } from "./ratings";
+import { compareByRating, type RatingSummary } from "./order";
 import type { EntryTier, OffseasonEntrant } from "./types";
 
 /** Active players with a role — the ones a week can place. */
@@ -22,7 +22,7 @@ export interface EliminationProposal {
 /** The bottom `perRole` rated players in each role. */
 export function proposeElimination(
   entrants: OffseasonEntrant[],
-  ratings: Map<string, EntrantRating>,
+  ratings: Map<string, Pick<RatingSummary, "overall">>,
   perRole: number,
 ): EliminationProposal {
   const byRole: Record<LolRole, OffseasonEntrant[]> = { top: [], jungle: [], mid: [], adc: [], support: [] };
@@ -44,7 +44,7 @@ export function proposeElimination(
  */
 export function suggestCaptains(
   pool: OffseasonEntrant[],
-  ratings: Map<string, EntrantRating>,
+  ratings: Map<string, Pick<RatingSummary, "overall">>,
   count: number,
 ): OffseasonEntrant[] {
   return pool

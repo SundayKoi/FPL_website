@@ -12,6 +12,8 @@ import type {
 } from "./types";
 
 export interface OffseasonView extends OffseasonEventData {
+  /** Every ingested row of the event's games. */
+  stats: OffseasonStatRow[];
   ratings: Map<string, EntrantRating>;
   entrantsById: Map<string, OffseasonEntrant>;
   teamsById: Map<string, OffseasonTeam>;
@@ -50,6 +52,7 @@ export function buildOffseasonView(data: OffseasonEventData, rows: OffseasonStat
 
   return {
     ...data,
+    stats: rows,
     ratings: rateEntrants({
       entrants: data.entrants,
       rows,
