@@ -8,17 +8,17 @@
 // client. The one Next-coupled input — the Weekly Standout, whose pipeline
 // lives in src/lib/home/awards.ts — is passed IN via options; pages resolve
 // it with fetchStandoutKey (src/lib/cards/standout.ts).
+//
+// Team branding, fixtures, moments and archived editions live in sibling
+// modules; this file re-exports them, so every caller (and every test that
+// mocks "@/lib/cards/queries") keeps one import path.
 
 import { fetchAllPages } from "@/lib/supabase/pagination";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { mondayOf, weekDayLabel } from "@/lib/packs/week";
+import { mondayOf } from "@/lib/packs/week";
 import {
-  exitsInWeek,
   firstPlayoffWeek,
   isPlayoffWeek,
-  isSendoffVaulted,
-  sendoffVaultClosesAt,
-  sendoffWeekLabel,
   stampSendoffs,
   weekRoster,
   type SendoffFixture,
@@ -31,11 +31,25 @@ import {
   buildSeasonCards,
   cardPlayerKey,
   cardSlug,
-  teamBadgeKey,
   type CardGameMeta,
   type CardGameRow,
   type PlayerCardData,
 } from "./build";
+import { fetchSeasonFixtures } from "./fixtureQueries";
+import { fetchTeamIdentity } from "./teamIdentity";
+
+export {
+  fetchCardEditionWeeks,
+  fetchEditionCardBySlug,
+  fetchEditionCards,
+  fetchEditionWeekInfo,
+  fetchRatingHistory,
+  type EditionWeekInfo,
+  type RatingHistoryPoint,
+} from "./editionQueries";
+export { fetchSeasonFixtures } from "./fixtureQueries";
+export { fetchSeasonMoments, fetchWeekMoments, type LeagueMoment } from "./momentQueries";
+export { backfillTeamIdentity, fetchTeamIdentity, type TeamIdentity } from "./teamIdentity";
 
 export type CardLeague = "premier" | "academy";
 
@@ -126,164 +140,6 @@ export async function fetchAllCardSeasons(supabase: SupabaseClient): Promise<{ l
   return seasons;
 }
 
-/**
- * team name (and abbreviation) -> that team's badge URL, normalized so the
- * lookup survives casing, punctuation and spacing differences between the
- * tables that hold each half.
- *
- * Exported because frozen cards need it too: a pulled copy or an archived
- * edition stores the badge it resolved at mint time, so any card minted
- * before a team's logo was uploaded (or before its name was bridged here)
- * would carry a null badge forever. Callers re-run the lookup over frozen
- * cards with backfillTeamIdentity below.
- */
-export interface TeamIdentity {
-  /** normalized team name/abbreviation -> logo URL. */
-  badges: Map<string, string>;
-  /** normalized team name/abbreviation -> the short code the card prints. */
-  abbrs: Map<string, string>;
-  /** normalized team name/abbreviation -> the roster's banner colour. What
-   *  the team card washes its five champion panels with. */
-  colors: Map<string, string>;
-}
-
-export async function fetchTeamIdentity(supabase: SupabaseClient, season: string, options: { strictSource?: boolean } = {}): Promise<TeamIdentity> {
-  const [teamsResult, leagueTeamsResult, settingsResult] = await Promise.all([
-    // draft_id comes along so the badge can be scoped to THIS season's
-    // teams below — team names get reused season to season, and an
-    // unscoped lookup would hand a card whichever era's logo Postgres
-    // happened to return first.
-    supabase.from("teams").select("name, abbreviation, image_url, banner_color, draft_id"),
-    // The bridge between the two team tables: raw_stats carries
-    // league_teams.name, the badge lives on teams.image_url, and nothing
-    // enforces that the two spell a team identically.
-    supabase.from("league_teams").select("name, abbreviation"),
-    supabase
-      .from("league_settings")
-      .select("current_season, academy_season, featured_draft_id, academy_draft_id")
-      .eq("id", 1)
-      .maybeSingle(),
-  ]);
-
-  if (options.strictSource && (teamsResult.error || leagueTeamsResult.error || settingsResult.error || !settingsResult.data)) {
-    throw new Error(`Team identity source failed for ${season}`);
-  }
-
-  // Badges are garnish for normal card reads — a failure here must not take
-  // the wider cards page down. Release snapshots opt into strictSource above.
-  const teamRows = teamsResult.error
-    ? []
-    : ((teamsResult.data as {
-        name: string;
-        abbreviation: string | null;
-        image_url: string | null;
-        banner_color: string | null;
-        draft_id: string | null;
-      }[]) ?? []);
-  const leagueTeamRows = leagueTeamsResult.error
-    ? []
-    : ((leagueTeamsResult.data as { name: string; abbreviation: string | null }[]) ?? []);
-  const settings = settingsResult.error
-    ? null
-    : (settingsResult.data as {
-        current_season: string | null;
-        academy_season: string | null;
-        featured_draft_id: string | null;
-        academy_draft_id: string | null;
-      } | null);
-
-  // Which draft this season's teams live under. A season we can't map (an
-  // archived one, or settings that failed to load) falls back to every
-  // team, which is the old behaviour — a possibly-stale badge still beats
-  // no badge.
-  const seasonDraftId =
-    settings?.academy_season === season
-      ? settings?.academy_draft_id ?? null
-      : settings?.current_season === season
-        ? settings?.featured_draft_id ?? null
-        : null;
-  const scopedTeams = seasonDraftId ? teamRows.filter((team) => team.draft_id === seasonDraftId) : teamRows;
-
-  // Every badge is filed under its name AND its abbreviation, both
-  // normalized. The abbreviation is what rescues a team the two tables
-  // spell differently — a real typo on one side ("Fradulent 5" against
-  // "Fraudulent 5") defeats any amount of name normalizing, but the
-  // three-letter code still matches.
-  const teamImages = new Map<string, string>();
-  const addBadge = (key: string, url: string) => {
-    const normalized = teamBadgeKey(key);
-    if (normalized && !teamImages.has(normalized)) teamImages.set(normalized, url);
-  };
-  for (const team of scopedTeams) {
-    if (!team.image_url) continue;
-    addBadge(team.name, team.image_url);
-    if (team.abbreviation) addBadge(team.abbreviation, team.image_url);
-  }
-  // raw_stats speaks league_teams' names, so alias each of those onto the
-  // badge its abbreviation points at when the names themselves don't meet.
-  for (const leagueTeam of leagueTeamRows) {
-    const nameKey = teamBadgeKey(leagueTeam.name);
-    if (!nameKey || teamImages.has(nameKey) || !leagueTeam.abbreviation) continue;
-    const viaAbbreviation = teamImages.get(teamBadgeKey(leagueTeam.abbreviation));
-    if (viaAbbreviation) teamImages.set(nameKey, viaAbbreviation);
-  }
-
-  // Abbreviations are filed the same way, from both tables, so a card whose
-  // team_name matches either spelling still finds its short code.
-  const abbrs = new Map<string, string>();
-  const addAbbr = (key: string | null | undefined, abbreviation: string | null | undefined) => {
-    if (!key || !abbreviation?.trim()) return;
-    const normalized = teamBadgeKey(key);
-    if (normalized && !abbrs.has(normalized)) abbrs.set(normalized, abbreviation.trim());
-  };
-  for (const team of scopedTeams) {
-    addAbbr(team.name, team.abbreviation);
-    addAbbr(team.abbreviation, team.abbreviation);
-  }
-  for (const leagueTeam of leagueTeamRows) {
-    addAbbr(leagueTeam.name, leagueTeam.abbreviation);
-    addAbbr(leagueTeam.abbreviation, leagueTeam.abbreviation);
-  }
-
-  // Banner colours file exactly like badges — name and abbreviation, both
-  // normalized — so a card whose team_name matches either spelling still
-  // finds the colour its team card is meant to wear.
-  const colors = new Map<string, string>();
-  const addColor = (key: string | null | undefined, color: string | null | undefined) => {
-    if (!key || !color?.trim()) return;
-    const normalized = teamBadgeKey(key);
-    if (normalized && !colors.has(normalized)) colors.set(normalized, color.trim());
-  };
-  for (const team of scopedTeams) {
-    addColor(team.name, team.banner_color);
-    addColor(team.abbreviation, team.banner_color);
-  }
-
-  return { badges: teamImages, abbrs, colors };
-}
-
-/**
- * Re-resolves a frozen card's team branding — badge and abbreviation.
- *
- * Ratings on a frozen copy are the whole point and stay untouched, but
- * branding is for a team that (per league rules) can't change within a
- * season, so filling a null one in is a repair rather than a rewrite. The
- * abbreviation rides along because every copy pulled before the card front
- * started printing it would otherwise wear the full name over its signature
- * forever. Fields that already carry a value are left exactly as they were.
- */
-export function backfillTeamIdentity(cards: PlayerCardData[], identity: TeamIdentity): PlayerCardData[] {
-  const { badges, abbrs } = identity;
-  if (badges.size === 0 && abbrs.size === 0) return cards;
-  return cards.map((card) => {
-    if (!card.teamName) return card;
-    const key = teamBadgeKey(card.teamName);
-    const url = card.teamImageUrl ?? badges.get(key) ?? null;
-    const abbr = card.teamAbbr ?? abbrs.get(key) ?? null;
-    if (url === card.teamImageUrl && abbr === card.teamAbbr) return card;
-    return { ...card, teamImageUrl: url, teamAbbr: abbr };
-  });
-}
 
 /**
  * Each card's playoff run — what a Send-off prints as its record line
@@ -405,27 +261,6 @@ export async function fetchSeasonCards(
 }
 
 /**
- * Every player's card for ONE week, rated against that week's cohort.
- *
- * The sibling of fetchSeasonCards, and the builder a weekly drop archives:
- * a card stops meaning "how good is this player this season" and starts
- * meaning "how did they play that week". Ratings are cohort-relative, so a
- * narrower window spreads them — which is the point, and why the curve was
- * retuned alongside this.
- *
- * `week` is the Monday (YYYY-MM-DD) of an EASTERN-calendar week — the same
- * week `mondayOf` (src/lib/packs/week.ts) stamps on pack pulls and fantasy
- * lineups. raw_stats.game_date is an instant, and ET runs 4-5 hours behind
- * UTC, so the query cannot express that week as a date range: a UTC
- * [Monday, next Monday) window would hand a 23:00 ET Sunday game to the
- * FOLLOWING edition, permanently, because editions freeze at mint. Instead
- * the fetch pulls a deliberately WIDER UTC window (padded a day either
- * side, which no ET offset can escape) and `mondayOf` itself trims it —
- * one definition of a week, not a second one written in query params.
- * A game at 23:00 ET on Sunday therefore belongs to the week that just
- * ended, and Monday's opener starts the next one.
- */
-/**
  * The Monday of the most recent week this season played, or null before
  * any game is ingested.
  *
@@ -447,25 +282,6 @@ export async function fetchLatestGameWeek(supabase: SupabaseClient, season: stri
   if (error || !data) return null;
   const { game_date: gameDate } = data as { game_date: string | null };
   return gameDate ? mondayOf(new Date(gameDate)) : null;
-}
-
-/**
- * The season's playoff-relevant fixture rows — everything sendoff.ts reads.
- *
- * Both leagues' fixtures carry the same season code as their cards, so this
- * is league-agnostic like the rest of the pipeline. Returns [] on error: for
- * every reader but the edition builder a fixture is garnish (it decides
- * which rating basis a live surface shows, and the season build is the safe
- * answer), and the builder checks the read separately before it prints an
- * edition off it.
- */
-export async function fetchSeasonFixtures(supabase: SupabaseClient, season: string): Promise<SendoffFixture[]> {
-  const { data, error } = await supabase
-    .from("fixtures")
-    .select("stage, team_a, team_b, score_a, score_b, scheduled_at")
-    .eq("season", season);
-  if (error) return [];
-  return ((data as SendoffFixture[]) ?? []);
 }
 
 /**
@@ -513,6 +329,27 @@ export async function fetchCurrentWeekCards(supabase: SupabaseClient, season: st
   return (await fetchSeasonCards(supabase, season)).map((card) => ({ ...card, snapshotWeek: null }));
 }
 
+/**
+ * Every player's card for ONE week, rated against that week's cohort.
+ *
+ * The sibling of fetchSeasonCards, and the builder a weekly drop archives:
+ * a card stops meaning "how good is this player this season" and starts
+ * meaning "how did they play that week". Ratings are cohort-relative, so a
+ * narrower window spreads them — which is the point, and why the curve was
+ * retuned alongside this.
+ *
+ * `week` is the Monday (YYYY-MM-DD) of an EASTERN-calendar week — the same
+ * week `mondayOf` (src/lib/packs/week.ts) stamps on pack pulls and fantasy
+ * lineups. raw_stats.game_date is an instant, and ET runs 4-5 hours behind
+ * UTC, so the query cannot express that week as a date range: a UTC
+ * [Monday, next Monday) window would hand a 23:00 ET Sunday game to the
+ * FOLLOWING edition, permanently, because editions freeze at mint. Instead
+ * the fetch pulls a deliberately WIDER UTC window (padded a day either
+ * side, which no ET offset can escape) and `mondayOf` itself trims it —
+ * one definition of a week, not a second one written in query params.
+ * A game at 23:00 ET on Sunday therefore belongs to the week that just
+ * ended, and Monday's opener starts the next one.
+ */
 export async function fetchWeekCards(
   supabase: SupabaseClient,
   season: string,
@@ -580,277 +417,6 @@ export async function fetchWeekCards(
     artPrefs,
     yardstick: styleYardstickFor(season),
   });
-}
-
-export interface LeagueMoment {
-  id: number;
-  weekStart: string;
-  slug: string;
-  summonerName: string;
-  teamName: string | null;
-  champion: string | null;
-  role: string | null;
-  triggerKey: string;
-  title: string;
-  headline: string;
-  gameDate: string | null;
-  /** Provenance the Signature print shows — null on moments minted before
-   *  the columns existed (the backfill migration repairs those). */
-  opponent: string | null;
-  durationMin: number | null;
-}
-
-/**
- * The season's minted moment cards, newest first.
- *
- * Errors return [] rather than throwing: an environment without the
- * card_moments migration should render an empty wall, not a 500.
- */
-async function fetchMoments(supabase: SupabaseClient, season: string, weekStart?: string): Promise<LeagueMoment[]> {
-  // select("*") on purpose: opponent/duration_min arrive in a later
-  // migration than the table, and naming them here would blank the whole
-  // wall on a deploy that beat the migration.
-  let query = supabase
-    .from("card_moments")
-    .select("*")
-    .eq("season", season)
-    .order("week_start", { ascending: false })
-    .order("rarity", { ascending: false });
-  if (weekStart !== undefined) query = query.eq("week_start", weekStart);
-  const { data, error } = await query;
-  if (error) return [];
-  return ((data as {
-    id: number;
-    week_start: string;
-    slug: string;
-    summoner_name: string;
-    team_name: string | null;
-    champion: string | null;
-    role: string | null;
-    trigger_key: string;
-    title: string;
-    headline: string;
-    game_date: string | null;
-    opponent?: string | null;
-    duration_min?: number | null;
-  }[]) ?? []).map((row) => ({
-    id: row.id,
-    weekStart: row.week_start,
-    slug: row.slug,
-    summonerName: row.summoner_name,
-    teamName: row.team_name,
-    champion: row.champion,
-    role: row.role,
-    triggerKey: row.trigger_key,
-    title: row.title,
-    headline: row.headline,
-    gameDate: row.game_date,
-    opponent: row.opponent ?? null,
-    durationMin: row.duration_min === null || row.duration_min === undefined ? null : Number(row.duration_min),
-  }));
-}
-
-export function fetchSeasonMoments(supabase: SupabaseClient, season: string): Promise<LeagueMoment[]> {
-  return fetchMoments(supabase, season);
-}
-
-/** One week's minted moments — the pool a pack bought for that week can
- *  draw from. Empty is the normal case: most weeks mint none that anyone
- *  opens a pack for. */
-export async function fetchWeekMoments(
-  supabase: SupabaseClient,
-  season: string,
-  weekStart: string,
-): Promise<LeagueMoment[]> {
-  return fetchMoments(supabase, season, weekStart);
-}
-
-export interface RatingHistoryPoint {
-  overall: number;
-  tier: string;
-  takenAt: string;
-}
-
-/** One card's weekly rating readings, oldest first — the season journey.
- *  Errors (e.g. the history migration not applied yet) return empty: the
- *  journey strip is garnish. */
-/**
- * Every edition week on offer for `season`, newest first.
- *
- * Empty until the weekly drop has archived at least one week — the pack
- * shop treats that as "current cards only" rather than an error, so packs
- * keep working on a league that has never run a drop.
- */
-export async function fetchCardEditionWeeks(
-  supabase: SupabaseClient,
-  season: string,
-  /** Must not exceed the API's max_rows or every page comes back short and
-   *  paging stops after the first. Exposed for tests. */
-  paging: { pageSize?: number; maxPages?: number; throwOnError?: boolean } = {},
-): Promise<string[]> {
-  const pageSize = paging.pageSize ?? 1000;
-  const maxPages = paging.maxPages ?? 100;
-  const weeks = new Set<string>();
-
-  // Paged, because this reads one row per CARD and only wants the distinct
-  // weeks. PostgREST caps an unpaged select at max_rows (1000) and says
-  // nothing, so at ~50 cards a week the archive crosses that line after
-  // about twenty weeks — and since the order is newest-first, the rows that
-  // fall off the end are the OLDEST weeks. They would simply stop appearing
-  // in the pack shop, with no error anywhere to explain it.
-  for (let page = 0; page < maxPages; page += 1) {
-    const from = page * pageSize;
-    const { data, error } = await supabase
-      .from("card_editions")
-      .select("edition_week")
-      .eq("season", season)
-      .order("edition_week", { ascending: false })
-      // Total order, not just newest-first: thousands of rows share an
-      // edition_week, and paging on a non-unique sort key lets the database
-      // return a row twice on one page and skip another. Duplicates the Set
-      // absorbs; a skipped row could drop a whole week off the list. The
-      // primary key is (season, edition_week, slug), so adding slug makes
-      // the ordering unique and the pages disjoint.
-      .order("slug", { ascending: true })
-      .range(from, from + pageSize - 1);
-    // Garnish, not load-bearing for the normal pack-shop callers: an
-    // environment without the card_editions migration still sells current-
-    // week packs. Strict callers such as the Higher or Lower refresh can opt
-    // into surfacing the read failure instead of treating it as an empty list.
-    if (error) {
-      if (paging.throwOnError) throw error;
-      break;
-    }
-    const batch = (data as { edition_week: string }[]) ?? [];
-    for (const row of batch) weeks.add(row.edition_week);
-    if (batch.length < pageSize) break;
-  }
-
-  return [...weeks];
-}
-
-export interface EditionWeekInfo {
-  week: string;
-  /** What the shop calls it: "Week 3 · Sep 8", or "Send-off · Finals". */
-  label: string;
-  /** Set on a send-off week. `closesAt` is when the whole send-off vault
-   *  shuts (ISO), or null while the finals have no date yet. */
-  sendoff: { closesAt: string | null } | null;
-}
-
-/**
- * Every archived week on sale, newest first, labelled for the shop's picker.
- *
- * Two kinds of week: a weekly print, numbered ("Week 3 · Sep 8") counting
- * only the weekly prints, so a send-off in the middle of the season does not
- * push the numbering out of step with how people talk about the weeks; and a
- * send-off, named by its round ("Send-off · Finals").
- *
- * VAULTED send-off weeks are left out entirely — they are not on sale, and
- * offering a week the opener refuses is worse than not offering it.
- *
- * Deliberately no per-week card read: whether a week is a send-off is a
- * question about FIXTURES, and a select over card_editions' json for twenty
- * weeks to answer it would cost the shop a page load.
- */
-export async function fetchEditionWeekInfo(
-  supabase: SupabaseClient,
-  season: string,
-  now: Date = new Date(),
-): Promise<EditionWeekInfo[]> {
-  const [weeks, fixtures] = await Promise.all([
-    fetchCardEditionWeeks(supabase, season),
-    fetchSeasonFixtures(supabase, season),
-  ]);
-  const vaulted = isSendoffVaulted(fixtures, now);
-  const closesAt = sendoffVaultClosesAt(fixtures);
-
-  // Oldest first so the weekly numbering counts up the way the season ran.
-  const ordered = [...weeks].sort();
-  let weeklyNumber = 0;
-  const rows: EditionWeekInfo[] = [];
-  for (const week of ordered) {
-    const sendoffLabel = isPlayoffWeek(fixtures, week) ? sendoffWeekLabel(exitsInWeek(fixtures, week)) : null;
-    if (sendoffLabel) {
-      if (vaulted) continue;
-      rows.push({ week, label: sendoffLabel, sendoff: { closesAt } });
-      continue;
-    }
-    weeklyNumber += 1;
-    rows.push({ week, label: `Week ${weeklyNumber} · ${weekDayLabel(week)}`, sendoff: null });
-  }
-  return rows.reverse();
-}
-
-/**
- * The cards exactly as they stood in one archived week — the pool a pack
- * bought for that week mints from. Returns [] when the week was never
- * archived, which callers read as "fall back to the live cards".
- */
-export async function fetchEditionCards(
-  supabase: SupabaseClient,
-  season: string,
-  editionWeek: string,
-): Promise<PlayerCardData[]> {
-  const { data, error } = await supabase
-    .from("card_editions")
-    .select("card")
-    .eq("season", season)
-    .eq("edition_week", editionWeek);
-  if (error) return [];
-  const cards = ((data as { card: PlayerCardData }[]) ?? []).map((row) => row.card);
-  return backfillTeamIdentity(cards, await fetchTeamIdentity(supabase, season));
-}
-
-export async function fetchRatingHistory(
-  supabase: SupabaseClient,
-  season: string,
-  slug: string,
-): Promise<RatingHistoryPoint[]> {
-  const { data, error } = await supabase
-    .from("card_rating_history")
-    .select("overall, tier, taken_at")
-    .eq("season", season)
-    .eq("slug", slug)
-    .order("taken_at");
-  if (error) return [];
-  return ((data as { overall: number; tier: string; taken_at: string }[]) ?? []).map((row) => ({
-    overall: row.overall,
-    tier: row.tier,
-    takenAt: row.taken_at,
-  }));
-}
-
-/**
- * One archived card, exactly as it was printed in a given week.
- *
- * The share PNG needs this because a pull is FROM a week: a card ripped out
- * of the 18 August edition should picture the 18 August print, not whatever
- * that player's rating says today. Reads the one row rather than the week's
- * whole pool, which is ~50 cards of frozen json for a single picture.
- *
- * Null when that week was never archived, or holds no such slug — callers
- * fall back to the live card, same as fetchEditionCards.
- */
-export async function fetchEditionCardBySlug(
-  supabase: SupabaseClient,
-  season: string,
-  editionWeek: string,
-  slug: string,
-): Promise<PlayerCardData | null> {
-  const { data, error } = await supabase
-    .from("card_editions")
-    .select("card")
-    .eq("season", season)
-    .eq("edition_week", editionWeek)
-    .eq("slug", slug)
-    .maybeSingle();
-  if (error || !data) return null;
-  const card = (data as { card: PlayerCardData }).card;
-  // Team colours and crests live outside the frozen json, so an archived
-  // card needs the same backfill the week's pool gets.
-  const [withIdentity] = await backfillTeamIdentity([card], await fetchTeamIdentity(supabase, season));
-  return withIdentity ?? card;
 }
 
 /** One card by its URL slug, or null. */
