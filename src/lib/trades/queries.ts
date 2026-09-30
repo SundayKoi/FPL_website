@@ -107,7 +107,7 @@ const TRADE_LIMIT = 30;
  * The skin roll is only ever recorded on the frozen json (src/lib/packs/
  * skins.ts) — there is no flat column for it — so every surface that wants to
  * *mark* an alt-art copy without shipping its whole card reduces it here
- * first, server-side. Same reading CollectionGrid's skinOf does.
+ * first, server-side. Same reading collectionShelf's skinOf does.
  */
 export function isAltArt(card: PlayerCardData | null | undefined): boolean {
   return (card?.artSkin ?? 0) > 0;
