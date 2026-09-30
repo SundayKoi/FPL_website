@@ -12,7 +12,7 @@
 // Champion" says everything (src/lib/cards/sendoff.ts).
 
 import type { PlayerCardData } from "./build";
-import { sendoffEditionLabel } from "./sendoff";
+import { sendoffEditionLabel } from "./sendoffStages";
 import { editionLabel } from "@/lib/packs/week";
 
 export const RELIC_EDITION_LABEL = "Faceless Drop";
