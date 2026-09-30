@@ -9,6 +9,18 @@ export type PlayerRosterClaimState =
   | "mine-pending"
   | "mine-approved";
 
+/** A pending player_identity_links row as the review queues read it. */
+export type PendingIdentityRow = {
+  id: string;
+  player_pool_id: string;
+  profile_id: string;
+  league_team_id: string;
+  league: LeagueKey;
+  season: string;
+  source: "team" | "card" | "admin";
+  requested_at: string;
+};
+
 export type ResolvedPlayerIdentity = {
   profileId: string | null;
   status: PlayerIdentityStatus;

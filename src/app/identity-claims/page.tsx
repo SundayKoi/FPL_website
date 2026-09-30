@@ -6,33 +6,13 @@ import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { seasonBelongsToLeague } from "@/lib/league/season";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { firstParam } from "@/lib/searchParams";
+import { type PendingIdentityRow } from "@/lib/players/identity";
+import { utcDateLabel } from "@/lib/time";
 
 export const metadata: Metadata = {
   title: "Identity claims — FPL",
   description: "Roster identity requests waiting for a captain or admin.",
 };
-
-type PendingIdentityRow = {
-  id: string;
-  player_pool_id: string;
-  profile_id: string;
-  league_team_id: string;
-  league: "premier" | "academy";
-  season: string;
-  source: "team" | "card" | "admin";
-  requested_at: string;
-};
-
-function formatRequested(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
 
 type IdentityClaimsPageProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -158,7 +138,7 @@ async function IdentityClaimsPage(props?: IdentityClaimsPageProps) {
               playerName={playerNames.get(row.player_pool_id) ?? "Unknown player"}
               claimantName={profileNames.get(row.profile_id) ?? "a signed-in player"}
               source={row.source}
-              requestedLabel={formatRequested(row.requested_at)}
+              requestedLabel={utcDateLabel(row.requested_at)}
             />
           ))}
         </div>

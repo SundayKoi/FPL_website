@@ -55,3 +55,11 @@ export function easternStamp(iso: string | null | undefined): string {
     minute: "2-digit",
   })} ET`;
 }
+
+/** "2026-09-25T…" → "Sep 25, 2026". Fixed locale + UTC so the server render
+ *  and the hydrated client agree; unparseable input shows `fallback`. */
+export function utcDateLabel(iso: string, fallback = "—"): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return fallback;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
