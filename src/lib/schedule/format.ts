@@ -158,37 +158,6 @@ export function compareFixtures(a: FixtureRow, b: FixtureRow): number {
 }
 
 /**
- * Group fixtures by stage in rulebook order. Every stage appears (with an
- * empty list when nothing is scheduled yet) so the page always shows the
- * full split structure with TBD slots, not just whatever rows exist.
- * Within a stage: sort_order, then division (Solari before Lunari, nulls
- * last), then creation order for stability.
- */
-export function groupByStage(rows: FixtureRow[]): { meta: StageMeta; fixtures: FixtureRow[] }[] {
-  const sorted = [...rows].sort(compareFixtures);
-  return STAGE_META.map((meta) => ({
-    meta,
-    fixtures: sorted.filter((r) => r.stage === meta.stage),
-  }));
-}
-
-/** The stages that should be expanded when a schedule page first loads. */
-export function selectDefaultOpenStages(
-  rows: FixtureRow[],
-  upcomingStage: FixtureStage | null,
-): Set<FixtureStage> {
-  const latestPlayedStage = [...STAGE_META]
-    .reverse()
-    .find(({ stage }) => rows.some((row) => row.stage === stage && hasResult(row)))?.stage;
-
-  return new Set(
-    [latestPlayedStage, upcomingStage].filter(
-      (stage): stage is FixtureStage => stage !== undefined && stage !== null,
-    ),
-  );
-}
-
-/**
  * The next thing happening in the season, for the schedule's "Up Next"
  * banner: the earliest future-dated unplayed fixture's stage (with its
  * kickoff and how many series share that stage), else the active stage with

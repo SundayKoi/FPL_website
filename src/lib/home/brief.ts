@@ -16,15 +16,6 @@ export interface HomepageBrief {
   generated_at: string;
 }
 
-/** The brief the homepage should show: newest published one. Unpublishing the
- *  latest therefore falls back to the week before rather than blanking. */
-export function activeBrief(briefs: HomepageBrief[]): HomepageBrief | null {
-  const published = briefs
-    .filter((b) => b.published)
-    .sort((a, b) => b.generated_at.localeCompare(a.generated_at));
-  return published[0] ?? null;
-}
-
 /** Phrasing that reads as machine-written. The prompt asks the model to avoid
  *  these; this is the backstop for when it does it anyway. Order matters:
  *  longer phrases first so a short one does not eat part of a long one. */

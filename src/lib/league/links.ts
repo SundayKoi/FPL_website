@@ -31,21 +31,6 @@ export function leaguePath(page: LeaguePage, view: LeagueView): string {
   return view === "academy" ? `/academy${path}` : path;
 }
 
-export function leaguePageLinks(
-  page: LeaguePage,
-  view: LeagueView,
-  params: Record<string, string | undefined> = {},
-): { premier: string; academy: string } {
-  const query = new URLSearchParams(
-    Object.entries(params).filter((entry): entry is [string, string] => Boolean(entry[1])),
-  ).toString();
-  const suffix = query ? `?${query}` : "";
-  return {
-    premier: `${leaguePath(page, "premier")}${suffix}`,
-    academy: `${leaguePath(page, "academy")}${suffix}`,
-  };
-}
-
 const PAIRED_PREFIXES = [
   ["/fpldle", "/academy/fpldle"],
   ["/higher-lower", "/academy/higher-lower"],
