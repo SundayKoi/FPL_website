@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { createOpenDraftLobbyAction } from "@/lib/match-draft/lobbyActions";
 import type { MatchDraftBestOf, OpenDraftLobbyTokens } from "@/lib/match-draft/types";
-
-const BEST_OF_OPTIONS: MatchDraftBestOf[] = [1, 3, 5];
+import { BEST_OF_OPTIONS } from "@/components/match-draft/matchDraftOptions";
 
 function LobbyLink({ label, hint, token, suffix = "" }: { label: string; hint: string; token: string; suffix?: string }) {
   const [copied, setCopied] = useState(false);
