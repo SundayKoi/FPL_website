@@ -1,4 +1,4 @@
-import { cardPlayerKey } from "@/lib/cards/build";
+import { cardPlayerKey } from "@/lib/cards/cardKeys";
 import { BEST_OF_MIN_PLAYER_GAMES } from "./best-of";
 import type { SeasonRow } from "./derive";
 
