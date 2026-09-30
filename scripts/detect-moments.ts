@@ -18,7 +18,7 @@
  * Needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY. MOMENTS_DRY_RUN=true
  * reports what it would mint and writes nothing.
  */
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import { cardSlug } from "../src/lib/cards/build";
 import {
   MOMENTS_PER_WEEK,
@@ -28,6 +28,7 @@ import {
 } from "../src/lib/cards/moments";
 import { fetchAllCardSeasons, type CardLeague } from "../src/lib/cards/queries";
 import { mondayOf } from "../src/lib/packs/week";
+import { createServiceClientFromEnv } from "./lib/env";
 
 const MOMENT_COLUMNS = [
   "match_id",
@@ -61,12 +62,6 @@ const MOMENT_COLUMNS = [
   "on_my_way_pings",
   "game_duration_min",
 ].join(", ");
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
-}
 
 /** The Monday of the week we are in — the match night just played. The
  *  league plays Monday only and this runs Tuesday morning behind the
@@ -178,9 +173,7 @@ async function main(): Promise<void> {
   const week = requested || thisMonday(new Date());
   const dryRun = (process.env.MOMENTS_DRY_RUN ?? "").toLowerCase() === "true";
 
-  const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
-    auth: { persistSession: false },
-  });
+  const supabase = createServiceClientFromEnv();
 
   const seasons = await fetchAllCardSeasons(supabase);
   if (seasons.length === 0) throw new Error("No seasons are configured in league_settings.");

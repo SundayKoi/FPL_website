@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { basename } from "node:path";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
+import { createServiceClientFromEnv } from "./lib/env";
 
 const TIME_ZONE = "America/New_York";
 const PRIZE_POOL = 2_000;
@@ -83,12 +84,6 @@ export function settlementWindow(now: Date): HigherLowerSettlementWindow {
   };
 }
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
-}
-
 function isMonday(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T12:00:00.000Z`);
@@ -167,9 +162,7 @@ export async function main(): Promise<void> {
   }
 
   const weekStart = override ?? window.weekStart;
-  const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
-    auth: { persistSession: false },
-  });
+  const supabase = createServiceClientFromEnv();
 
   if (dryRun) {
     await previewSettlement(supabase, weekStart);

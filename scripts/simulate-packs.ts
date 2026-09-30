@@ -22,7 +22,7 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import type { PlayerCardData } from "../src/lib/cards/build";
 import { fetchCardEditionWeeks, fetchCardSeason, fetchEditionCards, type CardLeague } from "../src/lib/cards/queries";
 import {
@@ -44,12 +44,7 @@ import { rollEclipseCandidates } from "../src/lib/packs/eclipse";
 import { rollGodPack } from "../src/lib/packs/god";
 import { rollPack } from "../src/lib/packs/rng";
 import { applyAutographs } from "../src/lib/packs/signatures";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing ${name}`);
-  return value;
-}
+import { createServiceClientFromEnv } from "./lib/env";
 
 function arg(name: string): string | undefined {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -214,9 +209,7 @@ const who = (id: string) => `…${id.slice(-4)}`;
 async function main() {
   const league = (arg("league") ?? "premier") as CardLeague;
   const packs = Number(arg("packs") ?? 100_000);
-  const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
-    auth: { persistSession: false },
-  });
+  const supabase = createServiceClientFromEnv();
 
   const season = await fetchCardSeason(supabase, league);
   if (!season) throw new Error(`No season configured for ${league}`);
