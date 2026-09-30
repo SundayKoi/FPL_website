@@ -9,7 +9,7 @@ import BestOfChampionCard from "./BestOfChampionCard";
 import BestOfVariantViewer from "./BestOfVariantViewer";
 import SeasonEndAwardFace from "./SeasonEndAwardFace";
 import type { AwardWinner, SeasonAward } from "@/lib/season-end/derive";
-import { formatAwardPresentation, formatInteger } from "@/lib/season-end/presentation";
+import { formatAwardPresentation, formatInteger, teamMonogram } from "@/lib/season-end/presentation";
 import type { Division } from "@/lib/schedule/types";
 import styles from "./SeasonEndAwardCard.module.css";
 
@@ -19,10 +19,6 @@ const PAIR_ROLE_LABELS: Record<string, string> = { TOP: "Top", JUNGLE: "Jungle",
 function winnerKey(name: string): string {
   const separator = name.lastIndexOf("#");
   return separator > 0 ? cardPlayerKey(name.slice(0, separator), name.slice(separator + 1)) : name.trim().toLowerCase();
-}
-
-function teamMonogram(teamName: string): string {
-  return teamName.trim().split(/\s+/).map((part) => part[0]).join("").slice(0, 3).toUpperCase() || "TEAM";
 }
 
 function decorateCard(card: PlayerCardData, award: SeasonAward, winner: AwardWinner): PlayerCardData {

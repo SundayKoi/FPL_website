@@ -1,7 +1,8 @@
 import { cardPlayerKey } from "@/lib/cards/build";
-import { canonicalChampion } from "./best-of";
+import { canonicalChampion, compareOrdinal } from "./best-of";
 import type { DuoChampionEvidence, DuoMemberEvidence } from "./duo";
 import type { SeasonRow } from "./derive";
+import { finiteField, teamKey } from "./rowKeys";
 
 export type PairArtRole = "Top" | "Jungle" | "Mid" | "Bot" | "Support";
 export interface PairArtChampion {
@@ -18,21 +19,6 @@ export interface PairArtMember {
   name: string;
   role: PairArtRole;
   champion: PairArtChampion | null;
-}
-
-const teamKey = (team: string) => team.trim().toLowerCase();
-const finite = (rowOrValue: SeasonRow | unknown, field?: string): number | null => {
-  const value = field ? (rowOrValue as SeasonRow)[field] : rowOrValue;
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-};
-
-function compareOrdinal(left: string, right: string): number {
-  const length = Math.min(left.length, right.length);
-  for (let index = 0; index < length; index += 1) {
-    const difference = left.charCodeAt(index) - right.charCodeAt(index);
-    if (difference) return difference;
-  }
-  return left.length - right.length;
 }
 
 /** Select one cosmetic champion independently for a duo member. */
@@ -57,12 +43,12 @@ export function selectPairChampion(
 
   // If one candidate is missing the optional performance tie-break, omit that
   // tie-break for this member rather than making coverage order-dependent.
-  const performanceCovered = [...candidates.values()].every((candidate) => candidate.every((row) => finite(row, "performance") !== null));
+  const performanceCovered = [...candidates.values()].every((candidate) => candidate.every((row) => finiteField(row, "performance") !== null));
   const summaries = [...candidates.entries()].map(([championId, championRows]) => {
     const champion = canonicalChampion(championRows[0].champion.trim());
     const wins = championRows.filter((row) => row.win).length;
     const meanPerformance = performanceCovered
-      ? championRows.reduce((total, row) => total + finite(row, "performance")!, 0) / championRows.length
+      ? championRows.reduce((total, row) => total + finiteField(row, "performance")!, 0) / championRows.length
       : undefined;
     return {
       championId,

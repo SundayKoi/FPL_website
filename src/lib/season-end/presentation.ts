@@ -15,6 +15,12 @@ export function roundHalfAwayFromZero(value: number): number {
   return value < 0 ? -rounded : rounded;
 }
 
+/** A team's initials, at most three, for a badge with no logo — "TEAM"
+ *  when the name has none. */
+export function teamMonogram(teamName: string): string {
+  return teamName.trim().split(/\s+/).map((part) => part[0]).join("").slice(0, 3).toUpperCase() || "TEAM";
+}
+
 export function formatInteger(value: number): string {
   const rounded = roundHalfAwayFromZero(value);
   return (Object.is(rounded, -0) ? 0 : rounded).toLocaleString("en-US");

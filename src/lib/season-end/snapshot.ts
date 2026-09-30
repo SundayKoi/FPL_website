@@ -5,7 +5,7 @@ import type { Division } from "@/lib/schedule/types";
 import { catalogHash, seasonEndDesignId, type AccoladeCollectible, type AccoladeSubject, type BestOfCollectible, type CanonicalPlayerIdentity, type CollectibleArtwork, type CollectibleDisplay, type SeasonCollectible, type SeasonEndCatalog, type SeasonEndCollectible, type WithheldAward } from "./collectibles";
 import { SEASON_END_RULES_VERSION } from "./release";
 import type { AwardWinner, SeasonAward, SeasonEndResult } from "./derive";
-import { formatAwardPresentation } from "./presentation";
+import { formatAwardPresentation, teamMonogram } from "./presentation";
 import type { SeasonEndTeamIdentityMap } from "./queries";
 import { championArtCrop } from "./championArt";
 
@@ -32,10 +32,6 @@ function cardForWinner(winner: AwardWinner, cardsByPlayer: ReadonlyMap<string, P
 
 function pairRoleLabel(role: string): string {
   return ({ TOP: "Top", JUNGLE: "Jungle", MIDDLE: "Mid", BOTTOM: "Bot", UTILITY: "Support" } as Record<string, string>)[role] ?? role;
-}
-
-function teamMonogram(teamName: string): string {
-  return teamName.trim().split(/\s+/).map((part) => part[0]).join("").slice(0, 3).toUpperCase() || "TEAM";
 }
 
 function singleArtwork(card: PlayerCardData | null, champion: string | null): CollectibleArtwork {

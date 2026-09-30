@@ -14,6 +14,7 @@ import {
 import { DUO_FORMULA_VERSION, DUO_IMPACT_WEIGHTS, DUO_PAIR_DEFINITIONS, midrankPercentile, scoreDuoPairs, type DuoEvidence, type DuoMemberEvidence } from "./duo";
 import { withPairChampionEvidence } from "./pairArt";
 import type { PairArtMember } from "./pairArt";
+import { rowIdentity, teamKey } from "./rowKeys";
 
 /** Raw storage fields stay nullable. Missing observations must never become zero. */
 export interface SeasonRow {
@@ -94,10 +95,8 @@ type DeriveOptions = {
    * player changed divisions during the selected season. */
   currentPlayerDivisions?: ReadonlyMap<string, Division>;
 };
-const identity = (r: SeasonRow) => `${r.summoner_name}#${r.tag}`;
 const playerKey = (r: SeasonRow) => cardPlayerKey(r.summoner_name, r.tag);
 const normalized = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-const teamKey = (s: string) => s.trim().toLowerCase();
 const number = (r: SeasonRow, key: string): number | null => {
   const v = r[key];
   return typeof v === "number" && Number.isFinite(v) ? v : typeof v === "boolean" ? Number(v) : null;
@@ -238,7 +237,7 @@ export function deriveSeasonEnd(
     (!fixtureTeams.size || fixtureTeams.has(teamKey(r.team_name))));
   if (valid.length !== candidates.length) warnings.push(`${candidates.length - valid.length} rows excluded for missing identity/team/result or teams outside this season's fixtures.`);
   // Reject ambiguous identities instead of letting duplicate ingestion inflate totals.
-  const duplicateMatches = new Set(groups(valid, r => `${r.match_id}|${identity(r)}`).filter(g => g.length > 1).map(g => g[0].match_id));
+  const duplicateMatches = new Set(groups(valid, r => `${r.match_id}|${rowIdentity(r)}`).filter(g => g.length > 1).map(g => g[0].match_id));
   const rows = valid.filter(r => !duplicateMatches.has(r.match_id)).map(r => ({ ...r }));
   if (duplicateMatches.size) warnings.push(`${duplicateMatches.size} games excluded for duplicate player identities.`);
   const matches = new Map(groups(rows, r => r.match_id).map(g => [g[0].match_id, g]));
@@ -253,7 +252,7 @@ export function deriveSeasonEnd(
   const chronological = (a: SeasonRow, b: SeasonRow) => Date.parse(a.game_date) - Date.parse(b.game_date) || a.match_id.localeCompare(b.match_id, undefined, { numeric: true });
   const datesComplete = rows.every(r => Number.isFinite(Date.parse(r.game_date)));
   rows.sort(chronological);
-  const players: Group[] = groups(rows, identity).map(rs => ({ name: identity(rs[0]), team: [...new Set(rs.map(r => r.team_name))].join(" / "), rows: rs }));
+  const players: Group[] = groups(rows, rowIdentity).map(rs => ({ name: rowIdentity(rs[0]), team: [...new Set(rs.map(r => r.team_name))].join(" / "), rows: rs }));
   const playerDivisions = playerDivisionMap(rows, divisions, options.currentPlayerDivisions);
   const minGames = BEST_OF_MIN_PLAYER_GAMES;
   const qualified = players.filter(p => p.rows.length >= minGames);
@@ -319,7 +318,7 @@ export function deriveSeasonEnd(
         bestOfRows.set(key, [...(bestOfRows.get(key) ?? []), row]);
         return {
           playerKey: playerKey(row),
-          playerName: identity(row),
+          playerName: rowIdentity(row),
           team: row.team_name,
           champion: row.champion,
           win: row.win,
