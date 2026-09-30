@@ -29,18 +29,14 @@ import { foilTypeOf, type FoilType } from "@/lib/packs/config";
 import type { TeamCardEntry, TeamPrint } from "@/lib/cards/teamCards";
 import AutographMark from "./AutographMark";
 import { hiResLogoUrl } from "./ChampionsCard";
+import { FOIL_LAYERS, type FoilLayer } from "./cardStyles";
 
 /** The same overlays player cards wear, held at a fixed opacity — there
- *  is no pointer to chase on a server-rendered plate. */
-const FOIL_LAYERS: Record<FoilType, { className: string; blend: "color-dodge" | "screen" }> = {
-  prisma: { className: "card-foil-holo", blend: "color-dodge" },
-  aurora: { className: "card-foil-aurora", blend: "screen" },
-  refractor: { className: "card-foil-refractor", blend: "color-dodge" },
-  ice: { className: "card-foil-ice", blend: "screen" },
-  // Eclipse rides its own GROUND layers as well (the drain and the
-  // corona, rendered outside the tilt-swung wrapper). This entry is the
-  // bead of gold that moves with the pointer.
-  eclipse: { className: "card-foil-eclipse", blend: "screen" },
+ *  is no pointer to chase on a server-rendered plate. One difference:
+ *  the plate screens Ice where a player card dodges it. */
+const TEAM_FOIL_LAYERS: Record<FoilType, FoilLayer> = {
+  ...FOIL_LAYERS,
+  ice: { ...FOIL_LAYERS.ice, blend: "screen" },
 };
 
 /** Frame treatments by roster tier — the same ladder the player cards
@@ -121,7 +117,7 @@ export default function TeamCard({
   foilType?: string | null;
 }) {
   const color = team.bannerColor;
-  const foilLayer = foil ? FOIL_LAYERS[foilTypeOf(foilType)] : null;
+  const foilLayer = foil ? TEAM_FOIL_LAYERS[foilTypeOf(foilType)] : null;
   const signed = team.slots.filter((slot) => slot.autograph).length;
   // A copy frozen before tags were printed has no abbr — those already
   // showed initials, so falling back to the monogram changes nothing.

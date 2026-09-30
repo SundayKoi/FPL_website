@@ -12,30 +12,14 @@
 // form. `reveal` plays a face-down flip-up on mount — the share page's
 // pack-opening moment. No WebGL — layered gradients and blend modes do it.
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { copyEditionLabel } from "@/lib/cards/copyEdition";
-
-/** The clock as a store, to the minute: 0 on the server (no clock there),
- *  the wall clock once hydrated. Nothing subscribes — a bench that lifts
- *  mid-view lifts on the next render, which is fine for a chip. */
-function subscribeNever(): () => void {
-  return () => {};
-}
-let minuteCache = 0;
-function readMinute(): number {
-  const minute = Math.floor(Date.now() / 60_000) * 60_000;
-  if (minute !== minuteCache) minuteCache = minute;
-  return minuteCache;
-}
-function readServerMinute(): number {
-  return 0;
-}
 import CountUp from "@/components/home/CountUp";
 import { championCenteredUrl, championIconUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import type { PlayerCardData } from "@/lib/cards/build";
-import { FOIL_TYPE_LABELS, foilTypeOf, type FoilType } from "@/lib/packs/config";
+import { FOIL_TYPE_LABELS, foilTypeOf } from "@/lib/packs/config";
 import PatronFlame from "@/components/patron/PatronFlame";
-import ChampionsCard from "./ChampionsCard";
+import ChampionsCard3D from "./ChampionsCard3D";
 import DrawLaurel from "./DrawLaurel";
 import ExpeditionMark from "./ExpeditionMark";
 import { mutationByKey, mutationOverlay, type MutationOverlay } from "@/lib/cards/mutations";
@@ -47,17 +31,18 @@ import type { OverlayMockup } from "@/lib/cards/overlayMockups";
 import { secretSerialLabel, stattrakLabel } from "@/lib/packs/rarities";
 import { gradeOf, isSlabbed, wearOf } from "@/lib/cards/wear";
 import { EXIT_LABELS, SENDOFF_META, type SendoffMark } from "@/lib/cards/sendoff";
-
-/** What an overlay mockup hands the renderer: the layers and the accent. */
-export type OverlayPreview = Pick<OverlayMockup, "front" | "back" | "chip" | "artEcho" | "ink" | "accent">;
-export type CardEdition = "weekly" | "season";
 import { lineTreatmentFor } from "@/lib/cards/skinLines";
 import MomentPlate from "./MomentPlate";
 import TeamCard from "./TeamCard";
 import AutographMark from "./AutographMark";
+import { FOIL_GRADIENT, FOIL_LAYERS, SPARKLES, TIER_STYLES } from "./cardStyles";
+import { MAX_TILT_DEG, REST_GLARE, REST_TRANSFORM, REST_TRANSITION, TRACKING_TRANSITION, useCardTilt } from "./cardTilt";
+import { useMinute } from "./minuteClock";
 
-/** Fixed sparkle placements (percent coords + stagger) for the top-tier
- *  glint layer — deterministic so SSR and client agree. */
+/** What an overlay mockup hands the renderer: the layers and the accent. */
+export type OverlayPreview = Pick<OverlayMockup, "front" | "back" | "chip" | "artEcho" | "ink" | "accent">;
+export type CardEdition = "weekly" | "season";
+
 /** One stamp a copy carries, as both the front's coin and the back's chip. */
 interface CardStamp {
   key: string;
@@ -102,82 +87,10 @@ function Coin({ testId, title, accent, children }: { testId: string; title: stri
   );
 }
 
-const SPARKLES = [
-  { left: "12%", top: "8%", delay: "0s", size: "text-sm" },
-  { left: "82%", top: "14%", delay: "0.9s", size: "text-xs" },
-  { left: "68%", top: "38%", delay: "1.7s", size: "text-base" },
-  { left: "22%", top: "52%", delay: "0.4s", size: "text-xs" },
-  { left: "88%", top: "64%", delay: "2.1s", size: "text-sm" },
-  { left: "40%", top: "22%", delay: "1.3s", size: "text-xs" },
-] as const;
-
-/** Frame + accent styling per tier. `foil` turns on the holographic layer;
- *  `frameClass` replaces the static gradient with an animated one, and
- *  `glowClass` picks the breathing halo rendered behind the card. */
-const TIER_STYLES: Record<
-  PlayerCardData["tier"]["key"],
-  { frame?: string; frameClass?: string; glowClass?: string; banner: string; ring: string; foil: boolean }
-> = {
-  bronze: { frame: "linear-gradient(160deg,#7c5334,#3e2a1a 45%,#8a5c38)", banner: "#b08d57", ring: "#b08d57", foil: false },
-  silver: { frame: "linear-gradient(160deg,#9ba8b5,#4a5560 45%,#aab7c4)", banner: "#c0c9d2", ring: "#c0c9d2", foil: false },
-  gold: { frame: "linear-gradient(160deg,#d4af37,#6b5518 45%,#e6c75a)", banner: "#e6c14b", ring: "#e6c14b", foil: false },
-  platinum: { frame: "linear-gradient(160deg,#3ec6b5,#155e56 45%,#5cd6c6)", banner: "#4fd0bf", ring: "#4fd0bf", foil: false },
-  emerald: { frame: "linear-gradient(160deg,#2ecc71,#0e5c31 45%,#58e08e)", banner: "#3fdc7f", ring: "#3fdc7f", foil: true },
-  diamond: {
-    frame: "linear-gradient(160deg,#6ec6ff,#1e4d75 45%,#9ad9ff)",
-    glowClass: "card-glow-diamond",
-    banner: "#8fd3ff",
-    ring: "#8fd3ff",
-    foil: true,
-  },
-  master: {
-    frame: "linear-gradient(160deg,#b06ef0,#4a1e75 45%,#cf9aff)",
-    glowClass: "card-glow-master",
-    banner: "#c78fff",
-    ring: "#c78fff",
-    foil: true,
-  },
-  challenger: {
-    frameClass: "card-frame-challenger",
-    glowClass: "card-glow-challenger",
-    banner: "#ffd166",
-    ring: "#ffd166",
-    foil: true,
-  },
-};
-
-const MAX_TILT_DEG = 10;
-
-/** Resting values for the two pointer-driven layers. They live in the JSX as
- *  constant strings so React writes them once at mount and never diffs them
- *  again — everything after that is written straight to the DOM below. */
-const REST_TRANSFORM = "rotateX(0deg) rotateY(0deg)";
-const REST_GLARE = "radial-gradient(circle at 50% 35%, rgb(255 255 255 / 0.5), transparent 55%)";
-const REST_TRANSITION = "transform 250ms ease-out";
-const TRACKING_TRANSITION = "transform 60ms linear";
 /** A pulled foil's sheen at rest versus fully turned into the light. The
  *  span between them is the whole effect: see writeTilt. */
 const FOIL_REST_OPACITY = 0.3;
 const FOIL_PEAK_OPACITY = 0.85;
-/** The flat sheen a TIER holo wears (Emerald+). Pinned rather than swung
- *  off the tilt: rebuilding a six-stop gradient per frame repainted the
- *  whole card face, and a pulled foil is what earns real motion now. */
-const FOIL_GRADIENT =
-  "linear-gradient(115deg, rgb(255 80 120 / 0.5) 0%, rgb(255 208 100 / 0.5) 20%, rgb(80 220 130 / 0.5) 40%, rgb(80 170 255 / 0.5) 60%, rgb(190 100 255 / 0.5) 80%, rgb(255 80 120 / 0.5) 100%)";
-
-/** The light layer each parallel wears, and how it composites. Aurora
- *  screens rather than dodges — a wide soft gradient under color-dodge
- *  clips straight to white and stops being a curtain. */
-const FOIL_LAYERS: Record<FoilType, { className: string; blend: "color-dodge" | "screen" }> = {
-  prisma: { className: "card-foil-holo", blend: "color-dodge" },
-  aurora: { className: "card-foil-aurora", blend: "screen" },
-  refractor: { className: "card-foil-refractor", blend: "color-dodge" },
-  ice: { className: "card-foil-ice", blend: "color-dodge" },
-  // Eclipse rides its own GROUND layers as well (the drain and the
-  // corona, rendered outside the tilt-swung wrapper). This entry is the
-  // bead of gold that moves with the pointer.
-  eclipse: { className: "card-foil-eclipse", blend: "screen" },
-};
 
 function PlayerCardFace({
   card,
@@ -268,9 +181,6 @@ function PlayerCardFace({
   const cosmosRef = useRef<HTMLDivElement | null>(null);
   const foilRef = useRef<HTMLDivElement | null>(null);
   const artRef = useRef<HTMLImageElement | null>(null);
-  // Latest pointer position, parked for the next animation frame.
-  const pointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
-  const rafRef = useRef(0);
   /** iOS only ever answers the permission prompt once; don't re-ask per tap. */
   const gyroAskedRef = useRef(false);
   /** Whether the gyroscope may be listened to. Only iOS gates this — it
@@ -315,7 +225,7 @@ function PlayerCardFace({
   // The bench, decided on the client only: the server snapshot says "not
   // mounted", so the HTML never has to know whether 4pm has passed for the
   // reader, and the hydrated browser reads the clock once it is in charge.
-  const minute = useSyncExternalStore(subscribeNever, readMinute, readServerMinute);
+  const minute = useMinute();
   const benched = minute > 0 && Boolean(card.wounded?.until) && new Date(card.wounded!.until).getTime() > minute;
   const wear = wearOf(card);
   const grade = gradeOf(card);
@@ -517,28 +427,8 @@ function PlayerCardFace({
     if (foilRef.current) foilRef.current.style.opacity = String(FOIL_REST_OPACITY);
   }, []);
 
-  // Pointer moves fire faster than the display refreshes, so the handler only
-  // parks the coordinates and one queued frame does the single write — and it
-  // measures the card inside that frame, so a burst of moves costs one layout
-  // read instead of one per event.
-  const scheduleTilt = useCallback(() => {
-    if (rafRef.current) return;
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = 0;
-      const frame = frameRef.current;
-      const pointer = pointerRef.current;
-      if (!frame || !pointer) return;
-      const rect = frame.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      const px = (pointer.clientX - rect.left) / rect.width;
-      const py = (pointer.clientY - rect.top) / rect.height;
-      writeTilt((0.5 - py) * MAX_TILT_DEG * 2, (px - 0.5) * MAX_TILT_DEG * 2, px * 100, py * 100);
-    });
-  }, [writeTilt]);
-
-  useEffect(() => () => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-  }, []);
+  // One queued frame per burst of pointer moves; see useCardTilt.
+  const { trackPointer, cancelTilt } = useCardTilt(frameRef, writeTilt);
 
   // Phones don't hover: the gyroscope drives the same tilt instead — and it's
   // every bit as chatty as a mouse, so it takes the same direct-write path.
@@ -591,8 +481,7 @@ function PlayerCardFace({
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!interactive) return;
-    pointerRef.current = { clientX: event.clientX, clientY: event.clientY };
-    scheduleTilt();
+    trackPointer(event);
   };
 
   const onPointerEnter = () => {
@@ -606,11 +495,7 @@ function PlayerCardFace({
 
   const reset = () => {
     if (!interactive) return;
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = 0;
-    }
-    pointerRef.current = null;
+    cancelTilt();
     if (frameRef.current) frameRef.current.style.transition = REST_TRANSITION;
     writeTilt(0, 0, 50, 35);
     releaseFoil();
@@ -1417,144 +1302,6 @@ function PlayerCardFace({
       {card.expedition ? (
         <ExpeditionMark mark={card.expedition.mark} date={card.expedition.date} position="right-[6%] top-[33%]" />
       ) : null}
-      </div>
-    </div>
-  );
-}
-
-/** The champions relic's foil at rest — matches the fixed opacity
- *  ChampionsCard renders with, so the release writes back what React set. */
-const CHAMP_FOIL_REST = 0.5;
-const CHAMP_FOIL_PEAK = 0.85;
-
-/**
- * The tilt rig around a ChampionsCard — the same pointer treatment a
- * player card gets, wrapped around the server-renderable relic instead of
- * rebuilt inside it. ChampionsCard stays hook-free (the admin preview
- * renders it directly, static); this wrapper owns the rotation, a soft
- * glare, and driving the relic's own foil layers by hand, direct DOM
- * writes and one rAF per frame, exactly like PlayerCardFace's writeTilt.
- */
-function ChampionsCard3D({
-  card,
-  interactive,
-  foil,
-  foilType,
-  flame,
-  className = "",
-}: {
-  card: PlayerCardData;
-  interactive: boolean;
-  foil: boolean;
-  foilType: string | null;
-  flame: string | null;
-  className?: string;
-}) {
-  const frameRef = useRef<HTMLDivElement | null>(null);
-  const glareRef = useRef<HTMLDivElement | null>(null);
-  const rafRef = useRef(0);
-  const pointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
-  const [hovering, setHovering] = useState(false);
-
-  const writeTilt = useCallback((tiltX: number, tiltY: number, glareX: number, glareY: number) => {
-    const frame = frameRef.current;
-    if (!frame) return;
-    frame.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
-    const glare = glareRef.current;
-    if (glare) {
-      // Quieter than a player card's glare — white light on black felt
-      // reads twice as loud.
-      glare.style.background = `radial-gradient(circle at ${glareX}% ${glareY}%, rgb(255 255 255 / 0.22), transparent 55%)`;
-    }
-    // The relic's own foil layers, driven from outside: the parallel layer
-    // chases the light and the whole sheet brightens as the card turns,
-    // same numbers as a player card's pulled foil.
-    const foilWrap = frame.querySelector<HTMLElement>('[data-testid="champ-foil"]');
-    if (foilWrap) {
-      const layer = foilWrap.querySelector<HTMLElement>(":scope > div:first-child");
-      if (layer) layer.style.backgroundPosition = `${glareX * 1.6 - 30}% ${glareY * 1.6 - 30}%`;
-      const cosmos = foilWrap.querySelector<HTMLElement>(".card-foil-cosmos");
-      if (cosmos) {
-        cosmos.style.backgroundPosition = `${glareX * 0.5}% ${glareY * 0.5}%, ${100 - glareX * 0.4}% ${100 - glareY * 0.4}%`;
-      }
-      const fromCentre = Math.min(1, Math.hypot(glareX - 50, glareY - 50) / 50);
-      foilWrap.style.opacity = String(CHAMP_FOIL_REST + fromCentre * (CHAMP_FOIL_PEAK - CHAMP_FOIL_REST));
-    }
-  }, []);
-
-  const scheduleTilt = useCallback(() => {
-    if (rafRef.current) return;
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = 0;
-      const frame = frameRef.current;
-      const pointer = pointerRef.current;
-      if (!frame || !pointer) return;
-      const rect = frame.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      const px = (pointer.clientX - rect.left) / rect.width;
-      const py = (pointer.clientY - rect.top) / rect.height;
-      writeTilt((0.5 - py) * MAX_TILT_DEG * 2, (px - 0.5) * MAX_TILT_DEG * 2, px * 100, py * 100);
-    });
-  }, [writeTilt]);
-
-  useEffect(() => () => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-  }, []);
-
-  const reset = () => {
-    if (!interactive) return;
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = 0;
-    }
-    pointerRef.current = null;
-    const frame = frameRef.current;
-    if (frame) {
-      frame.style.transition = REST_TRANSITION;
-      const foilWrap = frame.querySelector<HTMLElement>('[data-testid="champ-foil"]');
-      if (foilWrap) {
-        foilWrap.style.opacity = String(CHAMP_FOIL_REST);
-        const layer = foilWrap.querySelector<HTMLElement>(":scope > div:first-child");
-        if (layer) layer.style.backgroundPosition = "";
-        const cosmos = foilWrap.querySelector<HTMLElement>(".card-foil-cosmos");
-        if (cosmos) cosmos.style.backgroundPosition = "";
-      }
-    }
-    writeTilt(0, 0, 50, 35);
-    setHovering(false);
-  };
-
-  return (
-    <div
-      data-motion={hovering ? "live" : "rest"}
-      className={`relative [perspective:1100px] ${className}`}
-      style={{ width: "20rem" }}
-    >
-      <div
-        ref={frameRef}
-        style={{ transform: REST_TRANSFORM }}
-        onPointerEnter={() => {
-          if (!interactive) return;
-          if (frameRef.current) frameRef.current.style.transition = TRACKING_TRANSITION;
-          setHovering(true);
-        }}
-        onPointerMove={(event) => {
-          if (!interactive) return;
-          pointerRef.current = { clientX: event.clientX, clientY: event.clientY };
-          scheduleTilt();
-        }}
-        onPointerLeave={reset}
-        onPointerCancel={reset}
-        className="relative"
-      >
-        <ChampionsCard card={card} foil={foil} foilType={foilType} signed={Boolean(card.autograph)} />
-        <div
-          ref={glareRef}
-          aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-xl transition-opacity duration-200"
-          style={{ background: REST_GLARE, opacity: hovering ? 1 : 0, mixBlendMode: "soft-light" }}
-        />
-        {flame ? <PatronFlame flame={flame} radius="0.75rem" /> : null}
       </div>
     </div>
   );

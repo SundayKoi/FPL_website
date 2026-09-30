@@ -19,6 +19,7 @@ import type { CSSProperties } from "react";
 import { GOD_PACK_ODDS_DENOMINATOR, type RarityClass } from "@/lib/packs/config";
 import { godPackAnnouncement, godPackFracture, ripOpen, ripTick } from "@/lib/packs/sounds";
 import { prefersReducedMotion } from "@/lib/ui/reducedMotion";
+import { PACK_RARITY_CLASS } from "./packOpeningModel";
 
 /** Horizontal drag, in px, that takes the tear from sealed to open. Tuned
  *  against the pack's own width — a swipe most of the way across it, so
@@ -49,13 +50,6 @@ const GOD_BURST_MS = 4200;
  *  not a click — otherwise every half-hearted tear also counts toward the
  *  three-click path. */
 const CLICK_SLOP = 6;
-
-const AURA_CLASS: Record<RarityClass, string> = {
-  common: "pack-rarity-common",
-  rare: "pack-rarity-rare",
-  epic: "pack-rarity-epic",
-  legendary: "pack-rarity-legendary",
-};
 
 /** Teeth in the torn edge. Enough to read as ripped paper at 260px wide,
  *  few enough that the clip-path stays a one-line string. */
@@ -255,7 +249,7 @@ export default function PackRip({
 
   if (reduced) return null;
 
-  const rarityClass = AURA_CLASS[bestRarity] ?? AURA_CLASS.common;
+  const rarityClass = PACK_RARITY_CLASS[bestRarity] ?? PACK_RARITY_CLASS.common;
   // The tease: dim at rest, blinding by the time the foil lets go.
   const auraStyle: CSSProperties = {
     opacity: 0.28 + progress * 0.72,
