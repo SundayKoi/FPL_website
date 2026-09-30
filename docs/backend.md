@@ -1303,7 +1303,10 @@ choices, role calls and `ROAD_SIZES` (a count, never the places), and
 and `import type` from `views.ts`. `src/components/cards/expeditionImports.test.ts`
 walks the value-import graph from every `"use client"` module and every board
 module, stopping at `"use server"` modules. It fails on any value import of
-`routes.ts`, `journal.ts` or `views.ts`.
+`routes.ts`, `journal.ts` or `views.ts`, or of the modules they are split into
+(`roads.ts`, `routeEdges.ts`, `forkOptions.ts`, `resolveRoute.ts`,
+`journalLines.ts`). The shared `format.ts` (`pct`, `listOf`) is import-free and
+safe for the browser.
 
 **The atlas** (`src/lib/expeditions/atlas.ts`, used by the server and
 scripts only; `atlasWords.ts` for the browser; `AtlasPanel.tsx`;
