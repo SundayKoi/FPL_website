@@ -1,0 +1,52 @@
+name: Ingest offseason games
+
+# TEMPORARY -- the offseason tournament only. Delete this file together with
+# scripts/offseason_ingest.py and scripts/test_offseason_ingest.py once the
+# event is over; nothing else depends on them.
+#
+# Manual only: staff run it after entering a game's Riot match id. It reads
+# every offseason game that has a match id and has not been ingested yet,
+# pulls the game from the Riot API, writes the rows to offseason_stats (never
+# raw_stats, so no league stats, cards or awards see an offseason game), and
+# records each result on the game through offseason_record_ingest -- the
+# winner when staff had not entered one, or the error if the game could not
+# be read. Fill in game_id to ingest just that one game. A failed game fails
+# the run; fix the match id (or wait for Riot to publish it) and run again.
+on:
+  workflow_dispatch:
+    inputs:
+      game_id:
+        description: "Optional: one offseason_games.id to ingest. Leave blank for every pending game."
+        type: string
+        required: false
+        default: ""
+
+concurrency:
+  # Two runs at once would fetch the same pending games twice.
+  group: offseason-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    # secrets live in the repo's "Production" environment -- a job only sees
+    # environment secrets when it declares the environment
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests python-dotenv
+      - name: Ingest offseason games
+        shell: bash
+        run: |
+          args=()
+          if [[ -n "$GAME_ID" ]]; then args+=(--game "$GAME_ID"); fi
+          python scripts/offseason_ingest.py "${args[@]}"
+        env:
+          # The input arrives via the environment rather than interpolated shell text.
+          GAME_ID: ${{ inputs.game_id }}
+          RIOT_API_KEY: ${{ secrets.RIOT_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
