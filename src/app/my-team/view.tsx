@@ -20,12 +20,9 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import TeamAccentPanel from "@/components/my-team/TeamAccentPanel";
 import LeaguePageShell, { LeagueToolbar } from "@/components/league/LeaguePageShell";
 import styles from "@/components/my-team/MyTeamWorkspace.module.css";
+import { firstParam } from "@/lib/searchParams";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
-
-function first(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
 
 function Unavailable({ message, league }: { message: string; league: LeagueKey }) {
   return (
@@ -89,7 +86,7 @@ export async function MyTeamPageView({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  const requestedTeamId = first(params.team);
+  const requestedTeamId = firstParam(params.team);
   const supabase = await createServerSupabase();
 
   let dashboard;

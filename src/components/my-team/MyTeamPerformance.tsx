@@ -1,5 +1,5 @@
 import type { GameLogRow, PlayerAggRow } from "@/lib/stats/types";
-import { formatShortDateET } from "@/lib/captain/format";
+import { formatShortDateET } from "@/lib/time";
 
 export function MyTeamPerformance({ teamName, games, players }: { teamName: string; games: GameLogRow[]; players: PlayerAggRow[] }) {
   return (

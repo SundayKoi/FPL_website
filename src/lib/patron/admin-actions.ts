@@ -8,17 +8,10 @@
 // grant_patron RPC so the receipt and the grant are one transaction.
 
 import { revalidatePath } from "next/cache";
-import { createServerSupabase } from "@/lib/supabase/server";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import { fetchStaffTier } from "@/lib/auth/staffTier";
+import { requireOwner } from "@/lib/auth/staffGuards";
 
 type ActionResult = { ok: true; until?: string } | { ok: false; error: string };
-
-async function requireOwner(): Promise<boolean> {
-  const supabase = await createServerSupabase();
-  const { isOwner } = await fetchStaffTier(supabase);
-  return isOwner;
-}
 
 /** Every surface that reads patron state — the panel, the shop's flame
  *  wardrobe, and the public roster. */

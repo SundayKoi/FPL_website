@@ -5,6 +5,7 @@ import { seasonBelongsToLeague } from "@/lib/league/season";
 import { normalizePlayerName } from "@/lib/players/normalize";
 import type { Division, FixtureRow } from "@/lib/schedule/types";
 import { deriveSeasonEnd, type SeasonRow } from "./derive";
+import { teamKey } from "./rowKeys";
 
 export interface SeasonEndTeamIdentity {
   name: string;
@@ -156,10 +157,6 @@ type MembershipRow = {
 
 function one<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] ?? null : value ?? null;
-}
-
-function teamKey(value: string): string {
-  return value.trim().toLowerCase();
 }
 
 /**

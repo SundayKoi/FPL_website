@@ -4,6 +4,7 @@ import AdminConsole from "@/components/admin/AdminConsole";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { resolveAdminLeagueSeason } from "@/lib/admin/scope";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { firstParam } from "@/lib/searchParams";
 
 export const metadata: Metadata = {
   title: "All tools — FPL Admin",
@@ -26,7 +27,7 @@ export default async function AdminToolsPage({
     month: "short",
     timeZone: "America/Chicago",
   }).format(new Date()).toUpperCase();
-  const query = Array.isArray(params.q) ? params.q[0] : params.q;
+  const query = firstParam(params.q);
 
   return (
     <AdminConsole

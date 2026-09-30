@@ -18,6 +18,7 @@
 import { mulberry32 } from "@/lib/expeditions/prng";
 import { mondayOf } from "@/lib/packs/week";
 import { HARVEST_MERCHANT, MERCHANT_DOLLARS } from "./config";
+import { pct } from "./format";
 
 /** The rulebook version from which a run launches under the weather. */
 export const WEATHER_RULES = 5;
@@ -44,8 +45,6 @@ export const WATCH_TOLL = 2;
 export const WATCH_RIVALS = 3;
 /** Under the Watch a ghost is this many times as likely to be the beat. */
 export const WATCH_GHOSTS = 2;
-
-const pct = (n: number) => `${Math.round(n * 100)}%`;
 
 export const WEATHERS: Record<WeatherKey, Weather> = {
   clear: {

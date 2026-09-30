@@ -16,6 +16,7 @@ import Link from "next/link";
 import { championSplashUrl } from "@/lib/match-draft/champions";
 import { gameClock, mintOrdinal, momentFamilyOf, type MomentFamily } from "@/lib/cards/moments";
 import type { LeagueMoment } from "@/lib/cards/queries";
+import { weekDayLabel } from "@/lib/packs/week";
 
 // Written out as full literals — Tailwind emits a utility only when the
 // class name appears somewhere in source, so `sig-art-${family}` would
@@ -32,15 +33,6 @@ const FAMILY_RIBBON: Record<MomentFamily, string> = {
   ice: "sig-ribbon-ice",
   gold: "sig-ribbon-gold",
 };
-
-/** "2026-08-24" -> "Aug 24". Read as UTC: the stored value is a plain
- *  calendar date, and letting the browser's zone parse it slides a chunk of
- *  the world back a day. */
-export function weekLabel(week: string): string {
-  const date = new Date(`${week}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) return week;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-}
 
 export default function MomentPlate({
   moment,
@@ -115,7 +107,7 @@ export default function MomentPlate({
           <p className="font-mono text-[0.62rem] leading-snug tracking-[0.04em] text-white/75">{moment.headline}</p>
           <p className="font-display text-[0.58rem] font-semibold uppercase tracking-[0.2em] text-white/50">
             {moment.opponent ? `vs ${moment.opponent} · ` : moment.teamName ? `${moment.teamName} · ` : ""}
-            {weekLabel(moment.weekStart)}
+            {weekDayLabel(moment.weekStart)}
           </p>
         </div>
       </div>

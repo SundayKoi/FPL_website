@@ -11,6 +11,7 @@ import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { GOLD, postCardsWebhook } from "@/lib/packs/announce";
 import { fetchAccolades } from "./queries";
 import { ACCOLADE_ORDER, accoladeLine, type Accolade } from "./standings";
+import { siteUrl } from "@/lib/site/url";
 
 export type CloseSeasonResult = { ok: true; accolades: Accolade[] } | { ok: false; error: string };
 
@@ -29,7 +30,7 @@ export async function closeExpeditionSeasonAction(season: string): Promise<Close
   // The news, best effort and after the write.
   if (accolades.length > 0) {
     try {
-      const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+      const site = siteUrl();
       const ordered = ACCOLADE_ORDER.map((kind) => accolades.find((accolade) => accolade.kind === kind)).filter((accolade): accolade is Accolade => Boolean(accolade));
       await postCardsWebhook({
         title: `The season's roads are closed — ${trimmed}`,

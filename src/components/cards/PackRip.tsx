@@ -18,6 +18,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { GOD_PACK_ODDS_DENOMINATOR, type RarityClass } from "@/lib/packs/config";
 import { godPackAnnouncement, godPackFracture, ripOpen, ripTick } from "@/lib/packs/sounds";
+import { prefersReducedMotion } from "@/lib/ui/reducedMotion";
+import { PACK_RARITY_CLASS } from "./packOpeningModel";
 
 /** Horizontal drag, in px, that takes the tear from sealed to open. Tuned
  *  against the pack's own width — a swipe most of the way across it, so
@@ -48,13 +50,6 @@ const GOD_BURST_MS = 4200;
  *  not a click — otherwise every half-hearted tear also counts toward the
  *  three-click path. */
 const CLICK_SLOP = 6;
-
-const AURA_CLASS: Record<RarityClass, string> = {
-  common: "pack-rarity-common",
-  rare: "pack-rarity-rare",
-  epic: "pack-rarity-epic",
-  legendary: "pack-rarity-legendary",
-};
 
 /** Teeth in the torn edge. Enough to read as ripped paper at 260px wide,
  *  few enough that the clip-path stays a one-line string. */
@@ -97,17 +92,6 @@ const SIGNED_SPARKS = [
   { left: "16%", top: "72%", delay: "1s" }, { left: "88%", top: "64%", delay: "1.5s" },
   { left: "50%", top: "6%", delay: "0.8s" }, { left: "44%", top: "92%", delay: "1.9s" },
 ];
-
-/** Exported so the full-screen opening (PackOpening) asks the same question
- *  the same way — one answer for the whole ritual, not one per component. */
-export function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  try {
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  } catch {
-    return false;
-  }
-}
 
 export default function PackRip({
   bestRarity,
@@ -265,7 +249,7 @@ export default function PackRip({
 
   if (reduced) return null;
 
-  const rarityClass = AURA_CLASS[bestRarity] ?? AURA_CLASS.common;
+  const rarityClass = PACK_RARITY_CLASS[bestRarity] ?? PACK_RARITY_CLASS.common;
   // The tease: dim at rest, blinding by the time the foil lets go.
   const auraStyle: CSSProperties = {
     opacity: 0.28 + progress * 0.72,

@@ -19,25 +19,20 @@
  *
  * Needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY. Read-only.
  */
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import { pathToFileURL } from "node:url";
 import { CARD_METRICS, cardPlayerKey, createCardPercentiles, scoreWeightsForRole, seasonStyleRatings, type CardGameRow, type CardMetric, type CardPercentile } from "../src/lib/cards/build";
 import { championDisplayName } from "../src/lib/match-draft/champions";
 import { STYLE_MEASURE_LABELS, type StyleMeasureKey } from "../src/lib/cards/measures";
 import { STYLE_WEIGHT, WIN_WEIGHT, fundamentalWeightsForRole, gradeGame, indexGames, type GameIndex, type StyleRating, type StyleYardstick } from "../src/lib/cards/styleRating";
 import { styleYardstickFor } from "../src/lib/cards/styleYardsticks";
-import { barsForRole, MEASURE_LABELS, type MeasureKey } from "../src/lib/cards/measures";
+import { barsForRole, mean, MEASURE_LABELS, type MeasureKey } from "../src/lib/cards/measures";
 import { fetchAllCardSeasons } from "../src/lib/cards/queries";
 import { mondayOf } from "../src/lib/packs/week";
 import { fetchAllPages } from "../src/lib/supabase/pagination";
 import { aggregateWeeklyPlayerRows, type WeeklyRawStatRow } from "../src/lib/stats/weekly";
 import type { PlayerAggRow } from "../src/lib/stats/types";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
-}
+import { createServiceClientFromEnv } from "./lib/env";
 
 /** raw_stats' spelling, which is what role_mode and the weights are keyed by. */
 const ROLE_ORDER = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"];
@@ -111,10 +106,6 @@ const BAR_INPUTS: Record<MeasureKey, BarSpec> = {
   objectives: { parts: [], perGame: "all" },
   turrets: { parts: [], perGame: "all" },
 };
-
-function mean(values: number[]): number {
-  return values.reduce((sum, value) => sum + value, 0) / (values.length || 1);
-}
 
 /** Blank means every role; anything else has to name one, so a typo fails
  *  loudly instead of printing an empty report. */
@@ -304,9 +295,7 @@ export async function inspectCohort(supabase: SupabaseClient, requestedWeek: str
 }
 
 async function main(): Promise<void> {
-  const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
-    auth: { persistSession: false },
-  });
+  const supabase = createServiceClientFromEnv();
   // argv first, then the workflow inputs — a workflow_dispatch field left
   // blank arrives as an empty string and must fall through to the default.
   await inspectCohort(

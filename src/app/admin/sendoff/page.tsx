@@ -29,9 +29,10 @@ import {
   type SendoffStage,
 } from "@/lib/cards/sendoff";
 import { SENDOFF_LOOKS, sendoffLookOverlay } from "@/lib/cards/sendoffLooks";
-import { CURRENT_LINE, LINE_TIERS, lineTierLabel, skinLineByKey, type LineTier, type SkinLine } from "@/lib/cards/skinLines";
+import { CURRENT_LINE, LINE_TIERS, linePreviewOf, lineTierLabel, skinLineByKey } from "@/lib/cards/skinLines";
 import { mondayOf } from "@/lib/packs/week";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { firstParam } from "@/lib/searchParams";
 
 export const metadata: Metadata = {
   title: "The Send-off — FPL Admin",
@@ -53,19 +54,6 @@ const MOCKUP_EXIT: Record<SendoffStage, SendoffExitStage> = {
  *  one winner. Three is enough to see a ladder and few enough that six
  *  looks still fit on a screen the owner can compare across. */
 const LOOK_STAGES: SendoffStage[] = ["quarterfinalist", "finalist", "champion"];
-
-/** The skin-line preview the reference row shows, built the way
- *  /skin-lines builds it — the same shape PlayerCard3D's `preview` takes. */
-function previewOf(line: SkinLine, tier: LineTier) {
-  return {
-    label: lineTierLabel(line, tier),
-    className: line.className,
-    modifier: tier.modifier,
-    blend: line.blend,
-    accent: line.accent,
-    layers: tier.layers,
-  };
-}
 
 /** A day, in Eastern, the way every other card date on the site reads. */
 function day(iso: string): string {
@@ -165,7 +153,7 @@ export default async function SendoffPreviewPage({
   if (!isAdmin && !isOwner) redirect("/admin");
 
   const params = await searchParams;
-  const requested = Array.isArray(params.league) ? params.league[0] : params.league;
+  const requested = firstParam(params.league);
   const wantAcademy = requested === "academy";
 
   const service = createBettingServiceClient();
@@ -188,7 +176,7 @@ export default async function SendoffPreviewPage({
   // checked before it is played and again after the scores land.
   const now = new Date();
   const currentWeek = mondayOf(now);
-  const weekParam = Array.isArray(params.week) ? params.week[0] : params.week;
+  const weekParam = firstParam(params.week);
   const week = requestedWeek(weekParam) ?? currentWeek;
   const weeks = pickableWeeks(fixtures, currentWeek);
   const leagueQuery = chosen?.league === "academy" ? "league=academy&" : "";
@@ -371,7 +359,7 @@ export default async function SendoffPreviewPage({
                       interactive
                       forceFoil
                       foilType={chromaTier.replaces}
-                      preview={previewOf(currentLine, chromaTier)}
+                      preview={linePreviewOf(currentLine, chromaTier)}
                     />
                   ) : (
                     <PlayerCard3D card={best[0]} edition="season" interactive forceFoil />

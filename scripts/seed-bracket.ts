@@ -8,6 +8,7 @@ import {
   type ExistingFixture,
 } from "../src/lib/schedule/bracketSeed";
 import { normalizePlayoffTeamName } from "../src/lib/schedule/playoffs";
+import { requireEnv } from "./lib/env";
 
 const DEFAULT_BRACKET = "scripts/data/brackets/premier-2026-playoffs.json";
 const PROTECTED_TABLES = [
@@ -18,12 +19,6 @@ const PROTECTED_TABLES = [
   "betting_markets",
   "homepage_featured_settings",
 ] as const;
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
-}
 
 function describe(row: BracketSeedRow): string {
   return `${row.stage} #${row.sort_order} — ${row.team_a ?? "TBD"} vs ${row.team_b ?? "TBD"} (Bo${row.best_of}, ${row.scheduled_at ?? "date TBD"})`;

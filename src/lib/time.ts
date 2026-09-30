@@ -41,6 +41,14 @@ export function relativeTime(iso: string | null | undefined, now: Date = new Dat
   return new Date(then).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" });
 }
 
+/** "Aug 18"-style short date on the league's Eastern calendar (matches play
+ *  Mondays 8pm ET), or `fallback` when `iso` doesn't parse. */
+export function formatShortDateET(iso: string, fallback = ""): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return fallback;
+  return d.toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" });
+}
+
 /** A full, unambiguous stamp for a title attribute: league time, labelled. */
 export function easternStamp(iso: string | null | undefined): string {
   if (!iso) return "";
@@ -54,4 +62,12 @@ export function easternStamp(iso: string | null | undefined): string {
     hour: "numeric",
     minute: "2-digit",
   })} ET`;
+}
+
+/** "2026-09-25T…" → "Sep 25, 2026". Fixed locale + UTC so the server render
+ *  and the hydrated client agree; unparseable input shows `fallback`. */
+export function utcDateLabel(iso: string, fallback = "—"): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return fallback;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }

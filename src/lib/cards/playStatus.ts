@@ -8,7 +8,7 @@
 
 import { currentFantasyWeek, lockTimeOf } from "@/lib/fantasy/week";
 import type { ExpeditionRun } from "@/lib/expeditions/queries";
-import { openFork } from "@/lib/expeditions/routes";
+import { openFork } from "@/lib/expeditions/forks";
 import { editionLabel } from "@/lib/packs/week";
 
 export type PlayTone = "open" | "waiting" | "done" | "quiet";

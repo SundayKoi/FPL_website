@@ -23,7 +23,7 @@
  * Scheduled by .github/workflows/weekly-card-drop.yml after Monday night's
  * games have been ingested, mirroring the weekly-brief jobs.
  */
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import { pathToFileURL } from "node:url";
 import {
   fetchAllCardSeasons,
@@ -61,6 +61,8 @@ import { WEEKLY_STAT_COLUMNS, type WeeklyRawStatRow } from "../src/lib/stats/wee
 import { formatMatchWinPayouts, type MatchWinPayoutLine } from "../src/lib/betting/match-wins";
 import { dailyGameDate } from "../src/lib/dailyDay";
 import { refreshHigherLowerSnapshot } from "../src/lib/higher-lower/snapshot";
+import { createServiceClientFromEnv } from "./lib/env";
+import { postWebhookEmbed } from "./lib/discord";
 
 interface SnapshotRow {
   slug: string;
@@ -77,12 +79,6 @@ export interface HigherLowerRefreshFailure {
   error: unknown;
 }
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
-}
-
 function moverLine(card: PlayerCardData, previous: SnapshotRow, origin: string | null): string {
   const delta = card.overall - previous.overall;
   const arrow = delta > 0 ? "▲" : "▼";
@@ -91,17 +87,8 @@ function moverLine(card: PlayerCardData, previous: SnapshotRow, origin: string |
   return `${name} ${previous.overall} → ${card.overall} (${arrow}${Math.abs(delta)})${tierNote}`;
 }
 
-async function postEmbed(webhookUrl: string, title: string, description: string, footer: string): Promise<void> {
-  const response = await fetch(webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      embeds: [{ title, description: description.slice(0, 4000), color: 0xf5b62e, footer: { text: footer } }],
-    }),
-  });
-  if (!response.ok) {
-    throw new Error(`Discord webhook failed: HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
-  }
+function postEmbed(webhookUrl: string, title: string, description: string, footer: string): Promise<void> {
+  return postWebhookEmbed(webhookUrl, { title, description, color: 0xf5b62e, footer });
 }
 
 function parseMatchWinPayment(data: unknown): { paid: boolean; amount: number } {
@@ -1022,9 +1009,7 @@ export async function runWeeklyCardDrop(
 }
 
 async function main(): Promise<void> {
-  const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
-    auth: { persistSession: false },
-  });
+  const supabase = createServiceClientFromEnv();
   const webhookUrl = process.env.DISCORD_CARDS_WEBHOOK_URL ?? null;
   const origin = process.env.SITE_ORIGIN?.replace(/\/$/, "") ?? null;
   await runWeeklyCardDrop(supabase, webhookUrl, origin);

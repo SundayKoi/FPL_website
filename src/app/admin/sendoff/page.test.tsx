@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SENDOFF_LOOKS } from "@/lib/cards/sendoffLooks";
 import { mondayOf } from "@/lib/packs/week";
 
@@ -59,8 +59,6 @@ vi.mock("@/components/cards/PlayerCard3D", () => ({
 }));
 
 const SendoffPreviewPage = (await import("./page")).default;
-
-afterEach(cleanup);
 
 // Empty reads by default; a test that cares mocks what it needs. The week
 // build is what the teams through print from, so it is read on every render

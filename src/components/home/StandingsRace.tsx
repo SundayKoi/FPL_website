@@ -2,14 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { RaceWeek } from "@/lib/home/standings";
+import { prefersReducedMotion } from "@/lib/ui/reducedMotion";
 import type { HomeAppearance } from "./appearance";
 import styles from "./HomeWorkspace.module.css";
 
 const ROW_HEIGHT = 44;
-
-function prefersReducedMotion(): boolean {
-  return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
 
 function sortedEntries(week: RaceWeek) {
   return [...week.entries].sort(

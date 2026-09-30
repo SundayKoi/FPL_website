@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import { homeRedirect, leagueChoiceCookie, parseLeagueChoice, teamLeague } from "./preference";
+import { supabaseQuery } from "@/test-utils/supabaseQuery";
 
 type Tables = {
   user?: { id: string } | null;
@@ -15,11 +16,7 @@ function client({ user = { id: "u1" }, links = [], captains = [], fail = false }
     auth: { getUser: async () => ({ data: { user } }) },
     from: (table: string) => {
       const data = table === "league_settings" ? settings : table === "player_identity_links" ? links : captains;
-      const chain: Record<string, unknown> = {};
-      for (const m of ["select", "eq"]) chain[m] = () => chain;
-      chain.maybeSingle = async () => ({ data, error: fail ? { message: "down" } : null });
-      chain.then = (resolve: (r: unknown) => unknown) => Promise.resolve({ data, error: fail ? { message: "down" } : null }).then(resolve);
-      return chain;
+      return supabaseQuery({ data, error: fail ? { message: "down" } : null });
     },
   } as unknown as SupabaseClient;
 }

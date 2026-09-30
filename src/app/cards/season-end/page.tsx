@@ -1,6 +1,7 @@
 import Link from "next/link";
 import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 import CollectibleRenderer from "@/components/cards/CollectibleRenderer";
+import { copyPull } from "@/components/cards/seasonEndCopy";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchSeasonEndCatalog, fetchSeasonEndOwnedCopies, fetchSeasonEndReleaseById, fetchPublishedSeasonEndReleases, type SeasonEndOwnedCopy } from "@/lib/season-end/release-queries";
@@ -88,7 +89,7 @@ export async function SeasonEndCollectionView({ league, releaseId }: { league: C
               <article key={design.designId} className="flex flex-col gap-2">
                 <CollectibleRenderer pull={preview(design)} compact={copies.length === 0} />
                 <div className="flex items-center justify-between text-xs"><span className={copies.length ? "flex items-center gap-1 text-gold" : "text-steel"}>{copies.length ? <><span aria-hidden="true" className="text-mint">✓</span><span>{copies.length} owned variant{copies.length === 1 ? "" : "s"}</span></> : "Catalog preview · not collected"}</span><span className="text-steel">{design.kind === "accolade" ? "Accolade" : design.kind === "best_of" ? "Best Of" : "Season Card"}</span></div>
-                {copies.length ? <div className="flex flex-wrap gap-2">{copies.map((copy) => <div key={copy.inventoryId} className="flex min-w-[150px] flex-col gap-1 rounded border border-line p-2"><CollectibleRenderer pull={{ design: copy.payload, foil: copy.foil, foilType: copy.foilType as never, signed: copy.signed, autograph: copy.autograph, guaranteedFoil: copy.slotPosition === 5, inventoryId: copy.inventoryId }} compact /><Link href={`${base}/season-end/copy/${copy.inventoryId}`} className="text-[11px] text-coral underline-offset-4 hover:underline">View copy #{copy.inventoryId}</Link></div>)}</div> : null}
+                {copies.length ? <div className="flex flex-wrap gap-2">{copies.map((copy) => <div key={copy.inventoryId} className="flex min-w-[150px] flex-col gap-1 rounded border border-line p-2"><CollectibleRenderer pull={copyPull(copy)} compact /><Link href={`${base}/season-end/copy/${copy.inventoryId}`} className="text-[11px] text-coral underline-offset-4 hover:underline">View copy #{copy.inventoryId}</Link></div>)}</div> : null}
               </article>
             );
           })}

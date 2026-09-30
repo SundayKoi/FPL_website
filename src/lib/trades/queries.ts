@@ -10,6 +10,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { fetchAllRows } from "@/lib/cards/economy";
+import { fetchBettingUsernames } from "@/lib/fantasy/queries";
 
 export type TradeStatus = "pending" | "accepted" | "declined" | "cancelled";
 
@@ -106,7 +107,7 @@ const TRADE_LIMIT = 30;
  * The skin roll is only ever recorded on the frozen json (src/lib/packs/
  * skins.ts) — there is no flat column for it — so every surface that wants to
  * *mark* an alt-art copy without shipping its whole card reduces it here
- * first, server-side. Same reading CollectionGrid's skinOf does.
+ * first, server-side. Same reading collectionShelf's skinOf does.
  */
 export function isAltArt(card: PlayerCardData | null | undefined): boolean {
   return (card?.artSkin ?? 0) > 0;
@@ -203,23 +204,16 @@ export async function fetchTradesFor(
   ];
   const parties = [...new Set(all.flatMap((row) => [row.from_discord, row.to_discord]))];
 
-  const [cardsRes, namesRes] = await Promise.all([
+  const [cardsRes, names] = await Promise.all([
     cardIds.length > 0
       ? supabase.from("card_inventory").select(CARD_COLUMNS).in("id", cardIds)
       : Promise.resolve({ data: [], error: null }),
-    supabase.from("betting_profiles").select("discord_id, username").in("discord_id", parties),
+    fetchBettingUsernames(supabase, parties),
   ]);
 
   const cards = new Map<number, CardDbRow>();
   for (const row of (cardsRes.error ? [] : ((cardsRes.data as CardDbRow[]) ?? [])) as CardDbRow[]) {
     cards.set(row.id, row);
-  }
-  const names = new Map<string, string>();
-  for (const row of (namesRes.error ? [] : ((namesRes.data as { discord_id: string; username: string | null }[]) ?? [])) as {
-    discord_id: string;
-    username: string | null;
-  }[]) {
-    names.set(row.discord_id, row.username ?? row.discord_id);
   }
 
   const map = (row: TradeDbRow): TradeRow => {
@@ -282,14 +276,7 @@ export async function fetchCollectors(supabase: SupabaseClient, season: string):
   }
   if (counts.size === 0) return [];
 
-  const { data: profiles } = await supabase
-    .from("betting_profiles")
-    .select("discord_id, username")
-    .in("discord_id", [...counts.keys()]);
-  const names = new Map<string, string>();
-  for (const row of (profiles as { discord_id: string; username: string | null }[]) ?? []) {
-    names.set(row.discord_id, row.username ?? row.discord_id);
-  }
+  const names = await fetchBettingUsernames(supabase, [...counts.keys()]);
 
   return [...counts.entries()]
     .map(([discordId, cards]) => ({ discordId, username: names.get(discordId) ?? discordId, cards }))

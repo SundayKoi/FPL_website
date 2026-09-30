@@ -12,15 +12,10 @@ import {
   planPlayoffAdvancement,
   type PlayoffFixtureResult,
 } from "../src/lib/schedule/playoffAdvancement";
+import { requireEnv } from "./lib/env";
 
 const BRACKET_PATH = "scripts/data/brackets/academy-2026-playoffs.json";
 const TARGET_SUPABASE_URL = "https://tyywoneobreracfnujdk.supabase.co";
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set.`);
-  return value;
-}
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);

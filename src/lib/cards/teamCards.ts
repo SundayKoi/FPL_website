@@ -5,7 +5,8 @@
 // each player's most-played champion, which is the art each panel wears.
 // Both already exist on every card — this just arranges them.
 
-import { tierFor, type PlayerCardData } from "./build";
+import type { PlayerCardData } from "./build";
+import { tierFor } from "./cardKeys";
 
 /** The five panels, in the order they print — the order a draft is read. */
 export const TEAM_ROLES = ["Top", "Jungle", "Mid", "Bot", "Support"] as const;

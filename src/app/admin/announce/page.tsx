@@ -5,6 +5,7 @@ import AnnounceRaritiesButton from "@/components/admin/AnnounceRaritiesButton";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { rarityAnnouncement } from "@/lib/cards/rarityAnnouncement";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { siteUrl } from "@/lib/site/url";
 
 export const metadata: Metadata = { title: "Announcements — Admin — FPL" };
 
@@ -17,7 +18,7 @@ export default async function AdminAnnouncePage() {
   const supabase = await createServerSupabase();
   const { isAdmin, isOwner } = await fetchStaffTier(supabase);
   if (!isAdmin && !isOwner) redirect("/admin");
-  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "https://fpl.gg";
+  const site = siteUrl("https://fpl.gg");
   const posts = [
     {
       key: "rarities",

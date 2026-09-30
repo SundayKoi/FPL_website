@@ -2,10 +2,7 @@ import CompareClient from "@/components/cards/CompareClient";
 import { fetchCardSeason, fetchCurrentWeekCards, type CardLeague } from "@/lib/cards/queries";
 import { createServerSupabase } from "@/lib/supabase/server";
 import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
-
-function firstParam(value: string | string[] | undefined): string | null {
-  return (Array.isArray(value) ? value[0] : value) ?? null;
-}
+import { firstParam } from "@/lib/searchParams";
 
 /** Two cards side by side with the stat rows scored between them.
  *  Public, like every page under Browse. */
@@ -28,7 +25,7 @@ export async function CompareCardsPageView({
         Put any two cards head to head — the better number lights up green. The URL follows your picks, so
         paste it into Discord for match-night arguments.
       </CardsPageHeader>
-      <CompareClient cards={cards} initialA={firstParam(query.a)} initialB={firstParam(query.b)} basePath={`${base}/compare`} />
+      <CompareClient cards={cards} initialA={firstParam(query.a) ?? null} initialB={firstParam(query.b) ?? null} basePath={`${base}/compare`} />
     </main>
   );
 }

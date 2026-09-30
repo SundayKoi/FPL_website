@@ -6,16 +6,9 @@
 
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import { createServerSupabase } from "@/lib/supabase/server";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { INVITE_DAYS, inviteExpired, validSignatureDataUrl } from "./signing";
-
-async function requireOwner(): Promise<boolean> {
-  const supabase = await createServerSupabase();
-  const { isOwner } = await fetchStaffTier(supabase);
-  return isOwner;
-}
+import { requireOwner } from "@/lib/auth/staffGuards";
 
 /**
  * Mints a signing link for one identity. OWNER-gated: whoever holds the

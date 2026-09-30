@@ -11,10 +11,10 @@ import {
   EXAMPLE_SEASON_SET,
   LINE_TIERS,
   SKIN_LINES,
+  linePreviewOf,
   lineTierLabel,
   skinLineByKey,
   type LineTier,
-  type SkinLine,
 } from "@/lib/cards/skinLines";
 import { FOIL_CHANCE, FOIL_TYPE_LABELS, FOIL_TYPE_WEIGHTS, FOIL_TYPES } from "@/lib/packs/config";
 import { fetchPatronActive } from "@/lib/patron/queries";
@@ -40,17 +40,6 @@ function oddsOfTier(tier: LineTier): string {
 /** One in how many foils. */
 function oneIn(tier: LineTier): string {
   return `1 in ${Math.round(WEIGHT_TOTAL / FOIL_TYPE_WEIGHTS[tier.replaces])} foils`;
-}
-
-function previewOf(line: SkinLine, tier: LineTier) {
-  return {
-    label: lineTierLabel(line, tier),
-    className: line.className,
-    modifier: tier.modifier,
-    blend: line.blend,
-    accent: line.accent,
-    layers: tier.layers,
-  };
 }
 
 /**
@@ -216,7 +205,7 @@ export default async function SkinLinesPreviewPage() {
                   interactive
                   forceFoil
                   foilType={tier.replaces}
-                  preview={previewOf(exampleLine, tier)}
+                  preview={linePreviewOf(exampleLine, tier)}
                 />
                 <span className="text-xs" style={{ color: exampleLine.accent }}>
                   Proposed · {lineTierLabel(exampleLine, tier)}
@@ -249,7 +238,7 @@ export default async function SkinLinesPreviewPage() {
                         interactive
                         forceFoil
                         foilType={tier.replaces}
-                        preview={previewOf(line, tier)}
+                        preview={linePreviewOf(line, tier)}
                       />
                       <span className="text-xs" style={{ color: line.accent }}>
                         {lineTierLabel(line, tier)}

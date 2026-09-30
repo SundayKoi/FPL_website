@@ -2,7 +2,6 @@ import { FOIL_CHANCE, FOIL_TYPE_WEIGHTS, SIGNED_CHANCE_CAP, type MintableFoilTyp
 import type { SeasonEndCatalog, SeasonEndKind, SeasonEndCollectible } from "./collectibles";
 
 /** Pure release contract shared by the catalog builder, UI copy and tests. */
-export const SEASON_END_RELEASE_PRODUCT = "season_end" as const;
 export const SEASON_END_PACK_SIZE = 5 as const;
 export const SEASON_END_PACK_PRICE = 500 as const;
 export const SEASON_END_RULES_VERSION = "season-end-2026-09-v1" as const;
@@ -146,11 +145,3 @@ export function validateSeasonEndEconomy(economy: SeasonEndEconomyRules): string
   if (salvageKeys !== "accolade,best_of,season") errors.push("base salvage values must contain exactly the three collectible families");
   return errors;
 }
-
-export const SEASON_END_SLOT_CONTRACT = [
-  { slot: 1, label: "Season Card", family: "season" as const },
-  { slot: 2, label: "Season Card", family: "season" as const },
-  { slot: 3, label: "Accolade or Best Of", family: "award" as const },
-  { slot: 4, label: "Accolade or Best Of", family: "award" as const },
-  { slot: 5, label: "Guaranteed foil", family: "any" as const },
-] as const;

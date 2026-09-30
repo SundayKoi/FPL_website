@@ -7,6 +7,7 @@ import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { resolveAdminLeagueSeason } from "@/lib/admin/scope";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { MatchReport, MatchReportGame, LeagueTeam } from "@/lib/matches/types";
+import { firstParam } from "@/lib/searchParams";
 
 export const metadata = { title: "Reviews — FPL Admin" };
 
@@ -24,9 +25,9 @@ export default async function AdminReviewsPage({
 
   const params = await searchParams;
   const context = await resolveAdminLeagueSeason(supabase, params);
-  const requestedPage = Array.isArray(params.page) ? params.page[0] : params.page;
+  const requestedPage = firstParam(params.page);
   const page = requestedPage && /^\d+$/.test(requestedPage) ? Math.max(1, Number(requestedPage)) : 1;
-  const reportId = Array.isArray(params.report) ? params.report[0] : params.report;
+  const reportId = firstParam(params.report);
   const selectedReportId = reportId && /^[0-9a-f-]{36}$/i.test(reportId) ? reportId : undefined;
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;

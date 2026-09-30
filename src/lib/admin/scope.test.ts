@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { supabaseQuery } from "@/test-utils/supabaseQuery";
 
 const { fetchLeagueSeasons } = vi.hoisted(() => ({ fetchLeagueSeasons: vi.fn() }));
 
@@ -10,16 +11,8 @@ vi.mock("@/lib/league/season", async (importOriginal) => ({
 
 import { resolveAdminLeagueSeason } from "./scope";
 
-function fixtureQuery(result: { data: { season: string }[] | null; error: unknown }) {
-  const query = {
-    select: vi.fn(() => query),
-    then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve),
-  };
-  return query;
-}
-
 function client(result: { data: { season: string }[] | null; error: unknown }) {
-  return { from: vi.fn(() => fixtureQuery(result)) } as unknown as SupabaseClient;
+  return { from: vi.fn(() => supabaseQuery(result)) } as unknown as SupabaseClient;
 }
 
 describe("resolveAdminLeagueSeason", () => {

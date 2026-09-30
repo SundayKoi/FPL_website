@@ -8,13 +8,7 @@ import {
   TWITCH_CHANNEL_LOGIN,
 } from "./twitchChannels";
 
-export {
-  KNOWN_TWITCH_CHANNELS,
-  TWITCH_CHANNEL_LOGIN,
-  TWITCH_URL,
-  twitchChannelLoginFromUrl,
-  twitchUrlFromUrl,
-} from "./twitchChannels";
+export { twitchChannelLoginFromUrl } from "./twitchChannels";
 
 export type HomepageTwitchData = {
   status: TwitchChannelStatus;

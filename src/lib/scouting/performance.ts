@@ -26,15 +26,6 @@ export interface PlayerChampionStat extends ChampionCount {
 
 export type NumericPerformanceInput = number | string | null | undefined;
 
-export const EMPTY_SCOUTING_PERFORMANCE: ScoutingGamePerformance = {
-  kills: null,
-  deaths: null,
-  assists: null,
-  damageToChampions: null,
-  durationMinutes: null,
-  killParticipationPct: null,
-};
-
 function finiteNumber(value: NumericPerformanceInput): number | null {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (typeof value !== "string" || value.trim() === "") return null;

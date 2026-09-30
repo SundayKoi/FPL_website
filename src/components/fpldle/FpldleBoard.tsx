@@ -1,7 +1,6 @@
 "use client";
 
 import { formatCountdown } from "@/lib/time";
-import Link from "next/link";
 import BalanceChip from "@/components/BalanceChip";
 import { DAILY_REWARD_SENTENCE } from "@/lib/betting/daily";
 import { useRouter } from "next/navigation";
@@ -12,288 +11,28 @@ import type {
   FpldleLeague,
   FpldlePlayerPreview,
   FpldleReward,
-  FpldleStreakRow,
   FpldleStreakSnapshot,
   FpldleSubmission,
 } from "@/lib/fpldle/server";
-
-const MAX_GUESSES = 5;
-const ROLE_GROUPS = [
-  { key: "top", label: "TOP" },
-  { key: "jungle", label: "JG" },
-  { key: "mid", label: "MID" },
-  { key: "adc", label: "ADC" },
-  { key: "support", label: "SUP" },
-] as const;
+import GuessRow from "./GuessRow";
+import FpldleLeagueToggle from "./FpldleLeagueToggle";
+import { PersonalStreakCard, StreakLeaderboard } from "./FpldleStreaks";
+import {
+  MAX_GUESSES,
+  ROLE_GROUPS,
+  boardGridClass,
+  formatLocalResetTime,
+  hasCurrentFeedbackShape,
+  hasCurrentRewardShape,
+  roleGroupKey,
+  shareGridText,
+  type GameStatus,
+  type StoredProgress,
+} from "./fpldleView";
 
 type SubmitGuess = (input: unknown) => Promise<FpldleSubmission>;
 type RevealAnswer = (input: unknown) => Promise<{ name: string; tag: string }>;
 type ResetPuzzle = (input: unknown) => Promise<{ date: string; league: FpldleLeague }>;
-type GameStatus = "playing" | "won" | "lost";
-
-type StoredProgress = {
-  date: string;
-  guesses: FpldleFeedback[];
-  status: GameStatus;
-  answer?: { name: string; tag: string } | null;
-  reward?: FpldleReward | null;
-};
-
-function hasCurrentFeedbackShape(value: unknown): value is FpldleFeedback {
-  if (typeof value !== "object" || value === null) return false;
-  const feedback = value as Partial<FpldleFeedback>;
-  return (
-    typeof feedback.teamName === "string" &&
-    typeof feedback.positionName === "string" &&
-    typeof feedback.championName === "string" &&
-    typeof feedback.overallValue === "number" &&
-    (feedback.teamLogoUrl === null || typeof feedback.teamLogoUrl === "string") &&
-    (feedback.divisionName === null || feedback.divisionName === "Solari" || feedback.divisionName === "Lunari")
-  );
-}
-
-function hasCurrentRewardShape(value: unknown): value is FpldleReward {
-  if (typeof value !== "object" || value === null) return false;
-  const reward = value as Partial<FpldleReward>;
-  return typeof reward.amount === "number" && typeof reward.balance === "number" && typeof reward.alreadyClaimed === "boolean";
-}
-
-type ClueStatus = FpldleFeedback["team"] | FpldleFeedback["overall"] | FpldleFeedback["division"];
-
-function clueClass(value: ClueStatus) {
-  const isMatch = value === "match" || value === "equal";
-  return isMatch
-    ? "border-mint/60 bg-mint/15 text-mint"
-    : "border-border-subtle bg-canvas/60 text-muted";
-}
-
-function positionText(position: string): string {
-  const labels: Record<string, string> = {
-    top: "TOP",
-    jungle: "JG",
-    jg: "JG",
-    mid: "MID",
-    middle: "MID",
-    adc: "ADC",
-    bot: "ADC",
-    bottom: "ADC",
-    support: "SUP",
-    sup: "SUP",
-    utility: "SUP",
-  };
-  return labels[position.trim().toLocaleLowerCase()] ?? position;
-}
-
-function roleGroupKey(position: string): string {
-  const normalized = position.trim().toLocaleLowerCase();
-  if (normalized === "jg") return "jungle";
-  if (normalized === "middle") return "mid";
-  if (normalized === "bot") return "adc";
-  if (normalized === "bottom") return "adc";
-  if (normalized === "sup") return "support";
-  if (normalized === "utility") return "support";
-  return normalized;
-}
-
-function exactLabel(value: "match" | "miss"): string {
-  return value === "match" ? "exact match" : "miss";
-}
-
-function clueLabel(label: string, feedback: FpldleFeedback): string {
-  if (label === "Team") return `${label}: ${feedback.teamName}; ${exactLabel(feedback.team)}`;
-  if (label === "Role") return `${label}: ${feedback.positionName}; ${exactLabel(feedback.position)}`;
-  if (label === "Best champion") return `${label}: ${feedback.championName}; ${exactLabel(feedback.champion)}`;
-  if (label === "Overall") {
-    return `${label}: ${feedback.overallValue}; ${feedback.overall === "equal" ? "equal" : `target overall ${feedback.overall}`}`;
-  }
-  if (feedback.division === "unavailable") return `${label}: unavailable for this league`;
-  return `${label}: ${feedback.divisionName ?? "unassigned"}; ${exactLabel(feedback.division)}`;
-}
-
-function formatLocalResetTime(iso: string): string | null {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  }).format(date);
-}
-
-function FpldleLeagueToggle({ league }: { league: FpldleLeague }) {
-  return (
-    <div className="flex items-center gap-1.5" role="group" aria-label="FPL'dle league">
-      <Link
-        href="/fpldle"
-        aria-current={league === "premier" ? "page" : undefined}
-        className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
-          league === "premier" ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
-        }`}
-      >
-        Premier
-      </Link>
-      <Link
-        href="/academy/fpldle"
-        aria-current={league === "academy" ? "page" : undefined}
-        className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
-          league === "academy" ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
-        }`}
-      >
-        Academy
-      </Link>
-    </div>
-  );
-}
-
-function shareSquare(value: ClueStatus) {
-  if (value === "unavailable") return "⬛";
-  const isMatch = value === "match" || value === "equal";
-  if (isMatch) return "🟩";
-  if (value === "higher") return "⬆️";
-  if (value === "lower") return "⬇️";
-  return "⬜";
-}
-
-function boardGridClass(showDivision: boolean): string {
-  const columns = showDivision
-    ? "grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))]"
-    : "grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))]";
-  return `grid min-w-0 ${columns} gap-2`;
-}
-
-function initials(username: string): string {
-  return username.trim().slice(0, 2).toLocaleUpperCase() || "?";
-}
-
-function StreakAvatar({ row }: { row: FpldleStreakRow }) {
-  return row.avatarUrl ? (
-    // Avatars come from Discord and may be hosted outside next/image remotePatterns.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={row.avatarUrl} alt="" width={28} height={28} className="h-7 w-7 shrink-0 rounded-full object-cover" />
-  ) : (
-    <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-canvas text-[0.6rem] font-bold text-gold">
-      {initials(row.username)}
-    </span>
-  );
-}
-
-function PersonalStreakCard({ snapshot }: { snapshot: FpldleStreakSnapshot }) {
-  const current = snapshot.personal?.currentStreak ?? 0;
-  const best = snapshot.personal?.bestStreak ?? 0;
-  return (
-    <div role="region" aria-label="Your FPL&apos;dle streak" className="rounded border border-coral/40 bg-coral/5 px-3 py-2">
-      <span className="block text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-muted">🔥 Your streak</span>
-      <div className="mt-1 flex items-end gap-3">
-        <span data-testid="fpldle-current-streak" className="font-mono text-xl font-bold text-white">{current}<span className="ml-1 text-xs font-normal text-muted">Current</span></span>
-        <span data-testid="fpldle-best-streak" className="font-mono text-xl font-bold text-gold">{best}<span className="ml-1 text-xs font-normal text-muted">Best</span></span>
-      </div>
-    </div>
-  );
-}
-
-function StreakLeaderboard({ snapshot }: { snapshot: FpldleStreakSnapshot }) {
-  const rows = snapshot.leaderboard.filter((row) => row.currentStreak > 0);
-  return (
-    <section aria-label="Top streaks" className="card-brand p-4 sm:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <span className="label-dash">Leaderboard</span>
-          <h2 className="type-display mt-1 text-2xl">Top streaks</h2>
-        </div>
-        <span className="text-xs text-muted">Current first · best breaks ties</span>
-      </div>
-      {rows.length === 0 ? (
-        <p className="mt-5 rounded border border-border-subtle/60 bg-canvas/30 px-4 py-5 text-center text-sm text-muted">No active streaks yet.</p>
-      ) : (
-        <div className="mt-4 overflow-hidden rounded border border-border-subtle">
-          <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_5rem_5rem] gap-2 bg-canvas/60 px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-muted">
-            <span>Rank</span>
-            <span>Player</span>
-            <span className="text-right">Current</span>
-            <span className="text-right">Best</span>
-          </div>
-          {rows.map((row, index) => (
-            <div
-              key={row.profileId}
-              data-testid={row.isCurrentUser ? "fpldle-current-leaderboard-row" : undefined}
-              className={`grid grid-cols-[2.5rem_minmax(0,1fr)_5rem_5rem] gap-2 border-t border-border-subtle/70 px-3 py-2.5 text-sm ${
-                row.isCurrentUser ? "bg-coral/10 text-white" : "bg-surface/60 text-muted"
-              } ${index > 0 && row.rank !== null && row.rank > 5 ? "border-t-2 border-t-gold/50" : ""}`}
-            >
-              <span className="font-mono text-gold">{row.rank ? `#${row.rank}` : "—"}</span>
-              <span className="flex min-w-0 items-center gap-2">
-                <StreakAvatar row={row} />
-                <span className="min-w-0 truncate font-semibold">{row.username}{row.isCurrentUser ? <span className="ml-1 text-xs font-normal text-coral">(you)</span> : null}</span>
-              </span>
-              <span className="text-right font-mono font-bold text-white">{row.currentStreak}</span>
-              <span className="text-right font-mono text-gold">{row.bestStreak}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function GuessRow({ feedback, showDivision }: { feedback: FpldleFeedback | null; showDivision: boolean }) {
-  const gridClass = boardGridClass(showDivision);
-  if (!feedback) {
-    return (
-      <div className={`${gridClass} rounded border border-border-subtle/60 bg-canvas/30 p-2 text-sm text-muted`}>
-        <span className="flex min-w-0 items-center px-2">—</span>
-        {Array.from({ length: showDivision ? 5 : 4 }, (_, index) => (
-          <span key={index} className="flex min-w-0 min-h-12 items-center justify-center rounded border border-border-subtle/40 px-1">
-            —
-          </span>
-        ))}
-      </div>
-    );
-  }
-
-  const cells = [
-    { label: "Team", status: feedback.team },
-    { label: "Role", status: feedback.position },
-    { label: "Best champion", status: feedback.champion },
-    { label: "Overall", status: feedback.overall },
-    ...(showDivision ? [{ label: "Division", status: feedback.division }] : []),
-  ];
-  return (
-    <div className={`${gridClass} overflow-hidden rounded border border-border-subtle bg-surface p-2 text-sm`}>
-      <span className="flex min-w-0 min-h-12 items-center px-2 font-semibold text-white">
-        <span className="min-w-0 truncate">{feedback.player.name}</span>
-        <span className="ml-1 shrink-0 text-xs font-normal text-muted">#{feedback.player.tag}</span>
-      </span>
-      {cells.map((cell) => (
-        <span
-          key={cell.label}
-          aria-label={clueLabel(cell.label, feedback)}
-          className={`flex min-w-0 min-h-12 items-center justify-center overflow-hidden rounded border px-1 text-center text-xs font-semibold sm:text-sm ${clueClass(cell.status)}`}
-        >
-          {cell.label === "Team" ? (
-            <span className="flex min-w-0 items-center justify-center gap-1.5">
-              {feedback.teamLogoUrl ? (
-                // Team logos come from the frozen card snapshot and may be hosted outside next/image remotePatterns.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={feedback.teamLogoUrl} alt="" width={24} height={24} className="h-6 w-6 shrink-0 rounded object-contain" />
-              ) : null}
-            <span className="min-w-0 truncate">{feedback.teamName}</span>
-            </span>
-          ) : cell.label === "Role" ? (
-            positionText(feedback.positionName)
-          ) : cell.label === "Best champion" ? (
-            <span className="min-w-0 truncate">{feedback.championName}</span>
-          ) : cell.label === "Overall" ? (
-            <span className="min-w-0 break-words">{feedback.overallValue} {feedback.overall === "equal" ? "· Equal" : feedback.overall === "higher" ? "· ↑ Higher" : "· ↓ Lower"}</span>
-          ) : (
-            feedback.divisionName ?? "Unassigned"
-          )}
-        </span>
-      ))}
-    </div>
-  );
-}
 
 export default function FpldleBoard({
   game,
@@ -493,17 +232,7 @@ export default function FpldleBoard({
   };
 
   const copyShareGrid = async () => {
-    const grid = guesses.map((guess) => {
-      const squares = [
-        shareSquare(guess.team),
-        shareSquare(guess.position),
-        shareSquare(guess.champion),
-        shareSquare(guess.overall),
-      ];
-      if (showDivision) squares.push(shareSquare(guess.division));
-      return squares.join("");
-    }).join("\n");
-    const text = `FPL'dle ${league === "academy" ? "Academy" : "Premier"} ${game.date}\n${grid}`;
+    const text = shareGridText(league, game.date, guesses, showDivision);
     try {
       await navigator.clipboard.writeText(text);
       setShared(true);

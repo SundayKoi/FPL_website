@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import CollectibleRenderer from "./CollectibleRenderer";
 import SeasonEndDustButton from "./SeasonEndDustButton";
+import { copyPull, money } from "./seasonEndCopy";
 import { MAX_DUST_BATCH } from "@/lib/packs/config";
 import type { SeasonEndOwnedCopy } from "@/lib/season-end/release-queries";
 import { dustSeasonEndCopiesAction, quoteSeasonEndDustCopiesAction } from "@/lib/season-end/commerce-actions";
@@ -14,25 +15,9 @@ type OwnedRelease = {
   copies: SeasonEndOwnedCopy[];
 };
 
-function copyPull(copy: SeasonEndOwnedCopy) {
-  return {
-    design: copy.payload,
-    foil: copy.foil,
-    foilType: copy.foilType as never,
-    signed: copy.signed,
-    autograph: copy.autograph,
-    guaranteedFoil: copy.slotPosition === 5,
-    inventoryId: copy.inventoryId,
-  };
-}
-
 function finishLabel(copy: SeasonEndOwnedCopy): string {
   const finish = copy.foil ? `${copy.foilType ?? "Foil"} foil` : "Matte";
   return `${finish}${copy.signed ? " · signed" : ""}`;
-}
-
-function money(value: number): string {
-  return value.toLocaleString("en-US");
 }
 
 export default function SeasonEndOwnedShelf({ owned, base }: { owned: OwnedRelease[]; base: string }) {

@@ -699,9 +699,9 @@ change and update their local state.
   `close_lot`; the RPC is safe to retry and only the database can settle it.
 - `src/components/draft/DraftChat.tsx` subscribes to draft-chat inserts and
   deletes.
-- `src/components/match-draft/MatchDraftBoard.tsx` combines presence,
-  broadcast intent messages, and Postgres changes for fixture and public-lobby
-  draft state.
+- `src/components/match-draft/useMatchDraftChannel.ts` (used by
+  `MatchDraftBoard.tsx`) combines presence, broadcast intent messages, and
+  Postgres changes for fixture and public-lobby draft state.
 - Realtime tests should assert both the mutation and the other client seeing
   the resulting state. Avoid relying on optimistic UI as proof that a write
   succeeded.
@@ -1251,7 +1251,7 @@ lets a second Scouting Run out, and forged runs leave the weekly insured count.
 It also adds a 14-argument wrapper with `p_forged`, which spends a policy
 (`FORGED_PER_WEEK` a week, never on a scout or an exorcism), launches through
 the 13-argument path uninsured and then marks the run `insured` and `forged`.
-`runs.ts` calls the 14-argument form only when a forged policy is asked for. At
+`runLaunch.ts` calls the 14-argument form only when a forged policy is asked for. At
 the claim, `resolveRoute` reads the tent (`input.camp.tent`) only under rules 6.
 
 **The league's expedition of the week** (`src/lib/expeditions/league.ts`,
@@ -1303,7 +1303,10 @@ choices, role calls and `ROAD_SIZES` (a count, never the places), and
 and `import type` from `views.ts`. `src/components/cards/expeditionImports.test.ts`
 walks the value-import graph from every `"use client"` module and every board
 module, stopping at `"use server"` modules. It fails on any value import of
-`routes.ts`, `journal.ts` or `views.ts`.
+`routes.ts`, `journal.ts` or `views.ts`, or of the modules they are split into
+(`roads.ts`, `routeEdges.ts`, `forkOptions.ts`, `resolveRoute.ts`,
+`journalLines.ts`). The shared `format.ts` (`pct`, `listOf`) is import-free and
+safe for the browser.
 
 **The atlas** (`src/lib/expeditions/atlas.ts`, used by the server and
 scripts only; `atlasWords.ts` for the browser; `AtlasPanel.tsx`;
@@ -1642,14 +1645,16 @@ above). The week itself still counts as a playoff week the moment a playoff
 fixture is scheduled in it, so an unscored round prints nothing and is filled
 in later by the card-edition archive.
 
-**The rules module.** `src/lib/cards/sendoff.ts` is pure and owns all of it:
+**The rules module.** `src/lib/cards/sendoff.ts` is pure and owns all of it
+(its stage names, exits and labels live in `sendoffStages.ts`):
 `eliminationsInWeek` (the loser of each decided playoff fixture in an
 Eastern week, plus the winner of the finals as `champion`; one entry per
 team, later exit wins), `isPlayoffWeek`, `planSendoff` (the week's roster,
 stamped with `withSendoff` and crowned off the week build with
 `crownSendoff`), `sendoffVaultClosesAt` / `isSendoffVaulted`, and
 `sendoffLedger` for the admin page. Fixtures come from `public.fixtures`
-through `fetchSeasonFixtures` (`queries.ts`), which returns `[]` on error;
+through `fetchSeasonFixtures` (`fixtureQueries.ts`, re-exported from
+`queries.ts`), which returns `[]` on error;
 team names are matched with `normalizeTeamName` because fixtures carry
 `league_teams.name` while a card's `teamName` is `raw_stats.team_name`, and
 nothing enforces that the two spell a team identically. Teams a plan could
@@ -1928,7 +1933,7 @@ When you add a table with a name, tag or slug in it, add it to `rename_player`
 in the same pull request. That is the whole contract — the function is only as
 good as the list inside it.
 
-`public.card_slug()` mirrors `cardSlug()` in `src/lib/cards/build.ts`. The two
+`public.card_slug()` mirrors `cardSlug()` in `src/lib/cards/cardKeys.ts`. The two
 are pinned to one shared case table — the pgTAP suite owns it and
 `src/lib/cards/slugBridge.test.ts` reads those cases out of the `.sql` file
 and asserts the TypeScript agrees, so the implementations cannot drift apart
@@ -2066,7 +2071,8 @@ the authoritative RPC; the domain sections above explain the relevant contracts.
   make a UI action appear faster.
 - Do not edit an old migration to repair a cloud database. Add a forward
   migration and a regression test.
-- Changing the card rating formula in `src/lib/cards/build.ts` does **not**
+- Changing the card rating formula in `src/lib/cards/build.ts` (or the
+  `score.ts` and `percentiles.ts` modules it builds on) does **not**
   change what packs mint. Packs draw from `card_editions`, a frozen json
   snapshot of each week's cards, so the site shows new overalls while packs
   keep handing out the old ones. Rebuild the archive afterwards with

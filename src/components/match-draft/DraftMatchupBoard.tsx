@@ -5,7 +5,8 @@ import type { DraftSide, MatchDraftImageSize } from "@/lib/match-draft/types";
 import type { DraftMatchupPickView, DraftMatchupSideView, DraftMatchupView } from "@/lib/match-draft/presentation";
 import { MATCH_DRAFT_IMAGE_SIZES } from "./matchDraftSizes";
 
-const sideClass: Record<DraftSide, string> = {
+/** Side-tinted border/background/text classes, shared by every draft view. */
+export const sideClass: Record<DraftSide, string> = {
   blue: "border-cyan/50 bg-cyan/10 text-cyan",
   red: "border-coral/50 bg-coral/10 text-coral",
 };

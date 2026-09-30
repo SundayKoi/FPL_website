@@ -6,23 +6,13 @@ import {
   deriveTeamExtras,
   fetchHomepageStandings,
 } from "./standings";
+import { supabaseQuery } from "@/test-utils/supabaseQuery";
 
 const { createServerSupabase } = vi.hoisted(() => ({
   createServerSupabase: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase }));
-
-function query(result: unknown) {
-  const builder = {
-    select: () => builder,
-    eq: () => builder,
-    order: () => Promise.resolve(result),
-    single: () => Promise.resolve(result),
-    then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve),
-  };
-  return builder;
-}
 
 const draftTeams = [
   { id: "team-1", name: "Alpha", abbreviation: "AL", nomination_position: 1 },
@@ -38,13 +28,13 @@ describe("fetchHomepageStandings", () => {
     const teamSelects: string[] = [];
     const from = vi.fn((table: string) =>
       table === "league_settings"
-        ? query({ data: { featured_draft_id: "draft-s5" }, error: null })
+        ? supabaseQuery({ data: { featured_draft_id: "draft-s5" }, error: null })
         : table === "fixtures"
-          ? query({ data: [], error: null })
+          ? supabaseQuery({ data: [], error: null })
           : {
               select: (columns: string) => {
                 teamSelects.push(columns);
-                return query({ data: draftTeams, error: null });
+                return supabaseQuery({ data: draftTeams, error: null });
               },
             },
     );
@@ -58,13 +48,13 @@ describe("fetchHomepageStandings", () => {
   it("builds series records from the season's fixtures", async () => {
     const from = vi.fn((table: string) =>
       table === "league_settings"
-        ? query({ data: { featured_draft_id: "draft-s5" }, error: null })
+        ? supabaseQuery({ data: { featured_draft_id: "draft-s5" }, error: null })
         : table === "fixtures"
-          ? query({
+          ? supabaseQuery({
               data: [{ season: "S5", team_a: "Alpha", team_b: "Bravo", score_a: 2, score_b: 1 }],
               error: null,
             })
-          : query({ data: draftTeams, error: null }),
+          : supabaseQuery({ data: draftTeams, error: null }),
     );
     createServerSupabase.mockResolvedValue({ from });
 
@@ -82,10 +72,10 @@ describe("fetchHomepageStandings", () => {
   it("ignores fixtures from another season", async () => {
     const from = vi.fn((table: string) =>
       table === "league_settings"
-        ? query({ data: { featured_draft_id: "draft-s5" }, error: null })
+        ? supabaseQuery({ data: { featured_draft_id: "draft-s5" }, error: null })
         : table === "fixtures"
-          ? query({ data: [{ season: "S4", team_a: "Alpha", team_b: "Bravo", score_a: 2, score_b: 0 }], error: null })
-          : query({ data: [draftTeams[0]], error: null }),
+          ? supabaseQuery({ data: [{ season: "S4", team_a: "Alpha", team_b: "Bravo", score_a: 2, score_b: 0 }], error: null })
+          : supabaseQuery({ data: [draftTeams[0]], error: null }),
     );
     createServerSupabase.mockResolvedValue({ from });
 
@@ -99,7 +89,7 @@ describe("fetchHomepageStandings", () => {
   });
 
   it("returns no rows when no draft is featured", async () => {
-    const from = vi.fn(() => query({ data: { featured_draft_id: null }, error: null }));
+    const from = vi.fn(() => supabaseQuery({ data: { featured_draft_id: null }, error: null }));
     createServerSupabase.mockResolvedValue({ from });
 
     await expect(fetchHomepageStandings()).resolves.toEqual({ teams: [], race: [] });
@@ -107,7 +97,7 @@ describe("fetchHomepageStandings", () => {
 
   it("returns no rows when local settings have not been seeded", async () => {
     const from = vi.fn(() =>
-      query({
+      supabaseQuery({
         data: null,
         error: { code: "PGRST116", message: "The result contains 0 rows" },
       }),

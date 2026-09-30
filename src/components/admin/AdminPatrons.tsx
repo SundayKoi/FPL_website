@@ -9,6 +9,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminInputClass } from "@/components/matches/CollapsibleAdminSection";
 import { grantPatronAction, revokePatronAction } from "@/lib/patron/admin-actions";
+import { utcDateLabel } from "@/lib/time";
 
 export interface PatronMember {
   discordId: string;
@@ -26,14 +27,6 @@ export interface PatronReceipt {
   daysGranted: number;
   paidAt: string;
   note: string | null;
-}
-
-/** "2026-09-25T…" -> "Sep 25, 2026". Fixed locale + UTC so server and
- *  client render the same string. */
-function dateLabel(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
 export default function AdminPatrons({
@@ -76,7 +69,7 @@ export default function AdminPatrons({
       return;
     }
     const name = members.find((member) => member.discordId === discordId)?.username ?? "member";
-    setGranted(`${name} is a patron until ${result.until ? dateLabel(result.until) : "—"}.`);
+    setGranted(`${name} is a patron until ${result.until ? utcDateLabel(result.until, result.until) : "—"}.`);
     setNote("");
     router.refresh();
   };
@@ -185,7 +178,7 @@ export default function AdminPatrons({
               <li key={patron.discordId} className="flex items-center justify-between gap-3 text-sm">
                 <span className="font-semibold text-white">{patron.username}</span>
                 <span className="flex items-center gap-3">
-                  <span className="text-muted">until {patron.patronUntil ? dateLabel(patron.patronUntil) : "—"}</span>
+                  <span className="text-muted">until {patron.patronUntil ? utcDateLabel(patron.patronUntil, patron.patronUntil) : "—"}</span>
                   <button
                     type="button"
                     disabled={busy}
@@ -229,7 +222,7 @@ export default function AdminPatrons({
                     <td className="py-1.5 pr-3 font-semibold text-white">{receipt.username}</td>
                     <td className="py-1.5 pr-3 text-gold">${receipt.amountUsd.toFixed(2)}</td>
                     <td className="py-1.5 pr-3 text-muted">{receipt.daysGranted}</td>
-                    <td className="py-1.5 pr-3 text-muted">{dateLabel(receipt.paidAt)}</td>
+                    <td className="py-1.5 pr-3 text-muted">{utcDateLabel(receipt.paidAt, receipt.paidAt)}</td>
                     <td className="py-1.5 text-muted">{receipt.note ?? "—"}</td>
                   </tr>
                 ))}

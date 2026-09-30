@@ -2,12 +2,9 @@ import { redirect } from "next/navigation";
 import { loadMyTeamDashboard } from "@/lib/my-team/queries";
 import type { LeagueKey } from "@/lib/players/identity";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { firstParam } from "@/lib/searchParams";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
-
-function first(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
 
 export async function redirectLegacyCaptain({
   league,
@@ -18,7 +15,7 @@ export async function redirectLegacyCaptain({
   destination: string;
   searchParams: SearchParams;
 }) {
-  const requestedTeamId = first((await searchParams).team);
+  const requestedTeamId = firstParam((await searchParams).team);
   let suffix = "";
 
   if (requestedTeamId) {

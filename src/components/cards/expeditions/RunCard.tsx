@@ -20,6 +20,7 @@
 import { useId, useState, useTransition } from "react";
 import { EXPEDITION_TIERS, type CardCopy, type ExpeditionTierKey } from "@/lib/expeditions/config";
 import { forkViews } from "@/lib/expeditions/forks";
+import { listOf } from "@/lib/expeditions/format";
 import type { ConvoyView, ExpeditionRun } from "@/lib/expeditions/queries";
 import type { KnownPlaceView, PlaceView, RevealOffer, RunView } from "@/lib/expeditions/views";
 import { WEATHERS } from "@/lib/expeditions/weather";
@@ -44,11 +45,6 @@ export function landmarkWords(landmark: { by: string; mine: boolean }): string {
   return `first reached by ${landmark.mine ? "you" : landmark.by}`;
 }
 
-/** "a, b and c". */
-function listed(items: string[]): string {
-  return items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
-}
-
 /** What the map's marks mean, in words a phone can read without a hover:
  *  how much of the road is still unseen, the dread, and The Warden's
  *  reading of the places nobody has seen. */
@@ -58,10 +54,10 @@ function roadNotes(road: PlaceView[]): { unseen: string | null; dread: string | 
   const dreaded = ahead.filter((place) => place.warned);
   const dark = unknown.filter((place) => place.dark === true).map(stopName);
   const toll = unknown.filter((place) => place.toll === true).map(stopName);
-  const read = [dark.length > 0 ? `${listed(dark)} ${dark.length === 1 ? "is" : "are"} dark` : null, toll.length > 0 ? `${listed(toll)} ${toll.length === 1 ? "charges" : "charge"} a toll` : null].filter(Boolean);
+  const read = [dark.length > 0 ? `${listOf(dark)} ${dark.length === 1 ? "is" : "are"} dark` : null, toll.length > 0 ? `${listOf(toll)} ${toll.length === 1 ? "charges" : "charge"} a toll` : null].filter(Boolean);
   return {
     unseen: unknown.length > 0 ? `${unknown.length === 1 ? "One checkpoint" : `${unknown.length} checkpoints`} ahead the squad hasn't seen yet.` : null,
-    dread: dreaded.length > 0 ? `The squad has a bad feeling about ${listed(dreaded.map(stopName))}.` : null,
+    dread: dreaded.length > 0 ? `The squad has a bad feeling about ${listOf(dreaded.map(stopName))}.` : null,
     warden: read.length > 0 ? `The Warden's reading: ${read.join("; ")}.` : null,
   };
 }

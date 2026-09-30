@@ -19,6 +19,7 @@ import {
   PATRON_INSURANCE_PER_WEEK,
   SURGE_BONUS,
 } from "./config";
+import { pct } from "./format";
 import { REVEAL_FRAGMENTS } from "./reveal";
 import { TRAIL_TITLES } from "./trail";
 
@@ -52,8 +53,6 @@ export interface GlossaryEntry {
    *  prove no game word above the fold goes unexplained. */
   match: RegExp;
 }
-
-const pct = (n: number) => `${Math.round(n * 100)}%`;
 
 const [trailworn, veteran, wayfarer] = TRAIL_TITLES;
 

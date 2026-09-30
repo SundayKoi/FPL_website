@@ -149,6 +149,12 @@ export function fmt(n: number): string {
   return Object.is(r, -0) ? "0" : String(r);
 }
 
+/** A fraction for markup, to three decimals: how far along the road the
+ *  squad, a pin or the walked stroke is. */
+export function fmt3(n: number): string {
+  return String(Math.round(n * 1000) / 1000);
+}
+
 /** A route sampled into a polyline with its running length, so any
  *  fraction of the way along it can be found by arithmetic. */
 export interface Route {
@@ -249,23 +255,6 @@ export function smoothOpen(points: Pt[]): string {
     );
   }
   return parts.join(" ");
-}
-
-/** A smooth closed loop through points. */
-export function smoothClosed(points: Pt[]): string {
-  const n = points.length;
-  if (n < 3) return "";
-  const parts = [`M${fmt(points[0].x)} ${fmt(points[0].y)}`];
-  for (let i = 0; i < n; i += 1) {
-    const p0 = points[(i - 1 + n) % n];
-    const p1 = points[i];
-    const p2 = points[(i + 1) % n];
-    const p3 = points[(i + 2) % n];
-    parts.push(
-      `C${fmt(p1.x + (p2.x - p0.x) / 6)} ${fmt(p1.y + (p2.y - p0.y) / 6)} ${fmt(p2.x - (p3.x - p1.x) / 6)} ${fmt(p2.y - (p3.y - p1.y) / 6)} ${fmt(p2.x)} ${fmt(p2.y)}`,
-    );
-  }
-  return `${parts.join(" ")}Z`;
 }
 
 // === the chart's marks ======================================================

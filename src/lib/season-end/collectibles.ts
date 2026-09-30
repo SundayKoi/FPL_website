@@ -388,10 +388,3 @@ export function validateSeasonEndCatalogForLock(catalog: Pick<SeasonEndCatalog, 
   if (result.counts.accolade < 2) result.errors.push("at least two Accolade designs are required for slots 3–4");
   return { ...result, ok: result.errors.length === 0 };
 }
-
-export function designSubjectId(design: SeasonEndCollectible): string {
-  if (design.kind === "season" || design.kind === "best_of") return design.player.key;
-  if (design.subject.kind === "player") return design.subject.player.key;
-  if (design.subject.kind === "team") return design.subject.team.key;
-  return design.subject.members.map((member) => `${member.role ?? ""}=${member.key}`).join("|");
-}

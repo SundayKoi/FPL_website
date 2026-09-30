@@ -10,22 +10,8 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { leaguePath } from "@/lib/league/links";
 import { teamSlug } from "@/lib/teams/teamPage";
-
-function firstParam(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function gameParam(value: string | undefined, bestOf: number): number {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1) return 1;
-  return Math.min(parsed, bestOf);
-}
-
-/** Explicit ?layout= choice, or null to fall back to the viewer-based
- *  default (captains/admins get board, spectators get stage). */
-function layoutParam(value: string | undefined): MatchDraftLayout | null {
-  return value === "board" ? "board" : value === "stage" ? "stage" : null;
-}
+import { firstParam } from "@/lib/searchParams";
+import { draftGameParam, draftLayoutParam } from "@/lib/match-draft/params";
 
 function fallbackIdentity(name: string | null, side: "Blue" | "Red"): MatchDraftTeam {
   const label = name?.trim() || `${side} side`;
@@ -153,7 +139,7 @@ export default async function MatchDraftPage({
     bestOf: settings && [1, 3, 5].includes(settings.best_of) ? (settings.best_of as MatchDraftBestOf) : ((matchDraftBestOf(fixture) as MatchDraftBestOf) ?? 3),
     fearless: settings?.fearless ?? true,
   };
-  const gameNumber = gameParam(firstParam(query.game), seriesFormat.bestOf);
+  const gameNumber = draftGameParam(firstParam(query.game), seriesFormat.bestOf);
 
   const rows = (draftRowsResult.data as MatchDraftRow[]) ?? [];
   const teamRows = (teamsResult.data as { id: string; name: string; abbreviation: string | null; image_url: string | null }[]) ?? [];
@@ -198,7 +184,7 @@ export default async function MatchDraftPage({
   // Captains and admins default to the board layout (pool front and
   // center); spectators get the stage view. ?layout= still overrides.
   const layout: MatchDraftLayout =
-    layoutParam(firstParam(query.layout)) ??
+    draftLayoutParam(firstParam(query.layout)) ??
     (viewerTeamName || staffTier.isAdmin || staffTier.isOwner ? "board" : "stage");
 
   const games: MatchDraftGameTab[] = matchDraftGameLinks(fixture, seriesFormat.bestOf).map((link) => ({

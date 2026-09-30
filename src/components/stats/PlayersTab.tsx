@@ -6,10 +6,9 @@ import { fetchPlayerAgg, fetchPlayerKeysForTeams } from "@/lib/stats/queries";
 import { filterStatsRowsByPlayerKeys, playerKey } from "@/lib/stats/scope";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
-import { EmptyCard, ErrorCard, FilterPill, LoadingCard, RoleChip, StatBar, roleColor } from "./statsUi";
+import { RoleFilterPills } from "./RoleFilterPills";
+import { EmptyCard, ErrorCard, LoadingCard, RoleChip, StatBar, roleColor } from "./statsUi";
 import { useStatsFetch } from "./useStatsFetch";
-
-const ROLES = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"] as const;
 
 export type SelectedPlayer = { summonerName: string; tag: string };
 
@@ -91,19 +90,7 @@ export default function PlayersTab({
         />
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="label-dash">Role</span>
-          <FilterPill active={roleFilter === null} onClick={() => setRoleFilter(null)}>
-            All
-          </FilterPill>
-          {ROLES.map((r) => (
-            <FilterPill
-              key={r}
-              active={roleFilter === r}
-              onClick={() => setRoleFilter((cur) => (cur === r ? null : r))}
-              uppercase
-            >
-              {r}
-            </FilterPill>
-          ))}
+          <RoleFilterPills role={roleFilter} setRole={setRoleFilter} />
         </div>
       </div>
 

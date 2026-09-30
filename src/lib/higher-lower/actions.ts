@@ -2,7 +2,6 @@
 
 import {
   advanceHigherLowerRound,
-  getHigherLowerGame,
   startHigherLowerRun,
   submitHigherLowerChoice,
 } from "./server";
@@ -19,8 +18,4 @@ export async function submitHigherLowerChoiceAction(input: unknown) {
 
 export async function advanceHigherLowerRoundAction(input: unknown) {
   return advanceHigherLowerRound(input);
-}
-
-export async function refreshHigherLowerGameAction(league: HigherLowerLeague) {
-  return getHigherLowerGame(league);
 }

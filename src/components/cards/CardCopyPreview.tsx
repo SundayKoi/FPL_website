@@ -32,7 +32,7 @@ const GOLD_CHIP =
   "rounded-full border border-gold/50 bg-gold/10 px-2 py-0.5 text-[10px] font-black tracking-[0.2em] text-gold";
 
 /** The line under the card: which copy this is, in words. Same vocabulary as
- *  the collection shelf's captions (src/components/cards/CollectionGrid.tsx). */
+ *  the collection shelf's captions (src/components/cards/CollectionCells.tsx). */
 export interface CopyCaption {
   playerName: string;
   /** Monday of the print run, "" when unknown. */
