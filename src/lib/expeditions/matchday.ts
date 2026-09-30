@@ -4,7 +4,8 @@
 // happened in (the echo). Pure — fixtures and edition cards are handed in,
 // so the page, the claim and the tests read the same rules.
 
-import { teamBadgeKey, type PlayerCardData } from "@/lib/cards/build";
+import type { PlayerCardData } from "@/lib/cards/build";
+import { teamBadgeKey } from "@/lib/cards/cardKeys";
 import { easternDateOf } from "@/lib/packs/week";
 import type { CardCopy } from "./config";
 

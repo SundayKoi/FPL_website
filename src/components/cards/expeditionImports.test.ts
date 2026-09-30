@@ -145,7 +145,7 @@ describe("the expedition board's client bundle", () => {
       "components/cards/CampaignPanel.tsx",
       "components/cards/expeditions/ExpeditionsHeader.tsx",
       "lib/expeditions/forks.ts",
-      "lib/expeditions/queries.ts",
+      "lib/expeditions/runRows.ts",
       "lib/expeditions/config.ts",
     ]) {
       expect(graph.has(join(SRC, path)), path).toBe(true);

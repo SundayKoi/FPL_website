@@ -1645,14 +1645,16 @@ above). The week itself still counts as a playoff week the moment a playoff
 fixture is scheduled in it, so an unscored round prints nothing and is filled
 in later by the card-edition archive.
 
-**The rules module.** `src/lib/cards/sendoff.ts` is pure and owns all of it:
+**The rules module.** `src/lib/cards/sendoff.ts` is pure and owns all of it
+(its stage names, exits and labels live in `sendoffStages.ts`):
 `eliminationsInWeek` (the loser of each decided playoff fixture in an
 Eastern week, plus the winner of the finals as `champion`; one entry per
 team, later exit wins), `isPlayoffWeek`, `planSendoff` (the week's roster,
 stamped with `withSendoff` and crowned off the week build with
 `crownSendoff`), `sendoffVaultClosesAt` / `isSendoffVaulted`, and
 `sendoffLedger` for the admin page. Fixtures come from `public.fixtures`
-through `fetchSeasonFixtures` (`queries.ts`), which returns `[]` on error;
+through `fetchSeasonFixtures` (`fixtureQueries.ts`, re-exported from
+`queries.ts`), which returns `[]` on error;
 team names are matched with `normalizeTeamName` because fixtures carry
 `league_teams.name` while a card's `teamName` is `raw_stats.team_name`, and
 nothing enforces that the two spell a team identically. Teams a plan could
@@ -1931,7 +1933,7 @@ When you add a table with a name, tag or slug in it, add it to `rename_player`
 in the same pull request. That is the whole contract — the function is only as
 good as the list inside it.
 
-`public.card_slug()` mirrors `cardSlug()` in `src/lib/cards/build.ts`. The two
+`public.card_slug()` mirrors `cardSlug()` in `src/lib/cards/cardKeys.ts`. The two
 are pinned to one shared case table — the pgTAP suite owns it and
 `src/lib/cards/slugBridge.test.ts` reads those cases out of the `.sql` file
 and asserts the TypeScript agrees, so the implementations cannot drift apart
@@ -2069,7 +2071,8 @@ the authoritative RPC; the domain sections above explain the relevant contracts.
   make a UI action appear faster.
 - Do not edit an old migration to repair a cloud database. Add a forward
   migration and a regression test.
-- Changing the card rating formula in `src/lib/cards/build.ts` does **not**
+- Changing the card rating formula in `src/lib/cards/build.ts` (or the
+  `score.ts` and `percentiles.ts` modules it builds on) does **not**
   change what packs mint. Packs draw from `card_editions`, a frozen json
   snapshot of each week's cards, so the site shows new overalls while packs
   keep handing out the old ones. Rebuild the archive afterwards with

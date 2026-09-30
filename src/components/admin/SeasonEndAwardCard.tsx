@@ -1,5 +1,6 @@
 import { championByName, championCenteredUrl, championSplashUrl } from "@/lib/match-draft/champions";
-import { cardPlayerKey, teamBadgeKey, type PlayerCardData } from "@/lib/cards/build";
+import type { PlayerCardData } from "@/lib/cards/build";
+import { cardPlayerKey, teamBadgeKey } from "@/lib/cards/cardKeys";
 import { championArtCrop } from "@/lib/season-end/championArt";
 import { DUO_COMPONENTS, type DuoEvidence, type DuoMemberEvidence } from "@/lib/season-end/duo";
 import type { PairArtMember } from "@/lib/season-end/pairArt";

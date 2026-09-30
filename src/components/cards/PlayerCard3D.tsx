@@ -30,7 +30,7 @@ import { ON_AIR_ACCENT, onAirLabel, onAirLook } from "@/lib/cards/onAir";
 import type { OverlayMockup } from "@/lib/cards/overlayMockups";
 import { secretSerialLabel, stattrakLabel } from "@/lib/packs/rarities";
 import { gradeOf, isSlabbed, wearOf } from "@/lib/cards/wear";
-import { EXIT_LABELS, SENDOFF_META, type SendoffMark } from "@/lib/cards/sendoff";
+import { EXIT_LABELS, SENDOFF_META, type SendoffMark } from "@/lib/cards/sendoffStages";
 import { lineTreatmentFor } from "@/lib/cards/skinLines";
 import MomentPlate from "./MomentPlate";
 import TeamCard from "./TeamCard";

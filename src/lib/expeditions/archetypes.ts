@@ -22,7 +22,7 @@
 // Pure, like config.ts. Never imports routes.ts' values: routes.ts reads
 // this table, and a table built at load time cannot wait on a cycle.
 
-import { FALLBACK_ARCHETYPE } from "@/lib/cards/build";
+import { FALLBACK_ARCHETYPE } from "@/lib/cards/cardKeys";
 import { HARVEST_MERCHANT, WOUNDED_HOURS, type CardCopy } from "./config";
 import { listOf } from "./format";
 import { milesOf } from "./trail";

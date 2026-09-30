@@ -1,4 +1,4 @@
-import { FALLBACK_ARCHETYPE } from "@/lib/cards/build";
+import { FALLBACK_ARCHETYPE } from "@/lib/cards/cardKeys";
 import { ABILITY_KIND_LABELS, ARCHETYPE_ABILITIES, type AbilityKind } from "@/lib/expeditions/archetypes";
 import ExpeditionIcon from "../expeditionIcons";
 
