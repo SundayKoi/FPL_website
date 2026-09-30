@@ -8,6 +8,7 @@
 // Pure: no road, no clock, no database.
 
 import { EXPEDITION_TIERS, type ExpeditionTierKey, type RoadReward } from "./config";
+import { listOf } from "./format";
 
 /** "the Legend Hunt", "the Gilded Road": a route's name mid-sentence. */
 export function routeName(tier: ExpeditionTierKey): string {
@@ -23,7 +24,7 @@ function midSentence(title: string): string {
 /** "the drowned chapel", "the shaft, the chapel and the vault door". */
 function placeList(titles: string[]): string {
   const places = titles.map(midSentence);
-  return places.length <= 1 ? (places[0] ?? "a new place") : `${places.slice(0, -1).join(", ")} and ${places[places.length - 1]}`;
+  return places.length === 0 ? "a new place" : listOf(places);
 }
 
 /**

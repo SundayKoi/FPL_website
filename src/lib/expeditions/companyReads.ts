@@ -7,7 +7,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { encountersFor } from "./journal";
-import { COMPANY_RULES } from "./routes";
+import { COMPANY_RULES } from "./forks";
 import type { ExpeditionTierKey } from "./config";
 import { RIVAL_WINDOW_MS, companyFor, tallyRivalries, type GraveCandidate, type RivalRecord, type Rivalry, type RoadCompany, type RunCandidate } from "./company";
 

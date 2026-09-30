@@ -34,6 +34,7 @@ import {
   type ExpeditionTierDef,
   type RouteRisk,
 } from "@/lib/expeditions/config";
+import { pct } from "@/lib/expeditions/format";
 import { BOSS_HEALTH, LANDMARK_MILES, LEAGUE_GOAL_FRAGMENTS, unitCount } from "@/lib/expeditions/league";
 import { REVEAL_FRAGMENTS, TRAIL_SIGHT, type RevealedBy } from "@/lib/expeditions/reveal";
 import ExpeditionIcon from "./expeditionIcons";
@@ -112,8 +113,6 @@ export function requirementLine(def: ExpeditionTierDef): string {
   const parts = requirementParts(def);
   return parts.length === 0 ? NO_REQUIREMENTS : parts.map((part) => part.text).join(" · ");
 }
-
-const pct = (n: number) => `${Math.round(n * 100)}%`;
 
 /** How many distinct places a route can stop at, across its checkpoints
  *  — the number that says "no two runs walk the same road". A count, read

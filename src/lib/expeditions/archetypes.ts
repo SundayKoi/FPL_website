@@ -24,6 +24,7 @@
 
 import { FALLBACK_ARCHETYPE } from "@/lib/cards/build";
 import { HARVEST_MERCHANT, WOUNDED_HOURS, type CardCopy } from "./config";
+import { listOf } from "./format";
 import { milesOf } from "./trail";
 
 /** The rulebook version from which a run walks with edges, can pitch the
@@ -312,11 +313,6 @@ export function traitsOf(copies: Pick<CardCopy, "id" | "card">[], rules: number)
 // === the journal's line =====================================================
 
 const ORDINALS = ["", "", "second", "third", "fourth", "fifth"];
-
-/** "A, B and C" — the journal's list, which never takes an Oxford comma. */
-function listOf(items: string[]): string {
-  return items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
-}
 
 /**
  * The journal's first-leg line naming the squad's edges: "The squad's

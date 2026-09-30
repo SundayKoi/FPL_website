@@ -659,8 +659,10 @@ const SHINE_BONUS_PER_POINT = 0.03;
 export const SHINE_BONUS_CAP = 0.5;
 
 /** A chance that isn't one. Zero and one are settled without touching the
- *  stream — see rollOutcome's note on consumption order. */
-function decide(chance: number, rand: () => number): boolean {
+ *  stream — see rollOutcome's note on consumption order — so a chance
+ *  tuned to 0 never shifts what a later roll reads. The route's resolver
+ *  (resolveRoute.ts) rolls with it too. */
+export function decide(chance: number, rand: () => number): boolean {
   if (chance <= 0) return false;
   if (chance >= 1) return true;
   return rand() < chance;
