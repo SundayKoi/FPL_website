@@ -950,7 +950,7 @@ def fetch_current_season_phase(supabase_url, service_key):
     failure (missing row, HTTP error, connection error); the caller decides
     whether that's fatal."""
     url = f"{supabase_url.rstrip('/')}{LEAGUE_SETTINGS_ENDPOINT}?id=eq.1&select=current_season,current_phase"
-    headers = {"apikey": service_key, "Authorization": f"Bearer {service_key}"}
+    headers = _supabase_headers(service_key)
     try:
         resp = requests.get(url, headers=headers)
     except requests.RequestException as exc:
@@ -989,12 +989,10 @@ def write_to_supabase(rows, supabase_url, service_key):
         return True
 
     url = f"{supabase_url.rstrip('/')}{RAW_STATS_ENDPOINT}?on_conflict=match_id,summoner_name"
-    headers = {
-        "apikey": service_key,
-        "Authorization": f"Bearer {service_key}",
+    headers = _supabase_headers(service_key, {
         "Content-Type": "application/json",
         "Prefer": "resolution=ignore-duplicates,return=representation",
-    }
+    })
 
     batches = chunk(rows, WRITE_BATCH_SIZE)
     inserted_total = 0
