@@ -67,6 +67,10 @@ async function fallbackTo<T>(load: Promise<T>, fallback: T): Promise<T> {
 
 /** The approved post-opening homepage, stored as the Regular Season Home Page. */
 export default async function RegularSeasonHomePage() {
+  const settingsPromise = fallbackTo(fetchHomepageFeaturedSettings("premier"), fallbackFeaturedSettings);
+  const twitchPromise = settingsPromise.then((settings) => fallbackTo(
+    fetchHomepageTwitch(twitchChannelLoginFromUrl(settings.twitchUrl)), fallbackTwitch,
+  ));
   const { supabase, season } = await (async () => {
     try {
       const client = await createServerSupabase();
@@ -75,7 +79,7 @@ export default async function RegularSeasonHomePage() {
       return { supabase: null, season: PREMIER_SEASON };
     }
   })();
-  const [awards, standingsData, schedule, identities, topCards, featuredSettings, viewer] = await Promise.all([
+  const [awards, standingsData, schedule, identities, topCards, featuredSettings, viewer, twitch] = await Promise.all([
     fallbackTo(fetchHomepageAwards(season), fallbackAwards(season)),
     fallbackTo<HomeStandingsData>(fetchHomepageStandings(season), { teams: [], race: [] }),
     fallbackTo(fetchHomepageSchedule((fixtures) => fixtures.filter((fixture) => fixture.season === season), season), fallbackSchedule),
@@ -83,13 +87,10 @@ export default async function RegularSeasonHomePage() {
     // Use league_settings.current_season for every section so awards,
     // standings, fixtures, and weekly cards stay on one real season.
     supabase ? fallbackTo<PlayerCardData[]>(fetchCurrentWeekCards(supabase, season), []) : Promise.resolve([]),
-    fallbackTo(fetchHomepageFeaturedSettings("premier"), fallbackFeaturedSettings),
+    settingsPromise,
     homeViewer(),
+    twitchPromise,
   ]);
-  const twitch = await fallbackTo(
-    fetchHomepageTwitch(twitchChannelLoginFromUrl(featuredSettings.twitchUrl)),
-    fallbackTwitch,
-  );
   const homepageSchedule = alignFuturePremierHomeFixturesToMonday(schedule);
   const featuredFixture = selectHomepageFeaturedFixture(homepageSchedule.fixtures, featuredSettings.fixtureId, homepageSchedule.seasonFixtures ?? homepageSchedule.upcoming);
 

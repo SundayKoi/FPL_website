@@ -134,6 +134,46 @@ describe("fetchGuildMember", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("shares a pending membership read for the same guild and user", async () => {
+    let respond!: (response: Response) => void;
+    const fetchMock = vi.fn(() => new Promise<Response>((resolve) => { respond = resolve; }));
+    vi.stubGlobal("fetch", fetchMock);
+    const requests = Array.from({ length: 5 }, () => fetchGuildMember("42"));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    respond(jsonResponse(200, { roles: ["r1"] }));
+    expect(await Promise.all(requests)).toEqual(Array(5).fill({ inGuild: true, roles: ["r1"] }));
+    await fetchGuildMember("42");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps concurrent users and guilds in separate cache entries", async () => {
+    const fetchMock = vi.fn(async (url: string) => jsonResponse(200, { roles: [url] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const identities = [["42", "g1"], ["43", "g1"], ["42", "g2"]];
+    const results = await Promise.all(identities.map(([user, guild]) => fetchGuildMember(user, guild)));
+    expect(results).toEqual(identities.map(([user, guild]) => ({
+      inGuild: true, roles: [`https://discord.com/api/v10/guilds/${guild}/members/${user}`],
+    })));
+    await Promise.all(identities.map(([user, guild]) => fetchGuildMember(user, guild)));
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it.each(["http", "network"])("shares and expires an inconclusive %s result using the existing TTL", async (failure) => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, { roles: ["r1"] }));
+    if (failure === "http") fetchMock.mockResolvedValueOnce(jsonResponse(503, {}));
+    else fetchMock.mockRejectedValueOnce(new Error("network down"));
+    vi.stubGlobal("fetch", fetchMock);
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
+    expect(await Promise.all([fetchGuildMember("42"), fetchGuildMember("42")])).toEqual([null, null]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    now.mockReturnValue(1_059_999);
+    expect(await fetchGuildMember("42")).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    now.mockReturnValue(1_060_000);
+    expect(await fetchGuildMember("42")).toEqual({ inGuild: true, roles: ["r1"] });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("re-fetches once the 60s cache entry has expired", async () => {
     const fetchMock = vi.fn(async () => jsonResponse(200, { roles: ["r1"] }));
     vi.stubGlobal("fetch", fetchMock);

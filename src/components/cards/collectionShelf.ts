@@ -147,3 +147,63 @@ export function printOf(
   if (!minted) return null;
   return { number: row.printNumber, of: minted, editionWeek: row.editionWeek };
 }
+/** Build the collapsed shelf once per finder/sort change, keeping frozen copies intact. */
+export function shelfEntries(rows: InventoryRow[], sort: ShelfSort, printRuns?: ReadonlyMap<string, number>) {
+  const compare = copyOrder(sort);
+  const groups = new Map<string, InventoryRow[]>();
+  for (const row of rows) {
+    const copies = groups.get(row.slug) ?? [];
+    copies.push(row);
+    groups.set(row.slug, copies);
+  }
+
+  return [...groups.values()]
+    .map((copies) => {
+      // Distinct prints, one representative each: the strip is about what a
+      // copy looks like, and two identical prints look identical.
+      const byPrint = new Map<string, InventoryRow[]>();
+      for (const copy of copies) {
+        const key = printKey(copy);
+        const prints = byPrint.get(key);
+        if (prints) prints.push(copy);
+        else byPrint.set(key, [copy]);
+      }
+      return {
+        best: copies.reduce(betterCopy),
+        count: copies.length,
+        // The Eclipse is counted apart from the foils: a ✦ beside a ◐ would
+        // say "two foils" about a stack that holds one foil and one thing
+        // there is exactly one of in the world.
+        eclipses: copies.filter(isEclipse).length,
+        foils: copies.filter((copy) => copy.foil && !isEclipse(copy)).length,
+        signatures: copies.filter((copy) => copy.signed).length,
+        // Chronological, so the chips read as a print history.
+        editions: [...new Set(copies.map((copy) => copy.editionWeek))].sort(),
+        prints: [...byPrint.values()]
+          .map((prints) => ({ copy: prints.reduce(betterCopy), count: prints.length }))
+          .sort((a, b) => showcaseOrder(a.copy, b.copy)),
+        // What the dust drawer needs: the flat fields it labels and prices a
+        // copy by, plus the frozen print it shows you before you destroy it.
+        // No extra payload — this json is already on the client.
+        copies: copies
+          .map((copy) => ({
+            id: copy.id,
+            tier: copy.tier,
+            foil: copy.foil,
+            // The parallel is what tells the drawer a copy cannot be dusted
+            // at all (an Eclipse), and what prices a Cracked Ice above a
+            // Prisma — the same field the server reads for both.
+            foilType: copy.foilType,
+            signed: copy.signed,
+            editionWeek: copy.editionWeek,
+            card: copy.card,
+            // Resolved here rather than in the drawer: the drawer's copies
+            // carry no slug, and the counter map is keyed by print.
+            printNumber: copy.printNumber,
+            printRun: printRuns?.get(printRunKey(copy.editionWeek, copy.slug)) ?? null,
+          }))
+          .sort((a, b) => a.editionWeek.localeCompare(b.editionWeek) || a.id - b.id),
+      };
+    })
+    .sort((a, b) => compare(a.best, b.best) || a.best.playerName.localeCompare(b.best.playerName));
+}

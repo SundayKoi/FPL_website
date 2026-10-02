@@ -2,7 +2,7 @@ import { SEASON_AWARDS, type AwardDefinition } from "./catalog";
 import championMap from "./champion-map.json";
 import { seasonBelongsToLeague, type LeagueSeasons } from "@/lib/league/season";
 import { DIVISIONS, type Division, type FixtureRow } from "@/lib/schedule/types";
-import { cardPlayerKey } from "@/lib/cards/build";
+import { cardPlayerKey } from "@/lib/cards/cardKeys";
 import {
   BEST_OF_MIN_PLAYER_GAMES,
   canonicalChampion,
@@ -11,7 +11,8 @@ import {
   type BestOfPass,
   type BestOfSelectionDiagnostics,
 } from "./best-of";
-import { DUO_FORMULA_VERSION, DUO_IMPACT_WEIGHTS, DUO_PAIR_DEFINITIONS, midrankPercentile, scoreDuoPairs, type DuoEvidence, type DuoMemberEvidence } from "./duo";
+import { DUO_FORMULA_VERSION, DUO_IMPACT_WEIGHTS, DUO_PAIR_DEFINITIONS, scoreDuoPairs, type DuoEvidence, type DuoMemberEvidence } from "./duo";
+import { createMidrankIndex } from "./percentiles";
 import { withPairChampionEvidence } from "./pairArt";
 import type { PairArtMember } from "./pairArt";
 import { rowIdentity, teamKey } from "./rowKeys";
@@ -109,7 +110,12 @@ const all = (rows: SeasonRow[], field: string): number[] | null => {
 };
 function groups(rows: SeasonRow[], key: (r: SeasonRow) => string): SeasonRow[][] {
   const map = new Map<string, SeasonRow[]>();
-  for (const row of rows) map.set(key(row), [...(map.get(key(row)) ?? []), row]);
+  for (const row of rows) {
+    const identity = key(row);
+    const group = map.get(identity);
+    if (group) group.push(row);
+    else map.set(identity, [row]);
+  }
   return [...map.values()];
 }
 function longest(values: boolean[]): number {
@@ -257,6 +263,7 @@ export function deriveSeasonEnd(
   const minGames = BEST_OF_MIN_PLAYER_GAMES;
   const qualified = players.filter(p => p.rows.length >= minGames);
   const teamGames = groups(rows, r => `${r.match_id}|${teamKey(r.team_name)}`);
+  const teamGameIndex = new Map(teamGames.map(game => [`${game[0].match_id}|${teamKey(game[0].team_name)}`, game]));
   const teams = groups(teamGames.map(g => g[0]), r => teamKey(r.team_name)).map(rs => ({ name: rs[0].team_name, team: rs[0].team_name, rows: rs }));
   const complete = regularFixtures.length > 0 && regularFixtures.every(completeFixture);
   const completed = regularFixtures.filter(completeFixture);
@@ -286,11 +293,12 @@ export function deriveSeasonEnd(
   // Fixed five-part score, shared by Late Bloomer and Metronome.
   const performanceFields = ["kda", "damage_per_min", "cs_per_min", "vision_score_per_min", "kill_participation_pct"];
   for (const roleRows of groups(rows, r => r.role)) {
-    if (!roleRows[0].role || performanceFields.some(f => !all(roleRows, f))) continue;
-    for (const r of roleRows) r.performance = mean(performanceFields.map(field => {
-      const values = all(roleRows, field)!; const value = number(r, field)!;
-      return midrankPercentile(value, values)!;
-    }));
+    const indexes = performanceFields.map(field => {
+      const values = all(roleRows, field);
+      return values && createMidrankIndex(values);
+    });
+    if (!roleRows[0].role || indexes.some(index => !index)) continue;
+    for (const r of roleRows) r.performance = mean(performanceFields.map((field, i) => indexes[i]!.get(number(r, field)!)!));
   }
   const performance = (row: SeasonRow) => number(row, "performance") ?? 0;
   const scoreCovered = rows.length > 0 && rows.every((row) => typeof row.performance === "number" && Number.isFinite(row.performance));
@@ -524,7 +532,7 @@ export function deriveSeasonEnd(
     for (const t of teams) {
       const numbers: number[] = [];
       for (const r of t.rows) {
-        const g = teamGames.find(g => g[0].match_id === r.match_id && teamKey(g[0].team_name) === teamKey(r.team_name))!;
+        const g = teamGameIndex.get(`${r.match_id}|${teamKey(r.team_name)}`)!;
         if (g.some(o => o.win !== r.win || o.team_side !== r.team_side)) return missing(def);
         let value: number | null = null;
         if (def.id === "dragon-hoard") {
