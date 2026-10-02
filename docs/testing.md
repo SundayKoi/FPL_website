@@ -29,8 +29,8 @@ production app, and runs the Chromium journeys. Commands are defined in
 
 ## Vitest
 
-`vitest.config.mts` discovers `.test.ts` and `.spec.ts` files in `src/lib`
-and `scripts` in the Node project. Other `.test`/`.spec` TypeScript and TSX
+`vitest.config.mts` discovers `.test.ts` and `.spec.ts` files in `src/lib`,
+`src/app`, and `scripts` in the Node project. Other `.test`/`.spec` TypeScript and TSX
 files under `src` run in jsdom. Worktrees and Playwright specs are excluded;
 scratch files outside these source directories are not collected.
 
@@ -71,7 +71,8 @@ python -m pip install requests python-dotenv
 npm run test:python
 ```
 
-Both `scripts/test_*.py` modules use standard-library unittest discovery.
+The `scripts/test_*.py` modules use standard-library unittest discovery,
+including the Riot mapper, betting settlement, and offseason ingest suites.
 The mapper module adapts its existing function tests through `load_tests`,
 so all groups run even if an earlier group fails. Successful test output is
 buffered; failures retain their diagnostic output. These tests mock HTTP

@@ -26,6 +26,7 @@ The site now also includes:
 ## Documentation
 
 - [AGENTS.md](AGENTS.md) — repository constraints and task-specific guidance.
+- [Frontend and design system](docs/frontend.md) — UI architecture, tokens, themes, and navigation sources.
 - [Backend](docs/backend.md) — architecture, domain contracts, and source locations.
 - [Testing](docs/testing.md) — check selection, fixtures, and focused commands.
 - [Page spacing](docs/page-spacing.md) — shared page gutters, spacing, route owners, and intentional inner limits.
@@ -45,16 +46,15 @@ switching and preserves the current paired destination (including supported
 query strings). Premium HQ is the intentional exception: its Premier/Academy
 toggle keeps the selected card and fantasy destinations in the same league.
 
-The header provides three direct links for the active league: **Stats**,
-**My Team**, and **Cards**. Cards stays highlighted across both leagues'
-collection hubs, the single-card share pages, and public binders. The grouped
-menus are:
+The header keeps **My Team** as the direct personal link and groups other
+pages into four menus, defined in `src/components/SiteNavigation.tsx`:
 
-- **League** — Players, Teams, Schedule, and Auction Draft for the active
-  league.
-- **Premium** — Premium HQ, Betting, The Daily Stu, Match Drafter, FPL'dle,
-  Higher or Lower, and Guess the Card, with the league-aware entries pointing
-  at the active league.
+- **League** — Players, Teams, Schedule, Standings, Stats, Auction Draft,
+  Match Drafter, and Broadcaster for authorized staff.
+- **Cards** — public Browse first, then Cards home, My Collection, Packs,
+  Market, and Play, using the active league's card routes.
+- **Play** — Premium HQ, Betting, The Daily Stu, FPL'dle, Higher or Lower,
+  and the admin-only Guess the Card test entry.
 - **About** — About the league, Rules, Membership & support, and Cards & currency guide.
 
 Sign up is a prominent action on `/info`, not a fifth About destination. League
@@ -122,7 +122,7 @@ Anthropic are external integrations used by specific workflows.
   Discord betting announcer/watchdog.
 - `scripts/` — local seeders, stats ingestion, scheduled-job entry points,
   Discord registration, and data utilities.
-- `.github/workflows/` — nightly stats ingestion and weekly homepage/card jobs.
+- `.github/workflows/` — scheduled and manual ingestion, settlement, homepage/card jobs, and releases.
 - `e2e/` — Playwright specs and their self-seeding fixtures.
 
 ### Scheduled card pipeline
@@ -257,7 +257,7 @@ discovery, fixtures, cleanup conventions, and focused commands.
 Choose checks using [Testing](docs/testing.md#choose-checks-by-change).
 Documentation-only edits need link, command, and diff review; they do not need
 application tests or a production build. Browser tests use self-seeding local
-fixtures and the isolated runner; see the [Playwright setup](docs/testing.md#playwright).
+fixtures and the isolated runner; see the [Playwright setup](docs/testing.md#playwright-and-infrastructure-runner).
 
 ### Branches and releases
 
@@ -673,7 +673,7 @@ Run one `update` per team (adjust the `summoner_name` list and
 also the right approach for backfilling seasons ingested before
 `--team-map` existed.
 
-### Nightly ingest from match reports (`--from-reports`)
+### Weekly ingest from match reports (`--from-reports`)
 
 Captains file finished series on `/captain` (or `/matches`), which queues
 rows in `match_reports`/`match_report_games`. A GitHub Actions workflow —
@@ -708,13 +708,15 @@ backfills.
 workflow**. Useful for testing after a report is filed, or to retry after
 fixing a `failed` report on `/captain`.
 
-**Repo secrets** (Settings → Secrets and variables → Actions), same three
-values as the local `.env`:
+**Environment secrets** (Settings → Environments → `Production`):
 
 - `RIOT_API_KEY` — a **personal** Riot key (doesn't expire daily like a
   development key).
-- `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
+
+The workflow and local script environment must supply `SUPABASE_URL` for
+the FPL cloud project. Check the workflow definition for whether it supplies
+that value directly or through the Production environment secret.
 
 **What it does**, per report with `status` in `pending`/`needs_sides`:
 for each game, skip it (and mark it `ingested`) if its match id is
@@ -722,7 +724,7 @@ already in `raw_stats`; otherwise fetch the match from Riot, resolve
 which side (Blue/Red) is which FPL team, write the stats rows with
 `team_name` set from the resolved side and `season`/`season_phase` from
 the report itself (not `--season`/`--phase` — each report carries its
-own, since a nightly batch can span multiple), and mark the game
+own, since an ingest batch can span multiple), and mark the game
 `ingested`. Once every game in a report is `ingested`, it tallies game
 wins per team and compares them to the reported score, setting
 `warning_text` (shown on `/captain`) on a mismatch — this catches a
@@ -737,7 +739,7 @@ roster matches, or conflicting ones), the game is marked `needs_side` and
 the report `needs_sides`. Fix it on `/captain`: a `needs_sides` report
 shows an inline "which team was blue?" picker per unresolved game for
 captains and admins to set; picking a side flips the report back to
-`pending` for the next nightly run (or a manual trigger) to pick up.
+`pending` for the next scheduled run (or a manual trigger) to pick up.
 
 A report that ends `failed` (a Riot fetch error, an unknown match id, or
 a Supabase write failure) needs an admin to fix the underlying issue and
@@ -786,9 +788,10 @@ reported as pending/conflicts and do not pay.
 
 Every card copy in circulation is one raffle ticket. A GitHub Actions
 workflow — [`.github/workflows/weekly-draw.yml`](.github/workflows/weekly-draw.yml)
-— runs `npx tsx scripts/weekly-draw.ts` Tuesdays at 15:30 UTC
-(`cron: "30 15 * * 2"`, GitHub cron is UTC-only), half an hour after the
-weekly card drop, so the week it draws is finished. For each card season
+— runs `npx tsx scripts/weekly-draw.ts` after a successful automated
+weekly card drop via `workflow_run`. There is no independent draw cron or fixed
+delay. A manually dispatched upstream card drop does not cascade into a draw;
+dispatch the draw itself when that operation is intended. For each card season
 it calls the `run_weekly_draw` RPC, which picks one copy uniformly at
 random, stamps it with a winner's laurel, pays the pot into the owner's
 betting balance, and comps them a standard pack — then posts the winner to
@@ -797,19 +800,21 @@ and every past week on `/cards/draw` (`/academy/cards/draw`).
 
 **Manual trigger**: GitHub → Actions tab → "Weekly card draw" → **Run
 workflow**. Leave **week** blank to draw the last completed week; set it to a
-Monday (`YYYY-MM-DD`) to draw a week the cron missed. A non-Monday is
+Monday (`YYYY-MM-DD`) to draw a missed week. A non-Monday is
 rejected rather than opening an off-grid week.
 
 **Environment secrets** (Settings → Environments → `Production`, the same
 place the card drop reads them):
 
-- `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `DISCORD_CARDS_WEBHOOK_URL` — only the announcement needs it; without it
   the draw still records, pays, and comps, it just says nothing.
 
+The workflow must receive `SUPABASE_URL` for the FPL cloud project, either
+directly in its definition or through the Production environment secret.
+
 **Admin fallback**: `/schedule` → **Manage** → **Rewards** → **Weekly draw**
-has a **Run the draw** button for the Tuesday the cron doesn't fire. It draws the last completed week (the date isn't
+has a **Run the draw** button when the automated chain does not complete. It draws the last completed week (the date isn't
 typeable there) and posts nothing to Discord. The RPC is idempotent, so a
 workflow run and a button press — in either order, or overlapping — still
 leave exactly one winner per week; the later one just reports who already

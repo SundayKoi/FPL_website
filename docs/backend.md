@@ -11,9 +11,13 @@ the implementation disagree.
 - [Authentication and authorization](#authentication-and-authorization)
 - [Database organization](#database-organization)
 - [Premier playoff advancement](#premier-playoff-advancement)
+- [Academy playoff advancement](#academy-playoff-advancement)
 - [Player identity and My Team](#player-identity-and-my-team)
 - [Realtime behavior](#realtime-behavior)
 - [Scheduled and trusted workflows](#scheduled-and-trusted-workflows)
+- [Season's End release and commerce](#seasons-end-release-and-commerce)
+- [Offseason tournament](offseason.md)
+- [Frontend and design system](frontend.md)
 - [Common pitfalls](#common-pitfalls)
 
 Feature-specific contracts are under their named headings; search for the domain
@@ -56,6 +60,11 @@ brief prose), Vercel (hosting), and Supabase Cloud (production data).
 - `src/lib/supabase/server.ts` creates the cookie-bound server client with the
   same public key pair. Use it in Server Components, server-side queries, and
   Server Actions when the current Supabase Auth session should be visible.
+  Cookie writes are attempted where the response permits them and ignored
+  during Server Component rendering. This checkout has no `middleware.ts` or
+  `proxy.ts` session-refresh layer; do not infer one from the helper's legacy
+  comment. Session-refresh behavior needs explicit verification when changing
+  authentication.
 - My Team, roster identity claims, the identity approval inbox, and admin
   player linking all use those browser or cookie-bound server clients. They do
   not import a service-role client: the current session and RLS determine the
@@ -103,31 +112,25 @@ target league home. Premium HQ is the intentional exception: its
 Premier/Academy toggle keeps card and fantasy destinations in the selected
 league.
 
-`SiteNavigation` renders three direct links for the active league—Stats, My
-Team, and Cards—where Cards is active across both leagues' collection hubs, the
-single-card share pages, and public binders. Active-league destinations plus
-Auction Draft remain under League, the gated Premium HQ heads a Premium menu
-alongside Betting, The Daily Stu, Match Drafter, FPL'dle, Higher or Lower, and
-Guess the Card, and shared destinations stay under Info. Premium HQ previews and
-links Betting, The Daily Stu, Player Cards, Draft League, Match Drafter, and the
-card economy.
-Admin and Broadcaster are Staff entries within Info, conditionally rendered
-from the server-provided staff tier. Those props do not authorize access:
-`/admin` and `/broadcaster` continue to perform their existing server-side
-gates, and the route checks remain authoritative if a link is hidden or
-manually visited.
+`SiteNavigation` keeps My Team as a direct personal link and groups the
+remaining destinations under League, Cards, Play, and About. Admin appears
+beside the avatar; Broadcaster appears in League for authorized staff. The
+current menu sources and layout contracts are documented in
+[Frontend and design system](frontend.md#navigation). These flags only control
+presentation: each protected route/action and its database boundary must still
+authorize the caller.
 
-**The cards section** (`/cards/*`, mirrored under `/academy/cards/*`) is laid
-out by one map, `src/lib/cards/sections.ts`: six tabs — Home, My Collection,
-Packs, Browse, Market, Play — the last three with sub-tabs (Team cards,
-Compare, Moments, Season's End, the Vault under Browse; Listings & bounties and Trade
-offers under Market; Fantasy, Expeditions, The ledger and Weekly Draw
-under Play). `CardsTabs` renders that map on every cards page from the two
-`layout.tsx` files, marks the current tab and sub-tab from the pathname, and
-carries the only Premier/Academy switcher a cards page has (`pairedCardsHref`
-keeps the same page across leagues — every cards page exists under both). Pages do not draw their own back links or league
-toggles. Every old URL still resolves; the map decides which tab it lights.
-A page the map does not list (`/cards/claims`, a redirect) lights nothing.
+**The cards section** (`/cards/*`, mirrored under `/academy/cards/*`) is
+mapped by `src/lib/cards/sections.ts`: Home, My Collection, Packs, Browse,
+Market, and Play. Every tab except Home has sub-navigation; My Collection
+includes in-page anchors.
+`CardsTabs` renders this map from both league layouts, with wallet and inbox
+status. It has no league switcher; the header's `LeagueBrandChooser` owns that.
+`pairedCardsHref` preserves supported destinations, sends the legacy claims
+redirect to the other league's cards home, and sends opaque Season's End copy
+IDs to the other league's catalog rather than reusing a copy ID across leagues.
+The claims redirect is not a tab. Labels and children should be read from the
+map rather than duplicated in page-specific navigation.
 
 My Collection has a local Weekly cards / Season's End selector. The weekly
 shelf, roster sets, and binder use `card_inventory`; the Season's End view
@@ -151,9 +154,8 @@ writes). The wall of every card is Browse. Shop-week notices (Live Drops,
 Champion's Tribute, the Faceless Drop, the chase) come from the pure
 `weekNotices()` in `src/lib/packs/weekNotices.ts`, most urgent first, and
 `ThisWeekStrip` draws the first as a full line and the rest as chips, so a
-busy week is one row above the buy button instead of four banners. Page
-titles match tab labels (Packs, Market, Trade offers, Stats, Compare, Weekly
-Draw, Team cards); routes did not move.
+busy week is one row above the buy button instead of four banners. Navigation
+labels come from `cardsSections`; existing URLs remain compatible.
 
 **The Dribb card.** A chase print that is not a player: Dribb, a 99 in
 every column, on Bard, in the Aether Rift treatment
@@ -545,15 +547,13 @@ Important RPC families include:
   the two `betting_ledger` rows (reason `card_sale`, ref'd at the listing or
   want), and moves `card_inventory.discord_id`. `buy_card_listing` and
   `fill_card_want` are the two ways in. See "Market" below.
-- Expedition payouts are guarded at `maxExpeditionPayout()` (11,250 = the
-  best base x the shine cap x the brief bonus x the loot-multiplier cap),
-  and a test reads the literal out of
-  `20260914000001_expedition_routes.sql` (`resolve_expedition`) so the
-  TypeScript and the SQL cannot drift. They did once: the guard shipped as
-  the legend jackpot's BASE (2,000) rather than its maximum, so every
-  bonused legend jackpot was refused — and since `rollOutcome` re-rolls on
-  each attempt, retrying paid a lower grade and closed the run. Any guard
-  that encodes a config rule in SQL needs a test bridging the two.
+- Expedition payouts use the ceiling derived by `maxExpeditionPayout()` in
+  `src/lib/expeditions/config.ts`, including the largest reward, shine, brief,
+  fork, surge, and Harvest merchant bonuses. `config.test.ts` covers that
+  calculation; pgTAP expedition suites exercise the authoritative database
+  payout limits. Do not copy the original route migration's numeric ceiling:
+  later migrations redefine `resolve_expedition` as new routes and bonuses
+  are added. Review the latest definition when changing the economy.
 - Card expeditions: `launch_expedition` (v3, twelve arguments; the old
   six-argument signature is a wrapper) validates the squad, confirms the
   caller owns all three copies, enforces the tier slot (one unclaimed run
@@ -714,7 +714,10 @@ change and update their local state.
 | Weekly Premier brief | `.github/workflows/weekly-brief-premier.yml` → `scripts/generate-homepage-brief.ts --league premier` | Computes facts from Supabase, asks Anthropic for constrained prose, cleans it, and writes `homepage_briefs`. |
 | Weekly Academy brief | `.github/workflows/weekly-brief-academy.yml` → same script with `--league academy` | Same flow, narrowed to the Academy season and teams. |
 | Weekly cards | `.github/workflows/weekly-card-drop.yml` → `scripts/weekly-card-drop.ts` | Reads current ratings, writes `card_snapshots`/`card_rating_history`, archives the week's edition through `buildEditionForWeek` (a **Send-off** in a playoff week, announced with its own embed ahead of the Eclipse board), and posts movement/showcase content to Discord. |
-| Weekly Draw | `.github/workflows/weekly-draw.yml` → `scripts/weekly-draw.ts` | Runs `run_weekly_draw` for every card season half an hour after the card drop, then posts each winner to Discord. The RPC does the writing (`weekly_draws`, the stamped copy, the ledger pot, the pack comp), so reruns and the `/schedule` admin fallback are safe. |
+| Weekly Draw | `.github/workflows/weekly-draw.yml` → `scripts/weekly-draw.ts` | Runs `run_weekly_draw` for every card season after a successful automated card-drop completion, then posts each winner to Discord. There is no fixed half-hour delay; a manually dispatched upstream drop does not cascade into a draw. The RPC does the writing (`weekly_draws`, the stamped copy, the ledger pot, the pack comp), so reruns and the `/schedule` admin fallback are safe. |
+| Higher or Lower weekly settlement | `.github/workflows/higher-lower-settlement.yml` → `scripts/higher-lower-settlement.ts` | Two Tuesday UTC triggers cover Monday 8 PM Eastern; the script's timezone guard selects the applicable one. Settles the completed UTC competition week. Manual dispatch defaults to dry-run. |
+| Expedition sweep | `vercel.json` → `src/app/api/expeditions/sweep/route.ts` | Every five minutes; the route checks `CRON_SECRET` before trusted expedition processing. |
+| Offseason ingestion | `.github/workflows/offseason-ingest.yml` → `scripts/offseason_ingest.py` | Manual-only ingestion into the separate offseason event tables; see [Offseason tournament](offseason.md). |
 | Card edition archive | `.github/workflows/archive-card-edition.yml` → `scripts/archive-card-edition.ts` | Manual. Rebuilds one week (or every week, with `all_weeks`) into `card_editions` through `buildEditionForWeek` — the week's own `raw_stats` for an ordinary week, or a season-rated **Send-off** for a playoff week, exactly as the drop would have written it. Run it after any change to the rating formula, and to fill in a playoff week the drop met before its fixtures were scored — see the pitfall below and "The Send-off". |
 | Bracket seeding | `.github/workflows/seed-bracket.yml` → `scripts/seed-bracket.ts` | Manual. Seeds a reviewed bracket file (`scripts/data/brackets/*.json`) onto `fixtures` for the file's season (`league_settings.academy_season`/`current_season`, or an explicit `season` in the file). Validates every team name against `league_teams` before writing anything, keys rows by `(season, stage, sort_order)` so re-runs rewrite rather than duplicate, leaves an already-scored fixture untouched, and never deletes. `dry_run` is **ticked by default** and prints the plan without writing. The decisions live in `src/lib/schedule/bracketSeed.ts` (`planBracketSeed`), not in the script. |
 | Betting lifecycle | Supabase cron migrations → `supabase/functions/discord-announcer/index.ts` | Locks/resolves/announces betting markets and pick'ems, posts Discord messages, and runs a ledger-drift watchdog. |
@@ -1933,11 +1936,11 @@ When you add a table with a name, tag or slug in it, add it to `rename_player`
 in the same pull request. That is the whole contract — the function is only as
 good as the list inside it.
 
-`public.card_slug()` mirrors `cardSlug()` in `src/lib/cards/cardKeys.ts`. The two
-are pinned to one shared case table — the pgTAP suite owns it and
-`src/lib/cards/slugBridge.test.ts` reads those cases out of the `.sql` file
-and asserts the TypeScript agrees, so the implementations cannot drift apart
-silently. Add a case in the pgTAP file and both sides pick it up.
+`public.card_slug()` mirrors `cardSlug()` in `src/lib/cards/cardKeys.ts`
+(re-exported by `build.ts`). SQL slug cases live in
+`supabase/tests/0082_rename_player_test.sql`; TypeScript slug behavior is
+covered by `src/lib/cards/build.test.ts`. The former `slugBridge.test.ts`
+parser is no longer present: update both suites when changing slug semantics.
 
 ### The schedule and the gauntlet
 

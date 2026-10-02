@@ -1,59 +1,55 @@
-# Season’s End preview
+# Season's End admin preview
 
-`/admin/seasons-end` is linked from Admin for staff and can also be opened by
-active patrons who receive the URL. Staff are checked through the authenticated
-profile; broadcaster alone does not grant access. Patron access uses the
-read-only patron window and shows only the card collection — no staff controls,
-selection diagnostics, or developer crop audit. It uses the cookie-bound
-Supabase client and existing read policies, with no new database objects,
-writes, pack entries, or minted cards.
+`/admin/seasons-end` combines the awards preview and staff release controls.
+The detailed award and rendering contract lives in
+[Season's End cards](season-end-cards.md); the frozen release, purchase,
+commerce, and auto-dust contract lives in
+[the backend reference](backend.md#seasons-end-release-and-commerce).
 
-The league dropdown switches between the fixed Premier S5 and Academy A1
-snapshots. Each raw query is restricted to that league's season and `Regular`.
-Queries are paginated and ordered, and failures render an error rather than a
-partial collection. A supplied `season` query parameter is ignored.
+## Access and data
 
-All player awards use the normal `PlayerCard3D` renderer and `buildSeasonCards`
-engine. Complete regular-season rows are aggregated through the existing raw-row
-aggregation function, with the entire league as the rating cohort. Player cards
-retain their season OVR, stat bars, record, champion history, and interactive back.
-Award titles decorate the archetype label; award metrics are printed above the
-card. They are not substituted for an OVR. Weekly standout badges are disabled.
+Admins and owners can inspect awards, diagnostics, crop tools, and the release
+panel. Active patrons who receive the URL can view the card collection without
+those staff controls; broadcaster status alone does not grant access. The page
+checks staff through the authenticated profile and patron status through the
+trusted patron reader. The parent admin layout supplies navigation, not the
+page's authorization.
 
-- **Best of [champion]:** a qualifying player/champion record needs at least
-  five complete regular-season games overall and at least three games on that
-  champion. Records rank by champion wins, then unrounded win rate, then
-  unrounded mean role-relative performance; integer cross-products compare win
-  rates. The strongest-result-first allocation awards at most one card per
-  player and per champion across Solari and Lunari together. It skips later
-  candidates for an awarded player or champion, so qualifying players and
-  champions can remain unawarded. There is no minimum win rate, win total, or
-  performance floor. See the [Best of results-ranking decision](plans/2026-09-16-best-of-results-ranking.md)
-  for the selection diagnostics and tie rules.
-- **Dynamic Duo:** the bot/support pairing with the highest cumulative combined
-  fantasy-stat points in games played together. The win tariff is zero. At least
-  four shared games are required; score ties share the award. The two normal
-  player cards sit together under their shared total and cumulative K/D/A.
-- **Season Cards:** replaces Ironman. Every player with strictly more than five
-  complete regular-season games receives their normal cumulative season card.
-  Players below that cutoff remain in the rating cohort.
-- **Undefeated:** replaces Regular-Season Royalty. Teams need positive wins and
-  zero game losses across regular-season fixtures, including forfeits. An observed
-  loss in stats also disqualifies them. Withheld until all regular fixtures are
-  complete. The normal roster-card renderer displays the team; the contributor
-  list includes everyone observed on that team during the regular season.
+The league selector is pinned to Premier S5 and Academy A1. The awards loader
+uses the cookie-bound client, scopes raw rows to the selected league's season
+and regular competition, and paginates its reads. A supplied `season` query
+parameter does not change those fixed snapshots. Failed award reads display an
+error rather than partial winners. Cumulative card rendering and release
+metadata can fail independently without hiding otherwise valid awards.
 
-Other award eligibility is printed on the page. Only complete ten-player matches
-with distinct player identities and consistent five-player teams/results count.
-Missing required numeric fields withhold the corresponding award. All awards are
-provisional until the ingest and fixtures have been reviewed.
+Page reads do not mint cards, but this is no longer a preview-only feature with
+no database dependencies. The staff-only `SeasonEndReleasePanel` invokes
+trusted release actions. Patron and release metadata reads use the service
+client; each mutation must retain its own authorization. Verify the release
+migrations before deploying dependent code as described in
+[release contracts](releases.md).
 
-This results-based selector applies to the active `/admin/seasons-end` preview
-only. (The older `src/lib/cards/seasonsEnd` engine had no remaining callers and
-was removed on 2026-09-30.)
+## Award rendering
 
-Verification: `src/lib/season-end/best-of.test.ts` and
-`src/lib/season-end/derive.test.ts` cover thresholds, ranking, caps, ties,
-aliases, pagination and isolation; `src/app/admin/seasons-end/page.test.tsx`
-covers the staff/patron server gate, the patron-safe card view, and read-error/
-empty states. No migration is required.
+Ordinary accolades use `SeasonEndAwardCard`; Best of Champion uses its full-art
+face. Cumulative Season Cards use `PlayerCard3D` and retain their normal OVR and
+stats. The admin desk disables Best of variant controls; do not assume every
+capability of the shared renderer is exposed on this route.
+
+Best of Champion uses three ordered allocation passes: records with at least
+three champion games; unclaimed pairs with at least two champion games and one
+win; then remaining players' available champions from any appearance. Players
+need five regular-season games overall. Each pass ranks wins, win rate, and
+mean role-relative performance, keeping earlier selections fixed and at most
+one award per player and champion. See `src/lib/season-end/best-of.ts` and
+[the full card reference](season-end-cards.md) for the current rules rather than
+the old single-pass design.
+
+## Verification sources
+
+`src/lib/season-end/best-of.test.ts` and `src/lib/season-end/derive.test.ts`
+cover award behavior. `src/app/admin/seasons-end/page.test.tsx` covers the
+staff/patron gate and page states. Release actions, opening recovery, and
+commerce additionally require their application and pgTAP coverage; a passing
+preview test does not verify those database transitions. Choose checks using
+[testing](testing.md).

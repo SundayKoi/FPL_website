@@ -1,53 +1,78 @@
 # Page width and spacing
 
-## Shared contract
+Read [Frontend and design system](frontend.md) for theme and component sources.
+The shared utilities and the newer feature shells coexist. A full-width
+background does not imply that every content region is uncapped.
 
-- `.page-container` gives a full-width, `min-width: 0` surface a fixed gutter of 16px below 640px, 24px from 640px, and 32px from 1024px. Safe-area insets are added to the corresponding side.
-- `.page-spacing` gives normal pages 32px vertical padding on mobile and 40px from 640px. `.page-spacing-compact` is for dense game and draft workspaces and stays at 24px.
-- Gap tokens are 16px for compact controls, 24px for panel/grid gaps, and 32px for major sections.
-- A page shell or its shared layout owns the page gutter once. Child panels own only their internal padding.
-- Keep text near 65–75ch, controls usable, dialogs bounded, and collectible artwork at its intended ratio. Full-width describes page and section surfaces, not every control or image.
-- Tables and spatial boards that need extra width scroll inside their own labeled region. Do not hide document overflow with `100vw`, negative viewport margins, or body clipping.
+## Shared utilities
 
-Use the shared classes for new and changed route shells:
+`src/app/globals.css` owns the base contract:
+
+- `.page-container` has width 100%, no maximum width, and `min-width: 0`.
+  It adds 16px side gutters below 640px, 24px from 640px, and 32px from
+  1024px, plus the corresponding safe-area inset.
+- `.page-spacing` adds 32px vertical padding, increasing to 40px from 640px.
+  `.page-spacing-compact` stays at 24px.
+- `.page-gap-compact`, `.page-gap-panel`, and `.page-gap-section` represent
+  16px, 24px, and 32px gaps.
+
+For a page without a feature shell, the base pattern is:
 
 ```tsx
 <main className="page-backdrop flex-1">
-  <div className="page-container page-spacing">
-    {/* page content */}
-  </div>
+  <div className="page-container page-spacing">{/* content */}</div>
 </main>
 ```
 
-Dense workspaces can use `page-spacing-compact`. Do not add another `page-container` to a descendant when a feature layout already owns the content gutter.
+A shell or layout owns the horizontal content gutter once. Child panels own
+internal padding. Do not add the base pattern inside a shell that already
+supplies those gutters. `data-page-container` is an inspection marker, not a
+CSS utility; its actual width comes from the owner's styles.
 
-## Route and wrapper inventory
+## Current shell ownership
 
-The inventory covers all 124 `src/app/**/page.tsx` route modules in the `develop` baseline. Route entries below are URL patterns; redirects are called out separately. Shared rendering and gutter owners are named so paired Premier and Academy routes do not drift.
+| Family | Owner and width behavior |
+| --- | --- |
+| Homepage | `src/components/home/HomeWorkspace.module.css` uses a centered container capped at 1600px with the shared gutter variable. |
+| League views | `src/components/league/LeaguePageShell.tsx` and its CSS module own a centered 1440px container, header, section navigation, and content. Shared schedule, standings, teams, players, and stats views compose this shell. Detail routes can have their own modules. |
+| Cards | `src/app/cards/layout.tsx` and `src/app/academy/cards/layout.tsx` apply `CardsPageShell.module.css`. Its direct-child `main` rule caps content at 1440px and supplies horizontal gutters; `.standalone` supplies equivalent bounds for standalone card surfaces. `CardsTabs` owns the navigation row. Inspect existing page markup before adding another container. |
+| Play | `src/components/play/PlayPageShell.tsx` owns the themed surface and Play navigation. Individual features own their content layout. |
+| Betting | `src/app/betting/layout.tsx` composes Play and supplies `max-w-6xl` content/header regions with `--page-gutter`. Children must not add a second outer gutter. |
+| Admin | `src/app/admin/layout.tsx` and feature pages own the workspace/sidebar and content. Preserve their local form, table, and collectible bounds. |
+| Other routes | My Team, draft, auth, information, share, and offseason pages use their route/feature wrapper. Check that wrapper rather than imposing a global maximum or removing an intentional one. |
 
-| Layout family | Covered URL patterns | Rendering and gutter owner | Inner limits and required state |
-| --- | --- | --- | --- |
-| Home | `/`, `/academy` | `HomeDashboard` and `PreseasonHomePage`; each shared dashboard owns its page container | Headlines remain readable; empty/preview and regular-season data states use local league data.
-| Directories | `/players`, `/players/:player`, `/academy/players`, `/teams`, `/academy/teams`, `/teams/:slug`, `/academy/teams/:slug` | `PlayersDirectory` and `TeamsDirectory` own gutters for both leagues; team detail routes own their shell | Player roles reflow as semantic columns; forms and roster controls keep usable widths. Empty preview data and normal local rosters cover both leagues.
-| League views | `/standings`, `/academy/standings`, `/schedule`, `/academy/schedule`, `/stats`, `/academy/stats`, `/box-score`, `/academy/box-score`, `/match/:id` | `StandingsPageView` is shared; schedule and stats route modules own their shell | Tables remain full-width, with any required scroll inside the table region. Use local fixture data for dynamic matches.
-| Premier Cards | `/cards`, `/cards/browse`, `/cards/claims`, `/cards/collection`, `/cards/compare`, `/cards/draw`, `/cards/expeditions`, `/cards/expeditions/ledger`, `/cards/fantasy`, `/cards/market`, `/cards/market/bounties`, `/cards/moments`, `/cards/packs`, `/cards/play`, `/cards/rarities`, `/cards/season-end`, `/cards/season-end/copy/:id`, `/cards/season-end/market`, `/cards/teams`, `/cards/trades`, `/cards/vault` | `src/app/cards/layout.tsx` owns tab gutters; route pages and shared views own their page shells | Preserve card ratio, shelves/container queries, artwork, readable copy, and bounded modals. Public, premium, empty, and token-backed states depend on local card fixtures.
-| Academy Cards | `/academy/cards`, `/academy/cards/browse`, `/academy/cards/collection`, `/academy/cards/compare`, `/academy/cards/draw`, `/academy/cards/expeditions`, `/academy/cards/expeditions/ledger`, `/academy/cards/fantasy`, `/academy/cards/market`, `/academy/cards/market/bounties`, `/academy/cards/moments`, `/academy/cards/packs`, `/academy/cards/play`, `/academy/cards/rarities`, `/academy/cards/season-end`, `/academy/cards/season-end/copy/:id`, `/academy/cards/season-end/market`, `/academy/cards/teams`, `/academy/cards/trades`, `/academy/cards/vault` | `src/app/academy/cards/layout.tsx` plus the paired shared Premier view where used | Same art and control limits as Premier; verify the Academy theme and league-scoped local data.
-| Share pages | `/card/:slug`, `/binder/:token` | Route modules own full-width page surfaces; card/binder content owns artwork size | Valid local slug/token fixtures show the normal surface; unavailable and invalid tokens retain a full-width background and centered message.
-| Betting | `/betting`, `/betting/event/:id`, `/betting/market/:id`, `/betting/leaderboard`, `/betting/profile` | `src/app/betting/layout.tsx` owns the shared content gutter and feature navigation; child pages do not add another gutter | Event cards and metrics use intrinsic columns; compact controls stay bounded. Requires the existing local Premium/betting test bypass or an authorized local member fixture.
-| Premium and daily games | `/premium`, `/bangers`, `/fpldle`, `/academy/fpldle`, `/higher-lower`, `/academy/higher-lower`, `/guess-the-card`, `/academy/guess-the-card` | Game and hub view owns the page shell; Bangers layout owns only its back-link row | Game-board geometry, card ratios, and artwork stay bounded; verify populated and unavailable states for both league themes.
-| Draft workspaces | `/draft`, `/draft/:id`, `/drafter`, `/drafter/:token`, `/match-draft/:fixtureId` | Draft/game component owns its normal page shell; Drafter layout owns the back-link gutter | Dense workspace uses 24px vertical spacing. Keep spatial/broadcast/transparent overlay output geometry separate. Use the existing local draft fixture for interactive states.
-| My Team and identity | `/my-team`, `/my-team/scouting`, `/academy/my-team`, `/academy/my-team/scouting`, `/identity-claims` | My Team/scouting view owns its route gutter; sparse access states keep a centered bounded card | Requires linked-player, captain, or admin local identity as applicable; preserve server authorization and verify signed-out/unavailable states separately.
-| Information and support | `/info`, `/rulebook`, `/league-links`, `/glossary`, `/economy`, `/membership`, `/supporters`, `/support-devs` | Route/shared content owner uses the shared page container | Paragraph measures remain bounded; cards and related content use the available section width. Public pages use local/default data.
-| Auth and signup | `/login`, `/signup`, `/sign/:token` | Route shell owns the full-width surface; sign-in/signature panel remains centered and bounded | Keep form controls and signing canvas usable. Tokenized signing needs a valid local token; do not alter auth or claim checks.
-| Staff | `/admin`, `/admin/:draftId`, `/admin/analytics`, `/admin/announce`, `/admin/betting`, `/admin/betting/catalog`, `/admin/betting/pickems`, `/admin/betting/props`, `/admin/betting/seasons`, `/admin/betting/users`, `/admin/champions`, `/admin/claims`, `/admin/dribb`, `/admin/expeditions`, `/admin/mutations`, `/admin/on-air`, `/admin/overlays`, `/admin/parallels`, `/admin/patrons`, `/admin/seasons-end`, `/admin/seasons-end/crop-audit`, `/admin/sendoff` | Route page owns the shell; betting admin tabs own a separate aligned gutter; Seasons End uses compact fluid spacing | Requires local staff/admin fixture for protected content. Tables fill their region; form/dialog/artwork limits remain local.
-| Other/legacy | `/broadcaster`, `/skin-lines`, `/captain`, `/captain/scouting`, `/academy/captain`, `/academy/captain/scouting`, `/admin/season-end` | Broadcaster/skin-lines route modules own the page shell; legacy captain and singular Season End paths are redirects | Broadcaster requires broadcaster/owner access. Verify redirects as redirects, not missing page implementations.
+Scoped module rules can override global utilities. The 1440px and 1600px
+caps above are current design choices, not leftover violations of the old
+full-width rollout. The module shells use `--page-gutter`; unlike the base
+`.page-container`, this alone does not add safe-area insets.
 
-## Verification status
+Keep paragraphs readable (roughly 65–75ch), controls usable, dialogs bounded,
+and collectible artwork at its intended ratio. Tables and spatial boards that
+need extra width scroll within their own labeled region. Avoid fixing overflow
+with body clipping, `100vw`, or negative viewport margins.
 
-This inventory is the route checklist for implementation. The public browser matrix passed against the production server on Home, Players, Academy Teams, Premier Cards, and Academy Cards at 320, 375, 768, 1024, 1440, 1920, 2560, 3440, and 3840 CSS pixels. The test also opens the mobile navigation, Cards menu, and site search and checks that these states do not introduce document overflow.
+## Inventory and verification
 
-Before and after production screenshots for those five routes are stored at [`reports/page-spacing/before`](../reports/page-spacing/before) and [`reports/page-spacing/after`](../reports/page-spacing/after), captured at 375, 1440, 2560, and 3440px with the webpack builder. The before set uses develop baseline `d8a3cf80`; both sets use localhost-only placeholder Supabase settings, so data-backed views show their empty or unavailable state. Representative comparisons: [Players, 3440px before](../reports/page-spacing/before/players-3440.png) / [after](../reports/page-spacing/after/players-3440.png), [Home, 375px before](../reports/page-spacing/before/home-375.png) / [after](../reports/page-spacing/after/home-375.png).
+The route source of truth is `src/app/**/page.tsx`, including redirect-only
+routes. Enumerate it when planning a broad layout change:
 
-`npm run typecheck`, `npm run lint`, and `npm test` passed (419 files, 3587 tests). Lint reports one existing `<img>` warning in `src/components/captain/scouting/ChampionDatum.tsx`. The focused public E2E passed. `npx next build --webpack` completed successfully with localhost-only placeholder Supabase settings. The managed worktree uses a `node_modules` symlink outside its filesystem root, which Turbopack rejects; webpack was used for the production build and local E2E server.
+```sh
+rg --files src/app | rg '/page\.tsx$' | sort
+```
 
-The populated betting, draft, and admin E2E flows remain unverified because this machine has no local Supabase/Docker stack. The fixture guard refuses to seed unless `supabase status` reports a loopback URL and its key matches the app configuration. Protected screenshots and authenticated states must be captured when a local fixture stack is available; no cloud fixtures were written.
+The 2026-10-02 documentation audit found 142 page modules, including newer
+admin workspace and offseason routes absent from the previous 124-route
+inventory. Counts are a dated observation, not a completeness guarantee.
+
+The earlier full-width rollout captured before/after images under
+[`reports/page-spacing/before`](../reports/page-spacing/before) and
+[`reports/page-spacing/after`](../reports/page-spacing/after). Its before set
+used baseline `d8a3cf80`; its production-mode localhost server used placeholder
+Supabase settings. Those images represent empty/unavailable data states and
+predate later shell redesigns. They do not establish current browser coverage,
+production deployment health, or authenticated-flow correctness.
+
+For a new change, verify affected routes in both leagues at narrow and wide
+widths, including menus, local table scrolling, access walls, and populated
+states where relevant. Follow [testing](testing.md) for local fixture and
+infrastructure commands, and report the states actually exercised.

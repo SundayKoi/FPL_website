@@ -8,7 +8,14 @@ completion without prescribing every implementation step.
 `AGENTS.md` owns repository constraints and reference routing. `CLAUDE.md` imports
 it so there is one policy source. Setup belongs in the README, check selection in
 `testing.md`, rollout contracts in `releases.md`, and domain details in
-`backend.md` or `CONTEXT.md`. Preserve the Next.js-generated instruction block.
+`backend.md` or `CONTEXT.md`. Frontend composition and design sources belong in
+`frontend.md`; gutter and width ownership belongs in `page-spacing.md`.
+Preserve the Next.js-generated instruction block.
+
+Keep current references separate from dated plans, prototypes, and audit
+results. Link to the owning component, configuration, or migration rather than
+copying exhaustive route lists or test counts into multiple documents. A prior
+passing run is historical evidence, not verification of the current checkout.
 
 Add guidance for a concrete repository hazard or recurring failure. Prefer a
 scoped instruction with a reason; remove superseded rules and link to the owning
