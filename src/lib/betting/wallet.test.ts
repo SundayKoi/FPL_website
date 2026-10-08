@@ -12,13 +12,14 @@ vi.mock("@/lib/supabase/server", () => ({
   createServerSupabase: vi.fn(async () => ({ auth: { getUser } })),
 }));
 
-const { rpc, single, from } = vi.hoisted(() => {
+const { rpc, single, from, eq } = vi.hoisted(() => {
   const single = vi.fn();
+  const eq = vi.fn(() => ({ single, maybeSingle: single }));
   const from = vi.fn(() => ({
-    select: vi.fn(() => ({ eq: vi.fn(() => ({ single })) })),
+    select: vi.fn(() => ({ eq })),
   }));
   const rpc = vi.fn(async (): Promise<{ data: unknown; error: unknown }> => ({ data: null, error: null }));
-  return { rpc, single, from };
+  return { rpc, single, from, eq };
 });
 
 vi.mock("./service-client", () => ({
@@ -30,13 +31,14 @@ vi.mock("./access", () => ({
 }));
 
 import { bettingAccess } from "./access";
-import { getBettingUser } from "./wallet";
+import { getBettingUser, readBettingUser } from "./wallet";
 
 beforeEach(() => {
   getUser.mockReset();
   rpc.mockReset().mockResolvedValue({ data: null, error: null });
   single.mockReset().mockResolvedValue({ data: null });
   from.mockClear();
+  eq.mockClear();
   vi.mocked(bettingAccess)
     .mockReset()
     .mockResolvedValue({ allowed: true, staff: false, inconclusive: false });
@@ -141,5 +143,32 @@ describe("getBettingUser", () => {
     single.mockResolvedValue({ data: { balance: 1500, patron_until: "2099-01-01T00:00:00.000Z" } });
 
     await expect(getBettingUser()).resolves.toMatchObject({ patron: true });
+  });
+});
+
+describe("readBettingUser", () => {
+  it("reads only the session owner's wallet without creating or crediting it", async () => {
+    getUser.mockResolvedValue({ data: { user: { id: "p1", identities: [{ provider: "discord", id: "42" }], user_metadata: {} } } });
+    single.mockResolvedValue({ data: { balance: 250 } });
+
+    await expect(readBettingUser()).resolves.toMatchObject({ profileId: "p1", discordId: "42", balance: 250, allowed: true });
+    expect(rpc).not.toHaveBeenCalled();
+    expect(bettingAccess).toHaveBeenCalledWith("42");
+    expect(eq).toHaveBeenCalledWith("discord_id", "42");
+  });
+
+  it("preserves an absent wallet as null instead of inventing a balance", async () => {
+    getUser.mockResolvedValue({ data: { user: { id: "p1", identities: [{ provider: "discord", id: "42" }], user_metadata: {} } } });
+    await expect(readBettingUser()).resolves.toMatchObject({ balance: null, allowed: true });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("does not read or write a wallet when signed out or without a Discord identity", async () => {
+    for (const user of [null, { id: "p1", identities: [] }]) {
+      getUser.mockResolvedValue({ data: { user } });
+      await expect(readBettingUser()).resolves.toBeNull();
+    }
+    expect(from).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

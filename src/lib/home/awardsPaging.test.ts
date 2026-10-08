@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /** A raw_stats table served the way PostgREST serves one: a page at a time,
  *  capped at max_rows, with no error and no marker when it stops short. */
@@ -10,6 +10,8 @@ const table: { id: number; season: string; team_name: string }[] = Array.from({ 
 }));
 
 const ranges: [number, number][] = [];
+let failedPage: number | null = null;
+let neverEnds = false;
 
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabase: async () => ({
@@ -25,6 +27,8 @@ vi.mock("@/lib/supabase/server", () => ({
       };
       chain.range = (from: number, to: number) => {
         ranges.push([from, to]);
+        if (from === failedPage) return Promise.resolve({ data: null, error: { message: "page failed" } });
+        if (neverEnds) return Promise.resolve({ data: table.slice(0, PAGE), error: null });
         const rows = filters.team ? table.filter((row) => filters.team!.includes(row.team_name)) : table;
         return Promise.resolve({ data: rows.slice(from, Math.min(to + 1, from + PAGE)), error: null });
       };
@@ -34,6 +38,12 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 const { fetchHomepageRawStats } = await import("./awards");
+
+beforeEach(() => {
+  ranges.length = 0;
+  failedPage = null;
+  neverEnds = false;
+});
 
 describe("fetchHomepageRawStats", () => {
   it("reads a whole season rather than the first thousand rows of it", async () => {
@@ -64,5 +74,13 @@ describe("fetchHomepageRawStats", () => {
     ranges.length = 0;
     expect(await fetchHomepageRawStats("S5", [])).toEqual([]);
     expect(ranges).toEqual([]);
+  });
+
+  it("rejects later-page errors and the safety limit instead of calculating partial awards", async () => {
+    failedPage = 1000;
+    await expect(fetchHomepageRawStats("S5")).rejects.toEqual({ message: "page failed" });
+    failedPage = null;
+    neverEnds = true;
+    await expect(fetchHomepageRawStats("S5")).rejects.toThrow(/refusing to return partial data/);
   });
 });

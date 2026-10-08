@@ -36,6 +36,7 @@ const cinzel = Cinzel({
   subsets: ["latin"],
   weight: ["600", "700", "900"],
   variable: "--font-cinzel",
+  preload: false,
 });
 // Champions-drop cards only. Bangers is the FACELESS wordmark's brush-poster
 // voice; Pinyon is the ink an autographed relic signs in (champions have no
@@ -44,11 +45,13 @@ const bangers = Bangers({
   subsets: ["latin"],
   weight: "400",
   variable: "--font-bangers",
+  preload: false,
 });
 const pinyon = Pinyon_Script({
   subsets: ["latin"],
   weight: "400",
   variable: "--font-pinyon",
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -65,6 +68,19 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   // redirects; database policies are the real gate). fetchStaffTier fails
   // closed, so signed-out visitors and query errors just hide the link.
   const tier = await fetchStaffTier(await createServerSupabase());
+  const content = (
+    <>
+      <SiteNavigation
+        authSlot={<Suspense fallback={null}><AuthButton /></Suspense>}
+        showAdmin={tier.isAdmin || tier.isOwner || tier.isBroadcaster}
+        showBroadcaster={canAccessBroadcaster(tier)}
+        isGuessTheCardAdmin={tier.isAdmin}
+      />
+      {children}
+      <SupportDevButton />
+      <MobileTabBar />
+    </>
+  );
   return (
     <html
       lang="en"
@@ -72,33 +88,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-canvas text-content font-body antialiased">
         <ToastProvider>
-        <Suspense
-          fallback={
-            <div data-league="premier" className="contents">
-              <SiteNavigation
-                authSlot={<AuthButton />}
-                showAdmin={tier.isAdmin || tier.isOwner || tier.isBroadcaster}
-                showBroadcaster={canAccessBroadcaster(tier)}
-                isGuessTheCardAdmin={tier.isAdmin}
-              />
-              {children}
-              <SupportDevButton />
-              <MobileTabBar />
-            </div>
-          }
-        >
-          <LeagueThemeScope>
-            <SiteNavigation
-              authSlot={<AuthButton />}
-              showAdmin={tier.isAdmin || tier.isOwner || tier.isBroadcaster}
-              showBroadcaster={canAccessBroadcaster(tier)}
-              isGuessTheCardAdmin={tier.isAdmin}
-            />
-            {children}
-            <SupportDevButton />
-              <MobileTabBar />
-          </LeagueThemeScope>
-        </Suspense>
+          <Suspense fallback={<div data-league="premier" className="contents">{content}</div>}>
+            <LeagueThemeScope>{content}</LeagueThemeScope>
+          </Suspense>
         </ToastProvider>
       </body>
     </html>

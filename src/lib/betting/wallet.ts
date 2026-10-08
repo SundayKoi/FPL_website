@@ -24,15 +24,6 @@ function resolveUsername(metadata: Record<string, unknown>, discordId: string): 
 }
 
 /**
- * The signed-in user's betting identity + wallet, or `null` when signed out
- * (or signed in without a linked Discord identity — betting requires one).
- *
- * Every call re-runs `grant_signup_bonus`, which is idempotent on the
- * Postgres side (only the first call for a Discord id credits the bonus;
- * later calls just refresh the cached username/avatar and, once, link
- * `profile_id`) — so this doubles as "sync my betting profile".
- */
-/**
  * Who is signed in, as a Discord id and a balance — READ-ONLY.
  *
  * getBettingUser() mints a wallet and credits the signup bonus as it goes,
@@ -56,7 +47,20 @@ export async function readBettingIdentity(): Promise<{ discordId: string; profil
   return { discordId, profileId: user.id, balance: typeof balance === "number" ? balance : null };
 }
 
+type ReadonlyBettingUser = Omit<BettingUser, "balance"> & { balance: number | null };
+
+/** Header display must not create a wallet or grant money on a public page. */
+export function readBettingUser(): Promise<ReadonlyBettingUser | null> {
+  return loadBettingUser(false);
+}
+
+/** Initialize/sync the wallet through the idempotent signup-bonus RPC. */
 export async function getBettingUser(): Promise<BettingUser | null> {
+  const user = await loadBettingUser(true);
+  return user ? { ...user, balance: user.balance ?? 0 } : null;
+}
+
+async function loadBettingUser(initializeWallet: boolean): Promise<ReadonlyBettingUser | null> {
   const supabase = await createServerSupabase();
   const { data } = await supabase.auth.getUser();
   const user = data.user;
@@ -71,29 +75,32 @@ export async function getBettingUser(): Promise<BettingUser | null> {
   const avatar = (metadata.avatar_url as string | undefined) ?? null;
 
   const service = createBettingServiceClient();
-  const { error } = await service.rpc("grant_signup_bonus", {
-    p_user: discordId,
-    p_username: username,
-    p_avatar: avatar,
-    p_amount: SIGNUP_BONUS_AMOUNT,
-    p_profile_id: user.id,
-  });
-  if (error) console.error("betting: grant_signup_bonus failed", error);
+  if (initializeWallet) {
+    const { error } = await service.rpc("grant_signup_bonus", {
+      p_user: discordId,
+      p_username: username,
+      p_avatar: avatar,
+      p_amount: SIGNUP_BONUS_AMOUNT,
+      p_profile_id: user.id,
+    });
+    if (error) console.error("betting: grant_signup_bonus failed", error);
+  }
 
-  const { data: profile } = await service
+  const query = service
     .from("betting_profiles")
     .select("balance, patron_until")
-    .eq("discord_id", discordId)
-    .single();
-
-  const { allowed, staff } = await bettingAccess(discordId);
+    .eq("discord_id", discordId);
+  const [{ data: profile }, { allowed, staff }] = await Promise.all([
+    initializeWallet ? query.single() : query.maybeSingle(),
+    bettingAccess(discordId),
+  ]);
 
   const patron = patronActive((profile as { patron_until?: string | null } | null)?.patron_until);
   return {
     discordId,
     profileId: user.id,
     username,
-    balance: (profile as { balance: number; patron_until?: string | null } | null)?.balance ?? 0,
+    balance: (profile as { balance: number; patron_until?: string | null } | null)?.balance ?? null,
     ...(patron ? { patron: true } : {}),
     allowed,
     staff,

@@ -466,13 +466,14 @@ export async function fetchHomepageStandings(
     : draftTeams;
 
   try {
-    const { data: fixturesData, error: fixturesError } = await supabase
-      .from("fixtures")
-      .select("id, season, team_a, team_b, score_a, score_b, stage, sort_order")
-      .eq("season", season);
+    const [{ data: fixturesData, error: fixturesError }, seriesMinutes] = await Promise.all([
+      supabase.from("fixtures")
+        .select("id, season, team_a, team_b, score_a, score_b, stage, sort_order")
+        .eq("season", season),
+      fetchSeriesMinutes(supabase, season),
+    ]);
     if (fixturesError) throw fixturesError;
     const fixtures = (fixturesData as StandingsFixture[]) ?? [];
-    const seriesMinutes = await fetchSeriesMinutes(supabase, season);
     const standings = deriveSeriesStandings(fixtures, season, scoped, seriesMinutes).map((team) => ({
       ...team,
       ...deriveTeamExtras(fixtures, season, team.name),

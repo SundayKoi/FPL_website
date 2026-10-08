@@ -9,10 +9,11 @@ and test a release at **Season's End** (`/admin/seasons-end`). The page is pinne
 and Academy A1; use the league dropdown to swap between the two card sets.
 Admins and owners can view the card calculation diagnostics, while active
 patrons can open the shared URL to view the cards; they see the card collection
-without the staff controls, diagnostics, or developer crop audit. This is a
+without the staff controls, diagnostics, or developer crop audit.
+
 The admin awards desk remains a calculation and release-control surface; the
 public release is a separate collectible product. A published pack mints five
-distinct, auto-dust-protected Season's End copies: two Season Cards, two award
+distinct Season's End copies: two Season Cards, two award
 cards, and a guaranteed foil in the fifth slot. The collection distinguishes
 catalog previews from owned variants and renders owned signatures, foils,
 frozen artwork, and copy IDs from the inventory row. A copy's detail URL is
@@ -24,7 +25,10 @@ Purchases are paid only, keyed by a durable request UUID, and a pending opening
 can be resumed after reload or a membership/season change. Community commerce
 uses dedicated Season's End listings, wants, trades, and dust RPCs; those
 boundaries never feed player-card gameplay, sets, lineups, expeditions, or
-auto-dust.
+weekly-card auto-dust. Season's End has its own league-scoped auto-dust setting:
+it preserves the oldest active copy of each exact release/design/foil/signature
+variant and dusts duplicates through its dedicated service-only RPC. See
+[the backend commerce contract](backend.md#seasons-end-release-and-commerce).
 The former `/admin/season-end` route redirects here for existing admin
 bookmarks.
 
@@ -74,8 +78,11 @@ unsigned; signed mode uses only the winner's saved autograph for the selected
 season, never a synthesized name or a different season's ink. Variant choices
 are local, read-only, and reset on navigation. Missing ink disables signed mode;
 catalog or signature-query failures keep the card readable and offer retry.
-Missing alternate art falls back to the champion's base art. See the [Best of
-results-ranking decision](plans/2026-09-16-best-of-results-ranking.md).
+Missing alternate art falls back to the champion's base art. The selector and
+its regression coverage live in `src/lib/season-end/best-of.ts` and
+`src/lib/season-end/best-of.test.ts`. The admin awards desk currently passes
+`showBestOfVariants={false}`; the renderer's variant controls appear only where
+a caller enables them.
 
 Pair artwork is cosmetic evidence, not a second award calculation. For each
 awarded member, selected-season regular-season appearances are scoped to the

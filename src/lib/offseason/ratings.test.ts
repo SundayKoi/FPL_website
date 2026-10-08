@@ -90,6 +90,8 @@ function entrant(name: string, role: LolRole, overrides: Partial<OffseasonEntran
     status: "active",
     eliminated_week: null,
     signed_up_at: `2026-10-01T00:00:${String(clock).padStart(2, "0")}Z`,
+    locked_in_role: null,
+    locked_in_at: null,
     ...overrides,
   };
 }

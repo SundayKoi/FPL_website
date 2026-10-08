@@ -28,13 +28,12 @@
 // still only appears in the All view: the variant views are a display case,
 // not a workbench.
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/system/Toast";
 import { useUrlState } from "@/lib/ui/useUrlState";
 import { useAutoDisarm } from "@/lib/ui/useAutoDisarm";
 import EmptyShelf from "./EmptyShelf";
-import { printRunKey } from "@/lib/packs/printRuns";
 import type { InventoryRow } from "@/lib/packs/queries";
 import { editionLabel } from "@/lib/packs/week";
 import { MAX_DUST_BATCH, patronDustValue } from "@/lib/packs/config";
@@ -49,13 +48,11 @@ import {
   FILTERS,
   MATCHES,
   SHELF_SORTS,
-  betterCopy,
   copyOrder,
-  isEclipse,
   matchesFinder,
-  printKey,
   printOf,
-  showcaseOrder,
+  printKey,
+  shelfEntries,
   type ShelfSort,
   type VariantFilter,
 } from "./collectionShelf";
@@ -64,10 +61,11 @@ import {
  *  never sees the button at all, and a big one pays for what it looks at
  *  rather than for everything it owns. */
 const PAGE_SIZE = 60;
+const EMPTY_PINNED_IDS: number[] = [];
 
 export default function CollectionGrid({
   inventory,
-  pinnedIds = [],
+  pinnedIds = EMPTY_PINNED_IDS,
   flame = null,
   deployedIds,
   printRuns,
@@ -93,7 +91,7 @@ export default function CollectionGrid({
    *  the one chip. */
   printRuns?: ReadonlyMap<string, number>;
 }) {
-  const pinned = new Set(pinnedIds);
+  const pinned = useMemo(() => new Set(pinnedIds), [pinnedIds]);
   // Finding a card on a big shelf: a name, a week, an order, a variant.
   // Each is a different shelf, so changing any of them starts the paging
   // over. They live in the URL so opening a card and coming back — or
@@ -217,20 +215,27 @@ export default function CollectionGrid({
     });
   }
 
-  if (inventory.length === 0) {
-    return <EmptyShelf base={base} goal="start your shelf" />;
-  }
-
-  // Every week the shelf holds copies from, newest first — the week picker.
-  const heldWeeks = [...new Set(inventory.map((row) => row.editionWeek))].sort().reverse();
-  const visible = inventory.filter((row) => matchesFinder(row, query, week));
-
-  const counts: Record<VariantFilter, number> = {
+  const heldWeeks = useMemo(() => [...new Set(inventory.map((row) => row.editionWeek))].sort().reverse(), [inventory]);
+  const visible = useMemo(() => inventory.filter((row) => matchesFinder(row, query, week)), [inventory, query, week]);
+  const counts = useMemo<Record<VariantFilter, number>>(() => ({
     all: visible.length,
     foil: visible.filter(MATCHES.foil).length,
     signed: visible.filter(MATCHES.signed).length,
     alt: visible.filter(MATCHES.alt).length,
-  };
+  }), [visible]);
+  const owned = useMemo(
+    () => filter === "all" && !selecting ? shelfEntries(visible, sort, printRuns) : [],
+    [visible, sort, printRuns, filter, selecting],
+  );
+
+  const shown = useMemo(
+    () => selecting || filter !== "all"
+      ? [...(filter === "all" ? visible : visible.filter(MATCHES[filter]))].sort(copyOrder(sort))
+      : [],
+    [visible, filter, sort, selecting],
+  );
+
+  if (inventory.length === 0) return <EmptyShelf base={base} goal="start your shelf" />;
 
   const finder = (
     <div className="flex flex-wrap items-end gap-3" role="search" aria-label="Find a card">
@@ -314,7 +319,6 @@ export default function CollectionGrid({
     // whole job here is picking specific copies out of the pile. The
     // variant chips still narrow it, which is how "dust my spare commons"
     // is a two-tap job.
-    const shown = (filter === "all" ? visible : visible.filter(MATCHES[filter])).slice().sort(copyOrder(sort));
     const total = shown.filter((row) => picked.has(row.id)).reduce((sum, row) => sum + valueOf(row), 0);
     return (
       <div className="flex flex-col gap-4">
@@ -383,7 +387,6 @@ export default function CollectionGrid({
   }
 
   if (filter !== "all") {
-    const shown = visible.filter(MATCHES[filter]).sort(copyOrder(sort));
     return (
       <div className="flex flex-col gap-4">
         {chips}
@@ -404,61 +407,6 @@ export default function CollectionGrid({
       </div>
     );
   }
-
-  const groups = new Map<string, InventoryRow[]>();
-  for (const row of visible) {
-    const copies = groups.get(row.slug) ?? [];
-    copies.push(row);
-    groups.set(row.slug, copies);
-  }
-
-  const owned = [...groups.values()]
-    .map((copies) => {
-      // Distinct prints, one representative each: the strip is about what a
-      // copy looks like, and two identical prints look identical.
-      const byPrint = new Map<string, InventoryRow[]>();
-      for (const copy of copies) {
-        const key = printKey(copy);
-        byPrint.set(key, [...(byPrint.get(key) ?? []), copy]);
-      }
-      return {
-        best: copies.reduce(betterCopy),
-        count: copies.length,
-        // The Eclipse is counted apart from the foils: a ✦ beside a ◐ would
-        // say "two foils" about a stack that holds one foil and one thing
-        // there is exactly one of in the world.
-        eclipses: copies.filter(isEclipse).length,
-        foils: copies.filter((copy) => copy.foil && !isEclipse(copy)).length,
-        signatures: copies.filter((copy) => copy.signed).length,
-        // Chronological, so the chips read as a print history.
-        editions: [...new Set(copies.map((copy) => copy.editionWeek))].sort(),
-        prints: [...byPrint.values()]
-          .map((prints) => ({ copy: prints.reduce(betterCopy), count: prints.length }))
-          .sort((a, b) => showcaseOrder(a.copy, b.copy)),
-        // What the dust drawer needs: the flat fields it labels and prices a
-        // copy by, plus the frozen print it shows you before you destroy it.
-        // No extra payload — this json is already on the client.
-        copies: copies
-          .map((copy) => ({
-            id: copy.id,
-            tier: copy.tier,
-            foil: copy.foil,
-            // The parallel is what tells the drawer a copy cannot be dusted
-            // at all (an Eclipse), and what prices a Cracked Ice above a
-            // Prisma — the same field the server reads for both.
-            foilType: copy.foilType,
-            signed: copy.signed,
-            editionWeek: copy.editionWeek,
-            card: copy.card,
-            // Resolved here rather than in the drawer: the drawer's copies
-            // carry no slug, and the counter map is keyed by print.
-            printNumber: copy.printNumber,
-            printRun: printRuns?.get(printRunKey(copy.editionWeek, copy.slug)) ?? null,
-          }))
-          .sort((a, b) => a.editionWeek.localeCompare(b.editionWeek) || a.id - b.id),
-      };
-    })
-    .sort((a, b) => copyOrder(sort)(a.best, b.best) || a.best.playerName.localeCompare(b.best.playerName));
 
   return (
     <div className="flex flex-col gap-4">

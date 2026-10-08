@@ -2,6 +2,7 @@ import { cardPlayerKey } from "@/lib/cards/cardKeys";
 import { BEST_OF_MIN_PLAYER_GAMES } from "./best-of";
 import type { SeasonRow } from "./derive";
 import { finiteField, rowIdentity, teamKey } from "./rowKeys";
+import { createMidrankIndex } from "./percentiles";
 
 export const DUO_FORMULA_VERSION = "duo-impact-v1" as const;
 export const DUO_MIN_GAMES = BEST_OF_MIN_PLAYER_GAMES;
@@ -190,12 +191,12 @@ export function scoreDuoPairs(
   const coverage = coverageNote(definition, roleRows);
   if (coverage) return { status: "unavailable", note: coverage, pairs: [] };
 
-  const references = new Map<DuoRole, Record<DuoMetricKey, number[]>>();
+  const references = new Map<DuoRole, Record<DuoMetricKey, ReadonlyMap<number, number>>>();
   for (const role of definition.roles) {
     references.set(role, Object.fromEntries(DUO_COMPONENTS.map(({ key }) => [
       key,
-      (roleRows.get(role) ?? []).map((row) => finiteField(row, key)!),
-    ])) as Record<DuoMetricKey, number[]>);
+      createMidrankIndex((roleRows.get(role) ?? []).map((row) => finiteField(row, key)!))!,
+    ])) as Record<DuoMetricKey, ReadonlyMap<number, number>>);
   }
 
   const pairs = eligible.map(([key, pair]): DuoPairScore => {
@@ -209,7 +210,7 @@ export function scoreDuoPairs(
         const roleReference = references.get(definition.roles[memberIndex])!;
         for (const { key: metric, weight } of DUO_COMPONENTS) {
           const raw = finiteField(row, metric)!;
-          const percentile = midrankPercentile(raw, roleReference[metric])!;
+          const percentile = roleReference[metric].get(raw)!;
           memberComponentSums[memberIndex][metric] += percentile;
           rawSums[memberIndex][metric] += raw;
           componentSums[metric] += percentile / 2;

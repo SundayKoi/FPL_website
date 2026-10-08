@@ -9,10 +9,12 @@ const MEMBER_FETCH_TIMEOUT_MS = 5_000;
 // during a Discord outage this stops every request from re-hitting (and
 // re-timing-out against) Discord for the same 60s window.
 const memberCache = new Map<string, { at: number; value: GuildMember | null }>();
+const memberRequests = new Map<string, Promise<GuildMember | null>>();
 
 /** Test-only: clears the module-level guild-member cache between cases. */
 export function _clearMemberCache(): void {
   memberCache.clear();
+  memberRequests.clear();
 }
 
 /**
@@ -33,7 +35,20 @@ export async function fetchGuildMember(
   if (cached && Date.now() - cached.at < MEMBER_CACHE_TTL_MS) {
     return cached.value;
   }
+  const pending = memberRequests.get(cacheKey);
+  if (pending) return pending;
+  const request = loadGuildMember(discordId, guildId);
+  memberRequests.set(cacheKey, request);
+  try {
+    const value = await request;
+    memberCache.set(cacheKey, { at: Date.now(), value });
+    return value;
+  } finally {
+    memberRequests.delete(cacheKey);
+  }
+}
 
+async function loadGuildMember(discordId: string, guildId: string | undefined): Promise<GuildMember | null> {
   const botToken = process.env.DISCORD_BOT_TOKEN;
 
   let value: GuildMember | null;
@@ -57,7 +72,6 @@ export async function fetchGuildMember(
     value = null;
   }
 
-  memberCache.set(cacheKey, { at: Date.now(), value });
   return value;
 }
 

@@ -58,6 +58,21 @@ export async function withdrawAction(eventId: string): Promise<OffseasonActionRe
   return done(await supabase.rpc("offseason_withdraw", { p_event_id: eventId }));
 }
 
+/**
+ * The player confirms they are playing `role`. A player staff added by hand
+ * passes that row's Riot ID to claim it in the same step.
+ */
+export async function lockInAction(input: { eventId: string; role: LolRole; riotId?: string }): Promise<OffseasonActionResult> {
+  const supabase = await createServerSupabase();
+  return done(
+    await supabase.rpc("offseason_lock_in", {
+      p_event_id: input.eventId,
+      p_role: input.role,
+      p_riot_id: input.riotId?.trim() || null,
+    }),
+  );
+}
+
 // === Staff: event and entrants ===============================================
 
 export async function createEventAction(name: string): Promise<OffseasonActionResult> {
@@ -110,6 +125,17 @@ export async function updateEntrantAction(
 ): Promise<OffseasonActionResult> {
   const supabase = await createServerSupabase();
   return done(await supabase.from("offseason_entrants").update(patch).eq("id", entrantId));
+}
+
+/** Staff record a lock-in for `role` (a player who confirmed in Discord), or clear it with null. */
+export async function setLockInAction(entrantId: string, role: LolRole | null): Promise<OffseasonActionResult> {
+  const supabase = await createServerSupabase();
+  return done(
+    await supabase
+      .from("offseason_entrants")
+      .update({ locked_in_role: role, locked_in_at: role ? new Date().toISOString() : null })
+      .eq("id", entrantId),
+  );
 }
 
 export async function deleteEntrantAction(entrantId: string): Promise<OffseasonActionResult> {

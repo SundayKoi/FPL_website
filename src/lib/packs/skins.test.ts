@@ -46,7 +46,7 @@ describe("printArtExists", () => {
    *  Every test below uses a champion + num pair of its own: the validity
    *  cache is module-level and deliberately never cleared. */
   const cdn = (served: (url: string) => boolean) =>
-    vi.fn(async (url: string) => ({ ok: served(url) }));
+    vi.fn(async (url: string) => ({ ok: served(url), status: served(url) ? 200 : 403 }));
 
   it("accepts a skin Riot never centered but did splash", async () => {
     // The gap this whole fallback exists for: /centered/ is missing for a
@@ -99,6 +99,23 @@ describe("printArtExists", () => {
     await expect(resolvePrintArtUrl("Jhin", 23)).resolves.toBe(
       "https://ddragon.leagueoflegends.com/cdn/img/champion/centered/Jhin_23.jpg",
     );
+  });
+
+  it("shares concurrent probes for the same print", async () => {
+    const fetchMock = cdn((url) => url.includes("/splash/"));
+    vi.stubGlobal("fetch", fetchMock);
+    const results = await Promise.all(Array.from({ length: 5 }, () => resolvePrintArtUrl("Jhin", 92)));
+    expect(results).toEqual(Array(5).fill("https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Jhin_92.jpg"));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([429, 500, 502, 503])("retries a centered crop after a temporary HTTP %i", async (status) => {
+    const num = 1000 + status;
+    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: false, status }).mockResolvedValue({ ok: true, status: 200 });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(resolvePrintArtUrl("Jhin", num)).resolves.toContain(`/splash/Jhin_${num}.jpg`);
+    await expect(resolvePrintArtUrl("Jhin", num)).resolves.toContain(`/centered/Jhin_${num}.jpg`);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("answers no art when the CDN serves neither directory", async () => {
@@ -209,6 +226,22 @@ describe("fetchChampionSkinNums", () => {
     await expect(fetchChampionSkinNums("Kai'Sa")).resolves.toEqual([0, 3]);
     await expect(fetchChampionSkinNums("Kaisa")).resolves.toEqual([0, 3]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shares a concurrent catalog read across champion aliases", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => skinPayload("Akali", [0, 1, 2]) });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(Promise.all([fetchChampionSkinNums("Akali"), fetchChampionSkinNums("akali")])).resolves.toEqual([[0, 1, 2], [0, 1, 2]]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a shared catalog failure instead of retaining its fallback", async () => {
+    const fetchMock = vi.fn().mockRejectedValueOnce(new Error("ECONNRESET"))
+      .mockResolvedValue({ ok: true, json: async () => skinPayload("Bard", [0, 1]) });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(Promise.all([fetchChampionSkinNums("Bard"), fetchChampionSkinNums("bard")])).resolves.toEqual([[0], [0]]);
+    await expect(fetchChampionSkinNums("Bard")).resolves.toEqual([0, 1]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("falls back to base splash when the CDN is down", async () => {

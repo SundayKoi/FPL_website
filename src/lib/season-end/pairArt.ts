@@ -1,4 +1,4 @@
-import { cardPlayerKey } from "@/lib/cards/build";
+import { cardPlayerKey } from "@/lib/cards/cardKeys";
 import { canonicalChampion, compareOrdinal } from "./best-of";
 import type { DuoChampionEvidence, DuoMemberEvidence } from "./duo";
 import type { SeasonRow } from "./derive";
@@ -37,7 +37,9 @@ export function selectPairChampion(
   const candidates = new Map<string, SeasonRow[]>();
   for (const row of candidateRows) {
     const champion = canonicalChampion(row.champion.trim());
-    candidates.set(champion.id, [...(candidates.get(champion.id) ?? []), row]);
+    const group = candidates.get(champion.id);
+    if (group) group.push(row);
+    else candidates.set(champion.id, [row]);
   }
   if (!candidates.size) return null;
 

@@ -16,6 +16,10 @@ and server-enforced access intact when changing shared features.
 ## Find the relevant context
 
 - [README.md](README.md): setup, commands, and operations; use the relevant section.
+- [docs/frontend.md](docs/frontend.md): current UI shells, design tokens,
+  navigation sources, and server/client composition; read for frontend changes.
+- [docs/page-spacing.md](docs/page-spacing.md): gutter ownership and scoped
+  width constraints; check before changing page wrappers.
 - [docs/backend.md](docs/backend.md): client/server boundaries and domain contracts;
   read the affected sections for database, authorization, realtime, betting,
   ingestion, or scheduled-job changes.
@@ -26,6 +30,8 @@ and server-enforced access intact when changing shared features.
 - `docs/superpowers/`: dated plans and designs for historical context. Verify
   their assumptions against current code; their workflow boilerplate does not
   require skills, delegation, approval checkpoints, or task-by-task execution.
+- Dated audits and `docs/plans/` also record historical evidence, not current
+  verification. Update the owning reference when changing a documented contract.
 
 ## Constraints
 

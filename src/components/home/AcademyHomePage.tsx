@@ -27,17 +27,20 @@ export default async function AcademyHomePage() {
   const teamNameSet = academyTeamNames(draftData.teams);
   const teamNames = draftData.teams.map((team) => team.name);
 
-  const [awards, standingsData, schedule, identities, topCards, featuredSettings, viewer] = await Promise.all([
+  const broadcast = fetchHomepageFeaturedSettings("academy").then(async (featuredSettings) => ({
+    featuredSettings,
+    twitch: await fetchHomepageTwitch(twitchChannelLoginFromUrl(featuredSettings.twitchUrl)),
+  }));
+  const [awards, standingsData, schedule, identities, topCards, { featuredSettings, twitch }, viewer] = await Promise.all([
     fetchHomepageAwards(seasons.academy, teamNames, "academy_draft_id"),
     fetchHomepageStandings(seasons.academy, teamNames, "academy_draft_id", "league-wide"),
     fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, teamNameSet), seasons.academy),
     fetchTeamIdentities("academy_draft_id"),
     // The Academy hub's own build — same season code, same week.
-    (async () => fetchCurrentWeekCards(await createServerSupabase(), seasons.academy))(),
-    fetchHomepageFeaturedSettings("academy"),
+    fetchCurrentWeekCards(supabase, seasons.academy),
+    broadcast,
     homeViewer(),
   ]);
-  const twitch = await fetchHomepageTwitch(twitchChannelLoginFromUrl(featuredSettings.twitchUrl));
   const featuredFixture = selectHomepageFeaturedFixture(schedule.fixtures, featuredSettings.fixtureId);
 
   return (

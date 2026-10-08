@@ -14,8 +14,8 @@ Everything here is built to be deleted when the event is over. See
 
 | Piece | Where |
 | --- | --- |
-| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`) |
-| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql` |
+| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql` |
+| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql` |
 | Logic, reads, server actions | `src/lib/offseason/` |
 | Pages | `src/app/offseason/` (`/offseason`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
 | Components | `src/components/offseason/` |
@@ -33,6 +33,7 @@ never read them. Offseason games go to `offseason_stats`, never to
 
 - Anyone can read the event.
 - Signed-in players can sign up, edit their own entry, and withdraw while sign-ups are open (`offseason_sign_up`, `offseason_withdraw`).
+- Once they have a role, signed-in players lock it in (`offseason_lock_in`). A staff-added player claims their row by Riot ID in the same step, even after sign-ups close.
 - Admins and owners do everything else, from `/offseason/admin`. The page only
   hides controls. The RLS policies and the staff check in each RPC are what enforce access.
 - The ingest writes with the service role only, through `offseason_record_ingest`.
@@ -77,6 +78,30 @@ come, first served:
 
 Review the plan, change any row, then click **Save roles**. Withdraw or reinstate
 players from the same table.
+
+### Lock-in
+
+Once roles are saved, players confirm they are playing and accept their role.
+Share `/offseason`: a player with a role sees **Lock in as {role}**, and a
+player sitting out is told so. Players who are unhappy with their role, or
+can't play, are told to message staff instead of locking in.
+
+- A player staff added by hand enters the Riot ID they gave to find their spot.
+  Locking in links the row to their account, so they can also captain.
+  This works after sign-ups close.
+- A lock-in names the role it accepted. If you save a different role for that
+  player, the old lock-in stops counting and they are asked to lock in again.
+- The Players table shows "Locked in", "Not yet", or "Was {role}" after a
+  role change, and a count of locked-in players out of those playing. **Mark**
+  records a lock-in for a player who confirmed in Discord; **Clear** removes it.
+
+Lock-in is a checklist for staff, not a gate. Nothing stops a player who has
+not locked in from being drafted. Before opening week 1, bench or replace
+players who never locked in.
+
+A Riot ID is not proof of identity. Anyone signed in can claim an unlinked row
+by typing its Riot ID, the same as signing up with it. If someone claims the
+wrong row, clear `profile_id` on it in the database.
 
 ### Each week
 
@@ -142,6 +167,7 @@ proposed for the elimination tier automatically.
    drop function if exists
      public.offseason_sign_up(uuid, text, text, text, text, public.lol_role, public.lol_role),
      public.offseason_withdraw(uuid),
+     public.offseason_lock_in(uuid, public.lol_role, text),
      public.offseason_apply_roles(uuid, jsonb),
      public.offseason_set_week_entries(uuid, jsonb),
      public.offseason_create_week_draft(uuid, text, int, int, int[]),
@@ -154,8 +180,9 @@ proposed for the elimination tier automatically.
      public.offseason_is_staff();
    ```
 
-   Never edit or delete the original migration. Delete
-   `supabase/tests/0138_offseason_tournament_test.sql` in the same change.
+   Never edit or delete the original migrations. Delete
+   `supabase/tests/0138_offseason_tournament_test.sql` and
+   `supabase/tests/0139_offseason_lock_in_test.sql` in the same change.
 3. Delete `src/app/offseason/`, `src/components/offseason/`,
    `src/lib/offseason/`, `scripts/offseason_ingest.py`,
    `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml`

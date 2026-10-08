@@ -11,7 +11,7 @@ const { loadOffseasonPage, notFound } = vi.hoisted(() => ({
   }),
 }));
 vi.mock("@/lib/offseason/page", () => ({ loadOffseasonPage }));
-vi.mock("next/navigation", () => ({ notFound }));
+vi.mock("next/navigation", () => ({ notFound, useRouter: () => ({ refresh: vi.fn() }) }));
 
 import OffseasonPage from "./page";
 import OffseasonPlayerPage from "./players/[id]/page";
@@ -38,6 +38,8 @@ function entrant(id: string, role: LolRole, overrides: Partial<OffseasonEntrant>
     status: "active",
     eliminated_week: null,
     signed_up_at: `2026-10-01T00:00:0${ROLES.indexOf(role)}Z`,
+    locked_in_role: null,
+    locked_in_at: null,
     ...overrides,
   };
 }
@@ -81,6 +83,21 @@ describe("offseason pages", () => {
     expect(within(week).getByText("Round robin", { selector: "h3" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Eliminated" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Admin" }).getAttribute("href")).toBe("/offseason/admin");
+  });
+
+  it("asks a player with a role to lock in, and leaves spectators alone once everyone has", async () => {
+    const view = buildOffseasonView(fixture(), []);
+    const me = view.entrants.find((player) => player.id === "Blue mid")!;
+    loadOffseasonPage.mockResolvedValue({ view, userId: "me", isStaff: false, ownEntry: me });
+    const { unmount } = render(await OffseasonPage());
+    expect(screen.getByRole("button", { name: "Lock in as Mid" })).toBeTruthy();
+    unmount();
+
+    const done = fixture();
+    done.entrants = done.entrants.map((player) => ({ ...player, locked_in_role: player.assigned_role, locked_in_at: "2026-10-02" }));
+    loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(done, []), userId: null, isStaff: false, ownEntry: null });
+    render(await OffseasonPage());
+    expect(screen.queryByRole("heading", { name: "Lock in your role" })).toBeNull();
   });
 
   it("renders a player's page without trusting their op.gg link", async () => {

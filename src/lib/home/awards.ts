@@ -3,6 +3,7 @@ import { mondayOf, weekDayLabel } from "@/lib/packs/week";
 import { fetchDraftId } from "./fetchDraftId";
 import { powerRanking } from "@/lib/stats/formulas";
 import { aggregateWeeklyPlayerRows, WEEKLY_STAT_COLUMNS, type WeeklyRawStatRow } from "@/lib/stats/weekly";
+import { fetchAllPages } from "@/lib/supabase/pagination";
 
 /** Premier's season code. Academy passes its own (see lib/league/season.ts). */
 export const PREMIER_SEASON = "S5" as const;
@@ -57,7 +58,6 @@ export type HomepageAwardsData = {
  * Team of the Week and every superlative under them were computed from an
  * arbitrary slice of the season, with nothing anywhere to say so.
  */
-const RAW_PAGE = 1000;
 const RAW_MAX_PAGES = 40;
 
 const RAW_COLUMNS = [
@@ -431,28 +431,21 @@ export async function fetchHomepageRawStats(
 ): Promise<HomepageRawStatRow[]> {
   if (teamNames && teamNames.length === 0) return [];
   const supabase = await createServerSupabase();
-  const rows: HomepageRawStatRow[] = [];
-  for (let page = 0; page < RAW_MAX_PAGES; page += 1) {
-    const from = page * RAW_PAGE;
+  return fetchAllPages<HomepageRawStatRow>((from, to) => {
     // Filters first, THEN order and range: range() hands back a transform
     // builder, which has no .in() on it — appending the team filter after
     // it throws, and only on the academy homepage that passes one.
     let filtered = supabase.from("raw_stats").select(RAW_COLUMNS).eq("season", season);
     if (teamNames?.length) filtered = filtered.in("team_name", teamNames);
-    const { data, error } = await filtered
+    return filtered
       // Ordered by the primary key, which is what makes the paging sound:
       // an unordered range can hand back a row twice and skip another
       // between requests, and every award here is derived from the whole
       // set rather than from a top-N, so a skipped row is a wrong answer
       // rather than a missing one.
       .order("id", { ascending: true })
-      .range(from, from + RAW_PAGE - 1);
-    if (error) throw error;
-    const batch = ((data ?? []) as unknown) as HomepageRawStatRow[];
-    rows.push(...batch);
-    if (batch.length < RAW_PAGE) break;
-  }
-  return rows;
+      .range(from, to);
+  }, { maxPages: RAW_MAX_PAGES });
 }
 
 async function fetchHomepagePrices(draftColumn: "featured_draft_id" | "academy_draft_id"): Promise<Map<string, number>> {
