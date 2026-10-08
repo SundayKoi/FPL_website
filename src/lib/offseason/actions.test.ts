@@ -8,7 +8,7 @@ const { createServerSupabase, revalidatePath } = vi.hoisted(() => ({
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
-import { createMatchesAction, setGameAction, signUpAction, updateEventAction } from "./actions";
+import { createMatchesAction, lockInAction, setGameAction, setLockInAction, signUpAction, updateEventAction } from "./actions";
 
 type Result = { data?: unknown; error: { message: string; code?: string } | null };
 
@@ -71,6 +71,24 @@ describe("offseason server actions", () => {
     client({ write: { error: { message: 'new row violates row-level security policy for table "offseason_events"', code: "42501" } } });
     const result = await updateEventAction("event-1", { signups_open: false });
     expect(result).toEqual({ ok: false, error: "Only offseason staff can do that." });
+  });
+
+  it("locks in through the RPC, claiming by Riot ID only when one is given", async () => {
+    const { rpcFn } = client();
+    expect(await lockInAction({ eventId: "event-1", role: "top" })).toEqual({ ok: true });
+    expect(rpcFn).toHaveBeenLastCalledWith("offseason_lock_in", { p_event_id: "event-1", p_role: "top", p_riot_id: null });
+    await lockInAction({ eventId: "event-1", role: "top", riotId: " Pat Doe#NA1 " });
+    expect(rpcFn).toHaveBeenLastCalledWith("offseason_lock_in", { p_event_id: "event-1", p_role: "top", p_riot_id: "Pat Doe#NA1" });
+    expect(revalidatePath).toHaveBeenCalledWith("/offseason", "layout");
+  });
+
+  it("lets staff record or clear a lock-in", async () => {
+    const { update, eq } = client();
+    await setLockInAction("entrant-1", "mid");
+    expect(update).toHaveBeenLastCalledWith({ locked_in_role: "mid", locked_in_at: expect.any(String) });
+    expect(eq).toHaveBeenLastCalledWith("id", "entrant-1");
+    await setLockInAction("entrant-1", null);
+    expect(update).toHaveBeenLastCalledWith({ locked_in_role: null, locked_in_at: null });
   });
 
   it("numbers new matches after the week's last one", async () => {
