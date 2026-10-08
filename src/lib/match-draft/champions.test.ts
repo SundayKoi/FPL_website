@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import championMap from "@/lib/season-end/champion-map.json";
 import { CHAMPIONS, DDRAGON_VERSION, championByName, championCenteredUrl, championDisplayName, championIconUrl, championSplashUrl } from "./champions";
 
 describe("match draft champion metadata", () => {
@@ -22,7 +23,34 @@ describe("match draft champion metadata", () => {
     expect(championByName("JarvanIV")?.name).toBe("Jarvan IV");
     expect(championByName("Chogath")?.name).toBe("Cho'Gath");
     expect(championByName("FiddleSticks")?.name).toBe("Fiddlesticks");
+    expect(championByName("Renata")?.name).toBe("Renata Glasc");
     expect(championCenteredUrl("Kaisa")).toBe("https://ddragon.leagueoflegends.com/cdn/img/champion/centered/Kaisa_0.jpg");
+  });
+
+  it("points Renata Glasc at Riot's id, Renata, not a stripped display name", () => {
+    // Her id is the first name only. Stripping punctuation from the display
+    // name gives "RenataGlasc", which is neither what raw_stats says nor what
+    // Data Dragon names her files, so her games went unrecognised and art
+    // built from her display name pointed at the wrong file.
+    expect(championByName("Renata Glasc")?.id).toBe("Renata");
+    expect(championDisplayName("Renata")).toBe("Renata Glasc");
+    expect(championIconUrl("Renata Glasc")).toBe(`https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/champion/Renata.png`);
+    expect(championIconUrl("Renata")).toBe(`https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/champion/Renata.png`);
+    expect(championSplashUrl("Renata Glasc")).toBe("https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Renata_0.jpg");
+    expect(championCenteredUrl("Renata Glasc", 1)).toBe("https://ddragon.leagueoflegends.com/cdn/img/champion/centered/Renata_1.jpg");
+  });
+
+  it("gives every champion the id in the pinned Data Dragon snapshot", () => {
+    // src/lib/season-end/champion-map.json is a pinned snapshot of Data
+    // Dragon's champion.json (docs/season-end-cards.md), keyed by id. A
+    // display name whose id is not the name with punctuation stripped needs
+    // a DATA_DRAGON_IDS entry; this catches one that was missed, for every
+    // champion both lists know.
+    const riotId = new Map(Object.entries(championMap as Record<string, { name: string }>).map(([id, entry]) => [entry.name, id]));
+    const wrong = CHAMPIONS.filter((champion) => riotId.has(champion.name) && riotId.get(champion.name) !== champion.id).map(
+      (champion) => `${champion.name}: ${champion.id}, Data Dragon says ${riotId.get(champion.name)}`,
+    );
+    expect(wrong).toEqual([]);
   });
 
   it("pretty-prints any alias and passes unknown names through", () => {

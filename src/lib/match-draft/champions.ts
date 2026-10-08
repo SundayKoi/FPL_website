@@ -20,6 +20,7 @@ const DATA_DRAGON_IDS: Record<string, string> = {
   "Bel'Veth": "Belveth",
   "Dr. Mundo": "DrMundo",
   "K'Sante": "KSante",
+  "Renata Glasc": "Renata",
 };
 
 export type ChampionRole = "top" | "jungle" | "mid" | "adc" | "support";
