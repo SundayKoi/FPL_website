@@ -158,6 +158,18 @@ describe("gradeGame", () => {
     expect(grade).toBeCloseTo(0.4 * 50 + 0.3 * 100 + 0.3 * 50);
   });
 
+  it("grades Renata under Riot's spelling of her, as an enchanter", () => {
+    // raw_stats says "Renata". She used to fall through as unknown, so her
+    // games were left out of the style term and counted against the label.
+    const yardstick: StyleYardstick = {
+      ...YARDSTICK,
+      distributions: { ...YARDSTICK.distributions, "UTILITY|enchanter": { games: 100, stats: { heal: spread(0, 1000), assists: spread(0, 1) } } },
+    };
+    const renata = game("Glasc", { champion: "Renata", role: "UTILITY", effective_heal_and_shield: 15000, assists: 15 });
+    // 500 heal+shield/min and 0.5 assists/min both sit at the median.
+    expect(gradeGame(renata, "UTILITY", 30, index, yardstick)).toEqual({ style: "enchanter", grade: 50 });
+  });
+
   it("cannot grade a champion it does not know", () => {
     expect(gradeGame(game("X", { champion: "NotAChampion", role: "MIDDLE" }), "MIDDLE", 30, index, YARDSTICK)).toEqual({ style: null, grade: null });
   });

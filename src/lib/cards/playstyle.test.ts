@@ -22,6 +22,7 @@ describe("champion classes", () => {
     expect(championClass("Chogath")).toBe("tank");
     expect(championClass("KSante")).toBe("tank");
     expect(championClass("FiddleSticks")).toBe("mage");
+    expect(championClass("Renata")).toBe("enchanter");
     expect(championClass("NotAChampion")).toBeNull();
     expect(championClass(null)).toBeNull();
   });
