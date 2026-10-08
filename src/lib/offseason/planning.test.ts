@@ -21,6 +21,8 @@ function entrant(id: string, role: LolRole | null, overrides: Partial<OffseasonE
     status: "active",
     eliminated_week: null,
     signed_up_at: `2026-10-01T00:${String(Math.floor(clock / 60)).padStart(2, "0")}:${String(clock % 60).padStart(2, "0")}Z`,
+    locked_in_role: null,
+    locked_in_at: null,
     ...overrides,
   };
 }

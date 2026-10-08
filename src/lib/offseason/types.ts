@@ -1,5 +1,6 @@
 // Row shapes for the offseason tournament's tables — mirrors
-// supabase/migrations/20261107000001_offseason_tournament.sql. The whole
+// supabase/migrations/20261107000001_offseason_tournament.sql and
+// 20261108000001_offseason_lock_in.sql. The whole
 // feature (this folder, src/app/offseason, src/components/offseason) is
 // temporary: docs/offseason.md has the removal checklist.
 
@@ -41,6 +42,9 @@ export interface OffseasonEntrant {
   status: EntrantStatus;
   eliminated_week: number | null;
   signed_up_at: string;
+  /** The role the player confirmed; see lockIn.ts. */
+  locked_in_role: LolRole | null;
+  locked_in_at: string | null;
 }
 
 export interface OffseasonWeek {

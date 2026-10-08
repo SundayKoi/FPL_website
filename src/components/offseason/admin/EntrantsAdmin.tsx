@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { Fragment, useMemo, useState } from "react";
 import { ROLE_LABELS, ROLE_LABELS_SHORT, ROLE_ORDER, type LolRole } from "@/lib/draft/types";
-import { addEntrantAction, applyRolesAction, deleteEntrantAction, updateEntrantAction } from "@/lib/offseason/actions";
+import { addEntrantAction, applyRolesAction, deleteEntrantAction, setLockInAction, updateEntrantAction } from "@/lib/offseason/actions";
+import { lockInCounts, lockInState } from "@/lib/offseason/lockIn";
 import { planRoles } from "@/lib/offseason/roles";
 import { TEAM_SIZE, type OffseasonEntrant } from "@/lib/offseason/types";
 import { RANK_OPTIONS } from "@/lib/signup/ranks";
@@ -151,6 +152,41 @@ function EntrantEditor({ entrant, onClose }: { entrant: OffseasonEntrant; onClos
   );
 }
 
+/** Whether the player has confirmed their saved role; staff can record or clear it. */
+function LockInCell({ entrant, pending, run }: { entrant: OffseasonEntrant; pending: boolean; run: ReturnType<typeof useOffseasonAction>["run"] }) {
+  const state = lockInState(entrant);
+  if (state === "not_playing" || state === "no_role") return <span className="text-xs text-muted">—</span>;
+  const role = entrant.assigned_role!;
+  return (
+    <div className="flex items-center gap-1.5">
+      {state === "locked" ? (
+        <span className="text-xs font-semibold text-success" title={entrant.locked_in_at ? new Date(entrant.locked_in_at).toLocaleString() : undefined}>
+          Locked in
+        </span>
+      ) : state === "role_changed" ? (
+        <span className="text-xs font-semibold text-danger">Was {ROLE_LABELS_SHORT[entrant.locked_in_role!]}</span>
+      ) : (
+        <span className="text-xs text-muted">Not yet</span>
+      )}
+      {state === "locked" ? (
+        <button type="button" disabled={pending} className={buttonClass} onClick={() => run(() => setLockInAction(entrant.id, null), `${entrant.display_name}'s lock-in cleared.`)}>
+          Clear
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled={pending}
+          className={buttonClass}
+          title={`Record that ${entrant.display_name} confirmed ${ROLE_LABELS[role]}, e.g. in Discord`}
+          onClick={() => run(() => setLockInAction(entrant.id, role), `${entrant.display_name} locked in as ${ROLE_LABELS[role]}.`)}
+        >
+          Mark
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function EntrantsAdmin({ data }: { data: OffseasonAdminData }) {
   const { event, entrants } = data;
   const [assignments, setAssignments] = useState(() => initialAssignments(entrants));
@@ -175,6 +211,7 @@ export default function EntrantsAdmin({ data }: { data: OffseasonAdminData }) {
   ) as Record<LolRole, number>;
   const teams = Math.min(...ROLE_ORDER.map((role) => activeByRole[role]));
   const invalid = Object.values(assignments).some((row) => row.status === "active" && !row.role);
+  const lockIns = lockInCounts(entrants);
 
   const autoAssign = () => {
     const plan = planRoles(entrants);
@@ -215,13 +252,19 @@ export default function EntrantsAdmin({ data }: { data: OffseasonAdminData }) {
           ))}
           <span>→ {Number.isFinite(teams) ? teams : 0} full teams</span>
         </span>
+        {lockIns.playing > 0 ? (
+          <span className="text-xs text-muted">
+            Locked in <span className="tabular-nums text-white">{lockIns.locked}</span> of{" "}
+            <span className="tabular-nums text-white">{lockIns.playing}</span> playing
+          </span>
+        ) : null}
       </div>
       {planNote ? <p className="text-sm text-muted">{planNote}</p> : null}
       {invalid ? <p className="text-sm text-danger">Every active player needs a role.</p> : null}
       <ActionMessage message={message} />
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[56rem] border-collapse text-left text-sm">
+        <table className="w-full min-w-[62rem] border-collapse text-left text-sm">
           <thead>
             <tr className="text-[0.7rem] uppercase tracking-wide text-muted">
               <th className="border-b border-border-subtle px-2 py-2">#</th>
@@ -230,6 +273,7 @@ export default function EntrantsAdmin({ data }: { data: OffseasonAdminData }) {
               <th className="border-b border-border-subtle px-2 py-2">Wants</th>
               <th className="border-b border-border-subtle px-2 py-2">Plays</th>
               <th className="border-b border-border-subtle px-2 py-2">Status</th>
+              <th className="border-b border-border-subtle px-2 py-2">Lock-in</th>
               <th className="border-b border-border-subtle px-2 py-2 text-right">OVR</th>
               <th className="border-b border-border-subtle px-2 py-2" />
             </tr>
@@ -283,6 +327,9 @@ export default function EntrantsAdmin({ data }: { data: OffseasonAdminData }) {
                         </span>
                       )}
                     </td>
+                    <td className="border-b border-border-subtle/60 px-2 py-1.5">
+                      <LockInCell entrant={entrant} pending={pending} run={run} />
+                    </td>
                     <td className="border-b border-border-subtle/60 px-2 py-1.5 text-right tabular-nums">{rating?.overall ?? "—"}</td>
                     <td className="border-b border-border-subtle/60 px-2 py-1.5">
                       <div className="flex justify-end gap-1.5">
@@ -315,7 +362,7 @@ export default function EntrantsAdmin({ data }: { data: OffseasonAdminData }) {
                   </tr>
                   {editing === entrant.id ? (
                     <tr>
-                      <td colSpan={8} className="border-b border-border-subtle/60">
+                      <td colSpan={9} className="border-b border-border-subtle/60">
                         <EntrantEditor entrant={entrant} onClose={() => setEditing(null)} />
                       </td>
                     </tr>

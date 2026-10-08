@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Leaderboards from "@/components/offseason/Leaderboards";
+import LockIn from "@/components/offseason/LockIn";
 import { Empty, OffseasonShell, Panel, RoleTag } from "@/components/offseason/ui";
 import WeekBoard, { WEEK_STATUS_LABELS } from "@/components/offseason/WeekBoard";
 import { ROLE_LABELS, ROLE_ORDER } from "@/lib/draft/types";
+import { claimableSpots, lockInOpen } from "@/lib/offseason/lockIn";
 import { loadOffseasonPage } from "@/lib/offseason/page";
 import { proposeElimination } from "@/lib/offseason/planning";
 import { ELIMINATION_START_WEEK, STATUS_LABELS } from "@/lib/offseason/types";
@@ -14,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 export default async function OffseasonPage() {
-  const { view, isStaff, ownEntry } = await loadOffseasonPage();
+  const { view, userId, isStaff, ownEntry } = await loadOffseasonPage();
 
   if (!view) {
     return (
@@ -55,6 +57,10 @@ export default async function OffseasonPage() {
         </>
       }
     >
+      {lockInOpen(event, view.entrants, ownEntry) ? (
+        <LockIn eventId={event.id} signedIn={userId !== null} entry={ownEntry} spots={claimableSpots(view.entrants)} />
+      ) : null}
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr_1fr]">
         <Panel title={STATUS_LABELS[event.status]} aside={`${signedUp.length} signed up`}>
           <ul className="flex flex-wrap gap-3">
