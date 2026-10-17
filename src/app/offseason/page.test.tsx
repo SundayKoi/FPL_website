@@ -51,7 +51,7 @@ function fixture(): OffseasonEventData {
   return {
     event: { id: "event", name: "Offseason Cup", status: "running", signups_open: false, yardstick_season: "S6", created_at: "" },
     entrants: [...blue, ...red, entrant("Gone mid", "mid", { status: "eliminated", eliminated_week: 3 })],
-    weeks: [{ id: "w1", event_id: "event", week_number: 1, status: "playing", elimination_per_role: 0, main_draft_id: "d1", elimination_draft_id: null, created_at: "" }],
+    weeks: [{ id: "w1", event_id: "event", week_number: 1, status: "playing", elimination_per_role: 0, main_draft_id: "d1", elimination_draft_id: null, draft_at: "2026-10-19T00:00:00Z", games_at: "2026-10-20T00:00:00Z", created_at: "" }],
     entries: [],
     teams: [
       { id: "tb", week_id: "w1", tier: "main", name: "Team Blue", captain_entrant_id: "Blue top", draft_team_id: null, eliminated: false },
@@ -82,6 +82,9 @@ describe("offseason pages", () => {
     const week = screen.getByRole("heading", { name: "Week 1" }).closest("section")!;
     expect(within(week).getAllByText("Team Blue").length).toBeGreaterThan(0);
     expect(within(week).getByText("Round robin", { selector: "h3" })).toBeTruthy();
+    // Staff set the week's times; they read in Eastern Time.
+    expect(within(week).getByText("Sun, Oct 18, 8:00 PM EDT")).toBeTruthy();
+    expect(within(week).getByText("Mon, Oct 19, 8:00 PM EDT")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Eliminated" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Admin" }).getAttribute("href")).toBe("/offseason/admin");
   });
@@ -122,6 +125,7 @@ describe("offseason pages", () => {
     const midLane = within(match).getByRole("link", { name: "Blue mid" }).closest("li")!;
     expect(within(midLane).getByRole("link", { name: "Red mid" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Schedule" }).getAttribute("aria-current")).toBe("page");
+    expect(within(week).getByText("Sun, Oct 18, 8:00 PM EDT")).toBeTruthy();
   });
 
   it("explains an empty schedule", async () => {

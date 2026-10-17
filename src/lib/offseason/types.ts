@@ -57,6 +57,9 @@ export interface OffseasonWeek {
   elimination_per_role: number;
   main_draft_id: string | null;
   elimination_draft_id: string | null;
+  /** When the week drafts and when its games are played; staff set both, either may be unset. */
+  draft_at: string | null;
+  games_at: string | null;
   created_at: string;
 }
 

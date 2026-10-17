@@ -3,7 +3,7 @@ import { ROLE_ORDER } from "@/lib/draft/types";
 import { standings } from "@/lib/offseason/standings";
 import { STAGE_LABELS, type OffseasonMatch, type OffseasonTeam, type OffseasonWeek, type WeekStatus } from "@/lib/offseason/types";
 import type { OffseasonView } from "@/lib/offseason/view";
-import { Empty, Overall, RoleTag, SideTag, tableClass, tdClass, thClass } from "./ui";
+import { Empty, Overall, RoleTag, SideTag, tableClass, tdClass, thClass, WeekTimes } from "./ui";
 
 export const WEEK_STATUS_LABELS: Record<WeekStatus, string> = {
   setup: "Setting up",
@@ -127,6 +127,7 @@ export default function WeekBoard({ view, week }: { view: OffseasonView; week: O
 
   return (
     <div className="flex flex-col gap-5">
+      <WeekTimes week={week} />
       {drafts.some((draft) => !draft.imported) ? (
         <div className="flex flex-wrap gap-2">
           {drafts

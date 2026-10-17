@@ -14,8 +14,8 @@ Everything here is built to be deleted when the event is over. See
 
 | Piece | Where |
 | --- | --- |
-| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql` |
-| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql` |
+| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql` |
+| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql` |
 | Logic, reads, server actions | `src/lib/offseason/` |
 | Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
 | Components | `src/components/offseason/` |
@@ -36,8 +36,9 @@ It touches the rest of the site in two ways:
   - the Premier and Academy dashboards show a band under the featured matchup.
 
   The banner offers **Sign up** while sign-ups are open and **Schedule** once
-  weeks are played. It hides itself when the event is complete or the read
-  fails.
+  weeks are played. When the latest week has times, it also names the next
+  one, its draft and then its games. It hides itself when the event is
+  complete or the read fails.
 
 ## Access
 
@@ -115,7 +116,13 @@ wrong row, clear `profile_id` on it in the database.
 
 ### Each week
 
-Under Weeks, click **Open week N**. Then:
+Under Weeks, click **Open week N**. Then set its **Times (Eastern)**: when the
+week drafts and when its games are played. Either may be left empty, and the
+draft can't be after the games. The times show on `/offseason`, on
+`/offseason/schedule` and in the homepage banner. The draft time is also the
+start time of the week's auctions (`drafts.starts_at`), so the draft directory
+and draft room count down to it. Changing it later moves auctions already
+created (`offseason_set_week_times`). The week then goes:
 
 1. **Tiers and captains.** From week 3, click **Propose tiers and captains**. The
    4 lowest-rated players in each role form the elimination tier: 4 teams each
@@ -207,6 +214,7 @@ proposed for the elimination tier automatically.
      public.offseason_set_week_entries(uuid, jsonb),
      public.offseason_create_week_draft(uuid, text, int, int, int[], int),
      public.offseason_import_week_draft(uuid, text),
+     public.offseason_set_week_times(uuid, timestamptz, timestamptz),
      public.offseason_set_game(uuid, int, text, uuid),
      public.offseason_record_ingest(uuid, text, uuid),
      public.offseason_set_team_eliminated(uuid, boolean),
@@ -218,8 +226,9 @@ proposed for the elimination tier automatically.
    Never edit or delete the original migrations. Delete
    `supabase/tests/0138_offseason_tournament_test.sql` and
    `supabase/tests/0139_offseason_lock_in_test.sql`,
-   `supabase/tests/0140_offseason_elimination_only_week_test.sql` and
-   `supabase/tests/0141_offseason_captain_cost_test.sql` in the same change.
+   `supabase/tests/0140_offseason_elimination_only_week_test.sql`,
+   `supabase/tests/0141_offseason_captain_cost_test.sql` and
+   `supabase/tests/0142_offseason_week_times_test.sql` in the same change.
 3. Remove the homepage banner: `OffseasonHomeBanner` and
    `fetchHomeOffseasonEvent` in `src/components/home/PreseasonHomePage.tsx`,
    `RegularSeasonHomePage.tsx` and `AcademyHomePage.tsx`, the

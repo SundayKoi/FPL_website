@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { WeekSchedule } from "@/components/offseason/Schedule";
-import { Empty, OffseasonShell, Panel } from "@/components/offseason/ui";
+import { Empty, OffseasonShell, Panel, WeekTimes } from "@/components/offseason/ui";
 import { WEEK_STATUS_LABELS } from "@/components/offseason/WeekBoard";
 import { loadOffseasonPage } from "@/lib/offseason/page";
 
@@ -28,7 +28,10 @@ export default async function OffseasonSchedulePage() {
       ) : (
         weeks.map((week) => (
           <Panel key={week.id} title={`Week ${week.week_number}`} aside={WEEK_STATUS_LABELS[week.status]}>
-            <WeekSchedule view={view!} week={week} />
+            <div className="flex flex-col gap-4">
+              <WeekTimes week={week} />
+              <WeekSchedule view={view!} week={week} />
+            </div>
           </Panel>
         ))
       )}

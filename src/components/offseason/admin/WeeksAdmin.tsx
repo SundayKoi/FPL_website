@@ -6,6 +6,7 @@ import { ActionMessage, buttonClass, primaryButtonClass, useOffseasonAction, typ
 import WeekDrafts from "./WeekDrafts";
 import WeekMatches from "./WeekMatches";
 import WeekSetup from "./WeekSetup";
+import WeekTimesEditor from "./WeekTimes";
 
 const STEP: Record<OffseasonWeek["status"], string> = {
   setup: "Pick the elimination tier and captains, lock the tiers, then create the drafts.",
@@ -32,6 +33,7 @@ function WeekPanel({ data, week }: { data: OffseasonAdminData; week: OffseasonWe
         ) : null}
         <ActionMessage message={message} />
       </div>
+      {week.status === "complete" ? null : <WeekTimesEditor week={week} />}
       {week.status === "setup" ? <WeekSetup data={data} week={week} /> : null}
       <WeekDrafts data={data} week={week} />
       <WeekMatches data={data} week={week} />

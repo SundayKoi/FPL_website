@@ -26,6 +26,8 @@ const week: OffseasonWeek = {
   elimination_per_role: 0,
   main_draft_id: null,
   elimination_draft_id: null,
+  draft_at: null,
+  games_at: null,
   created_at: "",
 };
 
