@@ -81,53 +81,102 @@ function CaptainPicker({
   );
 }
 
-export function DraftCreator({ week, tier, disabled }: { week: OffseasonWeek; tier: Tier; disabled: boolean }) {
+/** A tier's captains in seat order, as the draft will seat them. */
+function seatedCaptains(data: OffseasonAdminData, week: OffseasonWeek, tier: Tier): OffseasonEntrant[] {
+  const byId = new Map(data.entrants.map((entrant) => [entrant.id, entrant]));
+  return data.entries
+    .filter((entry) => entry.week_id === week.id && entry.tier === tier && entry.captain_seat !== null)
+    .sort((a, b) => a.captain_seat! - b.captain_seat!)
+    .flatMap((entry) => byId.get(entry.entrant_id) ?? []);
+}
+
+export function DraftCreator({ data, week, tier, disabled }: { data: OffseasonAdminData; week: OffseasonWeek; tier: Tier; disabled: boolean }) {
   const [budget, setBudget] = useState(100);
   const [countdown, setCountdown] = useState(15);
-  const [captainCost, setCaptainCost] = useState("");
+  const [costs, setCosts] = useState<Record<string, string>>({});
   const { pending, message, run } = useOffseasonAction();
-  const cost = Number(captainCost);
-  // A captain costs at least 1 and leaves a point for each of the other four roles.
-  const costValid = captainCost.trim() !== "" && Number.isInteger(cost) && cost >= 1 && cost <= budget - 4;
+  const captains = seatedCaptains(data, week, tier);
+  const costOf = (id: string) => Number(costs[id]);
+  // Each captain costs at least 1 and leaves a point for each of the other four roles.
+  const validCost = (id: string) => (costs[id] ?? "").trim() !== "" && Number.isInteger(costOf(id)) && costOf(id) >= 1 && costOf(id) <= budget - 4;
+  const allValid = captains.length > 0 && captains.every((captain) => validCost(captain.id));
+  const typedInvalid = captains.some((captain) => (costs[captain.id] ?? "").trim() !== "" && !validCost(captain.id));
+  const first = captains[0];
   return (
-    <div className="flex flex-wrap items-end gap-2">
-      <label className={labelClass}>
-        Budget
-        <input type="number" min={1} value={budget} onChange={(e) => setBudget(Number(e.target.value))} className={`${inputClass} w-20`} />
-      </label>
-      <label className={labelClass}>
-        Timer (s)
-        <input type="number" min={5} value={countdown} onChange={(e) => setCountdown(Number(e.target.value))} className={`${inputClass} w-20`} />
-      </label>
-      <label className={labelClass}>
-        Captain cost
-        <input
-          type="number"
-          min={1}
-          max={Math.max(1, budget - 4)}
-          value={captainCost}
-          onChange={(e) => setCaptainCost(e.target.value)}
-          placeholder="e.g. 15"
-          className={`${inputClass} w-24`}
-        />
-      </label>
-      <button
-        type="button"
-        disabled={disabled || pending || budget < 1 || !costValid}
-        className={primaryButtonClass}
-        onClick={() =>
-          run(
-            () => createWeekDraftAction(week.id, tier, { budget, countdownSeconds: countdown, captainCost: cost }),
-            `${tier === "main" ? "Main" : "Elimination"} draft created.`,
-          )
-        }
-      >
-        Create {tier === "main" ? "main" : "elimination"} draft
-      </button>
-      {captainCost.trim() !== "" && !costValid ? (
-        <p className="basis-full text-xs text-danger">A captain costs at least 1 point and must leave 1 for each of the other four roles.</p>
+    <div className="flex flex-col gap-3 rounded border border-border-subtle p-3">
+      <p className="text-xs font-bold uppercase tracking-wide text-muted">{tier === "main" ? "Main" : "Elimination"} draft</p>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className={labelClass}>
+          Budget
+          <input type="number" min={1} value={budget} onChange={(e) => setBudget(Number(e.target.value))} className={`${inputClass} w-20`} />
+        </label>
+        <label className={labelClass}>
+          Timer (s)
+          <input type="number" min={5} value={countdown} onChange={(e) => setCountdown(Number(e.target.value))} className={`${inputClass} w-20`} />
+        </label>
+      </div>
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted">Captain costs</p>
+          {first && validCost(first.id) && captains.length > 1 ? (
+            <button
+              type="button"
+              className={buttonClass}
+              onClick={() => setCosts(Object.fromEntries(captains.map((captain) => [captain.id, costs[first.id]])))}
+            >
+              Use {costs[first.id]} for all
+            </button>
+          ) : null}
+        </div>
+        {captains.length === 0 ? (
+          <p className="text-xs text-muted">Lock this tier&apos;s captains first.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {captains.map((captain, seat) => (
+              <label key={captain.id} className={labelClass}>
+                <span>
+                  Seat {seat + 1} · {captain.assigned_role ? ROLE_LABELS_SHORT[captain.assigned_role] : "?"} · {captain.display_name}
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={Math.max(1, budget - 4)}
+                  value={costs[captain.id] ?? ""}
+                  onChange={(e) => setCosts({ ...costs, [captain.id]: e.target.value })}
+                  placeholder="e.g. 15"
+                  aria-label={`Cost for ${captain.display_name}`}
+                  aria-invalid={(costs[captain.id] ?? "").trim() !== "" && !validCost(captain.id)}
+                  className={`${inputClass} w-24`}
+                />
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          disabled={disabled || pending || budget < 1 || !allValid}
+          className={primaryButtonClass}
+          onClick={() =>
+            run(
+              () =>
+                createWeekDraftAction(week.id, tier, {
+                  budget,
+                  countdownSeconds: countdown,
+                  captainCosts: Object.fromEntries(captains.map((captain) => [captain.id, costOf(captain.id)])),
+                }),
+              `${tier === "main" ? "Main" : "Elimination"} draft created.`,
+            )
+          }
+        >
+          Create {tier === "main" ? "main" : "elimination"} draft
+        </button>
+      </div>
+      {typedInvalid ? (
+        <p className="text-xs text-danger">Each captain costs at least 1 point and must leave 1 for each of the other four roles.</p>
       ) : (
-        <p className="basis-full text-xs text-muted">Each captain is bought for this many points before the auction, so their team starts with the budget less it.</p>
+        <p className="text-xs text-muted">Each captain is bought for their own cost before the auction, so their team starts with the budget less it.</p>
       )}
       <ActionMessage message={message} />
     </div>
@@ -296,8 +345,8 @@ export default function WeekSetup({ data, week }: { data: OffseasonAdminData; we
       {locked ? (
         <div className="flex flex-col gap-3">
           <p className="text-xs font-bold uppercase tracking-wide text-muted">Drafts</p>
-          <DraftCreator week={week} tier="main" disabled={!entries.some((entry) => entry.tier === "main")} />
-          {entries.some((entry) => entry.tier === "elimination") ? <DraftCreator week={week} tier="elimination" disabled={false} /> : null}
+          <DraftCreator data={data} week={week} tier="main" disabled={!entries.some((entry) => entry.tier === "main")} />
+          {entries.some((entry) => entry.tier === "elimination") ? <DraftCreator data={data} week={week} tier="elimination" disabled={false} /> : null}
           <p className="text-xs text-muted">Creating a draft fixes this week&apos;s tiers. Each captain bids from their own account in the ordinary draft room.</p>
         </div>
       ) : null}

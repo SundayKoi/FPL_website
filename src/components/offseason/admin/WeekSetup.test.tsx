@@ -113,20 +113,57 @@ describe("WeekSetup", () => {
 });
 
 describe("DraftCreator", () => {
-  it("needs a captain cost of at least 1 that leaves a point for every other role", async () => {
+  // Two locked main captains, seated jungle-0 then top-0.
+  const locked = () => {
+    const base = data();
+    return {
+      ...base,
+      entries: [
+        { week_id: "w3", entrant_id: "jungle-0", tier: "main" as const, captain_seat: 1 },
+        { week_id: "w3", entrant_id: "top-0", tier: "main" as const, captain_seat: 2 },
+        { week_id: "w3", entrant_id: "mid-1", tier: "main" as const, captain_seat: null },
+      ],
+    };
+  };
+
+  it("takes a cost for each captain, each at least 1 and leaving a point for every other role", async () => {
     createWeekDraftAction.mockResolvedValue({ ok: true });
-    render(<DraftCreator week={week} tier="main" disabled={false} />);
+    render(<DraftCreator data={locked()} week={week} tier="main" disabled={false} />);
     const create = screen.getByRole("button", { name: "Create main draft" }) as HTMLButtonElement;
+    expect(screen.getAllByLabelText(/^Cost for /).map((input) => input.getAttribute("aria-label"))).toEqual(["Cost for jungle-0", "Cost for top-0"]);
     expect(create.disabled).toBe(true);
 
-    fireEvent.change(screen.getByLabelText(/^Captain cost/), { target: { value: "0" } });
+    fireEvent.change(screen.getByLabelText("Cost for jungle-0"), { target: { value: "20" } });
     expect(create.disabled).toBe(true);
-    fireEvent.change(screen.getByLabelText(/^Captain cost/), { target: { value: "97" } });
+    fireEvent.change(screen.getByLabelText("Cost for top-0"), { target: { value: "0" } });
+    expect(create.disabled).toBe(true);
+    expect(screen.getByText(/Each captain costs at least 1 point/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Cost for top-0"), { target: { value: "97" } });
     expect(create.disabled).toBe(true);
 
-    fireEvent.change(screen.getByLabelText(/^Captain cost/), { target: { value: "15" } });
+    fireEvent.change(screen.getByLabelText("Cost for top-0"), { target: { value: "12" } });
     expect(create.disabled).toBe(false);
     fireEvent.click(create);
-    await waitFor(() => expect(createWeekDraftAction).toHaveBeenCalledWith("w3", "main", { budget: 100, countdownSeconds: 15, captainCost: 15 }));
+    await waitFor(() =>
+      expect(createWeekDraftAction).toHaveBeenCalledWith("w3", "main", {
+        budget: 100,
+        countdownSeconds: 15,
+        captainCosts: { "jungle-0": 20, "top-0": 12 },
+      }),
+    );
+  });
+
+  it("copies the first captain's cost to everyone", () => {
+    render(<DraftCreator data={locked()} week={week} tier="main" disabled={false} />);
+    fireEvent.change(screen.getByLabelText("Cost for jungle-0"), { target: { value: "15" } });
+    fireEvent.click(screen.getByRole("button", { name: "Use 15 for all" }));
+    expect((screen.getByLabelText("Cost for top-0") as HTMLInputElement).value).toBe("15");
+    expect((screen.getByRole("button", { name: "Create main draft" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("waits for the tier's captains to be locked", () => {
+    render(<DraftCreator data={data()} week={week} tier="elimination" disabled={false} />);
+    expect(screen.getByText(/Lock this tier's captains first/)).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Create elimination draft" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
