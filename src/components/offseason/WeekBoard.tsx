@@ -3,7 +3,7 @@ import { ROLE_ORDER } from "@/lib/draft/types";
 import { standings } from "@/lib/offseason/standings";
 import { STAGE_LABELS, type OffseasonMatch, type OffseasonTeam, type OffseasonWeek, type WeekStatus } from "@/lib/offseason/types";
 import type { OffseasonView } from "@/lib/offseason/view";
-import { Empty, Overall, RoleTag, tableClass, tdClass, thClass } from "./ui";
+import { Empty, Overall, RoleTag, SideTag, tableClass, tdClass, thClass } from "./ui";
 
 export const WEEK_STATUS_LABELS: Record<WeekStatus, string> = {
   setup: "Setting up",
@@ -68,9 +68,11 @@ export function MatchRow({ view, match }: { view: OffseasonView; match: Offseaso
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle/60 py-2 text-sm last:border-b-0">
       <span className="flex flex-wrap items-center gap-2">
+        <SideTag side="blue" />
         {side(match.team_a_id, a)}
         <span className="text-xs text-muted">vs</span>
         {side(match.team_b_id, b)}
+        <SideTag side="red" />
       </span>
       <span className="text-xs uppercase tracking-wide text-muted">
         {STAGE_LABELS[match.stage]} · Bo{match.best_of}

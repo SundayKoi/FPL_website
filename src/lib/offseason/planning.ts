@@ -114,6 +114,8 @@ export function planWeek({
   check("main", mainCaptainIds, mainPool, main.teams);
   if (eliminationPool.length > 0) check("elimination", eliminationCaptainIds, eliminationPool, elimination.teams);
   if (main.teams === 1) problems.push("The round robin needs at least two teams.");
+  // With four teams' worth of players left, everyone plays the elimination tier.
+  if (main.teams === 0 && elimination.teams === 0) problems.push("There are no full teams to play.");
   if (eliminationPool.length > 0 && elimination.teams < 2) problems.push("The elimination tier needs at least two full teams.");
 
   const seat = (ids: string[], id: string) => (ids.includes(id) ? ids.indexOf(id) + 1 : null);

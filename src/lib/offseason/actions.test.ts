@@ -8,7 +8,16 @@ const { createServerSupabase, revalidatePath } = vi.hoisted(() => ({
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
-import { createMatchesAction, createWeekDraftAction, lockInAction, setGameAction, setLockInAction, signUpAction, updateEventAction } from "./actions";
+import {
+  createMatchesAction,
+  createWeekDraftAction,
+  importWeekDraftAction,
+  lockInAction,
+  setGameAction,
+  setLockInAction,
+  signUpAction,
+  updateEventAction,
+} from "./actions";
 
 type Result = { data?: unknown; error: { message: string; code?: string } | null };
 
@@ -33,7 +42,29 @@ function client({ rpc = { error: null } as Result, write = { error: null } as Re
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
+
+/** A client whose reads answer per table, recording what gets inserted. */
+function tableClient(tables: Record<string, unknown>, rpc: Result = { error: null }) {
+  const inserted: { table: string; rows: unknown }[] = [];
+  const from = vi.fn((table: string) => {
+    const result = { data: tables[table] ?? null, error: null };
+    const query: Record<string, unknown> = {
+      then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve),
+      insert: vi.fn(async (rows: unknown) => {
+        inserted.push({ table, rows });
+        return { error: null };
+      }),
+    };
+    for (const method of ["select", "eq", "order", "limit"]) query[method] = vi.fn(() => query);
+    query.single = vi.fn(async () => result);
+    query.maybeSingle = vi.fn(async () => ({ data: null, error: null }));
+    return query;
+  });
+  createServerSupabase.mockResolvedValue({ rpc: vi.fn(async () => rpc), from });
+  return { inserted };
+}
 
 describe("offseason server actions", () => {
   it("signs up through the RPC and refreshes the offseason pages", async () => {
@@ -104,6 +135,7 @@ describe("offseason server actions", () => {
   });
 
   it("numbers new matches after the week's last one", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.9);
     const { insert } = client({ lastSortOrder: 4 });
     const result = await createMatchesAction("week-1", "round_robin", 1, [
       { teamA: "a", teamB: "b" },
@@ -114,5 +146,53 @@ describe("offseason server actions", () => {
       { week_id: "week-1", stage: "round_robin", best_of: 1, team_a_id: "a", team_b_id: "b", sort_order: 5 },
       { week_id: "week-1", stage: "round_robin", best_of: 1, team_a_id: "c", team_b_id: "d", sort_order: 6 },
     ]);
+  });
+
+  it("puts each new match on random sides", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    const { insert } = client();
+    await createMatchesAction("week-1", "final", 5, [{ teamA: "a", teamB: "b" }]);
+    expect(insert).toHaveBeenCalledWith([{ week_id: "week-1", stage: "final", best_of: 5, team_a_id: "b", team_b_id: "a", sort_order: 1 }]);
+  });
+
+  it("schedules a tier as soon as its teams are imported", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.9);
+    const { inserted } = tableClient({
+      offseason_weeks: { week_number: 3, elimination_draft_id: "draft-e" },
+      offseason_teams: [
+        { id: "m1", tier: "main" },
+        { id: "e1", tier: "elimination" },
+        { id: "e2", tier: "elimination" },
+        { id: "e3", tier: "elimination" },
+        { id: "e4", tier: "elimination" },
+      ],
+      offseason_matches: [],
+    });
+    expect(await importWeekDraftAction("week-1", "elimination")).toEqual({ ok: true });
+    expect(inserted).toEqual([
+      {
+        table: "offseason_matches",
+        rows: [
+          { week_id: "week-1", stage: "elimination", best_of: 5, team_a_id: "e1", team_b_id: "e2", sort_order: 1 },
+          { week_id: "week-1", stage: "elimination", best_of: 5, team_a_id: "e3", team_b_id: "e4", sort_order: 2 },
+        ],
+      },
+    ]);
+  });
+
+  it("does not schedule a tier twice, and reports a failed import", async () => {
+    const { inserted } = tableClient({
+      offseason_weeks: { week_number: 1, elimination_draft_id: null },
+      offseason_teams: [
+        { id: "m1", tier: "main" },
+        { id: "m2", tier: "main" },
+      ],
+      offseason_matches: [{ stage: "round_robin" }],
+    });
+    expect(await importWeekDraftAction("week-1", "main")).toEqual({ ok: true });
+    expect(inserted).toEqual([]);
+
+    tableClient({}, { error: { message: "DRAFT_NOT_FINISHED: every team needs all five roles first" } });
+    expect(await importWeekDraftAction("week-1", "main")).toEqual({ ok: false, error: "every team needs all five roles first" });
   });
 });

@@ -114,6 +114,25 @@ describe("planWeek", () => {
     });
   });
 
+  it("lets everyone play the elimination tier once four teams are left", () => {
+    const players = teamsOf(4, "e");
+    const plan = planWeek({
+      entrants: players,
+      eliminationIds: new Set(players.map((player) => player.id)),
+      mainCaptainIds: [],
+      eliminationCaptainIds: ["e0-top", "e1-top", "e2-top", "e3-top"],
+    });
+    expect(plan.problems).toEqual([]);
+    expect(plan.mainTeams).toBe(0);
+    expect(plan.eliminationTeams).toBe(4);
+    expect(plan.entries.every((entry) => entry.tier === "elimination")).toBe(true);
+  });
+
+  it("will not lock a week with no full teams", () => {
+    const plan = planWeek({ entrants: [entrant("solo", "top")], eliminationIds: new Set(), mainCaptainIds: [], eliminationCaptainIds: [] });
+    expect(plan.problems).toContain("There are no full teams to play.");
+  });
+
   it("sits the latest sign-ups of an over-full role out, but never a captain", () => {
     const players = teamsOf(2, "m");
     const lateMid = entrant("late-mid", "mid");

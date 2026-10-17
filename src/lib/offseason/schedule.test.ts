@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eliminationPairings, roundRobinPairings, type Pairing } from "./schedule";
+import { assignSides, eliminationPairings, roundRobinPairings, tierSchedule, type Pairing } from "./schedule";
 
 const teams = (count: number) => Array.from({ length: count }, (_, i) => `T${i + 1}`);
 
@@ -76,5 +76,49 @@ describe("eliminationPairings", () => {
 
   it("returns nothing for a single team", () => {
     expect(eliminationPairings(["T1"])).toEqual([]);
+  });
+});
+
+describe("assignSides", () => {
+  it("swaps a pair onto the other sides on a coin flip", () => {
+    const flips = [0.2, 0.8];
+    const sided = assignSides(
+      [
+        { teamA: "T1", teamB: "T2", round: 1 },
+        { teamA: "T3", teamB: "T4", round: 1 },
+      ],
+      () => flips.shift()!,
+    );
+    expect(sided.map(({ teamA, teamB }) => `${teamA}-${teamB}`)).toEqual(["T2-T1", "T3-T4"]);
+  });
+});
+
+describe("tierSchedule", () => {
+  it("gives the main tier a Bo1 round robin", () => {
+    const schedule = tierSchedule({ tier: "main", teamIds: teams(8), weekNumber: 1, hasEliminationTier: false })!;
+    expect(schedule.stage).toBe("round_robin");
+    expect(schedule.bestOf).toBe(1);
+    expect([...gamesPerTeam(schedule.pairings).values()].every((games) => games === 3)).toBe(true);
+  });
+
+  it("gives the elimination tier Bo5 pairings, first against second", () => {
+    const schedule = tierSchedule({ tier: "elimination", teamIds: teams(4), weekNumber: 3, hasEliminationTier: true })!;
+    expect(schedule).toMatchObject({ stage: "elimination", bestOf: 5 });
+    expect(schedule.pairings.map(({ teamA, teamB }) => `${teamA}-${teamB}`)).toEqual(["T1-T2", "T3-T4"]);
+  });
+
+  it("makes the last two teams a Bo5 final once eliminations have started", () => {
+    expect(tierSchedule({ tier: "main", teamIds: teams(2), weekNumber: 6, hasEliminationTier: false })).toMatchObject({
+      stage: "final",
+      bestOf: 5,
+      pairings: [{ teamA: "T1", teamB: "T2" }],
+    });
+    // Two main teams beside an elimination tier, or before week 3, are a round robin.
+    expect(tierSchedule({ tier: "main", teamIds: teams(2), weekNumber: 4, hasEliminationTier: true })!.stage).toBe("round_robin");
+    expect(tierSchedule({ tier: "main", teamIds: teams(2), weekNumber: 2, hasEliminationTier: false })!.stage).toBe("round_robin");
+  });
+
+  it("schedules nothing for fewer than two teams", () => {
+    expect(tierSchedule({ tier: "main", teamIds: ["T1"], weekNumber: 1, hasEliminationTier: false })).toBeNull();
   });
 });
