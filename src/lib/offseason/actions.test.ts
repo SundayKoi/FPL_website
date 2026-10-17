@@ -128,16 +128,16 @@ describe("offseason server actions", () => {
     expect(update).toHaveBeenLastCalledWith({ locked_in_role: null, locked_in_at: null });
   });
 
-  it("creates a week's draft with no round minimums and the captain cost", async () => {
+  it("creates a week's draft with no round minimums and a cost per captain", async () => {
     const { rpcFn } = client();
-    expect(await createWeekDraftAction("week-1", "main", { budget: 100, countdownSeconds: 15, captainCost: 15 })).toEqual({ ok: true });
+    expect(await createWeekDraftAction("week-1", "main", { budget: 100, countdownSeconds: 15, captainCosts: { a: 20, b: 12 } })).toEqual({ ok: true });
     expect(rpcFn).toHaveBeenCalledWith("offseason_create_week_draft", {
       p_week_id: "week-1",
       p_tier: "main",
       p_budget: 100,
       p_countdown_seconds: 15,
       p_round_minimums: [1],
-      p_captain_cost: 15,
+      p_captain_costs: { a: 20, b: 12 },
     });
   });
 
