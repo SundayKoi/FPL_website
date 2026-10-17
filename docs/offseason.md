@@ -115,9 +115,9 @@ Under Weeks, click **Open week N**. Then:
    yet, so pick them by hand.
 3. **Lock tiers.** The plan shows team counts, who sits out because a role is over-full
    (latest sign-ups first), and any problem that blocks locking.
-4. **Create drafts.** Set the budget, bid timer and round minimums, then create
-   the main draft, and the elimination draft if there is one. This fixes the week's
-   tiers.
+4. **Create drafts.** Set the budget and bid timer, then create the main draft,
+   and the elimination draft if there is one. This fixes the week's tiers.
+   Offseason drafts have no round minimums: every nomination can open at 1.
 5. **Run the auction** from "Draft admin" (`/admin/{draftId}`) as usual.
    Captains bid in the draft room (`/draft/{draftId}`).
 6. **Import teams** once every team has all five roles.
