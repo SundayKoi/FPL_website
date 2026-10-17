@@ -14,8 +14,8 @@ Everything here is built to be deleted when the event is over. See
 
 | Piece | Where |
 | --- | --- |
-| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql`, `20261113000001_offseason_card_signing.sql`, `20261113000002_offseason_mvp_votes.sql` |
-| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql`, `0143_offseason_packs_test.sql`, `0144_offseason_card_signing_test.sql`, `0145_offseason_mvp_votes_test.sql` |
+| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql`, `20261113000001_offseason_card_signing.sql`, `20261113000002_offseason_mvp_votes.sql`, `20261114000001_offseason_captain_costs.sql` |
+| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql`, `0143_offseason_packs_test.sql`, `0144_offseason_card_signing_test.sql`, `0145_offseason_mvp_votes_test.sql`, `0146_offseason_captain_costs_test.sql` |
 | Logic, reads, server actions | `src/lib/offseason/` |
 | Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/packs`, `/offseason/card`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
 | Components | `src/components/offseason/` |
@@ -144,12 +144,13 @@ created (`offseason_set_week_times`). The week then goes:
    yet, so pick them by hand.
 3. **Lock tiers.** The plan shows team counts, who sits out because a role is over-full
    (latest sign-ups first), and any problem that blocks locking.
-4. **Create drafts.** Set the budget, bid timer and **captain cost**, then create
-   the main draft, and the elimination draft if there is one. This fixes the
-   week's tiers. Each captain is bought for the captain cost before the auction,
-   so their team starts with the budget less it. The cost is at least 1 and leaves
-   1 point for each of the other four roles. Offseason drafts have no round
-   minimums: every nomination can open at 1.
+4. **Create drafts.** Set the budget, bid timer and a **cost for each
+   captain**, then create the main draft, and the elimination draft if there is
+   one. **Use … for all** copies the first captain's cost to the rest. This
+   fixes the week's tiers. Each captain is bought for their own cost before the
+   auction, so their team starts with the budget less it. Every cost is at least
+   1 and leaves 1 point for each of the other four roles. Offseason drafts have
+   no round minimums: every nomination can open at 1.
 5. **Run the auction** from "Draft admin" (`/admin/{draftId}`) as usual.
    Captains bid in the draft room (`/draft/{draftId}`).
 6. **Import teams** once every team has all five roles. Importing a tier
@@ -277,7 +278,7 @@ proposed for the elimination tier automatically.
      public.offseason_lock_in(uuid, public.lol_role, text),
      public.offseason_apply_roles(uuid, jsonb),
      public.offseason_set_week_entries(uuid, jsonb),
-     public.offseason_create_week_draft(uuid, text, int, int, int[], int),
+     public.offseason_create_week_draft(uuid, text, int, int, int[], int, jsonb),
      public.offseason_import_week_draft(uuid, text),
      public.offseason_set_week_times(uuid, timestamptz, timestamptz),
      public.offseason_publish_card_set(uuid, int, jsonb),
@@ -305,8 +306,9 @@ proposed for the elimination tier automatically.
    `supabase/tests/0141_offseason_captain_cost_test.sql`,
    `supabase/tests/0142_offseason_week_times_test.sql`,
    `supabase/tests/0143_offseason_packs_test.sql`,
-   `supabase/tests/0144_offseason_card_signing_test.sql` and
-   `supabase/tests/0145_offseason_mvp_votes_test.sql` in the same change.
+   `supabase/tests/0144_offseason_card_signing_test.sql`,
+   `supabase/tests/0145_offseason_mvp_votes_test.sql` and
+   `supabase/tests/0146_offseason_captain_costs_test.sql` in the same change.
    Dropping the tables also removes everyone's offseason card copies; export
    `offseason_card_copies` first if you want to keep a record.
 3. Remove the homepage banner: `OffseasonHomeBanner` and

@@ -55,7 +55,7 @@ export default function WeekDrafts({ data, week }: { data: OffseasonAdminData; w
       {week.elimination_draft_id ? (
         <DraftRow data={data} week={week} tier="elimination" draftId={week.elimination_draft_id} />
       ) : hasEliminationTier && week.status !== "complete" ? (
-        <DraftCreator week={week} tier="elimination" disabled={false} />
+        <DraftCreator data={data} week={week} tier="elimination" disabled={false} />
       ) : null}
     </div>
   );

@@ -271,7 +271,7 @@ export async function setWeekEntriesAction(
 export async function createWeekDraftAction(
   weekId: string,
   tier: Tier,
-  settings: { budget: number; countdownSeconds: number; captainCost: number },
+  settings: { budget: number; countdownSeconds: number; captainCosts: Record<string, number> },
 ): Promise<OffseasonActionResult> {
   const supabase = await createServerSupabase();
   return done(
@@ -282,8 +282,9 @@ export async function createWeekDraftAction(
       p_countdown_seconds: settings.countdownSeconds,
       // No round minimums in the offseason: every nomination may open at 1.
       p_round_minimums: [1],
-      // What each captain costs, taken off their team's budget (never 0).
-      p_captain_cost: settings.captainCost,
+      // Each captain's own cost by entrant id, taken off their team's budget
+      // (never 0).
+      p_captain_costs: settings.captainCosts,
     }),
   );
 }
