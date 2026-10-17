@@ -82,7 +82,11 @@ function CaptainPicker({
 export function DraftCreator({ week, tier, disabled }: { week: OffseasonWeek; tier: Tier; disabled: boolean }) {
   const [budget, setBudget] = useState(100);
   const [countdown, setCountdown] = useState(15);
+  const [captainCost, setCaptainCost] = useState("");
   const { pending, message, run } = useOffseasonAction();
+  const cost = Number(captainCost);
+  // A captain costs at least 1 and leaves a point for each of the other four roles.
+  const costValid = captainCost.trim() !== "" && Number.isInteger(cost) && cost >= 1 && cost <= budget - 4;
   return (
     <div className="flex flex-wrap items-end gap-2">
       <label className={labelClass}>
@@ -93,19 +97,36 @@ export function DraftCreator({ week, tier, disabled }: { week: OffseasonWeek; ti
         Timer (s)
         <input type="number" min={5} value={countdown} onChange={(e) => setCountdown(Number(e.target.value))} className={`${inputClass} w-20`} />
       </label>
+      <label className={labelClass}>
+        Captain cost
+        <input
+          type="number"
+          min={1}
+          max={Math.max(1, budget - 4)}
+          value={captainCost}
+          onChange={(e) => setCaptainCost(e.target.value)}
+          placeholder="e.g. 15"
+          className={`${inputClass} w-24`}
+        />
+      </label>
       <button
         type="button"
-        disabled={disabled || pending || budget < 1}
+        disabled={disabled || pending || budget < 1 || !costValid}
         className={primaryButtonClass}
         onClick={() =>
           run(
-            () => createWeekDraftAction(week.id, tier, { budget, countdownSeconds: countdown }),
+            () => createWeekDraftAction(week.id, tier, { budget, countdownSeconds: countdown, captainCost: cost }),
             `${tier === "main" ? "Main" : "Elimination"} draft created.`,
           )
         }
       >
         Create {tier === "main" ? "main" : "elimination"} draft
       </button>
+      {captainCost.trim() !== "" && !costValid ? (
+        <p className="basis-full text-xs text-danger">A captain costs at least 1 point and must leave 1 for each of the other four roles.</p>
+      ) : (
+        <p className="basis-full text-xs text-muted">Each captain is bought for this many points before the auction, so their team starts with the budget less it.</p>
+      )}
       <ActionMessage message={message} />
     </div>
   );
