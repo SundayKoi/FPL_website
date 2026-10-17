@@ -14,10 +14,10 @@ Everything here is built to be deleted when the event is over. See
 
 | Piece | Where |
 | --- | --- |
-| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql` |
-| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql` |
+| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql`, `20261113000001_offseason_card_signing.sql`, `20261113000002_offseason_mvp_votes.sql` |
+| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql`, `0143_offseason_packs_test.sql`, `0144_offseason_card_signing_test.sql`, `0145_offseason_mvp_votes_test.sql` |
 | Logic, reads, server actions | `src/lib/offseason/` |
-| Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
+| Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/packs`, `/offseason/card`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
 | Components | `src/components/offseason/` |
 | Stats ingest | `scripts/offseason_ingest.py`, `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml` |
 
@@ -45,6 +45,9 @@ It touches the rest of the site in two ways:
 - Anyone can read the event.
 - Signed-in players can sign up, edit their own entry, and withdraw while sign-ups are open (`offseason_sign_up`, `offseason_withdraw`).
 - Once they have a role, signed-in players lock it in (`offseason_lock_in`). A staff-added player claims their row by Riot ID in the same step, even after sign-ups close.
+- Anyone signed in, premium or not, opens offseason packs (`offseason_open_pack`) and sees only their own copies. Staff publish the card sets (`offseason_publish_card_set`).
+- A player in the event signs their own card (`offseason_sign_card`). A player with no account yet claims their row by Riot ID in the same step, like lock-in. Signatures are public.
+- Anyone signed in votes for the open week's MVP (`offseason_vote_mvp`), never for their own entry. Votes are private; everyone reads the totals through `offseason_mvp_results`, and only once a week's voting closes.
 - Admins and owners do everything else, from `/offseason/admin`. The page only
   hides controls. The RLS policies and the staff check in each RPC are what enforce access.
 - The ingest writes with the service role only, through `offseason_record_ingest`.
@@ -184,6 +187,65 @@ the event's stage to Finals and then Complete as you go. For a final with three
 or four teams, add semifinals and the final with "Add match". Prizes are
 handled outside the site.
 
+## Packs
+
+`/offseason/packs` sells packs of the tournament's own cards. They're separate
+from the league's packs.
+
+- **Sets.** Completing a week publishes that week's set: every player with a
+  rated game, as their card stands (cumulative, like their Overall), labelled
+  season "Offseason". **Publish cards** on a playing or complete week
+  republishes it, replacing that week's set, e.g. after a late ingest. Packs
+  always open from the newest set of the current event. The site builds the
+  cards with the card engine (`buildCardSet`); `offseason_publish_card_set`
+  only checks and stores them.
+- **Allowance.** Everyone signed in gets $2,000 a week, counted from Monday
+  00:00 Eastern. Unspent dollars don't carry over, and they have nothing to do
+  with the league's wallet. A pack is $100, so 20 a week.
+- **Packs.** Five different players from the set. Each card rolls foil (one
+  finish, 1 in 10), shiny (1 in 20) and signed (1 in 20). Signed uses the
+  player's offseason signature (see [Signing cards](#signing-cards)), or
+  their league autograph from `card_art_prefs` if they haven't signed yet
+  (`_offseason_ink`). Only players with one can come out signed, and a signed
+  card is always foil.
+- **Safety.** `offseason_open_pack` does the whole purchase in one transaction:
+  allowance check, charge, draw and copies. It holds a per-member lock and is
+  keyed by a request id the page keeps across retries, so a lost answer
+  returns the same pack rather than buying another.
+- **Copies.** They live in `offseason_card_copies`, not `card_inventory`, so
+  they never reach the league's packs, market, dust, sets, lineups or
+  expeditions. The page shows each member's latest 60.
+
+## Signing cards
+
+`/offseason/card` ("Your card") lets every player in the event claim their
+card and sign it. Their signature shows on their card on their player page and
+on the signed copies people pull from packs. They can sign before their first
+game and re-sign any time until the event is complete; a new signature replaces
+the old one, but copies already pulled keep the ink they came with.
+
+A player who signed up on the site already owns their row. A player staff
+added by hand enters their Riot ID to find their row, and signing links it to
+their account (`offseason_sign_card`, the same claim lock-in makes).
+Signatures live in `offseason_signatures`, one per entrant, as the same
+transparent PNG the league's signature pad draws.
+
+## MVP votes
+
+Every week anyone signed in can vote for one player as the week's MVP, on the
+overview page.
+
+- **Who.** Any player on one of that week's teams, main or elimination tier.
+  Nobody can vote for their own entry. A player who hasn't linked their entry
+  to their account can't be told apart from a fan, so they should claim it.
+- **When.** Voting on a week opens when its status reaches **Playing** and
+  closes when the next week reaches **Playing**, or when the event is complete.
+  Only one week is open at a time. Members can change their vote while it's
+  open.
+- **Results.** While voting is open the page shows only how many have voted.
+  Once it closes, the **MVPs** panel names the winner of each week, with ties
+  shared.
+
 ## Ratings
 
 The Overall rating comes from the league's own card engine
@@ -201,6 +263,9 @@ proposed for the elimination tier automatically.
 
    ```sql
    drop table if exists
+     public.offseason_mvp_votes, public.offseason_signatures,
+     public.offseason_card_copies, public.offseason_pack_openings, public.offseason_cards,
+     public.offseason_card_sets,
      public.offseason_stats, public.offseason_games, public.offseason_matches,
      public.offseason_team_members, public.offseason_teams, public.offseason_draft_links,
      public.offseason_week_entries, public.offseason_weeks, public.offseason_entrants,
@@ -215,6 +280,16 @@ proposed for the elimination tier automatically.
      public.offseason_create_week_draft(uuid, text, int, int, int[], int),
      public.offseason_import_week_draft(uuid, text),
      public.offseason_set_week_times(uuid, timestamptz, timestamptz),
+     public.offseason_publish_card_set(uuid, int, jsonb),
+     public.offseason_open_pack(uuid),
+     public._offseason_ink(uuid, jsonb),
+     public.offseason_sign_card(uuid, text, text),
+     public.offseason_vote_mvp(uuid, uuid),
+     public.offseason_mvp_results(uuid),
+     public._offseason_mvp_open_week(uuid),
+     public.offseason_pack_wallet(),
+     public._offseason_pack_result(uuid),
+     public._offseason_allowance_week(),
      public.offseason_set_game(uuid, int, text, uuid),
      public.offseason_record_ingest(uuid, text, uuid),
      public.offseason_set_team_eliminated(uuid, boolean),
@@ -227,8 +302,13 @@ proposed for the elimination tier automatically.
    `supabase/tests/0138_offseason_tournament_test.sql` and
    `supabase/tests/0139_offseason_lock_in_test.sql`,
    `supabase/tests/0140_offseason_elimination_only_week_test.sql`,
-   `supabase/tests/0141_offseason_captain_cost_test.sql` and
-   `supabase/tests/0142_offseason_week_times_test.sql` in the same change.
+   `supabase/tests/0141_offseason_captain_cost_test.sql`,
+   `supabase/tests/0142_offseason_week_times_test.sql`,
+   `supabase/tests/0143_offseason_packs_test.sql`,
+   `supabase/tests/0144_offseason_card_signing_test.sql` and
+   `supabase/tests/0145_offseason_mvp_votes_test.sql` in the same change.
+   Dropping the tables also removes everyone's offseason card copies; export
+   `offseason_card_copies` first if you want to keep a record.
 3. Remove the homepage banner: `OffseasonHomeBanner` and
    `fetchHomeOffseasonEvent` in `src/components/home/PreseasonHomePage.tsx`,
    `RegularSeasonHomePage.tsx` and `AcademyHomePage.tsx`, the

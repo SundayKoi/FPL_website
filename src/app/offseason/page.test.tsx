@@ -11,6 +11,20 @@ const { loadOffseasonPage, notFound } = vi.hoisted(() => ({
   }),
 }));
 vi.mock("@/lib/offseason/page", () => ({ loadOffseasonPage }));
+// What the pages read beyond the event: MVP results, the viewer's own votes
+// and card signatures.
+const db = vi.hoisted(() => ({ mvpRows: [] as unknown[], myVotes: [] as unknown[], signatures: [] as unknown[] }));
+vi.mock("@/lib/supabase/server", () => ({
+  createServerSupabase: async () => ({
+    rpc: async () => ({ data: db.mvpRows, error: null }),
+    from: (table: string) => ({
+      select: () => ({
+        eq: async () => ({ data: db.myVotes, error: null }),
+        in: async () => ({ data: table === "offseason_signatures" ? db.signatures : [], error: null }),
+      }),
+    }),
+  }),
+}));
 vi.mock("next/navigation", () => ({ notFound, useRouter: () => ({ refresh: vi.fn() }) }));
 
 import OffseasonPage from "./page";
@@ -20,6 +34,9 @@ import OffseasonSchedulePage from "./schedule/page";
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  db.mvpRows = [];
+  db.myVotes = [];
+  db.signatures = [];
 });
 
 const ROLES: LolRole[] = ["top", "jungle", "mid", "adc", "support"];
@@ -132,6 +149,49 @@ describe("offseason pages", () => {
     loadOffseasonPage.mockResolvedValue({ view: null, userId: null, isStaff: false, ownEntry: null });
     render(await OffseasonSchedulePage());
     expect(screen.getByText(/appears once the first week is drafted/)).toBeTruthy();
+  });
+
+  it("lets a member vote for the open week's MVP, but not for themselves", async () => {
+    const data = fixture();
+    data.entrants = data.entrants.map((player) => (player.id === "Blue mid" ? { ...player, profile_id: "me" } : player));
+    const view = buildOffseasonView(data, []);
+    db.mvpRows = [{ week_id: "w1", entrant_id: null, votes: 3, final: false }];
+    db.myVotes = [{ week_id: "w1", entrant_id: "Red adc" }];
+    loadOffseasonPage.mockResolvedValue({ view, userId: "me", isStaff: false, ownEntry: view.entrantsById.get("Blue mid") });
+    render(await OffseasonPage());
+    const panel = screen.getByRole("heading", { name: "Week 1 MVP" }).closest("section")!;
+    expect(within(panel).getByText(/3 votes so far/)).toBeTruthy();
+    expect(within(panel).queryByRole("button", { name: "Vote for Blue mid" })).toBeNull();
+    expect(within(panel).getByText("You")).toBeTruthy();
+    expect(within(panel).getByRole("button", { name: "Vote for Red mid" })).toBeTruthy();
+    expect(within(panel).getByRole("button", { name: "Your vote: Red adc" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("link", { name: "Sign your card" }).getAttribute("href")).toBe("/offseason/card");
+  });
+
+  it("names each closed week's MVP, ties included", async () => {
+    db.mvpRows = [
+      { week_id: "w1", entrant_id: "Red adc", votes: 4, final: true },
+      { week_id: "w1", entrant_id: "Blue top", votes: 4, final: true },
+      { week_id: "w1", entrant_id: "Blue mid", votes: 1, final: true },
+    ];
+    loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(fixture(), []), userId: null, isStaff: false, ownEntry: null });
+    render(await OffseasonPage());
+    expect(screen.queryByRole("heading", { name: "Week 1 MVP" })).toBeNull();
+    const panel = screen.getByRole("heading", { name: "MVPs" }).closest("section")!;
+    expect(within(panel).getAllByRole("link").map((link) => link.textContent)).toEqual(["Blue top", "Red adc"]);
+    expect(within(panel).getByText(/4 of 9 votes each/)).toBeTruthy();
+  });
+
+  it("offers a player the signing page from their own page", async () => {
+    const data = fixture();
+    data.entrants = data.entrants.map((player) => (player.id === "Blue mid" ? { ...player, profile_id: "me" } : player));
+    loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(data, []), userId: "me", isStaff: false, ownEntry: null });
+    render(await OffseasonPlayerPage({ params: Promise.resolve({ id: "Blue mid" }) }));
+    expect(screen.getByRole("link", { name: "Sign your card" }).getAttribute("href")).toBe("/offseason/card");
+    cleanup();
+
+    render(await OffseasonPlayerPage({ params: Promise.resolve({ id: "Red mid" }) }));
+    expect(screen.queryByRole("link", { name: /sign your card/i })).toBeNull();
   });
 
   it("404s an unknown player", async () => {
