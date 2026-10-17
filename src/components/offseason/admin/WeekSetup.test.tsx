@@ -49,19 +49,24 @@ function entrant(id: string, role: LolRole, n: number): OffseasonEntrant {
   };
 }
 
-function data(): OffseasonAdminData {
+function data(overrides: Record<string, number> = {}): OffseasonAdminData {
   // Eight players a role: ratings 90, 80, ... 20 in team order.
   const entrants = [0, 1, 2, 3, 4, 5, 6, 7].flatMap((team) => ROLES.map((role, r) => entrant(`${role}-${team}`, role, team * 5 + r)));
   const ratings = Object.fromEntries(
-    entrants.map((player) => [player.id, { overall: 90 - Number(player.id.split("-")[1]) * 10, games: 3, wins: 1, losses: 2 }]),
+    entrants.map((player) => [
+      player.id,
+      { overall: overrides[player.id] ?? 90 - Number(player.id.split("-")[1]) * 10, games: 3, wins: 1, losses: 2 },
+    ]),
   );
   return { event: { id: "event", name: "Cup", status: "running", signups_open: false, yardstick_season: "S6", created_at: "" }, entrants, weeks: [week], entries: [], teams: [], members: [], matches: [], games: [], ratings, drafts: {} };
 }
 
 describe("WeekSetup", () => {
-  it("puts the bottom four of each role in the elimination tier, captained by its best, and locks the week", async () => {
+  it("puts the bottom four of each role in the elimination tier, captained by the best of each role, and locks the week", async () => {
     setWeekEntriesAction.mockResolvedValue({ ok: true });
-    render(<WeekSetup data={data()} week={week} />);
+    // In the bottom four, mid-5 (48) outrates top-4, jungle-4 and adc-4 (45).
+    // The top four overall would captain two mids; by role only mid-4 does.
+    render(<WeekSetup data={data({ "mid-5": 48, "top-4": 45, "jungle-4": 45, "adc-4": 45, "support-4": 44 })} week={week} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Propose tiers and captains" }));
     expect(screen.getByText("Main captains (4 teams)")).toBeTruthy();
@@ -76,13 +81,20 @@ describe("WeekSetup", () => {
     // The four lowest rated in every role drop into the elimination tier.
     expect(["mid-4", "mid-5", "mid-6", "mid-7"].map((id) => tierOf(id).tier)).toEqual(Array(4).fill("elimination"));
     expect(tierOf("mid-3").tier).toBe("main");
-    // Each tier is captained by its own highest rated: the -0 players for the
-    // main tier, the -4 players (best of the bottom four) for elimination.
+    // The main tier is captained by its highest rated overall, the -0 players.
+    // The elimination tier is captained by the best of each of its roles, the
+    // -4 players, less the lowest rated of those five (support-4).
     const captains = (tier: string) => entries.filter((entry) => entry.tier === tier && entry.captain_seat).map((entry) => entry.entrant_id);
     expect(captains("main")).toHaveLength(4);
     expect(captains("main").every((id) => id.endsWith("-0"))).toBe(true);
-    expect(captains("elimination")).toHaveLength(4);
-    expect(captains("elimination").every((id) => id.endsWith("-4"))).toBe(true);
+    expect(captains("elimination").sort()).toEqual(["adc-4", "jungle-4", "mid-4", "top-4"]);
+  });
+
+  it("suggests elimination captains by role", () => {
+    render(<WeekSetup data={data({ "mid-5": 48 })} week={week} />);
+    fireEvent.click(screen.getByRole("button", { name: "Propose tiers and captains" }));
+    expect(screen.getByRole("button", { name: "Suggest best per role" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Suggest top rated" })).toHaveLength(1);
   });
 
   it("keeps the elimination tier closed before week 3", () => {
