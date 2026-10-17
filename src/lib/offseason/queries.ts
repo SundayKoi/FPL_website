@@ -92,3 +92,11 @@ export async function loadOffseason(supabase: SupabaseClient): Promise<Offseason
   const riotIds = data.games.map((game) => game.riot_match_id).filter((id): id is string => Boolean(id));
   return buildOffseasonView(data, await fetchEventStats(supabase, riotIds));
 }
+
+/** The entrants' saved card signatures, by entrant id. */
+export async function fetchSignatures(supabase: SupabaseClient, entrantIds: string[]): Promise<Map<string, string>> {
+  if (entrantIds.length === 0) return new Map();
+  const { data, error } = await supabase.from("offseason_signatures").select("entrant_id, signature").in("entrant_id", entrantIds);
+  if (error) throw new Error(`offseason signatures read failed: ${error.message}`);
+  return new Map(((data as { entrant_id: string; signature: string }[] | null) ?? []).map((row) => [row.entrant_id, row.signature]));
+}

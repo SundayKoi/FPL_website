@@ -37,7 +37,7 @@ export default async function OffseasonPacksPage() {
         <div className="flex flex-col gap-4">
           <p className="text-xs text-muted">
             Each card can come out foil ({oneIn(ODDS.foil)}), shiny ({oneIn(ODDS.shiny)}) or signed ({oneIn(ODDS.signed)}, only players
-            who have a saved autograph, and always foil).
+            who have signed their card, and always foil).
           </p>
           {!shop.set ? (
             <Empty>The first set drops once week 1&apos;s games are in.</Empty>

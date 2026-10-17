@@ -18,9 +18,11 @@ import {
   openOffseasonPackAction,
   setGameAction,
   setLockInAction,
+  signCardAction,
   signUpAction,
   setWeekStatusAction,
   updateEventAction,
+  voteMvpAction,
 } from "./actions";
 
 type Result = { data?: unknown; error: { message: string; code?: string } | null };
@@ -270,5 +272,34 @@ describe("offseason card sets and packs", () => {
   it("says why a pack won't open", async () => {
     client({ rpc: { error: { message: "ALLOWANCE_SPENT: this week's $2,000 is spent; it resets on Monday" } } });
     expect(await openOffseasonPackAction("request-2")).toEqual({ ok: false, error: "this week's $2,000 is spent; it resets on Monday" });
+  });
+});
+
+describe("offseason card signing and MVP votes", () => {
+  const INK = "data:image/png;base64,iVBORw0KGgo=";
+
+  it("signs the player's card, claiming by Riot ID when one is given", async () => {
+    const { rpcFn } = client();
+    expect(await signCardAction({ eventId: "event", signature: INK, riotId: " Claimer#OS1 " })).toEqual({ ok: true });
+    expect(rpcFn).toHaveBeenCalledWith("offseason_sign_card", { p_event_id: "event", p_signature: INK, p_riot_id: "Claimer#OS1" });
+    expect(revalidatePath).toHaveBeenCalledWith("/offseason", "layout");
+
+    await signCardAction({ eventId: "event", signature: INK });
+    expect(rpcFn).toHaveBeenLastCalledWith("offseason_sign_card", { p_event_id: "event", p_signature: INK, p_riot_id: null });
+  });
+
+  it("never sends anything but a PNG data URL", async () => {
+    const { rpcFn } = client();
+    expect(await signCardAction({ eventId: "event", signature: "javascript:alert(1)" })).toEqual({ ok: false, error: "Draw your signature again." });
+    expect(rpcFn).not.toHaveBeenCalled();
+  });
+
+  it("casts a vote and shows the database's reason when it refuses", async () => {
+    const { rpcFn } = client();
+    expect(await voteMvpAction("week", "entrant")).toEqual({ ok: true });
+    expect(rpcFn).toHaveBeenCalledWith("offseason_vote_mvp", { p_week_id: "week", p_entrant_id: "entrant" });
+
+    client({ rpc: { error: { message: "SELF_VOTE: you can't vote for yourself" } } });
+    expect(await voteMvpAction("week", "me")).toEqual({ ok: false, error: "you can't vote for yourself" });
   });
 });

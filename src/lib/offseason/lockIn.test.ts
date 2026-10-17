@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { claimableSpots, findSpot, lockInCounts, lockInOpen, lockInState } from "./lockIn";
+import { claimableSpots, findSpot, lockInCounts, lockInOpen, lockInState, unclaimedSpots } from "./lockIn";
 import type { OffseasonEntrant } from "./types";
 
 function entrant(overrides: Partial<OffseasonEntrant> = {}): OffseasonEntrant {
@@ -85,5 +85,20 @@ describe("claimable spots", () => {
     expect(findSpot(spots, " FlyinqSquirtle#NA1 ")?.riotId).toBe("Flyinq squirtle#na1");
     expect(findSpot(spots, "Has Account#NA1")).toBeNull();
     expect(findSpot(spots, "flyinq squirtle")).toBeNull();
+  });
+});
+
+describe("unclaimed cards", () => {
+  it("lists every unlinked player still in the event, with or without a role", () => {
+    const spots = unclaimedSpots([
+      entrant({ id: "a", profile_id: null, display_name: "Sitting Out", riot_id: "Sitting Out#NA1", status: "benched", assigned_role: "top" }),
+      entrant({ id: "b", profile_id: "p2", riot_id: "Has Account#NA1" }),
+      entrant({ id: "c", profile_id: null, display_name: "No Role", riot_id: "No Role#NA1", primary_role: "adc", assigned_role: null }),
+      entrant({ id: "d", profile_id: null, riot_id: "Withdrew#NA1", status: "withdrawn" }),
+    ]);
+    expect(spots).toEqual([
+      { displayName: "Sitting Out", riotId: "Sitting Out#NA1", role: "top" },
+      { displayName: "No Role", riotId: "No Role#NA1", role: "adc" },
+    ]);
   });
 });

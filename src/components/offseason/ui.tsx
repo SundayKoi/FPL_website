@@ -7,7 +7,7 @@ import { ROLE_LABELS_SHORT, type LolRole } from "@/lib/draft/types";
 import { formatWeekTime } from "@/lib/offseason/times";
 import type { OffseasonWeek } from "@/lib/offseason/types";
 
-type NavKey = "overview" | "schedule" | "packs" | "signup" | "admin";
+type NavKey = "overview" | "schedule" | "packs" | "card" | "signup" | "admin";
 
 export function OffseasonShell({
   eyebrow = "FPL Offseason",
@@ -28,6 +28,7 @@ export function OffseasonShell({
     { key: "overview", href: "/offseason", label: "Overview" },
     { key: "schedule", href: "/offseason/schedule", label: "Schedule" },
     { key: "packs", href: "/offseason/packs", label: "Packs" },
+    { key: "card", href: "/offseason/card", label: "Your card" },
     { key: "signup", href: "/offseason/signup", label: "Sign up" },
     // Presentation only: /offseason/admin checks staff itself, and every
     // write it makes is checked again by the database.

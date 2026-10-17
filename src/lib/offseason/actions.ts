@@ -6,6 +6,7 @@
 // nothing here trusts the page that called it.
 
 import { revalidatePath } from "next/cache";
+import { validSignatureDataUrl } from "@/lib/cards/signing";
 import type { LolRole } from "@/lib/draft/types";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { buildCardSet, type OffseasonCopy } from "./packs";
@@ -74,6 +75,28 @@ export async function lockInAction(input: { eventId: string; role: LolRole; riot
       p_riot_id: input.riotId?.trim() || null,
     }),
   );
+}
+
+/**
+ * Signs the player's own offseason card. A player staff added by hand passes
+ * their Riot ID to claim the spot in the same step.
+ */
+export async function signCardAction(input: { eventId: string; signature: string; riotId?: string }): Promise<OffseasonActionResult> {
+  if (!validSignatureDataUrl(input.signature)) return { ok: false, error: "Draw your signature again." };
+  const supabase = await createServerSupabase();
+  return done(
+    await supabase.rpc("offseason_sign_card", {
+      p_event_id: input.eventId,
+      p_signature: input.signature,
+      p_riot_id: input.riotId?.trim() || null,
+    }),
+  );
+}
+
+/** Casts or changes the member's MVP vote for a week. */
+export async function voteMvpAction(weekId: string, entrantId: string): Promise<OffseasonActionResult> {
+  const supabase = await createServerSupabase();
+  return done(await supabase.rpc("offseason_vote_mvp", { p_week_id: weekId, p_entrant_id: entrantId }));
 }
 
 export type OpenPackResult =
