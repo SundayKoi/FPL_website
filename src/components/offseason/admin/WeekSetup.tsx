@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ROLE_LABELS_SHORT, ROLE_ORDER } from "@/lib/draft/types";
 import { createWeekDraftAction, setWeekEntriesAction } from "@/lib/offseason/actions";
 import { compareByRating } from "@/lib/offseason/order";
-import { planWeek, playablePlayers, proposeElimination, suggestCaptains } from "@/lib/offseason/planning";
+import { planWeek, playablePlayers, proposeElimination, suggestCaptains, suggestEliminationCaptains } from "@/lib/offseason/planning";
 import { ELIMINATION_PER_ROLE, ELIMINATION_START_WEEK, type OffseasonEntrant, type OffseasonWeek, type Tier } from "@/lib/offseason/types";
 import {
   ActionMessage,
@@ -25,6 +25,7 @@ function CaptainPicker({
   ratingOf,
   onChange,
   onSuggest,
+  suggestLabel = "Suggest top rated",
 }: {
   label: string;
   seats: number;
@@ -33,6 +34,7 @@ function CaptainPicker({
   ratingOf: (id: string) => number | null;
   onChange: (captains: string[]) => void;
   onSuggest: () => void;
+  suggestLabel?: string;
 }) {
   const byId = new Map(pool.map((entrant) => [entrant.id, entrant]));
   return (
@@ -42,7 +44,7 @@ function CaptainPicker({
           {label} captains ({seats} team{seats === 1 ? "" : "s"})
         </p>
         <button type="button" onClick={onSuggest} className={buttonClass} disabled={seats === 0}>
-          Suggest top rated
+          {suggestLabel}
         </button>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -165,14 +167,17 @@ export default function WeekSetup({ data, week }: { data: OffseasonAdminData; we
   });
 
   const suggest = (pool: OffseasonEntrant[], count: number) => suggestCaptains(pool, ratings, count).map((entrant) => entrant.id);
-  // The format: the lowest rated in each role play the elimination tier, and
-  // each tier is captained by its own highest rated players.
+  const suggestByRole = (pool: OffseasonEntrant[], count: number) =>
+    suggestEliminationCaptains(pool, ratings, count).map((entrant) => entrant.id);
+  // The format: the lowest rated in each role play the elimination tier. The
+  // main tier is captained by its highest rated overall, the elimination tier
+  // by the highest rated of each of its roles.
   const propose = () => {
     const ids = proposeElimination(data.entrants, ratings, perRole).ids;
     const teams = planWeek({ entrants: data.entrants, eliminationIds: ids, mainCaptainIds: [], eliminationCaptainIds: [] });
     setEliminationIds(ids);
     setMainCaptains(suggest(players.filter((entrant) => !ids.has(entrant.id)), teams.mainTeams));
-    setEliminationCaptains(suggest(players.filter((entrant) => ids.has(entrant.id)), teams.eliminationTeams));
+    setEliminationCaptains(suggestByRole(players.filter((entrant) => ids.has(entrant.id)), teams.eliminationTeams));
   };
   const toggle = (id: string) => {
     const next = new Set(eliminationIds);
@@ -246,7 +251,8 @@ export default function WeekSetup({ data, week }: { data: OffseasonAdminData; we
           pool={eliminationPool}
           ratingOf={ratingOf}
           onChange={setEliminationCaptains}
-          onSuggest={() => setEliminationCaptains(suggest(eliminationPool, plan.eliminationTeams))}
+          onSuggest={() => setEliminationCaptains(suggestByRole(eliminationPool, plan.eliminationTeams))}
+          suggestLabel="Suggest best per role"
         />
       ) : null}
 
