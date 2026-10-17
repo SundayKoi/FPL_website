@@ -14,10 +14,10 @@ Everything here is built to be deleted when the event is over. See
 
 | Piece | Where |
 | --- | --- |
-| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql` |
-| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql` |
+| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql` |
+| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql`, `0143_offseason_packs_test.sql` |
 | Logic, reads, server actions | `src/lib/offseason/` |
-| Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
+| Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/packs`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
 | Components | `src/components/offseason/` |
 | Stats ingest | `scripts/offseason_ingest.py`, `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml` |
 
@@ -45,6 +45,7 @@ It touches the rest of the site in two ways:
 - Anyone can read the event.
 - Signed-in players can sign up, edit their own entry, and withdraw while sign-ups are open (`offseason_sign_up`, `offseason_withdraw`).
 - Once they have a role, signed-in players lock it in (`offseason_lock_in`). A staff-added player claims their row by Riot ID in the same step, even after sign-ups close.
+- Anyone signed in, premium or not, opens offseason packs (`offseason_open_pack`) and sees only their own copies. Staff publish the card sets (`offseason_publish_card_set`).
 - Admins and owners do everything else, from `/offseason/admin`. The page only
   hides controls. The RLS policies and the staff check in each RPC are what enforce access.
 - The ingest writes with the service role only, through `offseason_record_ingest`.
@@ -184,6 +185,33 @@ the event's stage to Finals and then Complete as you go. For a final with three
 or four teams, add semifinals and the final with "Add match". Prizes are
 handled outside the site.
 
+## Packs
+
+`/offseason/packs` sells packs of the tournament's own cards. They're separate
+from the league's packs.
+
+- **Sets.** Completing a week publishes that week's set: every player with a
+  rated game, as their card stands (cumulative, like their Overall), labelled
+  season "Offseason". **Publish cards** on a playing or complete week
+  republishes it, replacing that week's set, e.g. after a late ingest. Packs
+  always open from the newest set of the current event. The site builds the
+  cards with the card engine (`buildCardSet`); `offseason_publish_card_set`
+  only checks and stores them.
+- **Allowance.** Everyone signed in gets $2,000 a week, counted from Monday
+  00:00 Eastern. Unspent dollars don't carry over, and they have nothing to do
+  with the league's wallet. A pack is $100, so 20 a week.
+- **Packs.** Five different players from the set. Each card rolls foil (one
+  finish, 1 in 10), shiny (1 in 20) and signed (1 in 20). Signed uses the
+  player's own saved autograph from `card_art_prefs`, so only players with one
+  can come out signed, and a signed card is always foil.
+- **Safety.** `offseason_open_pack` does the whole purchase in one transaction:
+  allowance check, charge, draw and copies. It holds a per-member lock and is
+  keyed by a request id the page keeps across retries, so a lost answer
+  returns the same pack rather than buying another.
+- **Copies.** They live in `offseason_card_copies`, not `card_inventory`, so
+  they never reach the league's packs, market, dust, sets, lineups or
+  expeditions. The page shows each member's latest 60.
+
 ## Ratings
 
 The Overall rating comes from the league's own card engine
@@ -201,6 +229,8 @@ proposed for the elimination tier automatically.
 
    ```sql
    drop table if exists
+     public.offseason_card_copies, public.offseason_pack_openings, public.offseason_cards,
+     public.offseason_card_sets,
      public.offseason_stats, public.offseason_games, public.offseason_matches,
      public.offseason_team_members, public.offseason_teams, public.offseason_draft_links,
      public.offseason_week_entries, public.offseason_weeks, public.offseason_entrants,
@@ -215,6 +245,11 @@ proposed for the elimination tier automatically.
      public.offseason_create_week_draft(uuid, text, int, int, int[], int),
      public.offseason_import_week_draft(uuid, text),
      public.offseason_set_week_times(uuid, timestamptz, timestamptz),
+     public.offseason_publish_card_set(uuid, int, jsonb),
+     public.offseason_open_pack(uuid),
+     public.offseason_pack_wallet(),
+     public._offseason_pack_result(uuid),
+     public._offseason_allowance_week(),
      public.offseason_set_game(uuid, int, text, uuid),
      public.offseason_record_ingest(uuid, text, uuid),
      public.offseason_set_team_eliminated(uuid, boolean),
@@ -227,8 +262,11 @@ proposed for the elimination tier automatically.
    `supabase/tests/0138_offseason_tournament_test.sql` and
    `supabase/tests/0139_offseason_lock_in_test.sql`,
    `supabase/tests/0140_offseason_elimination_only_week_test.sql`,
-   `supabase/tests/0141_offseason_captain_cost_test.sql` and
-   `supabase/tests/0142_offseason_week_times_test.sql` in the same change.
+   `supabase/tests/0141_offseason_captain_cost_test.sql`,
+   `supabase/tests/0142_offseason_week_times_test.sql` and
+   `supabase/tests/0143_offseason_packs_test.sql` in the same change.
+   Dropping the tables also removes everyone's offseason card copies; export
+   `offseason_card_copies` first if you want to keep a record.
 3. Remove the homepage banner: `OffseasonHomeBanner` and
    `fetchHomeOffseasonEvent` in `src/components/home/PreseasonHomePage.tsx`,
    `RegularSeasonHomePage.tsx` and `AcademyHomePage.tsx`, the

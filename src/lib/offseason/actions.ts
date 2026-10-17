@@ -8,6 +8,8 @@
 import { revalidatePath } from "next/cache";
 import type { LolRole } from "@/lib/draft/types";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { buildCardSet, type OffseasonCopy } from "./packs";
+import { loadOffseason } from "./queries";
 import { assignSides, tierSchedule } from "./schedule";
 import type { EntrantStatus, EntryTier, MatchStage, OffseasonEventStatus, Tier, WeekStatus } from "./types";
 
@@ -72,6 +74,33 @@ export async function lockInAction(input: { eventId: string; role: LolRole; riot
       p_riot_id: input.riotId?.trim() || null,
     }),
   );
+}
+
+export type OpenPackResult =
+  | { ok: true; remaining: number; weekNumber: number; copies: OffseasonCopy[] }
+  | { ok: false; error: string };
+
+/**
+ * Opens one offseason pack for the signed-in member. `requestId` comes from
+ * the page and stays the same across retries of one click, so a pack whose
+ * answer was lost on the way back is returned, not bought twice.
+ */
+export async function openOffseasonPackAction(requestId: string): Promise<OpenPackResult> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("offseason_open_pack", { p_request_id: requestId });
+  if (error) return failure(error);
+  const result = data as {
+    week_number: number;
+    remaining: number;
+    cards: { id: number; foil: boolean; shiny: boolean; signed: boolean; card: OffseasonCopy["card"] }[];
+  };
+  revalidatePath("/offseason/packs");
+  return {
+    ok: true,
+    remaining: result.remaining,
+    weekNumber: result.week_number,
+    copies: result.cards.map((copy) => ({ ...copy, weekNumber: result.week_number })),
+  };
 }
 
 // === Staff: event and entrants ===============================================
@@ -166,7 +195,40 @@ export async function openWeekAction(eventId: string, weekNumber: number): Promi
 
 export async function setWeekStatusAction(weekId: string, status: WeekStatus): Promise<OffseasonActionResult> {
   const supabase = await createServerSupabase();
-  return done(await supabase.from("offseason_weeks").update({ status }).eq("id", weekId));
+  const updated = await supabase.from("offseason_weeks").update({ status }).eq("id", weekId).select("event_id, week_number").single();
+  if (updated.error) return failure(updated.error);
+  // Completing a week publishes its card set: a fresh set each week.
+  if (status === "complete") {
+    const week = updated.data as { event_id: string; week_number: number };
+    const published = await publishCardSet(supabase, week.event_id, week.week_number);
+    if (published) {
+      revalidatePath("/offseason", "layout");
+      return { ok: false, error: `Week complete, but its cards weren't published: ${failure(published).error.replace(/\.$/, "")}. Use Publish cards to try again.` };
+    }
+  }
+  revalidatePath("/offseason", "layout");
+  return { ok: true };
+}
+
+/** Builds the week's set from the event's games so far and publishes it; the database error, if any. */
+async function publishCardSet(supabase: ServerSupabase, eventId: string, weekNumber: number): Promise<DbError> {
+  const view = await loadOffseason(supabase);
+  if (!view || view.event.id !== eventId) return { message: "EVENT_NOT_FOUND: that isn't the current event." };
+  const { error } = await supabase.rpc("offseason_publish_card_set", {
+    p_event_id: eventId,
+    p_week_number: weekNumber,
+    p_cards: buildCardSet(view),
+  });
+  return error;
+}
+
+/** Publishes (or republishes) a week's card set, replacing what that week had. */
+export async function publishCardSetAction(eventId: string, weekNumber: number): Promise<OffseasonActionResult> {
+  const supabase = await createServerSupabase();
+  const error = await publishCardSet(supabase, eventId, weekNumber);
+  if (error) return failure(error);
+  revalidatePath("/offseason", "layout");
+  return { ok: true };
 }
 
 /** When the week drafts and plays (ISO instants, or null to clear); its auctions move with the draft time. */
