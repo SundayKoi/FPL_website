@@ -5,7 +5,7 @@ import { ROLE_LABELS_SHORT, ROLE_ORDER } from "@/lib/draft/types";
 import { createWeekDraftAction, setWeekEntriesAction } from "@/lib/offseason/actions";
 import { compareByRating } from "@/lib/offseason/order";
 import { planWeek, playablePlayers, proposeElimination, suggestCaptains } from "@/lib/offseason/planning";
-import { ELIMINATION_START_WEEK, type OffseasonEntrant, type OffseasonWeek, type Tier } from "@/lib/offseason/types";
+import { ELIMINATION_PER_ROLE, ELIMINATION_START_WEEK, type OffseasonEntrant, type OffseasonWeek, type Tier } from "@/lib/offseason/types";
 import {
   ActionMessage,
   buttonClass,
@@ -129,7 +129,7 @@ export default function WeekSetup({ data, week }: { data: OffseasonAdminData; we
   );
   const [mainCaptains, setMainCaptains] = useState<string[]>(() => seated("main"));
   const [eliminationCaptains, setEliminationCaptains] = useState<string[]>(() => seated("elimination"));
-  const [perRole, setPerRole] = useState(2);
+  const [perRole, setPerRole] = useState(ELIMINATION_PER_ROLE);
   const { pending, message, run } = useOffseasonAction();
 
   const players = playablePlayers(data.entrants);
@@ -143,10 +143,15 @@ export default function WeekSetup({ data, week }: { data: OffseasonAdminData; we
     eliminationCaptainIds: eliminationCaptains.filter(Boolean),
   });
 
+  const suggest = (pool: OffseasonEntrant[], count: number) => suggestCaptains(pool, ratings, count).map((entrant) => entrant.id);
+  // The format: the lowest rated in each role play the elimination tier, and
+  // each tier is captained by its own highest rated players.
   const propose = () => {
-    const proposal = proposeElimination(data.entrants, ratings, perRole);
-    setEliminationIds(proposal.ids);
-    setEliminationCaptains([]);
+    const ids = proposeElimination(data.entrants, ratings, perRole).ids;
+    const teams = planWeek({ entrants: data.entrants, eliminationIds: ids, mainCaptainIds: [], eliminationCaptainIds: [] });
+    setEliminationIds(ids);
+    setMainCaptains(suggest(players.filter((entrant) => !ids.has(entrant.id)), teams.mainTeams));
+    setEliminationCaptains(suggest(players.filter((entrant) => ids.has(entrant.id)), teams.eliminationTeams));
   };
   const toggle = (id: string) => {
     const next = new Set(eliminationIds);
@@ -156,7 +161,6 @@ export default function WeekSetup({ data, week }: { data: OffseasonAdminData; we
     setMainCaptains(mainCaptains.filter((captain) => captain !== id));
     setEliminationCaptains(eliminationCaptains.filter((captain) => captain !== id));
   };
-  const suggest = (pool: OffseasonEntrant[], count: number) => suggestCaptains(pool, ratings, count).map((entrant) => entrant.id);
 
   if (hasDraft) return null;
 
@@ -169,8 +173,8 @@ export default function WeekSetup({ data, week }: { data: OffseasonAdminData; we
             Bottom per role
             <input type="number" min={0} max={4} value={perRole} onChange={(e) => setPerRole(Number(e.target.value))} className={`${smallInputClass} w-16`} />
           </label>
-          <button type="button" onClick={propose} className={buttonClass}>
-            Propose lowest rated
+          <button type="button" onClick={propose} className={buttonClass} disabled={week.week_number < ELIMINATION_START_WEEK}>
+            Propose tiers and captains
           </button>
           <button type="button" onClick={() => setEliminationIds(new Set())} className={buttonClass} disabled={eliminationIds.size === 0}>
             Clear

@@ -50,8 +50,8 @@ function entrant(id: string, role: LolRole, n: number): OffseasonEntrant {
 }
 
 function data(): OffseasonAdminData {
-  // Four players a role: ratings 90, 80, 70, 60 in team order.
-  const entrants = [0, 1, 2, 3].flatMap((team) => ROLES.map((role, r) => entrant(`${role}-${team}`, role, team * 5 + r)));
+  // Eight players a role: ratings 90, 80, ... 20 in team order.
+  const entrants = [0, 1, 2, 3, 4, 5, 6, 7].flatMap((team) => ROLES.map((role, r) => entrant(`${role}-${team}`, role, team * 5 + r)));
   const ratings = Object.fromEntries(
     entrants.map((player) => [player.id, { overall: 90 - Number(player.id.split("-")[1]) * 10, games: 3, wins: 1, losses: 2 }]),
   );
@@ -59,36 +59,40 @@ function data(): OffseasonAdminData {
 }
 
 describe("WeekSetup", () => {
-  it("proposes the elimination tier, suggests captains and locks the week", async () => {
+  it("puts the bottom four of each role in the elimination tier, captained by its best, and locks the week", async () => {
     setWeekEntriesAction.mockResolvedValue({ ok: true });
     render(<WeekSetup data={data()} week={week} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Propose lowest rated" }));
-    const [mainSuggest, eliminationSuggest] = screen.getAllByRole("button", { name: "Suggest top rated" });
-    fireEvent.click(mainSuggest);
-    fireEvent.click(eliminationSuggest);
-    expect(screen.getByText("Main captains (2 teams)")).toBeTruthy();
-    expect(screen.getByText("Elimination captains (2 teams)")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Propose tiers and captains" }));
+    expect(screen.getByText("Main captains (4 teams)")).toBeTruthy();
+    expect(screen.getByText("Elimination captains (4 teams)")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Lock tiers" }));
     await waitFor(() => expect(setWeekEntriesAction).toHaveBeenCalledTimes(1));
     const [weekId, entries] = setWeekEntriesAction.mock.calls[0] as [string, { entrant_id: string; tier: string; captain_seat: number | null }[]];
     expect(weekId).toBe("w3");
-    expect(entries).toHaveLength(20);
+    expect(entries).toHaveLength(40);
     const tierOf = (id: string) => entries.find((entry) => entry.entrant_id === id)!;
-    // The two lowest rated in every role drop into the elimination tier.
-    expect(tierOf("mid-3").tier).toBe("elimination");
-    expect(tierOf("mid-2").tier).toBe("elimination");
-    expect(tierOf("mid-1").tier).toBe("main");
-    // The best rated of each tier captain it, best first.
-    expect(entries.filter((entry) => entry.tier === "main" && entry.captain_seat).map((entry) => entry.captain_seat).sort()).toEqual([1, 2]);
-    expect(entries.filter((entry) => entry.tier === "elimination" && entry.captain_seat)).toHaveLength(2);
-    expect(entries.find((entry) => entry.captain_seat === 1 && entry.tier === "main")!.entrant_id).toMatch(/-0$/);
+    // The four lowest rated in every role drop into the elimination tier.
+    expect(["mid-4", "mid-5", "mid-6", "mid-7"].map((id) => tierOf(id).tier)).toEqual(Array(4).fill("elimination"));
+    expect(tierOf("mid-3").tier).toBe("main");
+    // Each tier is captained by its own highest rated: the -0 players for the
+    // main tier, the -4 players (best of the bottom four) for elimination.
+    const captains = (tier: string) => entries.filter((entry) => entry.tier === tier && entry.captain_seat).map((entry) => entry.entrant_id);
+    expect(captains("main")).toHaveLength(4);
+    expect(captains("main").every((id) => id.endsWith("-0"))).toBe(true);
+    expect(captains("elimination")).toHaveLength(4);
+    expect(captains("elimination").every((id) => id.endsWith("-4"))).toBe(true);
+  });
+
+  it("keeps the elimination tier closed before week 3", () => {
+    render(<WeekSetup data={data()} week={{ ...week, id: "w2", week_number: 2 }} />);
+    expect((screen.getByRole("button", { name: "Propose tiers and captains" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("will not lock a week whose captains are missing", () => {
     render(<WeekSetup data={data()} week={week} />);
-    expect(screen.getByText("4 main teams need 4 captains; 0 picked.")).toBeTruthy();
+    expect(screen.getByText("8 main teams need 8 captains; 0 picked.")).toBeTruthy();
     expect((screen.getByRole("button", { name: "Lock tiers" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

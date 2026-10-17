@@ -17,6 +17,8 @@ export type MatchStage = "round_robin" | "elimination" | "semifinal" | "final";
 export const MAX_ROUND_ROBIN_GAMES = 3;
 /** The elimination tier starts once the round robin has rated everyone. */
 export const ELIMINATION_START_WEEK = 3;
+/** From then on, the lowest this many rated players in each role play the elimination tier. */
+export const ELIMINATION_PER_ROLE = 4;
 export const TEAM_SIZE = 5;
 
 export interface OffseasonEvent {

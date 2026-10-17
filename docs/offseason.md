@@ -107,10 +107,13 @@ wrong row, clear `profile_id` on it in the database.
 
 Under Weeks, click **Open week N**. Then:
 
-1. **Tiers.** From week 3, set "Bottom per role" (2–4) and click **Propose lowest
-   rated** to fill the elimination tier. Tick or untick players to adjust it.
-   Before week 3, leave the elimination tier empty.
-2. **Captains.** Pick one per team, per tier. **Suggest top rated** picks the
+1. **Tiers and captains.** From week 3, click **Propose tiers and captains**. The
+   4 lowest-rated players in each role form the elimination tier: 4 teams each
+   week. Everyone else plays the main tier. Each tier's captains are its own
+   highest-rated players who have an account. Tick or untick players, or change
+   "Bottom per role", to adjust. The button is off before week 3, when there is
+   no elimination tier.
+2. **Captains before week 3.** Pick one per team. **Suggest top rated** picks the
    highest-rated players who have an account. In week 1 nobody has a rating
    yet, so pick them by hand.
 3. **Lock tiers.** The plan shows team counts, who sits out because a role is over-full
