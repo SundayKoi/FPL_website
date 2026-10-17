@@ -664,16 +664,20 @@ export default function MatchDraftBoard({
 
   // Ping + flash the tab when a NEW turn becomes the viewer's.
   const lastTurnKey = useRef<string | null>(null);
+  const stopFlash = useRef<(() => void) | null>(null);
   const myTurn = Boolean(clockRunning && currentStep && viewerSide === currentStep.side);
   useEffect(() => {
     if (onSave) return;
     const key = clockRunning && currentStep ? `${gameNumber}:${currentStep.index}` : null;
     if (key && key !== lastTurnKey.current && myTurn) {
       playTurnPing();
-      flashTitle();
+      stopFlash.current?.();
+      stopFlash.current = flashTitle();
     }
     lastTurnKey.current = key;
   }, [onSave, clockRunning, currentStep, myTurn, gameNumber]);
+  // Leaving the board stops a blink in progress.
+  useEffect(() => () => stopFlash.current?.(), []);
 
   /** ↺ affordance for a drafted step the viewer may ask to redo. */
   const requestChangeFor = (stepIndex: number): (() => void) | null => {
