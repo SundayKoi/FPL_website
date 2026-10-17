@@ -8,7 +8,7 @@ const { createServerSupabase, revalidatePath } = vi.hoisted(() => ({
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
-import { createMatchesAction, lockInAction, setGameAction, setLockInAction, signUpAction, updateEventAction } from "./actions";
+import { createMatchesAction, createWeekDraftAction, lockInAction, setGameAction, setLockInAction, signUpAction, updateEventAction } from "./actions";
 
 type Result = { data?: unknown; error: { message: string; code?: string } | null };
 
@@ -89,6 +89,18 @@ describe("offseason server actions", () => {
     expect(eq).toHaveBeenLastCalledWith("id", "entrant-1");
     await setLockInAction("entrant-1", null);
     expect(update).toHaveBeenLastCalledWith({ locked_in_role: null, locked_in_at: null });
+  });
+
+  it("creates a week's draft with no round minimums", async () => {
+    const { rpcFn } = client();
+    expect(await createWeekDraftAction("week-1", "main", { budget: 100, countdownSeconds: 15 })).toEqual({ ok: true });
+    expect(rpcFn).toHaveBeenCalledWith("offseason_create_week_draft", {
+      p_week_id: "week-1",
+      p_tier: "main",
+      p_budget: 100,
+      p_countdown_seconds: 15,
+      p_round_minimums: [1],
+    });
   });
 
   it("numbers new matches after the week's last one", async () => {
