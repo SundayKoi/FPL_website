@@ -8,7 +8,7 @@ import { ROLE_LABELS, ROLE_ORDER } from "@/lib/draft/types";
 import { claimableSpots, lockInOpen } from "@/lib/offseason/lockIn";
 import { loadOffseasonPage } from "@/lib/offseason/page";
 import { proposeElimination } from "@/lib/offseason/planning";
-import { ELIMINATION_START_WEEK, STATUS_LABELS } from "@/lib/offseason/types";
+import { ELIMINATION_PER_ROLE, ELIMINATION_START_WEEK, STATUS_LABELS } from "@/lib/offseason/types";
 
 export const metadata: Metadata = {
   title: "Offseason Tournament — FPL",
@@ -41,7 +41,7 @@ export default async function OffseasonPage() {
   const eliminated = view.entrants
     .filter((entrant) => entrant.status === "eliminated")
     .sort((a, b) => (a.eliminated_week ?? 0) - (b.eliminated_week ?? 0));
-  const bottomPerRole = currentWeek && currentWeek.week_number + 1 >= ELIMINATION_START_WEEK ? 2 : 0;
+  const bottomPerRole = currentWeek && currentWeek.week_number + 1 >= ELIMINATION_START_WEEK ? ELIMINATION_PER_ROLE : 0;
   const atRisk = proposeElimination(view.entrants, view.ratings, bottomPerRole).ids;
   const pastWeeks = view.weeks.filter((week) => week.id !== currentWeek?.id).reverse();
 

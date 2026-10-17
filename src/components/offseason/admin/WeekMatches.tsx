@@ -110,7 +110,7 @@ function MatchEditor({ data, match, teams }: { data: OffseasonAdminData; match: 
 
 function ScheduleTools({ week, mainTeams, eliminationTeams, matches }: { week: OffseasonWeek; mainTeams: OffseasonTeam[]; eliminationTeams: OffseasonTeam[]; matches: OffseasonMatch[] }) {
   const [roundRobinBestOf, setRoundRobinBestOf] = useState<BestOf>(1);
-  const [eliminationBestOf, setEliminationBestOf] = useState<BestOf>(1);
+  const [eliminationBestOf, setEliminationBestOf] = useState<BestOf>(5);
   const allTeams = [...mainTeams, ...eliminationTeams];
   const [custom, setCustom] = useState<{ a: string; b: string; stage: MatchStage; bestOf: BestOf }>({ a: "", b: "", stage: "final", bestOf: 5 });
   const { pending, message, run } = useOffseasonAction();
@@ -316,8 +316,8 @@ export default function WeekMatches({ data, week }: { data: OffseasonAdminData; 
         </div>
       ) : null}
 
-      {mainTeams.length > 0 && matches.length === 0 ? (
-        <p className="text-xs text-muted">Generate the round robin once the teams are in.</p>
+      {matches.length === 0 ? (
+        <p className="text-xs text-muted">Importing teams schedules their matches. If that failed, generate them here.</p>
       ) : null}
       {matches.length > 0 && matches.every((match) => match.winner_team_id) && week.status !== "complete" ? (
         <p className="text-xs text-success">Every match is decided. Complete the week when eliminations are done.</p>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { ROLE_LABELS_SHORT, type LolRole } from "@/lib/draft/types";
 
-type NavKey = "overview" | "signup" | "admin";
+type NavKey = "overview" | "schedule" | "signup" | "admin";
 
 export function OffseasonShell({
   eyebrow = "FPL Offseason",
@@ -24,6 +24,7 @@ export function OffseasonShell({
 }) {
   const links: { key: NavKey; href: string; label: string }[] = [
     { key: "overview", href: "/offseason", label: "Overview" },
+    { key: "schedule", href: "/offseason/schedule", label: "Schedule" },
     { key: "signup", href: "/offseason/signup", label: "Sign up" },
     // Presentation only: /offseason/admin checks staff itself, and every
     // write it makes is checked again by the database.
@@ -78,6 +79,15 @@ export function RoleTag({ role }: { role: LolRole | null }) {
     <span className="inline-flex min-w-10 justify-center rounded border border-border-subtle bg-canvas px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-muted">
       {role ? ROLE_LABELS_SHORT[role] : "—"}
     </span>
+  );
+}
+
+/** A match's side: team A plays blue, team B red. */
+export function SideTag({ side }: { side: "blue" | "red" }) {
+  return side === "blue" ? (
+    <span className="rounded bg-cyan/10 px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-cyan">Blue</span>
+  ) : (
+    <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-red-400">Red</span>
   );
 }
 

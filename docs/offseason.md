@@ -14,10 +14,10 @@ Everything here is built to be deleted when the event is over. See
 
 | Piece | Where |
 | --- | --- |
-| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql` |
-| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql` |
+| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql` |
+| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql` |
 | Logic, reads, server actions | `src/lib/offseason/` |
-| Pages | `src/app/offseason/` (`/offseason`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
+| Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
 | Components | `src/components/offseason/` |
 | Stats ingest | `scripts/offseason_ingest.py`, `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml` |
 
@@ -107,10 +107,13 @@ wrong row, clear `profile_id` on it in the database.
 
 Under Weeks, click **Open week N**. Then:
 
-1. **Tiers.** From week 3, set "Bottom per role" (2–4) and click **Propose lowest
-   rated** to fill the elimination tier. Tick or untick players to adjust it.
-   Before week 3, leave the elimination tier empty.
-2. **Captains.** Pick one per team, per tier. **Suggest top rated** picks the
+1. **Tiers and captains.** From week 3, click **Propose tiers and captains**. The
+   4 lowest-rated players in each role form the elimination tier: 4 teams each
+   week. Everyone else plays the main tier. Each tier's captains are its own
+   highest-rated players who have an account. Tick or untick players, or change
+   "Bottom per role", to adjust. The button is off before week 3, when there is
+   no elimination tier.
+2. **Captains before week 3.** Pick one per team. **Suggest top rated** picks the
    highest-rated players who have an account. In week 1 nobody has a rating
    yet, so pick them by hand.
 3. **Lock tiers.** The plan shows team counts, who sits out because a role is over-full
@@ -120,10 +123,16 @@ Under Weeks, click **Open week N**. Then:
    Offseason drafts have no round minimums: every nomination can open at 1.
 5. **Run the auction** from "Draft admin" (`/admin/{draftId}`) as usual.
    Captains bid in the draft room (`/draft/{draftId}`).
-6. **Import teams** once every team has all five roles.
-7. **Schedule.** "Generate" builds the round robin with at most three games per
-   team. Elimination pairings are first against second and third against
-   fourth; an odd number of teams plays a full round robin. Use "Add match" for anything else.
+6. **Import teams** once every team has all five roles. Importing a tier
+   schedules its matches straight away:
+   - main tier: a Bo1 round robin, at most three games per team;
+   - elimination tier: Bo5 pairings, first against second and third against
+     fourth (an odd number of teams plays a full round robin);
+   - from week 3, a week with only two main teams and no elimination tier is the
+     final: one Bo5.
+7. **Schedule.** Every match gets random sides: the first team listed plays blue.
+   `/offseason/schedule` shows each week's matchups lane by lane. If importing
+   could not schedule a tier, use "Generate". Use "Add match" for anything else.
 8. **Results.** Enter each game's Riot match ID, such as `NA1_5012345678`, and
    the winner if known. Then run **Ingest offseason games** from GitHub Actions →
    workflows. It is manual only: leave it blank to ingest everything pending, or give
@@ -134,13 +143,20 @@ Under Weeks, click **Open week N**. Then:
    out, with the week number. **Restore** undoes it.
 10. **Complete week.** Its games keep counting toward ratings.
 
-### Finals
+### The last weeks and the final
 
-Finals are a week too. Set every player who did not make the finals to "Sitting out"
-under Players, save, then open the week. Lock two to four teams, draft them,
-and add the matches with "Add match": semifinals, then the final, all Bo5.
-The final's winner is shown as champion on `/offseason`. Set the event's stage
-to Finals and then Complete as you go. Prizes are handled outside the site.
+With eight teams' worth of players, weeks 1 and 2 are all main tier. From week
+3, four teams play the elimination tier each week and its two losing teams
+are out. When only four teams' worth of players is left, **Propose tiers and
+captains** puts everyone in the elimination tier. That week has no main draft:
+lock it, draft the elimination tier, and importing it starts the week.
+
+The two teams that survive play the final the next week. Open the week, pick
+two captains with **Suggest top rated**, lock, draft and import. The import
+schedules one Bo5 final. Its winner is shown as champion on `/offseason`. Set
+the event's stage to Finals and then Complete as you go. For a final with three
+or four teams, add semifinals and the final with "Add match". Prizes are
+handled outside the site.
 
 ## Ratings
 
@@ -182,7 +198,8 @@ proposed for the elimination tier automatically.
 
    Never edit or delete the original migrations. Delete
    `supabase/tests/0138_offseason_tournament_test.sql` and
-   `supabase/tests/0139_offseason_lock_in_test.sql` in the same change.
+   `supabase/tests/0139_offseason_lock_in_test.sql` and
+   `supabase/tests/0140_offseason_elimination_only_week_test.sql` in the same change.
 3. Delete `src/app/offseason/`, `src/components/offseason/`,
    `src/lib/offseason/`, `scripts/offseason_ingest.py`,
    `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml`
