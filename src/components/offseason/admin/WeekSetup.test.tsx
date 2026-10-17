@@ -10,7 +10,7 @@ const { setWeekEntriesAction, createWeekDraftAction } = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/offseason/actions", () => ({ setWeekEntriesAction, createWeekDraftAction }));
 
-import WeekSetup from "./WeekSetup";
+import WeekSetup, { DraftCreator } from "./WeekSetup";
 
 afterEach(() => {
   cleanup();
@@ -94,5 +94,25 @@ describe("WeekSetup", () => {
     render(<WeekSetup data={data()} week={week} />);
     expect(screen.getByText("8 main teams need 8 captains; 0 picked.")).toBeTruthy();
     expect((screen.getByRole("button", { name: "Lock tiers" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+});
+
+describe("DraftCreator", () => {
+  it("needs a captain cost of at least 1 that leaves a point for every other role", async () => {
+    createWeekDraftAction.mockResolvedValue({ ok: true });
+    render(<DraftCreator week={week} tier="main" disabled={false} />);
+    const create = screen.getByRole("button", { name: "Create main draft" }) as HTMLButtonElement;
+    expect(create.disabled).toBe(true);
+
+    fireEvent.change(screen.getByLabelText(/^Captain cost/), { target: { value: "0" } });
+    expect(create.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText(/^Captain cost/), { target: { value: "97" } });
+    expect(create.disabled).toBe(true);
+
+    fireEvent.change(screen.getByLabelText(/^Captain cost/), { target: { value: "15" } });
+    expect(create.disabled).toBe(false);
+    fireEvent.click(create);
+    await waitFor(() => expect(createWeekDraftAction).toHaveBeenCalledWith("w3", "main", { budget: 100, countdownSeconds: 15, captainCost: 15 }));
   });
 });

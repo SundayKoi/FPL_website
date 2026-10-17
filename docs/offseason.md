@@ -14,8 +14,8 @@ Everything here is built to be deleted when the event is over. See
 
 | Piece | Where |
 | --- | --- |
-| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql` |
-| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql` |
+| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql` |
+| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql` |
 | Logic, reads, server actions | `src/lib/offseason/` |
 | Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
 | Components | `src/components/offseason/` |
@@ -118,9 +118,12 @@ Under Weeks, click **Open week N**. Then:
    yet, so pick them by hand.
 3. **Lock tiers.** The plan shows team counts, who sits out because a role is over-full
    (latest sign-ups first), and any problem that blocks locking.
-4. **Create drafts.** Set the budget and bid timer, then create the main draft,
-   and the elimination draft if there is one. This fixes the week's tiers.
-   Offseason drafts have no round minimums: every nomination can open at 1.
+4. **Create drafts.** Set the budget, bid timer and **captain cost**, then create
+   the main draft, and the elimination draft if there is one. This fixes the
+   week's tiers. Each captain is bought for the captain cost before the auction,
+   so their team starts with the budget less it. The cost is at least 1 and leaves
+   1 point for each of the other four roles. Offseason drafts have no round
+   minimums: every nomination can open at 1.
 5. **Run the auction** from "Draft admin" (`/admin/{draftId}`) as usual.
    Captains bid in the draft room (`/draft/{draftId}`).
 6. **Import teams** once every team has all five roles. Importing a tier
@@ -186,7 +189,7 @@ proposed for the elimination tier automatically.
      public.offseason_lock_in(uuid, public.lol_role, text),
      public.offseason_apply_roles(uuid, jsonb),
      public.offseason_set_week_entries(uuid, jsonb),
-     public.offseason_create_week_draft(uuid, text, int, int, int[]),
+     public.offseason_create_week_draft(uuid, text, int, int, int[], int),
      public.offseason_import_week_draft(uuid, text),
      public.offseason_set_game(uuid, int, text, uuid),
      public.offseason_record_ingest(uuid, text, uuid),
@@ -198,8 +201,9 @@ proposed for the elimination tier automatically.
 
    Never edit or delete the original migrations. Delete
    `supabase/tests/0138_offseason_tournament_test.sql` and
-   `supabase/tests/0139_offseason_lock_in_test.sql` and
-   `supabase/tests/0140_offseason_elimination_only_week_test.sql` in the same change.
+   `supabase/tests/0139_offseason_lock_in_test.sql`,
+   `supabase/tests/0140_offseason_elimination_only_week_test.sql` and
+   `supabase/tests/0141_offseason_captain_cost_test.sql` in the same change.
 3. Delete `src/app/offseason/`, `src/components/offseason/`,
    `src/lib/offseason/`, `scripts/offseason_ingest.py`,
    `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml`
