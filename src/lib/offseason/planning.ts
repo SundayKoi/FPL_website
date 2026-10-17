@@ -53,6 +53,30 @@ export function suggestCaptains(
     .slice(0, Math.max(0, count));
 }
 
+/**
+ * The elimination tier's captains: the best-rated player of each role in its
+ * pool, so no two captains share a role. With four teams and five roles, the
+ * lowest rated of those five role leaders is passed over; a tier that needs
+ * more captains than there are roles goes on to each role's next best. As in
+ * suggestCaptains, players who never linked an account are passed over.
+ */
+export function suggestEliminationCaptains(
+  pool: OffseasonEntrant[],
+  ratings: Map<string, Pick<RatingSummary, "overall">>,
+  count: number,
+): OffseasonEntrant[] {
+  const best = compareByRating(ratings);
+  const byRole = ROLE_ORDER.map((role) =>
+    pool.filter((entrant) => entrant.profile_id !== null && entrant.assigned_role === role).sort(best),
+  );
+  const depth = Math.max(...byRole.map((players) => players.length));
+  const order: OffseasonEntrant[] = [];
+  for (let rank = 0; rank < depth; rank += 1) {
+    order.push(...byRole.flatMap((players) => (players[rank] ? [players[rank]] : [])).sort(best));
+  }
+  return order.slice(0, Math.max(0, count));
+}
+
 export interface WeekEntryPlan {
   entrant_id: string;
   tier: EntryTier;

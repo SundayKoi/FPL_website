@@ -119,10 +119,16 @@ Under Weeks, click **Open week N**. Then:
 
 1. **Tiers and captains.** From week 3, click **Propose tiers and captains**. The
    4 lowest-rated players in each role form the elimination tier: 4 teams each
-   week. Everyone else plays the main tier. Each tier's captains are its own
-   highest-rated players who have an account. Tick or untick players, or change
-   "Bottom per role", to adjust. The button is off before week 3, when there is
-   no elimination tier.
+   week. Everyone else plays the main tier. Only players who have an account
+   are proposed as captains:
+   - main tier: its highest-rated players overall;
+   - elimination tier: the highest-rated player of each of its roles, so no
+     two captains share a role. Four teams need four of the five role leaders,
+     so the lowest rated of them is passed over. **Suggest best per role**
+     re-picks them the same way.
+
+   Tick or untick players, or change "Bottom per role", to adjust. The button
+   is off before week 3, when there is no elimination tier.
 2. **Captains before week 3.** Pick one per team. **Suggest top rated** picks the
    highest-rated players who have an account. In week 1 nobody has a rating
    yet, so pick them by hand.
