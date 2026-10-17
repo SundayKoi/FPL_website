@@ -1,0 +1,65 @@
+/* Lives inside the homepage's .page, so the --workspace-* theme follows each league's accent. */
+.band {
+  border-block: 1px solid var(--workspace-line);
+  background: var(--workspace-deep);
+}
+
+.panel {
+  min-width: 0;
+  border: 1px solid var(--workspace-line);
+  border-left: 3px solid var(--workspace-accent);
+  border-radius: 5px;
+  background: var(--workspace-panel);
+  padding: 20px;
+}
+
+.inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 24px;
+}
+
+.band .inner {
+  padding-block: 28px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  border-radius: 4px;
+  padding: 8px 18px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.primary {
+  background: var(--workspace-accent-fill);
+  color: var(--workspace-accent-contrast);
+}
+
+.secondary {
+  border: 1px solid var(--workspace-line);
+  color: var(--workspace-ink);
+}
+
+.primary:hover,
+.secondary:hover {
+  text-decoration: underline;
+}
+
+.primary:focus-visible,
+.secondary:focus-visible {
+  outline: 3px solid var(--workspace-accent-light);
+  outline-offset: 3px;
+}

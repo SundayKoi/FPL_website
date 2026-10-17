@@ -13,6 +13,8 @@ import TopCards from "./TopCards";
 import HomeCardsPromo from "./HomeCardsPromo";
 import HomeFooter from "./HomeFooter";
 import HomePlayoffBracket from "./HomePlayoffBracket";
+import OffseasonHomeBanner from "@/components/offseason/HomeBanner";
+import type { HomeOffseasonEvent } from "@/lib/offseason/home";
 import { twitchChannelLoginFromUrl, twitchUrlFromUrl } from "@/lib/home/twitchChannels";
 import type { HomepageTwitchData } from "@/lib/home/twitch";
 import { buildTickerItems } from "@/lib/home/ticker";
@@ -53,6 +55,8 @@ type HomeDashboardProps = {
   /** Who is looking — decides the third door of the orientation block. */
   viewer?: HomeViewer;
   appearance?: HomeAppearance;
+  /** The running offseason tournament, banded under the featured matchup (workspace only). */
+  offseasonEvent?: HomeOffseasonEvent | null;
 };
 
 /**
@@ -77,6 +81,7 @@ export default function HomeDashboard({
   scheduleTeamBasePath,
   viewer = "signed-out",
   appearance = "legacy",
+  offseasonEvent = null,
 }: HomeDashboardProps) {
   const workspace = appearance === "workspace";
   const league = cardsBasePath?.startsWith("/academy") ? "academy" : "premier";
@@ -115,6 +120,7 @@ export default function HomeDashboard({
         title={featuredSettings.title ?? undefined} description={featuredSettings.description ?? undefined}
         appearance="workspace"
       />
+      <OffseasonHomeBanner event={offseasonEvent} layout="band" />
       <HomeShortcutsBand shortcuts={homeShortcuts(league, viewer)} />
       <div className={styles.newStripBand}>
         <div className={styles.bandInner} data-page-container>

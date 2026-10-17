@@ -1,12 +1,14 @@
+import OffseasonHomeBanner from "@/components/offseason/HomeBanner";
 import { DRAFT_DAY_AT, DRAFT_DAY_LABEL } from "@/lib/home/seasonState";
 import { fetchPreseasonHomeData } from "@/lib/home/preseason";
+import { fetchHomeOffseasonEvent } from "@/lib/offseason/home";
 import PreseasonCountdown from "./PreseasonCountdown";
 import PreseasonPlayerPool from "./PreseasonPlayerPool";
 import SiteDirectoryGrid from "./SiteDirectoryGrid";
 import styles from "./HomeWorkspace.module.css";
 
 export default async function PreseasonHomePage() {
-  const data = await fetchPreseasonHomeData();
+  const [data, offseason] = await Promise.all([fetchPreseasonHomeData(), fetchHomeOffseasonEvent()]);
 
   return (
     <main className={styles.page}>
@@ -39,6 +41,8 @@ export default async function PreseasonHomePage() {
             </div>
           </div>
         </section>
+
+        <OffseasonHomeBanner event={offseason} layout="panel" />
 
         <section aria-labelledby="preseason-teams-title">
           <div className={styles.sectionHeading}>

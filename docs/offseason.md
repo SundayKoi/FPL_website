@@ -21,13 +21,23 @@ Everything here is built to be deleted when the event is over. See
 | Components | `src/components/offseason/` |
 | Stats ingest | `scripts/offseason_ingest.py`, `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml` |
 
-It touches the rest of the site in only one way: each weekly auction is an
-ordinary row in `drafts`, `teams` and `players`, named `Offseason W{n}` or
-`Offseason W{n} Elimination`. Those drafts appear in the `/draft` directory and
-the admin draft list, and they run in the normal draft room and draft admin.
-They are never the featured draft, so league teams, rosters, cards and stats
-never read them. Offseason games go to `offseason_stats`, never to
-`raw_stats`. No existing page links to `/offseason`. Share the link in Discord.
+It touches the rest of the site in two ways:
+
+- Each weekly auction is an ordinary row in `drafts`, `teams` and `players`,
+  named `Offseason W{n}` or `Offseason W{n} Elimination`. Those drafts appear
+  in the `/draft` directory and the admin draft list, and they run in the
+  normal draft room and draft admin. They are never the featured draft, so
+  league teams, rosters, cards and stats never read them. Offseason games go
+  to `offseason_stats`, never to `raw_stats`.
+- Every homepage links to `/offseason` while the newest event is not complete
+  (`OffseasonHomeBanner`, `src/components/offseason/HomeBanner.tsx`, loaded by
+  `fetchHomeOffseasonEvent`, `src/lib/offseason/home.ts`):
+  - the preseason homepage shows a panel under its hero;
+  - the Premier and Academy dashboards show a band under the featured matchup.
+
+  The banner offers **Sign up** while sign-ups are open and **Schedule** once
+  weeks are played. It hides itself when the event is complete or the read
+  fails.
 
 ## Access
 
@@ -210,7 +220,11 @@ proposed for the elimination tier automatically.
    `supabase/tests/0139_offseason_lock_in_test.sql`,
    `supabase/tests/0140_offseason_elimination_only_week_test.sql` and
    `supabase/tests/0141_offseason_captain_cost_test.sql` in the same change.
-3. Delete `src/app/offseason/`, `src/components/offseason/`,
+3. Remove the homepage banner: `OffseasonHomeBanner` and
+   `fetchHomeOffseasonEvent` in `src/components/home/PreseasonHomePage.tsx`,
+   `RegularSeasonHomePage.tsx` and `AcademyHomePage.tsx`, the
+   `offseasonEvent` prop in `HomeDashboard.tsx`, and its case in
+   `RegularSeasonHomePage.test.tsx`. Then delete `src/app/offseason/`, `src/components/offseason/`,
    `src/lib/offseason/`, `scripts/offseason_ingest.py`,
    `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml`
    and this file.
