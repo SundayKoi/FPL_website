@@ -15,6 +15,7 @@ vi.mock("next/navigation", () => ({ notFound, useRouter: () => ({ refresh: vi.fn
 
 import OffseasonPage from "./page";
 import OffseasonPlayerPage from "./players/[id]/page";
+import OffseasonSchedulePage from "./schedule/page";
 
 afterEach(() => {
   cleanup();
@@ -107,6 +108,26 @@ describe("offseason pages", () => {
     expect(screen.getByRole("heading", { name: "Blue mid" })).toBeTruthy();
     expect(screen.getByText(/Won 1–0/)).toBeTruthy();
     expect(screen.queryByRole("link", { name: /op\.gg/ })).toBeNull();
+  });
+
+  it("shows each match with its sides and who faces whom in every lane", async () => {
+    loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(fixture(), []), userId: null, isStaff: false, ownEntry: null });
+    render(await OffseasonSchedulePage());
+    const week = screen.getByRole("heading", { name: "Week 1" }).closest("section")!;
+    const match = within(week).getByText("Team Blue").closest("li")!;
+    // Team A plays blue side, team B red.
+    expect(within(match).getByText("Blue")).toBeTruthy();
+    expect(within(match).getByText("Red")).toBeTruthy();
+    expect(within(match).getByText("1 – 0")).toBeTruthy();
+    const midLane = within(match).getByRole("link", { name: "Blue mid" }).closest("li")!;
+    expect(within(midLane).getByRole("link", { name: "Red mid" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Schedule" }).getAttribute("aria-current")).toBe("page");
+  });
+
+  it("explains an empty schedule", async () => {
+    loadOffseasonPage.mockResolvedValue({ view: null, userId: null, isStaff: false, ownEntry: null });
+    render(await OffseasonSchedulePage());
+    expect(screen.getByText(/appears once the first week is drafted/)).toBeTruthy();
   });
 
   it("404s an unknown player", async () => {

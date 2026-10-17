@@ -8,12 +8,13 @@
 import { revalidatePath } from "next/cache";
 import type { LolRole } from "@/lib/draft/types";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { assignSides, tierSchedule } from "./schedule";
 import type { EntrantStatus, EntryTier, MatchStage, OffseasonEventStatus, Tier, WeekStatus } from "./types";
 
 export type OffseasonActionResult = { ok: true } | { ok: false; error: string };
 
 /** "CODE: message" from an RPC reads as the message; RLS refusals as a sentence. */
-function failure(error: { message?: string; code?: string } | null): OffseasonActionResult {
+function failure(error: { message?: string; code?: string } | null): { ok: false; error: string } {
   const message = error?.message ?? "Something went wrong.";
   if (error?.code === "42501" || /row-level security|permission denied/i.test(message)) {
     return { ok: false, error: "Only offseason staff can do that." };
@@ -194,9 +195,72 @@ export async function createWeekDraftAction(
   );
 }
 
+type ServerSupabase = Awaited<ReturnType<typeof createServerSupabase>>;
+type DbError = { message?: string; code?: string } | null;
+
+/** Adds matches after the week's last one, each on random sides. */
+async function insertMatches(
+  supabase: ServerSupabase,
+  weekId: string,
+  stage: MatchStage,
+  bestOf: 1 | 3 | 5,
+  pairs: { teamA: string; teamB: string }[],
+): Promise<DbError> {
+  const { data: last, error } = await supabase
+    .from("offseason_matches")
+    .select("sort_order")
+    .eq("week_id", weekId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return error;
+  const start = ((last as { sort_order: number } | null)?.sort_order ?? 0) + 1;
+  const { error: insertError } = await supabase.from("offseason_matches").insert(
+    assignSides(pairs).map((pair, index) => ({
+      week_id: weekId,
+      stage,
+      best_of: bestOf,
+      team_a_id: pair.teamA,
+      team_b_id: pair.teamB,
+      sort_order: start + index,
+    })),
+  );
+  return insertError;
+}
+
+/** Schedules a freshly imported tier, unless its matches already exist. */
+async function scheduleTier(supabase: ServerSupabase, weekId: string, tier: Tier): Promise<DbError> {
+  const [weekResult, teamsResult, matchesResult] = await Promise.all([
+    supabase.from("offseason_weeks").select("week_number, elimination_draft_id").eq("id", weekId).single(),
+    supabase.from("offseason_teams").select("id, tier").eq("week_id", weekId).order("name"),
+    supabase.from("offseason_matches").select("stage").eq("week_id", weekId),
+  ]);
+  const failed = weekResult.error ?? teamsResult.error ?? matchesResult.error;
+  if (failed) return failed;
+  const week = weekResult.data as { week_number: number; elimination_draft_id: string | null };
+  const teams = (teamsResult.data ?? []) as { id: string; tier: Tier }[];
+  const plan = tierSchedule({
+    tier,
+    teamIds: teams.filter((team) => team.tier === tier).map((team) => team.id),
+    weekNumber: week.week_number,
+    hasEliminationTier: Boolean(week.elimination_draft_id),
+  });
+  const existing = (matchesResult.data ?? []) as { stage: MatchStage }[];
+  if (!plan || existing.some((match) => match.stage === plan.stage)) return null;
+  return insertMatches(supabase, weekId, plan.stage, plan.bestOf, plan.pairings);
+}
+
+/** Imports a finished auction, then schedules that tier's matches straight away. */
 export async function importWeekDraftAction(weekId: string, tier: Tier): Promise<OffseasonActionResult> {
   const supabase = await createServerSupabase();
-  return done(await supabase.rpc("offseason_import_week_draft", { p_week_id: weekId, p_tier: tier }));
+  const { error } = await supabase.rpc("offseason_import_week_draft", { p_week_id: weekId, p_tier: tier });
+  if (error) return failure(error);
+  const scheduleError = await scheduleTier(supabase, weekId, tier);
+  revalidatePath("/offseason", "layout");
+  if (scheduleError) {
+    return { ok: false, error: `Teams imported, but the schedule could not be made (${failure(scheduleError).error}). Use Generate.` };
+  }
+  return { ok: true };
 }
 
 // === Staff: matches and results ==============================================
@@ -208,27 +272,7 @@ export async function createMatchesAction(
   pairs: { teamA: string; teamB: string }[],
 ): Promise<OffseasonActionResult> {
   const supabase = await createServerSupabase();
-  const { data: last, error } = await supabase
-    .from("offseason_matches")
-    .select("sort_order")
-    .eq("week_id", weekId)
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) return failure(error);
-  const start = ((last as { sort_order: number } | null)?.sort_order ?? 0) + 1;
-  return done(
-    await supabase.from("offseason_matches").insert(
-      pairs.map((pair, index) => ({
-        week_id: weekId,
-        stage,
-        best_of: bestOf,
-        team_a_id: pair.teamA,
-        team_b_id: pair.teamB,
-        sort_order: start + index,
-      })),
-    ),
-  );
+  return done({ error: await insertMatches(supabase, weekId, stage, bestOf, pairs) });
 }
 
 export async function deleteMatchAction(matchId: string): Promise<OffseasonActionResult> {

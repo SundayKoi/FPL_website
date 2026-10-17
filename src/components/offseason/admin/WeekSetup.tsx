@@ -250,7 +250,7 @@ export default function WeekSetup({ data, week }: { data: OffseasonAdminData; we
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            disabled={pending || plan.problems.length > 0 || plan.mainTeams < 2}
+            disabled={pending || plan.problems.length > 0}
             className={primaryButtonClass}
             onClick={() => run(() => setWeekEntriesAction(week.id, plan.entries), "Week locked. Create the drafts next.")}
           >
