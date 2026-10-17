@@ -179,7 +179,7 @@ export async function setWeekEntriesAction(
 export async function createWeekDraftAction(
   weekId: string,
   tier: Tier,
-  settings: { budget: number; countdownSeconds: number; roundMinimums: number[] },
+  settings: { budget: number; countdownSeconds: number },
 ): Promise<OffseasonActionResult> {
   const supabase = await createServerSupabase();
   return done(
@@ -188,7 +188,8 @@ export async function createWeekDraftAction(
       p_tier: tier,
       p_budget: settings.budget,
       p_countdown_seconds: settings.countdownSeconds,
-      p_round_minimums: settings.roundMinimums,
+      // No round minimums in the offseason: every nomination may open at 1.
+      p_round_minimums: [1],
     }),
   );
 }

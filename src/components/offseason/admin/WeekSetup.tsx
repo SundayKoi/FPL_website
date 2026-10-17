@@ -82,12 +82,7 @@ function CaptainPicker({
 export function DraftCreator({ week, tier, disabled }: { week: OffseasonWeek; tier: Tier; disabled: boolean }) {
   const [budget, setBudget] = useState(100);
   const [countdown, setCountdown] = useState(15);
-  const [minimums, setMinimums] = useState("10, 5, 1");
   const { pending, message, run } = useOffseasonAction();
-  const parsedMinimums = minimums
-    .split(",")
-    .map((value) => Number.parseInt(value.trim(), 10))
-    .filter((value) => Number.isFinite(value) && value >= 0);
   return (
     <div className="flex flex-wrap items-end gap-2">
       <label className={labelClass}>
@@ -98,17 +93,13 @@ export function DraftCreator({ week, tier, disabled }: { week: OffseasonWeek; ti
         Timer (s)
         <input type="number" min={5} value={countdown} onChange={(e) => setCountdown(Number(e.target.value))} className={`${inputClass} w-20`} />
       </label>
-      <label className={labelClass}>
-        Round minimum bids
-        <input value={minimums} onChange={(e) => setMinimums(e.target.value)} className={`${inputClass} w-28`} />
-      </label>
       <button
         type="button"
-        disabled={disabled || pending || parsedMinimums.length === 0 || budget < 1}
+        disabled={disabled || pending || budget < 1}
         className={primaryButtonClass}
         onClick={() =>
           run(
-            () => createWeekDraftAction(week.id, tier, { budget, countdownSeconds: countdown, roundMinimums: parsedMinimums }),
+            () => createWeekDraftAction(week.id, tier, { budget, countdownSeconds: countdown }),
             `${tier === "main" ? "Main" : "Elimination"} draft created.`,
           )
         }
