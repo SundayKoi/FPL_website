@@ -19,7 +19,9 @@ import { findSpot, type ClaimableSpot } from "@/lib/offseason/lockIn";
 
 const PAD_WIDTH = 480;
 const PAD_HEIGHT = 160;
-const INK_WIDTH = 3;
+// Heavier than the league pad's 3px: the autograph prints at about a third of
+// the pad's width on a card, where a 3px stroke thins to a hairline.
+const INK_WIDTH = 5;
 
 type Message = { kind: "error" | "done"; text: string } | null;
 
