@@ -12,6 +12,7 @@ import { fetchAcademyDraftData } from "@/lib/academy/draft";
 import { filterAcademyFixtures } from "@/lib/academy/filtering";
 import { academyTeamNames } from "@/lib/league/context";
 import { fetchLeagueSeasons } from "@/lib/league/season";
+import { fetchHomeOffseasonEvent } from "@/lib/offseason/home";
 
 /**
  * The Academy homepage: the same dashboard as the Premier regular-season home
@@ -31,7 +32,7 @@ export default async function AcademyHomePage() {
     featuredSettings,
     twitch: await fetchHomepageTwitch(twitchChannelLoginFromUrl(featuredSettings.twitchUrl)),
   }));
-  const [awards, standingsData, schedule, identities, topCards, { featuredSettings, twitch }, viewer] = await Promise.all([
+  const [awards, standingsData, schedule, identities, topCards, { featuredSettings, twitch }, viewer, offseasonEvent] = await Promise.all([
     fetchHomepageAwards(seasons.academy, teamNames, "academy_draft_id"),
     fetchHomepageStandings(seasons.academy, teamNames, "academy_draft_id", "league-wide"),
     fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, teamNameSet), seasons.academy),
@@ -40,6 +41,7 @@ export default async function AcademyHomePage() {
     fetchCurrentWeekCards(supabase, seasons.academy),
     broadcast,
     homeViewer(),
+    fetchHomeOffseasonEvent(),
   ]);
   const featuredFixture = selectHomepageFeaturedFixture(schedule.fixtures, featuredSettings.fixtureId);
 
@@ -60,6 +62,7 @@ export default async function AcademyHomePage() {
       scheduleTeamBasePath={null}
       viewer={viewer}
       appearance="workspace"
+      offseasonEvent={offseasonEvent}
     />
   );
 }
