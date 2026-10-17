@@ -1,6 +1,6 @@
 "use client";
 
-import { openWeekAction, setWeekStatusAction } from "@/lib/offseason/actions";
+import { openWeekAction, publishCardSetAction, setWeekStatusAction } from "@/lib/offseason/actions";
 import type { OffseasonWeek } from "@/lib/offseason/types";
 import { ActionMessage, buttonClass, primaryButtonClass, useOffseasonAction, type OffseasonAdminData } from "./shared";
 import WeekDrafts from "./WeekDrafts";
@@ -11,8 +11,8 @@ import WeekTimesEditor from "./WeekTimes";
 const STEP: Record<OffseasonWeek["status"], string> = {
   setup: "Pick the elimination tier and captains, lock the tiers, then create the drafts.",
   drafting: "Run the auctions from the draft admin, then import the teams.",
-  playing: "Schedule the matches, enter results, and eliminate the losing elimination teams.",
-  complete: "Done. Its games still count toward everyone's ratings.",
+  playing: "Schedule the matches, enter results, and eliminate the losing elimination teams. Completing the week publishes its card set to the packs.",
+  complete: "Done. Its games still count toward everyone's ratings, and its card set is in the packs.",
 };
 
 function WeekPanel({ data, week }: { data: OffseasonAdminData; week: OffseasonWeek }) {
@@ -29,6 +29,16 @@ function WeekPanel({ data, week }: { data: OffseasonAdminData; week: OffseasonWe
         {week.status === "complete" ? (
           <button type="button" disabled={pending} className={buttonClass} onClick={() => run(() => setWeekStatusAction(week.id, "playing"), "Week reopened.")}>
             Reopen
+          </button>
+        ) : null}
+        {week.status === "playing" || week.status === "complete" ? (
+          <button
+            type="button"
+            disabled={pending}
+            className={buttonClass}
+            onClick={() => run(() => publishCardSetAction(week.event_id, week.week_number), `Week ${week.week_number} cards published to the packs.`)}
+          >
+            Publish cards
           </button>
         ) : null}
         <ActionMessage message={message} />

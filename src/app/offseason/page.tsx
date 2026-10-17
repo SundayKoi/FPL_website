@@ -2,13 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Leaderboards from "@/components/offseason/Leaderboards";
 import LockIn from "@/components/offseason/LockIn";
+import MvpVote from "@/components/offseason/MvpVote";
 import { Empty, OffseasonShell, Panel, RoleTag } from "@/components/offseason/ui";
 import WeekBoard, { WEEK_STATUS_LABELS } from "@/components/offseason/WeekBoard";
 import { ROLE_LABELS, ROLE_ORDER } from "@/lib/draft/types";
 import { claimableSpots, lockInOpen } from "@/lib/offseason/lockIn";
+import { loadMvp, type MvpWinner } from "@/lib/offseason/mvp";
 import { loadOffseasonPage } from "@/lib/offseason/page";
 import { proposeElimination } from "@/lib/offseason/planning";
 import { ELIMINATION_PER_ROLE, ELIMINATION_START_WEEK, STATUS_LABELS } from "@/lib/offseason/types";
+import { createServerSupabase } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Offseason Tournament — FPL",
@@ -34,6 +37,7 @@ export default async function OffseasonPage() {
   }
 
   const { event, currentWeek } = view;
+  const mvp = await loadMvp(await createServerSupabase(), view, userId);
   const signedUp = view.entrants.filter((entrant) => entrant.status !== "withdrawn");
   const primaryCounts = Object.fromEntries(
     ROLE_ORDER.map((role) => [role, signedUp.filter((entrant) => entrant.primary_role === role).length]),
@@ -87,7 +91,12 @@ export default async function OffseasonPage() {
               <Link href={`/offseason/players/${ownEntry.id}`} className="text-action-text hover:underline">
                 {ownEntry.display_name}
               </Link>
-              .
+              .{" "}
+              {ownEntry.status !== "withdrawn" && event.status !== "complete" ? (
+                <Link href="/offseason/card" className="text-action-text hover:underline">
+                  Sign your card
+                </Link>
+              ) : null}
             </p>
           ) : (
             <p className="text-sm text-muted">Sign-ups are closed.</p>
@@ -113,6 +122,29 @@ export default async function OffseasonPage() {
       {currentWeek ? (
         <Panel title={`Week ${currentWeek.week_number}`} aside={WEEK_STATUS_LABELS[currentWeek.status]}>
           <WeekBoard view={view} week={currentWeek} />
+        </Panel>
+      ) : null}
+
+      {mvp.open ? (
+        <Panel title={`Week ${mvp.open.weekNumber} MVP`} aside="Voting open">
+          <MvpVote week={mvp.open} signedIn={userId !== null} />
+        </Panel>
+      ) : null}
+
+      {mvp.winners.length > 0 ? (
+        <Panel title="MVPs">
+          <ul className="flex flex-col gap-2">
+            {mvp.winners.map((winner) => (
+              <li key={winner.weekNumber} className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                <span className="font-display font-semibold text-white">Week {winner.weekNumber}</span>
+                <MvpNames winner={winner} />
+                <span className="text-muted">
+                  · {winner.votes} of {winner.total} {winner.total === 1 ? "vote" : "votes"}
+                  {winner.names.length > 1 ? " each" : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
         </Panel>
       ) : null}
 
@@ -150,5 +182,20 @@ export default async function OffseasonPage() {
         </Panel>
       ) : null}
     </OffseasonShell>
+  );
+}
+
+function MvpNames({ winner }: { winner: MvpWinner }) {
+  return (
+    <span>
+      {winner.names.map((name, index) => (
+        <span key={name.entrantId}>
+          {index > 0 ? (index === winner.names.length - 1 ? " and " : ", ") : null}
+          <Link href={`/offseason/players/${name.entrantId}`} className="font-semibold text-gold hover:underline">
+            {name.name}
+          </Link>
+        </span>
+      ))}
+    </span>
   );
 }

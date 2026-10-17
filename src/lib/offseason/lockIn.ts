@@ -61,6 +61,13 @@ export function claimableSpots(entrants: OffseasonEntrant[]): ClaimableSpot[] {
     .map((entrant) => ({ displayName: entrant.display_name, riotId: entrant.riot_id, role: entrant.assigned_role! }));
 }
 
+/** Every card nobody has claimed yet, for signing: no account, still in the event. */
+export function unclaimedSpots(entrants: OffseasonEntrant[]): ClaimableSpot[] {
+  return entrants
+    .filter((entrant) => entrant.profile_id === null && entrant.status !== "withdrawn")
+    .map((entrant) => ({ displayName: entrant.display_name, riotId: entrant.riot_id, role: entrant.assigned_role ?? entrant.primary_role }));
+}
+
 const riotKey = (riotId: string) => riotId.toLowerCase().replace(/\s+/g, "");
 
 /** The spot whose Riot ID matches what the player typed, ignoring case and spaces. */

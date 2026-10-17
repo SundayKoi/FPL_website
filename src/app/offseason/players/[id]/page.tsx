@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { Empty, OffseasonShell, Overall, Panel, RoleTag, safeLink, tableClass, tdClass, thClass } from "@/components/offseason/ui";
 import { matchScore } from "@/components/offseason/WeekBoard";
 import { cardPlayerKey } from "@/lib/cards/cardKeys";
 import { ROLE_LABELS } from "@/lib/draft/types";
 import { loadOffseasonPage } from "@/lib/offseason/page";
+import { fetchSignatures } from "@/lib/offseason/queries";
 import { entrantKey } from "@/lib/offseason/ratings";
 import { STAGE_LABELS } from "@/lib/offseason/types";
+import { createServerSupabase } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Offseason Player — FPL",
@@ -22,9 +25,11 @@ const STATUS_TEXT = {
 
 export default async function OffseasonPlayerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { view, isStaff } = await loadOffseasonPage();
+  const { view, userId, isStaff } = await loadOffseasonPage();
   const entrant = view?.entrantsById.get(id);
   if (!view || !entrant) notFound();
+  const signature = (await fetchSignatures(await createServerSupabase(), [entrant.id])).get(entrant.id) ?? null;
+  const ownCard = userId !== null && entrant.profile_id === userId && entrant.status !== "withdrawn" && view.event.status !== "complete";
 
   const rating = view.ratings.get(entrant.id);
   const opgg = safeLink(entrant.opgg_url);
@@ -70,6 +75,9 @@ export default async function OffseasonPlayerPage({ params }: { params: Promise<
         <Panel title="Overall" aside={card ? `${card.tier.label} · ${card.archetype}` : undefined}>
           {card ? (
             <>
+              <div className="card-cell self-center">
+                <PlayerCard3D card={{ ...card, season: "Offseason", autograph: signature }} interactive />
+              </div>
               <p className="type-display text-6xl text-white">{card.overall}</p>
               <p className="text-sm text-muted">
                 {rating!.games} game{rating!.games === 1 ? "" : "s"} · {rating!.wins}–{rating!.losses}
@@ -89,6 +97,11 @@ export default async function OffseasonPlayerPage({ params }: { params: Promise<
           ) : (
             <Empty>No rated games yet. A rating appears after the first ingested game.</Empty>
           )}
+          {ownCard ? (
+            <Link href="/offseason/card" className="btn-pill self-start text-sm">
+              {signature ? "Re-sign your card" : "Sign your card"}
+            </Link>
+          ) : null}
         </Panel>
 
         <Panel title="Week by week">

@@ -1,22 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createServerSupabase, revalidatePath } = vi.hoisted(() => ({
+const { createServerSupabase, revalidatePath, loadOffseason } = vi.hoisted(() => ({
   createServerSupabase: vi.fn(),
   revalidatePath: vi.fn(),
+  loadOffseason: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase }));
 vi.mock("next/cache", () => ({ revalidatePath }));
+vi.mock("./queries", () => ({ loadOffseason }));
 
 import {
   createMatchesAction,
   createWeekDraftAction,
   importWeekDraftAction,
   lockInAction,
+  openOffseasonPackAction,
   setGameAction,
   setLockInAction,
+  signCardAction,
   signUpAction,
+  setWeekStatusAction,
   updateEventAction,
+  voteMvpAction,
 } from "./actions";
 
 type Result = { data?: unknown; error: { message: string; code?: string } | null };
@@ -195,5 +201,105 @@ describe("offseason server actions", () => {
 
     tableClient({}, { error: { message: "DRAFT_NOT_FINISHED: every team needs all five roles first" } });
     expect(await importWeekDraftAction("week-1", "main")).toEqual({ ok: false, error: "every team needs all five roles first" });
+  });
+});
+
+describe("offseason card sets and packs", () => {
+  /** Completing or reopening a week: update(...).eq(...).select(...).single(). */
+  function weekClient(rpc: Result = { error: null }) {
+    const single = vi.fn(async () => ({ data: { event_id: "event-1", week_number: 2 }, error: null }));
+    const eq = vi.fn(() => ({ select: vi.fn(() => ({ single })) }));
+    const update = vi.fn(() => ({ eq }));
+    const rpcFn = vi.fn(async () => rpc);
+    createServerSupabase.mockResolvedValue({ rpc: rpcFn, from: vi.fn(() => ({ update })) });
+    return { rpcFn, update };
+  }
+
+  const view = {
+    event: { id: "event-1" },
+    entrants: [{ id: "rated" }, { id: "unrated" }],
+    ratings: new Map([
+      ["rated", { card: { name: "Rated", tag: "NA1", season: "S6", shiny: true, autograph: "ink" } }],
+      ["unrated", { card: null }],
+    ]),
+  };
+
+  it("publishes the week's set when the week completes, without finishes", async () => {
+    const { rpcFn, update } = weekClient();
+    loadOffseason.mockResolvedValue(view);
+    expect(await setWeekStatusAction("week-2", "complete")).toEqual({ ok: true });
+    expect(update).toHaveBeenCalledWith({ status: "complete" });
+    expect(rpcFn).toHaveBeenCalledWith("offseason_publish_card_set", {
+      p_event_id: "event-1",
+      p_week_number: 2,
+      p_cards: [{ entrant_id: "rated", card: { name: "Rated", tag: "NA1", season: "Offseason", shiny: null, autograph: null } }],
+    });
+  });
+
+  it("still completes the week when its cards can't publish, and says so", async () => {
+    weekClient({ error: { message: "CARDS_EMPTY: nobody has a rated game yet" } });
+    loadOffseason.mockResolvedValue(view);
+    const result = await setWeekStatusAction("week-2", "complete");
+    expect(result).toEqual({
+      ok: false,
+      error: "Week complete, but its cards weren't published: nobody has a rated game yet. Use Publish cards to try again.",
+    });
+  });
+
+  it("does not publish when a week is reopened", async () => {
+    const { rpcFn } = weekClient();
+    expect(await setWeekStatusAction("week-2", "playing")).toEqual({ ok: true });
+    expect(rpcFn).not.toHaveBeenCalled();
+  });
+
+  it("opens a pack and hands back its copies with the week they came from", async () => {
+    const { rpcFn } = client({
+      rpc: {
+        data: { week_number: 1, remaining: 1900, cards: [{ id: 7, slot: 1, foil: true, shiny: false, signed: true, card: { name: "Rated" } }] },
+        error: null,
+      },
+    });
+    const result = await openOffseasonPackAction("request-1");
+    expect(rpcFn).toHaveBeenCalledWith("offseason_open_pack", { p_request_id: "request-1" });
+    expect(result).toEqual({
+      ok: true,
+      remaining: 1900,
+      weekNumber: 1,
+      copies: [{ id: 7, slot: 1, foil: true, shiny: false, signed: true, card: { name: "Rated" }, weekNumber: 1 }],
+    });
+  });
+
+  it("says why a pack won't open", async () => {
+    client({ rpc: { error: { message: "ALLOWANCE_SPENT: this week's $2,000 is spent; it resets on Monday" } } });
+    expect(await openOffseasonPackAction("request-2")).toEqual({ ok: false, error: "this week's $2,000 is spent; it resets on Monday" });
+  });
+});
+
+describe("offseason card signing and MVP votes", () => {
+  const INK = "data:image/png;base64,iVBORw0KGgo=";
+
+  it("signs the player's card, claiming by Riot ID when one is given", async () => {
+    const { rpcFn } = client();
+    expect(await signCardAction({ eventId: "event", signature: INK, riotId: " Claimer#OS1 " })).toEqual({ ok: true });
+    expect(rpcFn).toHaveBeenCalledWith("offseason_sign_card", { p_event_id: "event", p_signature: INK, p_riot_id: "Claimer#OS1" });
+    expect(revalidatePath).toHaveBeenCalledWith("/offseason", "layout");
+
+    await signCardAction({ eventId: "event", signature: INK });
+    expect(rpcFn).toHaveBeenLastCalledWith("offseason_sign_card", { p_event_id: "event", p_signature: INK, p_riot_id: null });
+  });
+
+  it("never sends anything but a PNG data URL", async () => {
+    const { rpcFn } = client();
+    expect(await signCardAction({ eventId: "event", signature: "javascript:alert(1)" })).toEqual({ ok: false, error: "Draw your signature again." });
+    expect(rpcFn).not.toHaveBeenCalled();
+  });
+
+  it("casts a vote and shows the database's reason when it refuses", async () => {
+    const { rpcFn } = client();
+    expect(await voteMvpAction("week", "entrant")).toEqual({ ok: true });
+    expect(rpcFn).toHaveBeenCalledWith("offseason_vote_mvp", { p_week_id: "week", p_entrant_id: "entrant" });
+
+    client({ rpc: { error: { message: "SELF_VOTE: you can't vote for yourself" } } });
+    expect(await voteMvpAction("week", "me")).toEqual({ ok: false, error: "you can't vote for yourself" });
   });
 });
