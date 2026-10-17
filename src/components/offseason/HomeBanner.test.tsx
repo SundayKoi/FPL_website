@@ -9,6 +9,7 @@ const event = (overrides: Partial<HomeOffseasonEvent>): HomeOffseasonEvent => ({
   name: "FPL Offseason Tournament",
   status: "signups",
   signups_open: true,
+  next: null,
   ...overrides,
 });
 
@@ -31,6 +32,11 @@ describe("OffseasonHomeBanner", () => {
     render(<OffseasonHomeBanner event={event({ signups_open: false })} layout="band" />);
     expect(screen.getByText(/lock in your role/i)).toBeTruthy();
     expect(screen.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual(["/offseason"]);
+  });
+
+  it("says when the week drafts next", () => {
+    render(<OffseasonHomeBanner event={event({ signups_open: false, next: { kind: "draft", weekNumber: 1, at: "2026-10-19T00:00:00Z" } })} layout="panel" />);
+    expect(screen.getByText(/Week 1 draft/).textContent).toBe("Week 1 draft · Sun, Oct 18, 8:00 PM EDT");
   });
 
   it("links the schedule once the weeks are being played", () => {

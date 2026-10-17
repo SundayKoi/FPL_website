@@ -5,6 +5,7 @@
 import Link from "next/link";
 import home from "@/components/home/HomeWorkspace.module.css";
 import type { HomeOffseasonEvent } from "@/lib/offseason/home";
+import { formatWeekTime } from "@/lib/offseason/times";
 import { STATUS_LABELS } from "@/lib/offseason/types";
 import styles from "./HomeBanner.module.css";
 
@@ -31,6 +32,12 @@ export default function OffseasonHomeBanner({ event, layout }: { event: HomeOffs
         <h2 id="home-offseason-title" className={`${home.title} mt-2 text-3xl sm:text-4xl`}>
           {event.name}
         </h2>
+        {event.next ? (
+          <p className={`mt-2 text-base font-semibold ${home.ink}`}>
+            Week {event.next.weekNumber} {event.next.kind === "draft" ? "draft" : "games"} ·{" "}
+            <time dateTime={event.next.at}>{formatWeekTime(event.next.at)}</time>
+          </p>
+        ) : null}
         <p className={`mt-2 max-w-2xl text-sm leading-6 ${home.muted}`}>{text}</p>
       </div>
       <div className={styles.actions}>
