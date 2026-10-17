@@ -28,8 +28,8 @@ function data(matches: OffseasonMatch[]): OffseasonEventData {
     event: { id: "e", name: "Offseason", status: "finals", signups_open: false, yardstick_season: "S6", created_at: "2026-10-01T00:00:00Z" },
     entrants: [],
     weeks: [
-      { id: "w1", event_id: "e", week_number: 1, status: "complete", elimination_per_role: 0, main_draft_id: null, elimination_draft_id: null, created_at: "" },
-      { id: "w2", event_id: "e", week_number: 2, status: "playing", elimination_per_role: 0, main_draft_id: null, elimination_draft_id: null, created_at: "" },
+      { id: "w1", event_id: "e", week_number: 1, status: "complete", elimination_per_role: 0, main_draft_id: null, elimination_draft_id: null, draft_at: null, games_at: null, created_at: "" },
+      { id: "w2", event_id: "e", week_number: 2, status: "playing", elimination_per_role: 0, main_draft_id: null, elimination_draft_id: null, draft_at: null, games_at: null, created_at: "" },
     ],
     entries: [],
     teams: [team("A"), team("B")],

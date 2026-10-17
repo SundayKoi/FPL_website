@@ -169,6 +169,12 @@ export async function setWeekStatusAction(weekId: string, status: WeekStatus): P
   return done(await supabase.from("offseason_weeks").update({ status }).eq("id", weekId));
 }
 
+/** When the week drafts and plays (ISO instants, or null to clear); its auctions move with the draft time. */
+export async function setWeekTimesAction(weekId: string, draftAt: string | null, gamesAt: string | null): Promise<OffseasonActionResult> {
+  const supabase = await createServerSupabase();
+  return done(await supabase.rpc("offseason_set_week_times", { p_week_id: weekId, p_draft_at: draftAt, p_games_at: gamesAt }));
+}
+
 export async function setWeekEntriesAction(
   weekId: string,
   entries: { entrant_id: string; tier: EntryTier; captain_seat: number | null }[],

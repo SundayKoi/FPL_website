@@ -4,6 +4,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ROLE_LABELS_SHORT, type LolRole } from "@/lib/draft/types";
+import { formatWeekTime } from "@/lib/offseason/times";
+import type { OffseasonWeek } from "@/lib/offseason/types";
 
 type NavKey = "overview" | "schedule" | "signup" | "admin";
 
@@ -98,6 +100,27 @@ export function Overall({ value }: { value: number | null | undefined }) {
 
 export function Empty({ children }: { children: ReactNode }) {
   return <p className="text-sm text-muted">{children}</p>;
+}
+
+/** When a week drafts and plays, in Eastern Time; nothing until staff set one. */
+export function WeekTimes({ week }: { week: Pick<OffseasonWeek, "draft_at" | "games_at"> }) {
+  const times = [
+    { label: "Draft", at: week.draft_at },
+    { label: "Games", at: week.games_at },
+  ].filter((time): time is { label: string; at: string } => Boolean(time.at));
+  if (times.length === 0) return null;
+  return (
+    <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+      {times.map((time) => (
+        <div key={time.label} className="flex gap-2">
+          <dt className="text-xs font-bold uppercase tracking-wide text-muted">{time.label}</dt>
+          <dd className="text-white">
+            <time dateTime={time.at}>{formatWeekTime(time.at)}</time>
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
 }
 
 export const tableClass = "w-full min-w-[32rem] border-collapse text-left text-sm";
