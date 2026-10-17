@@ -22,19 +22,24 @@ export function playTurnPing() {
   }
 }
 
-/** Blink the tab title a few times so an alt-tabbed captain notices. */
-export function flashTitle() {
-  if (typeof document === "undefined") return;
+/** Blink the tab title a few times so an alt-tabbed captain notices.
+ *  Returns a function that stops the blink early and restores the title;
+ *  call it when the board unmounts so the blink never outlives the page. */
+export function flashTitle(): () => void {
+  if (typeof document === "undefined") return () => {};
   const original = document.title;
   let on = false;
   let count = 0;
+  const stop = () => {
+    clearInterval(interval);
+    if (typeof document !== "undefined") document.title = original;
+  };
   const interval = setInterval(() => {
+    if (typeof document === "undefined") return clearInterval(interval);
     on = !on;
     count += 1;
     document.title = on ? "🔔 Your turn to draft!" : original;
-    if (count >= 8 || document.hasFocus()) {
-      clearInterval(interval);
-      document.title = original;
-    }
+    if (count >= 8 || document.hasFocus()) stop();
   }, 900);
+  return stop;
 }

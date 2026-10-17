@@ -611,6 +611,21 @@ describe("MatchDraftBoard", () => {
     expect(screen.getByRole("button", { name: /copy/i })).toBeTruthy();
   });
 
+  it("stops blinking the tab title when the board closes mid-turn", () => {
+    vi.useFakeTimers();
+    const hasFocus = vi.spyOn(document, "hasFocus").mockReturnValue(false);
+    document.title = "FPL";
+    const { unmount } = render(<MatchDraftBoard initialState={state} viewerTeamName="Blue Team" />);
+    act(() => vi.advanceTimersByTime(900));
+    expect(document.title).toBe("🔔 Your turn to draft!");
+
+    unmount();
+    expect(document.title).toBe("FPL");
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(document.title).toBe("FPL");
+    hasFocus.mockRestore();
+  });
+
   it("offers spectator and OBS overlay copy links on fixture drafts but not lobbies", () => {
     const { unmount } = render(<MatchDraftBoard initialState={state} viewerTeamName="Blue Team" />);
     expect(screen.getByRole("button", { name: /spectator link/i })).toBeTruthy();
