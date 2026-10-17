@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LolRole } from "@/lib/draft/types";
-import { planWeek, playablePlayers, proposeElimination, suggestCaptains } from "./planning";
+import { planWeek, playablePlayers, proposeElimination, suggestCaptains, suggestEliminationCaptains } from "./planning";
 import type { EntrantRating } from "./ratings";
 import type { OffseasonEntrant } from "./types";
 
@@ -74,6 +74,31 @@ describe("suggestCaptains", () => {
     const pool = [entrant("a", "top"), entrant("b", "mid", { profile_id: null }), entrant("c", "adc"), entrant("d", "support")];
     const captains = suggestCaptains(pool, rated({ a: 70, b: 99, c: 85, d: null }), 2);
     expect(captains.map((captain) => captain.id)).toEqual(["c", "a"]);
+  });
+});
+
+describe("suggestEliminationCaptains", () => {
+  it("picks the best of each role, never two from one role, and passes over the weakest leader", () => {
+    const pool = teamsOf(4, "e");
+    const captains = suggestEliminationCaptains(
+      pool,
+      // Both mids outrate every other player, but only the better one captains.
+      rated({ "e0-mid": 70, "e1-mid": 68, "e0-top": 60, "e0-jungle": 55, "e0-adc": 50, "e0-support": 45 }),
+      4,
+    );
+    expect(captains.map((captain) => captain.id)).toEqual(["e0-mid", "e0-top", "e0-jungle", "e0-adc"]);
+  });
+
+  it("skips players without an account and goes to each role's next best when short of roles", () => {
+    const pool = [
+      entrant("t1", "top", { profile_id: null }),
+      entrant("t2", "top"),
+      entrant("t3", "top"),
+      entrant("m1", "mid"),
+      entrant("m2", "mid"),
+    ];
+    const captains = suggestEliminationCaptains(pool, rated({ t1: 99, t2: 80, t3: 75, m1: 70, m2: 40 }), 3);
+    expect(captains.map((captain) => captain.id)).toEqual(["t2", "m1", "t3"]);
   });
 });
 
