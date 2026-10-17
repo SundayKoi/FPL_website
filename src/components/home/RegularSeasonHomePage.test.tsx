@@ -12,6 +12,7 @@ const {
   fetchHomepageFeaturedSettings,
   fetchTeamIdentities,
   homeViewer,
+  fetchHomeOffseasonEvent,
 } = vi.hoisted(() => ({
   fetchCardSeason: vi.fn(),
   fetchCurrentWeekCards: vi.fn(),
@@ -22,6 +23,7 @@ const {
   fetchHomepageFeaturedSettings: vi.fn(),
   fetchTeamIdentities: vi.fn(),
   homeViewer: vi.fn(),
+  fetchHomeOffseasonEvent: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase: vi.fn(async () => ({})) }));
@@ -39,6 +41,7 @@ vi.mock("@/lib/home/schedule", async (importOriginal) => ({
 vi.mock("@/lib/teams/identity", () => ({ fetchTeamIdentities }));
 vi.mock("@/lib/home/awards", () => ({ fetchHomepageAwards, PREMIER_SEASON: "S5" }));
 vi.mock("@/lib/home/viewer", () => ({ homeViewer }));
+vi.mock("@/lib/offseason/home", () => ({ fetchHomeOffseasonEvent }));
 
 const fixture = {
   id: "fixture-1",
@@ -59,6 +62,7 @@ beforeEach(() => {
   fetchCardSeason.mockResolvedValue("S5");
   fetchCurrentWeekCards.mockResolvedValue([]);
   homeViewer.mockResolvedValue("signed-out");
+  fetchHomeOffseasonEvent.mockResolvedValue(null);
   fetchHomepageTwitch.mockResolvedValue({ status: { state: "offline" }, clips: [] });
   fetchHomepageStandings.mockResolvedValue({ teams: [], race: [], playoffSeeds: { Solari: [], Lunari: [] } });
   fetchHomepageSchedule.mockResolvedValue({
@@ -120,5 +124,17 @@ describe("RegularSeasonHomePage", () => {
     const premium = within(screen.getByRole("navigation", { name: "Your shortcuts" }));
     expect(premium.getByRole("link", { name: /open today's pack/i }).getAttribute("href")).toBe("/cards/packs");
     expect(premium.getByRole("link", { name: /my team/i }).getAttribute("href")).toBe("/my-team");
+  });
+
+  it("links the running offseason tournament under the hero, and leaves it out otherwise", async () => {
+    render(await RegularSeasonHomePage());
+    expect(screen.queryByRole("link", { name: /go to the offseason/i })).toBeNull();
+
+    cleanup();
+    fetchHomeOffseasonEvent.mockResolvedValue({ name: "FPL Offseason Tournament", status: "running", signups_open: false });
+    render(await RegularSeasonHomePage());
+    const banner = within(screen.getByRole("region", { name: "FPL Offseason Tournament" }));
+    expect(banner.getByRole("link", { name: /go to the offseason/i }).getAttribute("href")).toBe("/offseason");
+    expect(banner.getByRole("link", { name: "Schedule" }).getAttribute("href")).toBe("/offseason/schedule");
   });
 });

@@ -7,6 +7,7 @@ import { fetchHomepageAwards, PREMIER_SEASON, type HomepageAwardsData } from "@/
 import { fetchHomepageFeaturedSettings, type HomepageFeaturedSettings } from "@/lib/home/homepageSettings";
 import { fetchTeamIdentities } from "@/lib/teams/identity";
 import { fetchCardSeason, fetchCurrentWeekCards } from "@/lib/cards/queries";
+import { fetchHomeOffseasonEvent } from "@/lib/offseason/home";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { TeamIdentity } from "@/lib/teams/identity";
@@ -79,7 +80,7 @@ export default async function RegularSeasonHomePage() {
       return { supabase: null, season: PREMIER_SEASON };
     }
   })();
-  const [awards, standingsData, schedule, identities, topCards, featuredSettings, viewer, twitch] = await Promise.all([
+  const [awards, standingsData, schedule, identities, topCards, featuredSettings, viewer, twitch, offseasonEvent] = await Promise.all([
     fallbackTo(fetchHomepageAwards(season), fallbackAwards(season)),
     fallbackTo<HomeStandingsData>(fetchHomepageStandings(season), { teams: [], race: [] }),
     fallbackTo(fetchHomepageSchedule((fixtures) => fixtures.filter((fixture) => fixture.season === season), season), fallbackSchedule),
@@ -90,6 +91,7 @@ export default async function RegularSeasonHomePage() {
     settingsPromise,
     homeViewer(),
     twitchPromise,
+    fetchHomeOffseasonEvent(),
   ]);
   const homepageSchedule = alignFuturePremierHomeFixturesToMonday(schedule);
   const featuredFixture = selectHomepageFeaturedFixture(homepageSchedule.fixtures, featuredSettings.fixtureId, homepageSchedule.seasonFixtures ?? homepageSchedule.upcoming);
@@ -108,6 +110,7 @@ export default async function RegularSeasonHomePage() {
       viewer={viewer}
       seasonLabel={season}
       appearance="workspace"
+      offseasonEvent={offseasonEvent}
     />
   );
 }
