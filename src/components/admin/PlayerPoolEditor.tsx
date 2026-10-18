@@ -47,10 +47,14 @@ export default function PlayerPoolEditor({
   draftId,
   players,
   onChanged,
+  leaguePoints = true,
 }: {
   draftId: string;
   players: Player[];
   onChanged: () => void | Promise<void>;
+  /** Show each player's league point value. Off for drafts outside the
+   *  league (the offseason), where a name match is a different player. */
+  leaguePoints?: boolean;
 }) {
   const supabase = createClient();
   const pool = players.filter((p) => !p.team_id);
@@ -164,7 +168,7 @@ export default function PlayerPoolEditor({
                 <th className="py-1">Name</th>
                 <th className="py-1">Role</th>
                 <th className="py-1">Rank</th>
-                <th className="py-1">Points</th>
+                {leaguePoints ? <th className="py-1">Points</th> : null}
                 <th className="py-1">op.gg</th>
                 <th className="py-1" />
               </tr>
@@ -175,9 +179,11 @@ export default function PlayerPoolEditor({
                   <td className="py-1 text-white">{p.display_name}</td>
                   <td className="py-1 text-muted">{p.role}</td>
                   <td className="py-1 text-muted">{p.rank ?? "—"}</td>
-                  <td className="py-1 font-display font-semibold not-italic text-gold">
-                    {currentPlayerPointValue(p.display_name) ?? "-"}
-                  </td>
+                  {leaguePoints ? (
+                    <td className="py-1 font-display font-semibold not-italic text-gold">
+                      {currentPlayerPointValue(p.display_name) ?? "-"}
+                    </td>
+                  ) : null}
                   <td className="py-1 text-muted">
                     {p.opgg_url ? (
                       <a href={p.opgg_url} target="_blank" rel="noreferrer" className="text-action-text underline">

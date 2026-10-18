@@ -12,11 +12,14 @@ export default function DraftSetupEditor({
   teams: initialTeams,
   players: initialPlayers,
   profiles,
+  leaguePoints = true,
 }: {
   draft: Draft;
   teams: Team[];
   players: Player[];
   profiles: Profile[];
+  /** Show league point values in the pool (off for offseason drafts). */
+  leaguePoints?: boolean;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -68,7 +71,7 @@ export default function DraftSetupEditor({
     <div className="flex flex-col gap-8">
       <DraftScheduleEditor draft={draft} onSaved={(startsAt) => setDraft((current) => ({ ...current, starts_at: startsAt }))} />
       <TeamEditor draftId={draft.id} teams={teams} players={players} profiles={profiles} onChanged={refetch} />
-      <PlayerPoolEditor draftId={draft.id} players={players} onChanged={refetch} />
+      <PlayerPoolEditor draftId={draft.id} players={players} onChanged={refetch} leaguePoints={leaguePoints} />
 
       <div className="card-brand flex flex-col gap-2 p-4">
         <button

@@ -21,7 +21,7 @@ Everything here is built to be deleted when the event is over. See
 | Components | `src/components/offseason/` |
 | Stats ingest | `scripts/offseason_ingest.py`, `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml` |
 
-It touches the rest of the site in two ways:
+It touches the rest of the site in three ways:
 
 - Each weekly auction is an ordinary row in `drafts`, `teams` and `players`,
   named `Offseason W{n}` or `Offseason W{n} Elimination`. Those drafts appear
@@ -39,6 +39,10 @@ It touches the rest of the site in two ways:
   weeks are played. When the latest week has times, it also names the next
   one, its draft and then its games. It hides itself when the event is
   complete or the read fails.
+- The draft setup page (`/admin/{draftId}`) checks whether the draft is an
+  offseason week's auction and, if so, hides the league point values in the
+  pool table. Those values match players by name, so an offseason player who
+  shares a name with a league player would otherwise show that player's points.
 
 ## Access
 
@@ -315,7 +319,8 @@ proposed for the elimination tier automatically.
    `fetchHomeOffseasonEvent` in `src/components/home/PreseasonHomePage.tsx`,
    `RegularSeasonHomePage.tsx` and `AcademyHomePage.tsx`, the
    `offseasonEvent` prop in `HomeDashboard.tsx`, and its case in
-   `RegularSeasonHomePage.test.tsx`. Then delete `src/app/offseason/`, `src/components/offseason/`,
+   `RegularSeasonHomePage.test.tsx`. Remove the `offseason_weeks` read and the
+   `leaguePoints` prop it sets in `src/app/admin/[draftId]/page.tsx`. Then delete `src/app/offseason/`, `src/components/offseason/`,
    `src/lib/offseason/`, `scripts/offseason_ingest.py`,
    `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml`
    and this file.
