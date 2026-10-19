@@ -68,6 +68,14 @@ mapping's special handling for opaque copy IDs and unpaired routes; replacing
 Admin beside the avatar, Broadcaster under League, and Guess the Card's admin
 test badge are presentation flags, not authorization.
 
+While an offseason event runs (the newest `offseason_events` row is not
+complete), the root layout passes `offseasonOnly`: the header shows one
+Offseason link in place of My Team and the four menus, and `MobileTabBar`
+swaps its tabs for Home and the offseason's pages. The league navigation is
+unchanged underneath and returns on its own when the event is marked
+complete; a failed read keeps the ordinary navigation
+(`fetchOffseasonRunning`, `src/lib/offseason/home.ts`).
+
 ## Rendering and state
 
 Pages and layouts are Server Components by default. Keep session checks,

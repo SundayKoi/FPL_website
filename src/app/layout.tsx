@@ -9,6 +9,7 @@ import SupportDevButton from "@/components/SupportDevButton";
 import { ToastProvider } from "@/components/system/Toast";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { canAccessBroadcaster, fetchStaffTier } from "@/lib/auth/staffTier";
+import { fetchOffseasonRunning } from "@/lib/offseason/home";
 import { resolveMetadataBase } from "@/lib/metadataBase";
 import "./globals.css";
 
@@ -67,7 +68,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   // Nav-level staff check — presentation only (the /admin page re-checks and
   // redirects; database policies are the real gate). fetchStaffTier fails
   // closed, so signed-out visitors and query errors just hide the link.
-  const tier = await fetchStaffTier(await createServerSupabase());
+  // While an offseason event runs, the menus lead to it alone; the league's
+  // menus come back on their own once the event is complete.
+  const [tier, offseasonOnly] = await Promise.all([fetchStaffTier(await createServerSupabase()), fetchOffseasonRunning()]);
   const content = (
     <>
       <SiteNavigation
@@ -75,10 +78,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         showAdmin={tier.isAdmin || tier.isOwner || tier.isBroadcaster}
         showBroadcaster={canAccessBroadcaster(tier)}
         isGuessTheCardAdmin={tier.isAdmin}
+        offseasonOnly={offseasonOnly}
       />
       {children}
       <SupportDevButton />
-      <MobileTabBar />
+      <MobileTabBar offseasonOnly={offseasonOnly} />
     </>
   );
   return (

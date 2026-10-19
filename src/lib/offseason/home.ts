@@ -37,3 +37,17 @@ export async function fetchHomeOffseasonEvent(now: number = Date.now()): Promise
     return null;
   }
 }
+
+/**
+ * Whether an offseason event is running: the newest exists and isn't
+ * complete. While it is, the site navigation leads to the offseason only.
+ * A failed read answers false, so the site keeps its ordinary navigation.
+ */
+export async function fetchOffseasonRunning(): Promise<boolean> {
+  try {
+    const event = await fetchLatestEvent(await createServerSupabase());
+    return event !== null && event.status !== "complete";
+  } catch {
+    return false;
+  }
+}
