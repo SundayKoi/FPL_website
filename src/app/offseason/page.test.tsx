@@ -187,13 +187,23 @@ describe("offseason pages", () => {
     expect(screen.getByRole("link", { name: "Sign your card" }).getAttribute("href")).toBe("/offseason/card");
   });
 
+  it("says MVP voting opens once a week being played is complete", async () => {
+    loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(fixture(), []), userId: "me", isStaff: false, ownEntry: null });
+    render(await OffseasonPage());
+    const panel = screen.getByRole("heading", { name: "Week 1 MVP" }).closest("section")!;
+    expect(within(panel).getByText("Voting opens once week 1's games are complete.")).toBeTruthy();
+    expect(within(panel).queryByRole("button")).toBeNull();
+  });
+
   it("names each closed week's MVP, ties included", async () => {
     db.mvpRows = [
       { week_id: "w1", entrant_id: "Red adc", votes: 4, final: true },
       { week_id: "w1", entrant_id: "Blue top", votes: 4, final: true },
       { week_id: "w1", entrant_id: "Blue mid", votes: 1, final: true },
     ];
-    loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(fixture(), []), userId: null, isStaff: false, ownEntry: null });
+    const data = fixture();
+    data.weeks = data.weeks.map((week) => ({ ...week, status: "complete" as const }));
+    loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(data, []), userId: null, isStaff: false, ownEntry: null });
     render(await OffseasonPage());
     expect(screen.queryByRole("heading", { name: "Week 1 MVP" })).toBeNull();
     const panel = screen.getByRole("heading", { name: "MVPs" }).closest("section")!;

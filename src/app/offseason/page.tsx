@@ -129,6 +129,10 @@ export default async function OffseasonPage() {
         <Panel title={`Week ${mvp.open.weekNumber} MVP`} aside="Voting open">
           <MvpVote week={mvp.open} signedIn={userId !== null} />
         </Panel>
+      ) : currentWeek?.status === "playing" ? (
+        <Panel title={`Week ${currentWeek.week_number} MVP`} aside="Voting soon">
+          <p className="text-sm text-muted">Voting opens once week {currentWeek.week_number}&apos;s games are complete.</p>
+        </Panel>
       ) : null}
 
       {mvp.winners.length > 0 ? (
