@@ -119,3 +119,24 @@ export function tierSchedule({
   }
   return { stage: "round_robin", bestOf: 1, pairings: roundRobinPairings(teamIds) };
 }
+
+/**
+ * A stage's matches split into the games teams play together: game 1 is every
+ * team's first match, game 2 their second, and so on. Matches are stored in
+ * the order their rounds were drawn, so a new game starts at the first match
+ * whose team already plays in the current one.
+ */
+export function matchRounds<T extends { team_a_id: string; team_b_id: string }>(matches: T[]): T[][] {
+  const rounds: T[][] = [];
+  let teams = new Set<string>();
+  for (const match of matches) {
+    if (rounds.length === 0 || teams.has(match.team_a_id) || teams.has(match.team_b_id)) {
+      rounds.push([]);
+      teams = new Set();
+    }
+    rounds[rounds.length - 1].push(match);
+    teams.add(match.team_a_id);
+    teams.add(match.team_b_id);
+  }
+  return rounds;
+}

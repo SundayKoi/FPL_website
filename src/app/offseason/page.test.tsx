@@ -145,6 +145,25 @@ describe("offseason pages", () => {
     expect(within(week).getByText("Sun, Oct 18, 8:00 PM EDT")).toBeTruthy();
   });
 
+  it("groups a round robin's matches by game", async () => {
+    const data = fixture();
+    data.teams.push(
+      { id: "tc", week_id: "w1", tier: "main", name: "Team Cyan", captain_entrant_id: null, draft_team_id: null, eliminated: false },
+      { id: "td", week_id: "w1", tier: "main", name: "Team Dusk", captain_entrant_id: null, draft_team_id: null, eliminated: false },
+    );
+    const rr = (id: string, a: string, b: string, sort: number) => ({ id, week_id: "w1", stage: "round_robin" as const, sort_order: sort, team_a_id: a, team_b_id: b, best_of: 1 as const, winner_team_id: null });
+    data.matches = [rr("m1", "tb", "tr", 1), rr("m2", "tc", "td", 2), rr("m3", "tb", "tc", 3), rr("m4", "tr", "td", 4)];
+    data.games = [];
+    loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(data, []), userId: null, isStaff: false, ownEntry: null });
+    render(await OffseasonSchedulePage());
+    expect(screen.getByRole("heading", { name: "Game 1" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Game 2" })).toBeTruthy();
+    const first = screen.getByRole("list", { name: "Round robin game 1" });
+    const second = screen.getByRole("list", { name: "Round robin game 2" });
+    expect(within(first).getAllByText(/Team (Blue|Red|Cyan|Dusk)/).map((el) => el.textContent)).toEqual(["Team Blue", "Team Red", "Team Cyan", "Team Dusk"]);
+    expect(within(second).getAllByText(/Team (Blue|Red|Cyan|Dusk)/).map((el) => el.textContent)).toEqual(["Team Blue", "Team Cyan", "Team Red", "Team Dusk"]);
+  });
+
   it("explains an empty schedule", async () => {
     loadOffseasonPage.mockResolvedValue({ view: null, userId: null, isStaff: false, ownEntry: null });
     render(await OffseasonSchedulePage());

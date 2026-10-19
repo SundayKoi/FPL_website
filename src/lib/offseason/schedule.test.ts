@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assignSides, eliminationPairings, roundRobinPairings, tierSchedule, type Pairing } from "./schedule";
+import { assignSides, eliminationPairings, matchRounds, roundRobinPairings, tierSchedule, type Pairing } from "./schedule";
 
 const teams = (count: number) => Array.from({ length: count }, (_, i) => `T${i + 1}`);
 
@@ -120,5 +120,28 @@ describe("tierSchedule", () => {
 
   it("schedules nothing for fewer than two teams", () => {
     expect(tierSchedule({ tier: "main", teamIds: ["T1"], weekNumber: 1, hasEliminationTier: false })).toBeNull();
+  });
+});
+
+describe("matchRounds", () => {
+  const match = (a: string, b: string) => ({ team_a_id: a, team_b_id: b });
+
+  it("groups an eight-team round robin into games of four", () => {
+    const teams = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    const matches = roundRobinPairings(teams).map((pairing) => match(pairing.teamA, pairing.teamB));
+    const rounds = matchRounds(matches);
+    expect(rounds.map((round) => round.length)).toEqual([4, 4, 4]);
+    for (const round of rounds) {
+      expect(new Set(round.flatMap((m) => [m.team_a_id, m.team_b_id])).size).toBe(8);
+    }
+  });
+
+  it("starts a new game as soon as a team would play twice", () => {
+    expect(matchRounds([match("a", "b"), match("c", "d"), match("b", "c"), match("a", "d")])).toEqual([
+      [match("a", "b"), match("c", "d")],
+      [match("b", "c"), match("a", "d")],
+    ]);
+    expect(matchRounds([match("a", "b"), match("a", "c")])).toHaveLength(2);
+    expect(matchRounds([])).toEqual([]);
   });
 });

@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { ROLE_ORDER } from "@/lib/draft/types";
+import { matchRounds } from "@/lib/offseason/schedule";
 import { STAGE_LABELS, type MatchStage, type OffseasonMatch, type OffseasonWeek } from "@/lib/offseason/types";
 import type { OffseasonView } from "@/lib/offseason/view";
 import { Empty, RoleTag, SideTag } from "./ui";
@@ -73,7 +74,18 @@ export function ScheduleMatch({ view, match }: { view: OffseasonView; match: Off
   );
 }
 
-/** One week's matches, by stage. */
+function MatchGrid({ view, matches, label }: { view: OffseasonView; matches: OffseasonMatch[]; label?: string }) {
+  return (
+    <ul aria-label={label} className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+      {matches.map((match) => (
+        <ScheduleMatch key={match.id} view={view} match={match} />
+      ))}
+    </ul>
+  );
+}
+
+/** One week's matches, by stage. A stage played over several games shows
+ *  each game's matches together: game 1, a gap, game 2, and so on. */
 export function WeekSchedule({ view, week }: { view: OffseasonView; week: OffseasonWeek }) {
   const matches = view.matches.filter((match) => match.week_id === week.id);
   if (matches.length === 0) {
@@ -81,18 +93,26 @@ export function WeekSchedule({ view, week }: { view: OffseasonView; week: Offsea
   }
   return (
     <div className="flex flex-col gap-5">
-      {STAGE_ORDER.filter((stage) => matches.some((match) => match.stage === stage)).map((stage) => (
-        <section key={stage} className="flex flex-col gap-2">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-muted">{STAGE_LABELS[stage]}</h3>
-          <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            {matches
-              .filter((match) => match.stage === stage)
-              .map((match) => (
-                <ScheduleMatch key={match.id} view={view} match={match} />
-              ))}
-          </ul>
-        </section>
-      ))}
+      {STAGE_ORDER.filter((stage) => matches.some((match) => match.stage === stage)).map((stage) => {
+        const rounds = matchRounds(matches.filter((match) => match.stage === stage));
+        return (
+          <section key={stage} className="flex flex-col gap-2">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-muted">{STAGE_LABELS[stage]}</h3>
+            {rounds.length > 1 ? (
+              <div className="flex flex-col gap-6">
+                {rounds.map((round, index) => (
+                  <div key={round[0].id} className="flex flex-col gap-2">
+                    <h4 className="font-display text-sm font-semibold text-white">Game {index + 1}</h4>
+                    <MatchGrid view={view} matches={round} label={`${STAGE_LABELS[stage]} game ${index + 1}`} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <MatchGrid view={view} matches={rounds[0] ?? []} />
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 }
