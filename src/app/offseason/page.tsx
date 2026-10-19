@@ -146,8 +146,22 @@ export default async function OffseasonPage() {
       ) : null}
 
       {mvp.open ? (
-        <Panel title={`Week ${mvp.open.weekNumber} MVP`} aside="Voting open">
-          <MvpVote week={mvp.open} signedIn={userId !== null} />
+        <Panel title={`Week ${mvp.open.weekNumber} MVP`} aside={mvp.open.nominees.length > 0 ? "Voting open" : "Nominees soon"}>
+          {mvp.open.nominees.length > 0 ? (
+            <MvpVote week={mvp.open} signedIn={userId !== null} />
+          ) : (
+            <p className="text-sm text-muted">
+              Staff are picking week {mvp.open.weekNumber}&apos;s MVP nominees. Voting opens once they&apos;re in.
+              {isStaff ? (
+                <>
+                  {" "}
+                  <Link href="/offseason/admin" className="text-action-text hover:underline">
+                    Pick them in the admin
+                  </Link>
+                </>
+              ) : null}
+            </p>
+          )}
         </Panel>
       ) : currentWeek?.status === "playing" ? (
         <Panel title={`Week ${currentWeek.week_number} MVP`} aside="Voting soon">

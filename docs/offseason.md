@@ -14,8 +14,8 @@ Everything here is built to be deleted when the event is over. See
 
 | Piece | Where |
 | --- | --- |
-| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql`, `20261113000001_offseason_card_signing.sql`, `20261113000002_offseason_mvp_votes.sql`, `20261114000001_offseason_captain_costs.sql`, `20261115000001_offseason_mvp_after_week.sql`, `20261116000001_offseason_draft_igns.sql`, `20261117000001_offseason_match_codes.sql` |
-| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql`, `0143_offseason_packs_test.sql`, `0144_offseason_card_signing_test.sql`, `0145_offseason_mvp_votes_test.sql`, `0146_offseason_captain_costs_test.sql`, `0147_offseason_draft_igns_test.sql`, `0148_offseason_match_codes_test.sql` |
+| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql`, `20261113000001_offseason_card_signing.sql`, `20261113000002_offseason_mvp_votes.sql`, `20261114000001_offseason_captain_costs.sql`, `20261115000001_offseason_mvp_after_week.sql`, `20261116000001_offseason_draft_igns.sql`, `20261117000001_offseason_match_codes.sql`, `20261118000001_offseason_mvp_nominees.sql` |
+| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql`, `0143_offseason_packs_test.sql`, `0144_offseason_card_signing_test.sql`, `0145_offseason_mvp_votes_test.sql`, `0146_offseason_captain_costs_test.sql`, `0147_offseason_draft_igns_test.sql`, `0148_offseason_match_codes_test.sql`, `0149_offseason_mvp_nominees_test.sql` |
 | Logic, reads, server actions | `src/lib/offseason/` |
 | Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/packs`, `/offseason/card`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
 | Components | `src/components/offseason/` |
@@ -57,7 +57,7 @@ It touches the rest of the site in four ways:
 - Once they have a role, signed-in players lock it in (`offseason_lock_in`). A staff-added player claims their row by Riot ID in the same step, even after sign-ups close.
 - Anyone signed in, premium or not, opens offseason packs (`offseason_open_pack`) and sees only their own copies. Staff publish the card sets (`offseason_publish_card_set`).
 - A player in the event signs their own card (`offseason_sign_card`). A player with no account yet claims their row by Riot ID in the same step, like lock-in. Signatures are public.
-- Anyone signed in votes for the open week's MVP (`offseason_vote_mvp`), never for their own entry. Votes are private; everyone reads the totals through `offseason_mvp_results`, and only once a week's voting closes.
+- Staff nominate each week's MVP candidates (`offseason_set_mvp_nominees`). Anyone signed in votes for one of the open week's nominees (`offseason_vote_mvp`), never for their own entry. Votes are private; everyone reads the totals through `offseason_mvp_results`, and only once a week's voting closes.
 - A match's tournament codes are private to the players on its two teams, through the account their entry is linked to, and to staff (`offseason_match_codes`). Staff add and remove codes (`offseason_add_match_codes`, `offseason_remove_match_code`).
 - Admins and owners do everything else, from `/offseason/admin`. The page only
   hides controls. The RLS policies and the staff check in each RPC are what enforce access.
@@ -270,12 +270,31 @@ transparent PNG the league's signature pad draws.
 
 ## MVP votes
 
-Every week anyone signed in can vote for one player as the week's MVP, on the
-overview page.
+Every week staff nominate two to five players (three is the usual) and anyone
+signed in votes for one of them as the week's MVP, on the overview page.
 
-- **Who.** Any player on one of that week's teams, main or elimination tier.
-  Nobody can vote for their own entry. A player who hasn't linked their entry
-  to their account can't be told apart from a fan, so they should claim it.
+- **Nominees.** In the admin, each drafted week has an **MVP nominees** panel.
+  Tick players from that week's teams, main or elimination tier. Each one shows
+  their Overall for the week and how many games they played. **Suggest top 3**
+  ticks the three best by that Overall. Voters see the nominees in the order you
+  ticked them. Save before or after the week is complete. Until there are
+  nominees, the overview says they're coming and nobody can vote. Changing the
+  nominees drops the votes of anyone you take off, and those voters vote again
+  (`offseason_set_mvp_nominees`,
+  `20261118000001_offseason_mvp_nominees.sql`).
+- **The ballot.** The nominees stand side by side, one column each, with their
+  week:
+  - Overall;
+  - record;
+  - kills, deaths and assists per game;
+  - KDA;
+  - CS, damage and vision per minute;
+  - the champions they played.
+
+  A sub's games count for the player they replaced (see Subs under
+  Ratings). Nobody can vote for their own entry. A player who hasn't linked
+  their entry to their account can't be told apart from a fan, so they should
+  claim it.
 - **When.** Voting on a week opens when staff mark it **Complete**, not while
   its games are being played (the overview says voting opens once the week is
   complete). It closes when the next week reaches **Playing**, or when the
@@ -317,7 +336,7 @@ can't be told apart and their games count for nobody.
 
    ```sql
    drop table if exists
-     public.offseason_match_codes,
+     public.offseason_match_codes, public.offseason_mvp_nominees,
      public.offseason_mvp_votes, public.offseason_signatures,
      public.offseason_card_copies, public.offseason_pack_openings, public.offseason_cards,
      public.offseason_card_sets,
@@ -345,6 +364,7 @@ can't be told apart and their games count for nobody.
      public._offseason_ink(uuid, jsonb),
      public.offseason_sign_card(uuid, text, text),
      public.offseason_vote_mvp(uuid, uuid),
+     public.offseason_set_mvp_nominees(uuid, uuid[]),
      public.offseason_mvp_results(uuid),
      public._offseason_mvp_open_week(uuid),
      public.offseason_pack_wallet(),
@@ -368,8 +388,9 @@ can't be told apart and their games count for nobody.
    `supabase/tests/0144_offseason_card_signing_test.sql`,
    `supabase/tests/0145_offseason_mvp_votes_test.sql`,
    `supabase/tests/0146_offseason_captain_costs_test.sql`,
-   `supabase/tests/0147_offseason_draft_igns_test.sql` and
-   `supabase/tests/0148_offseason_match_codes_test.sql` in the same change.
+   `supabase/tests/0147_offseason_draft_igns_test.sql`,
+   `supabase/tests/0148_offseason_match_codes_test.sql` and
+   `supabase/tests/0149_offseason_mvp_nominees_test.sql` in the same change.
    Dropping the tables also removes everyone's offseason card copies; export
    `offseason_card_copies` first if you want to keep a record.
 3. Remove the homepage banner: `OffseasonHomeBanner` and

@@ -8,6 +8,7 @@ import type { OffseasonAdminData } from "@/components/offseason/admin/shared";
 import { OffseasonShell, Panel } from "@/components/offseason/ui";
 import type { DraftStatus } from "@/lib/draft/types";
 import { loadOffseasonPage } from "@/lib/offseason/page";
+import { fetchMvpNominees, weekLines } from "@/lib/offseason/mvp";
 import { fetchEventMatchCodes } from "@/lib/offseason/queries";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -35,9 +36,10 @@ export default async function OffseasonAdminPage() {
   const supabase = await createServerSupabase();
   const draftIds = view.weeks.flatMap((week) => [week.main_draft_id, week.elimination_draft_id]).filter((id): id is string => Boolean(id));
   const drafts: OffseasonAdminData["drafts"] = {};
-  const [draftRows, codes] = await Promise.all([
+  const [draftRows, codes, nominees] = await Promise.all([
     draftIds.length > 0 ? supabase.from("drafts").select("id, name, status").in("id", draftIds).then(({ data: rows }) => rows ?? []) : [],
     fetchEventMatchCodes(supabase, view.event.id),
+    fetchMvpNominees(supabase, view.weeks.map((week) => week.id)),
   ]);
   for (const row of draftRows as { id: string; name: string; status: DraftStatus }[]) {
     drafts[row.id] = { name: row.name, status: row.status };
@@ -58,6 +60,14 @@ export default async function OffseasonAdminPage() {
     drafts,
     codes,
     subs: view.subs,
+    mvp: {
+      nominees,
+      lines: Object.fromEntries(
+        view.weeks
+          .filter((week) => view.teams.some((team) => team.week_id === week.id))
+          .map((week) => [week.id, Object.fromEntries(weekLines(view, week.id))]),
+      ),
+    },
   };
 
   return (

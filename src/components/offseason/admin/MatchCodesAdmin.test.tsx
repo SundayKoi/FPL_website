@@ -33,6 +33,7 @@ function data(codes: OffseasonMatchCode[]): OffseasonAdminData {
     drafts: {},
     codes,
     subs: [],
+    mvp: { nominees: [], lines: {} },
   };
 }
 
