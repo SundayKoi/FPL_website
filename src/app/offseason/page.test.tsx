@@ -20,6 +20,7 @@ const db = vi.hoisted(() => ({
   signatures: [] as unknown[],
   codes: [] as unknown[],
   codesFail: false,
+  nominees: [] as unknown[],
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabase: async () => ({
@@ -32,7 +33,10 @@ vi.mock("@/lib/supabase/server", () => ({
             ? db.codesFail
               ? { data: null, error: { message: "boom" } }
               : { data: db.codes, error: null }
-            : { data: table === "offseason_signatures" ? db.signatures : [], error: null },
+            : {
+                data: table === "offseason_signatures" ? db.signatures : table === "offseason_mvp_nominees" ? db.nominees : [],
+                error: null,
+              },
       }),
     }),
   }),
@@ -51,6 +55,7 @@ afterEach(() => {
   db.signatures = [];
   db.codes = [];
   db.codesFail = false;
+  db.nominees = [];
 });
 
 const ROLES: LolRole[] = ["top", "jungle", "mid", "adc", "support"];
@@ -190,15 +195,33 @@ describe("offseason pages", () => {
     const view = buildOffseasonView(data, []);
     db.mvpRows = [{ week_id: "w1", entrant_id: null, votes: 3, final: false }];
     db.myVotes = [{ week_id: "w1", entrant_id: "Red adc" }];
+    db.nominees = [
+      { week_id: "w1", entrant_id: "Red mid", position: 2 },
+      { week_id: "w1", entrant_id: "Blue mid", position: 1 },
+      { week_id: "w1", entrant_id: "Red adc", position: 3 },
+    ];
     loadOffseasonPage.mockResolvedValue({ view, userId: "me", isStaff: false, ownEntry: view.entrantsById.get("Blue mid") });
     render(await OffseasonPage());
     const panel = screen.getByRole("heading", { name: "Week 1 MVP" }).closest("section")!;
+    // Staff's nominees, in their order, and nobody else.
+    expect(within(panel).getAllByRole("article").map((column) => column.getAttribute("aria-label"))).toEqual(["Blue mid", "Red mid", "Red adc"]);
+    expect(within(panel).queryByRole("button", { name: "Vote for Red top" })).toBeNull();
     expect(within(panel).getByText(/3 votes so far/)).toBeTruthy();
     expect(within(panel).queryByRole("button", { name: "Vote for Blue mid" })).toBeNull();
     expect(within(panel).getByText("You")).toBeTruthy();
     expect(within(panel).getByRole("button", { name: "Vote for Red mid" })).toBeTruthy();
     expect(within(panel).getByRole("button", { name: "Your vote: Red adc" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("link", { name: "Sign your card" }).getAttribute("href")).toBe("/offseason/card");
+  });
+
+  it("says the nominees are coming when voting is open but staff haven't picked them", async () => {
+    db.mvpRows = [{ week_id: "w1", entrant_id: null, votes: 0, final: false }];
+    loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(fixture(), []), userId: "me", isStaff: true, ownEntry: null });
+    render(await OffseasonPage());
+    const panel = screen.getByRole("heading", { name: "Week 1 MVP" }).closest("section")!;
+    expect(within(panel).getByText(/Staff are picking week 1's MVP nominees/)).toBeTruthy();
+    expect(within(panel).getByRole("link", { name: "Pick them in the admin" }).getAttribute("href")).toBe("/offseason/admin");
+    expect(within(panel).queryByRole("button")).toBeNull();
   });
 
   it("says MVP voting opens once a week being played is complete", async () => {

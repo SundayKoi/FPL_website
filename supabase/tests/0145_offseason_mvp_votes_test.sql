@@ -1,6 +1,7 @@
--- Weekly offseason MVP (20261113000002, 20261115000001): anyone signed in
--- votes for one of the open week's players, never themselves, once the week
--- is complete, and the count shows once voting on that week closes.
+-- Weekly offseason MVP (20261113000002, 20261115000001, 20261118000001):
+-- anyone signed in votes for one of the open week's nominees, never
+-- themselves, once the week is complete, and the count shows once voting on
+-- that week closes. 0149 covers choosing the nominees.
 
 begin;
 set local search_path = public, extensions;
@@ -27,6 +28,10 @@ insert into public.offseason_teams (id, week_id, tier, name)
 insert into public.offseason_team_members (team_id, entrant_id, role) values
   ('00000000-0000-0000-0000-0000000d0145', '00000000-0000-0000-0000-0000000a0145', 'mid'),
   ('00000000-0000-0000-0000-0000000d0145', '00000000-0000-0000-0000-0000000b0145', 'top');
+-- Staff nominate both of the week's players.
+insert into public.offseason_mvp_nominees (week_id, entrant_id, position) values
+  ('00000000-0000-0000-0000-0000000f0145', '00000000-0000-0000-0000-0000000a0145', 1),
+  ('00000000-0000-0000-0000-0000000f0145', '00000000-0000-0000-0000-0000000b0145', 2);
 
 -- === 1-3. voting waits for the week to be complete ===========================
 set local role anon;

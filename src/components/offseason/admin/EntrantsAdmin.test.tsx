@@ -54,6 +54,7 @@ function data(entrants: OffseasonEntrant[]): OffseasonAdminData {
     drafts: {},
     codes: [],
     subs: [],
+    mvp: { nominees: [], lines: {} },
   };
 }
 
