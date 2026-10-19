@@ -2,14 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Leaderboards from "@/components/offseason/Leaderboards";
 import LockIn from "@/components/offseason/LockIn";
+import MatchCodes from "@/components/offseason/MatchCodes";
 import MvpVote from "@/components/offseason/MvpVote";
 import { Empty, OffseasonShell, Panel, RoleTag } from "@/components/offseason/ui";
 import WeekBoard, { WEEK_STATUS_LABELS } from "@/components/offseason/WeekBoard";
 import { ROLE_LABELS, ROLE_ORDER } from "@/lib/draft/types";
+import { teamMatchCodes, weekTeam, type TeamMatchCodes } from "@/lib/offseason/codes";
 import { claimableSpots, lockInOpen } from "@/lib/offseason/lockIn";
 import { loadMvp, type MvpWinner } from "@/lib/offseason/mvp";
 import { loadOffseasonPage } from "@/lib/offseason/page";
 import { proposeElimination } from "@/lib/offseason/planning";
+import { fetchMatchCodes } from "@/lib/offseason/queries";
 import { ELIMINATION_PER_ROLE, ELIMINATION_START_WEEK, STATUS_LABELS } from "@/lib/offseason/types";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -37,7 +40,18 @@ export default async function OffseasonPage() {
   }
 
   const { event, currentWeek } = view;
-  const mvp = await loadMvp(await createServerSupabase(), view, userId);
+  const supabase = await createServerSupabase();
+  // The viewer's own team this week, whose matches' codes they may read.
+  const yourWeek = ownEntry && currentWeek ? weekTeam(view, currentWeek, ownEntry.id) : null;
+  const [mvp, yourMatches] = await Promise.all([
+    loadMvp(supabase, view, userId),
+    yourWeek && yourWeek.matches.length > 0
+      ? fetchMatchCodes(supabase, yourWeek.matches.map((match) => match.id)).then(
+          (codes): TeamMatchCodes[] | null => teamMatchCodes(view, yourWeek.team, yourWeek.matches, codes),
+          () => null,
+        )
+      : Promise.resolve([] as TeamMatchCodes[]),
+  ]);
   const signedUp = view.entrants.filter((entrant) => entrant.status !== "withdrawn");
   const primaryCounts = Object.fromEntries(
     ROLE_ORDER.map((role) => [role, signedUp.filter((entrant) => entrant.primary_role === role).length]),
@@ -63,6 +77,12 @@ export default async function OffseasonPage() {
     >
       {lockInOpen(event, view.entrants, ownEntry) ? (
         <LockIn eventId={event.id} signedIn={userId !== null} entry={ownEntry} spots={claimableSpots(view.entrants)} />
+      ) : null}
+
+      {yourWeek && yourWeek.matches.length > 0 ? (
+        <Panel title="Your matches" aside={yourWeek.team.name}>
+          <MatchCodes matches={yourMatches} />
+        </Panel>
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr_1fr]">

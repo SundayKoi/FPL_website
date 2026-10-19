@@ -11,11 +11,13 @@ vi.mock("next/cache", () => ({ revalidatePath }));
 vi.mock("./queries", () => ({ loadOffseason }));
 
 import {
+  addMatchCodesAction,
   createMatchesAction,
   createWeekDraftAction,
   importWeekDraftAction,
   lockInAction,
   openOffseasonPackAction,
+  removeMatchCodeAction,
   setGameAction,
   setLockInAction,
   signCardAction,
@@ -301,5 +303,23 @@ describe("offseason card signing and MVP votes", () => {
 
     client({ rpc: { error: { message: "SELF_VOTE: you can't vote for yourself" } } });
     expect(await voteMvpAction("week", "me")).toEqual({ ok: false, error: "you can't vote for yourself" });
+  });
+});
+
+describe("offseason tournament codes", () => {
+  it("adds codes through the RPC and reports where they went", async () => {
+    const { rpcFn } = client({ rpc: { data: { added: 18, skipped: 0, assigned: 12, pooled: 6 }, error: null } });
+    expect(await addMatchCodesAction("event", ["NA0-a", "NA0-b"])).toEqual({ ok: true, added: 18, skipped: 0, assigned: 12, pooled: 6 });
+    expect(rpcFn).toHaveBeenCalledWith("offseason_add_match_codes", { p_event_id: "event", p_codes: ["NA0-a", "NA0-b"] });
+    expect(revalidatePath).toHaveBeenCalledWith("/offseason", "layout");
+
+    client({ rpc: { error: { message: "NOT_ADMIN: offseason staff access required" } } });
+    expect(await addMatchCodesAction("event", ["NA0-a"])).toEqual({ ok: false, error: "offseason staff access required" });
+  });
+
+  it("removes a code through the RPC", async () => {
+    const { rpcFn } = client();
+    expect(await removeMatchCodeAction("code")).toEqual({ ok: true });
+    expect(rpcFn).toHaveBeenCalledWith("offseason_remove_match_code", { p_code_id: "code" });
   });
 });

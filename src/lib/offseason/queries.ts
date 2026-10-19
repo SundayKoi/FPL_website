@@ -1,5 +1,6 @@
-// Reads for the offseason pages. Everything the event stores is public, so
-// the ordinary cookie-bound client reads it.
+// Reads for the offseason pages. Nearly everything the event stores is
+// public, so the ordinary cookie-bound client reads it. Tournament codes are
+// the exception: RLS shows each reader only the codes they may see.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchAllPages } from "@/lib/supabase/pagination";
@@ -10,6 +11,7 @@ import type {
   OffseasonEventData,
   OffseasonGame,
   OffseasonMatch,
+  OffseasonMatchCode,
   OffseasonTeam,
   OffseasonTeamMember,
   OffseasonWeek,
@@ -99,4 +101,21 @@ export async function fetchSignatures(supabase: SupabaseClient, entrantIds: stri
   const { data, error } = await supabase.from("offseason_signatures").select("entrant_id, signature").in("entrant_id", entrantIds);
   if (error) throw new Error(`offseason signatures read failed: ${error.message}`);
   return new Map(((data as { entrant_id: string; signature: string }[] | null) ?? []).map((row) => [row.entrant_id, row.signature]));
+}
+
+const CODE_COLUMNS = "id, event_id, seq, code, match_id, game_number";
+
+function codeRows(result: { data: unknown; error: { message: string } | null }): OffseasonMatchCode[] {
+  return rows<OffseasonMatchCode>(result, "tournament codes").sort((a, b) => a.seq - b.seq);
+}
+
+/** The codes of these matches that the reader may see: their own team's, or every one for staff. */
+export async function fetchMatchCodes(supabase: SupabaseClient, matchIds: string[]): Promise<OffseasonMatchCode[]> {
+  if (matchIds.length === 0) return [];
+  return codeRows(await supabase.from("offseason_match_codes").select(CODE_COLUMNS).in("match_id", matchIds));
+}
+
+/** Every code in the event, the pool included. Only staff read them all. */
+export async function fetchEventMatchCodes(supabase: SupabaseClient, eventId: string): Promise<OffseasonMatchCode[]> {
+  return codeRows(await supabase.from("offseason_match_codes").select(CODE_COLUMNS).eq("event_id", eventId));
 }

@@ -1,6 +1,6 @@
 // Row shapes for the offseason tournament's tables — mirrors
-// supabase/migrations/20261107000001_offseason_tournament.sql and
-// 20261108000001_offseason_lock_in.sql. The whole
+// supabase/migrations/20261107000001_offseason_tournament.sql,
+// 20261108000001_offseason_lock_in.sql and the migrations after it. The whole
 // feature (this folder, src/app/offseason, src/components/offseason) is
 // temporary: docs/offseason.md has the removal checklist.
 
@@ -106,6 +106,21 @@ export interface OffseasonGame {
   winner_team_id: string | null;
   ingested_at: string | null;
   ingest_error: string | null;
+}
+
+/**
+ * A Riot tournament code (20261117000001_offseason_match_codes.sql). In the
+ * event's pool while `match_id` is null. Staff read every code; a player
+ * reads only their own team's matches' codes.
+ */
+export interface OffseasonMatchCode {
+  id: string;
+  event_id: string;
+  /** Paste order, the order the pool hands codes out. */
+  seq: number;
+  code: string;
+  match_id: string | null;
+  game_number: number | null;
 }
 
 /** Everything the event's pages read, in one place. */
