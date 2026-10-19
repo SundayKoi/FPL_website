@@ -46,7 +46,7 @@ export default function Leaderboards({ view, atRisk }: { view: OffseasonView; at
                       <Overall value={rating?.overall} />
                     </td>
                     <td className={`${tdClass} text-right tabular-nums text-muted`}>
-                      {rating?.games ? `${rating.wins}–${rating.losses}` : "—"}
+                      {rating && rating.wins + rating.losses > 0 ? `${rating.wins}–${rating.losses}` : "—"}
                     </td>
                   </tr>
                 );

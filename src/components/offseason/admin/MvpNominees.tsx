@@ -35,7 +35,7 @@ export default function MvpNominees({ data, week }: { data: OffseasonAdminData; 
       teams
         .flatMap((team) => data.members.filter((member) => member.team_id === team.id).map((member) => member.entrant_id))
         .filter((id) => lines[id]?.overall != null)
-        .sort((a, b) => lines[b].overall! - lines[a].overall! || lines[b].games - lines[a].games)
+        .sort((a, b) => lines[b].overall! - lines[a].overall! || lines[b].wins - lines[a].wins || lines[a].losses - lines[b].losses)
         .slice(0, SUGGESTED),
     );
 

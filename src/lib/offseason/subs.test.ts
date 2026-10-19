@@ -117,10 +117,14 @@ describe("attributeSubs", () => {
     expect(subs.map((sub) => [sub.entrantId, sub.teamId])).toEqual([["Red support", "tr"]]);
   });
 
-  it("counts another entrant who subs in as a sub", () => {
+  it("counts another entrant who subs in as a sub, and the win as the replaced player's", () => {
     const { data, rows } = event();
-    const { subs } = attributeSubs(data, subbed(rows, "Blue mid", "Bench mid", "OS1"));
+    const played = subbed(rows, "Blue mid", "Bench mid", "OS1");
+    const { subs } = attributeSubs(data, played);
     expect(subs.map((sub) => [sub.entrantId, sub.playedBy])).toEqual([["Blue mid", "Bench mid#OS1"]]);
+    const view = buildOffseasonView(data, played);
+    expect(view.ratings.get("Blue mid")).toMatchObject({ wins: 1, losses: 0 });
+    expect(view.ratings.get("Bench mid")).toMatchObject({ wins: 0, losses: 0, games: 0 });
   });
 
   it("leaves subs it can't tell apart, and games the event doesn't know", () => {
@@ -137,9 +141,9 @@ describe("attributeSubs", () => {
   it("puts a sub's game into the replaced player's rating, not a stranger's", () => {
     const { data, rows } = event();
     const view = buildOffseasonView(data, subbed(rows, "Blue mid", "Ringer", "XYZ"));
-    expect(view.ratings.get("Blue mid")).toMatchObject({ games: 1, wins: 1 });
+    expect(view.ratings.get("Blue mid")).toMatchObject({ games: 1, wins: 1, losses: 0 });
     expect(view.ratings.get("Blue mid")!.overall).not.toBeNull();
-    expect(view.ratings.get("Bench mid")!.games).toBe(0);
+    expect(view.ratings.get("Bench mid")).toMatchObject({ games: 0, wins: 0, losses: 0 });
     expect(view.stats.some((row) => row.summoner_name === "Ringer")).toBe(false);
     expect(view.subs).toHaveLength(1);
   });
