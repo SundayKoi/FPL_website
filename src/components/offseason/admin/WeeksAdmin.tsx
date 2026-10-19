@@ -2,6 +2,7 @@
 
 import { openWeekAction, publishCardSetAction, setWeekStatusAction } from "@/lib/offseason/actions";
 import type { OffseasonWeek } from "@/lib/offseason/types";
+import MvpNominees, { savedNominees } from "./MvpNominees";
 import { ActionMessage, buttonClass, primaryButtonClass, useOffseasonAction, type OffseasonAdminData } from "./shared";
 import WeekDrafts from "./WeekDrafts";
 import WeekMatches from "./WeekMatches";
@@ -47,6 +48,10 @@ function WeekPanel({ data, week }: { data: OffseasonAdminData; week: OffseasonWe
       {week.status === "setup" ? <WeekSetup data={data} week={week} /> : null}
       <WeekDrafts data={data} week={week} />
       <WeekMatches data={data} week={week} />
+      {data.teams.some((team) => team.week_id === week.id) ? (
+        // Keyed by the saved nominees so a save resets the picker.
+        <MvpNominees key={savedNominees(data, week.id).join()} data={data} week={week} />
+      ) : null}
     </div>
   );
 }

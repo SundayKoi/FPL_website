@@ -8,6 +8,7 @@ import { useState, useTransition } from "react";
 import type { DraftStatus } from "@/lib/draft/types";
 import type { OffseasonActionResult } from "@/lib/offseason/actions";
 import type { RatingSummary } from "@/lib/offseason/order";
+import type { MvpNomineeRow, WeekLine } from "@/lib/offseason/mvp";
 import type { SubAppearance } from "@/lib/offseason/subs";
 import type { OffseasonEventData, OffseasonMatchCode } from "@/lib/offseason/types";
 
@@ -19,6 +20,8 @@ export interface OffseasonAdminData extends OffseasonEventData {
   codes: OffseasonMatchCode[];
   /** Games subs played, credited to the players they replaced. */
   subs: SubAppearance[];
+  /** Each week's MVP nominees, and every player's numbers for each drafted week (by week id, then entrant id). */
+  mvp: { nominees: MvpNomineeRow[]; lines: Record<string, Record<string, WeekLine>> };
 }
 
 export type ActionMessageState = { kind: "error" | "done"; text: string } | null;

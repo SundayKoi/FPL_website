@@ -391,6 +391,14 @@ export async function setGameAction(
   );
 }
 
+// === Staff: MVP nominees =====================================================
+
+/** Replaces a week's MVP nominees: two to five of its players, in display order, or none. */
+export async function setMvpNomineesAction(weekId: string, entrantIds: string[]): Promise<OffseasonActionResult> {
+  const supabase = await createServerSupabase();
+  return done(await supabase.rpc("offseason_set_mvp_nominees", { p_week_id: weekId, p_entrant_ids: entrantIds }));
+}
+
 // === Staff: tournament codes =================================================
 
 export type AddMatchCodesResult =

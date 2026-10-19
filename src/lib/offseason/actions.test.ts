@@ -18,6 +18,7 @@ import {
   lockInAction,
   openOffseasonPackAction,
   removeMatchCodeAction,
+  setMvpNomineesAction,
   setGameAction,
   setLockInAction,
   signCardAction,
@@ -321,5 +322,16 @@ describe("offseason tournament codes", () => {
     const { rpcFn } = client();
     expect(await removeMatchCodeAction("code")).toEqual({ ok: true });
     expect(rpcFn).toHaveBeenCalledWith("offseason_remove_match_code", { p_code_id: "code" });
+  });
+});
+
+describe("offseason MVP nominees", () => {
+  it("saves a week's nominees through the RPC, in order", async () => {
+    const { rpcFn } = client();
+    expect(await setMvpNomineesAction("week", ["c", "a", "b"])).toEqual({ ok: true });
+    expect(rpcFn).toHaveBeenCalledWith("offseason_set_mvp_nominees", { p_week_id: "week", p_entrant_ids: ["c", "a", "b"] });
+
+    client({ rpc: { error: { message: "NOMINEES_INVALID: nominate two to five players" } } });
+    expect(await setMvpNomineesAction("week", ["a"])).toEqual({ ok: false, error: "nominate two to five players" });
   });
 });
