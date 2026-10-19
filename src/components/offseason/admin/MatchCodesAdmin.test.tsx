@@ -32,6 +32,7 @@ function data(codes: OffseasonMatchCode[]): OffseasonAdminData {
     ratings: {},
     drafts: {},
     codes,
+    subs: [],
   };
 }
 

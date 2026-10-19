@@ -18,8 +18,12 @@ import { splitRiotId, type OffseasonEntrant } from "./types";
 
 export { compareByRating };
 
-/** One player's row from one game, as offseason_stats stores it. */
-export type OffseasonStatRow = CardGameRow & WeeklyRawStatRow & { team_side?: string | null };
+/**
+ * One player's row from one game, as offseason_stats stores it. A sub's row
+ * is credited to the player they replaced (see subs.ts): it then carries that
+ * player's name and `played_by` keeps the sub's own "Name#TAG".
+ */
+export type OffseasonStatRow = CardGameRow & WeeklyRawStatRow & { team_side?: string | null; played_by?: string };
 
 export interface WeekRating {
   week: number;

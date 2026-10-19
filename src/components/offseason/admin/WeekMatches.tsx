@@ -41,12 +41,15 @@ function GameRow({
   match,
   game,
   code,
+  subs,
   number,
   teams,
 }: {
   match: OffseasonMatch;
   game: OffseasonGame | undefined;
   code: OffseasonMatchCode | undefined;
+  /** "Sub for player" for each sub the game's stats show. */
+  subs: string[];
   number: number;
   teams: Map<string, OffseasonTeam>;
 }) {
@@ -85,6 +88,9 @@ function GameRow({
         {status}
         <ActionMessage message={message} />
       </div>
+      {subs.length > 0 ? (
+        <p className="pl-14 text-xs text-prestige">Sub{subs.length === 1 ? "" : "s"}: {subs.join("; ")}. Counted for the player they replaced.</p>
+      ) : null}
       {code ? (
         <div className="flex flex-wrap items-center gap-2 pl-14 text-xs">
           <span className="text-muted">Code</span>
@@ -109,6 +115,11 @@ function GameRow({
 
 function MatchEditor({ data, match, teams }: { data: OffseasonAdminData; match: OffseasonMatch; teams: Map<string, OffseasonTeam> }) {
   const games = data.games.filter((game) => game.match_id === match.id);
+  const names = new Map(data.entrants.map((entrant) => [entrant.id, entrant.display_name]));
+  const subsOf = (game: OffseasonGame | undefined) =>
+    game?.riot_match_id
+      ? data.subs.filter((sub) => sub.riotMatchId === game.riot_match_id).map((sub) => `${sub.playedBy} for ${names.get(sub.entrantId) ?? "?"}`)
+      : [];
   const { pending, message, run } = useOffseasonAction();
   return (
     <li className="flex flex-col gap-2 border-b border-border-subtle/60 py-3 last:border-b-0">
@@ -140,6 +151,7 @@ function MatchEditor({ data, match, teams }: { data: OffseasonAdminData; match: 
             number={index + 1}
             game={game}
             code={data.codes.find((code) => code.match_id === match.id && code.game_number === index + 1)}
+            subs={subsOf(game)}
             teams={teams}
           />
         );

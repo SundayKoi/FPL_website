@@ -60,7 +60,7 @@ function data(overrides: Record<string, number> = {}): OffseasonAdminData {
       { overall: overrides[player.id] ?? 90 - Number(player.id.split("-")[1]) * 10, games: 3, wins: 1, losses: 2 },
     ]),
   );
-  return { event: { id: "event", name: "Cup", status: "running", signups_open: false, yardstick_season: "S6", created_at: "" }, entrants, weeks: [week], entries: [], teams: [], members: [], matches: [], games: [], ratings, drafts: {}, codes: [] };
+  return { event: { id: "event", name: "Cup", status: "running", signups_open: false, yardstick_season: "S6", created_at: "" }, entrants, weeks: [week], entries: [], teams: [], members: [], matches: [], games: [], ratings, drafts: {}, codes: [], subs: [] };
 }
 
 describe("WeekSetup", () => {

@@ -1,6 +1,7 @@
 // The event, indexed and rated, as every offseason page reads it.
 
 import { rateEntrants, type EntrantRating, type OffseasonStatRow } from "./ratings";
+import { attributeSubs, type SubAppearance } from "./subs";
 import type {
   OffseasonEntrant,
   OffseasonEventData,
@@ -12,8 +13,10 @@ import type {
 } from "./types";
 
 export interface OffseasonView extends OffseasonEventData {
-  /** Every ingested row of the event's games. */
+  /** Every ingested row of the event's games, subs' rows credited to the player they replaced. */
   stats: OffseasonStatRow[];
+  /** Every game a sub played in a rostered player's place. */
+  subs: SubAppearance[];
   ratings: Map<string, EntrantRating>;
   entrantsById: Map<string, OffseasonEntrant>;
   teamsById: Map<string, OffseasonTeam>;
@@ -37,7 +40,8 @@ function groupBy<T, K>(items: T[], key: (item: T) => K): Map<K, T[]> {
   return map;
 }
 
-export function buildOffseasonView(data: OffseasonEventData, rows: OffseasonStatRow[]): OffseasonView {
+export function buildOffseasonView(data: OffseasonEventData, ingested: OffseasonStatRow[]): OffseasonView {
+  const { rows, subs } = attributeSubs(data, ingested);
   const weekById = new Map(data.weeks.map((week) => [week.id, week]));
   const matchById = new Map(data.matches.map((match) => [match.id, match]));
   const weekOfMatch = new Map<string, number>();
@@ -53,6 +57,7 @@ export function buildOffseasonView(data: OffseasonEventData, rows: OffseasonStat
   return {
     ...data,
     stats: rows,
+    subs,
     ratings: rateEntrants({
       entrants: data.entrants,
       rows,
