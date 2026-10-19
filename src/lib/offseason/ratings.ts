@@ -36,7 +36,9 @@ export interface EntrantRating {
   /** The cumulative card; null until the player has an ingested game. */
   card: PlayerCardData | null;
   overall: number | null;
+  /** Games rated into the Overall. */
   games: number;
+  /** The player's record for the whole event; see `records` below. */
   wins: number;
   losses: number;
   weekly: WeekRating[];
@@ -85,18 +87,22 @@ export function rateRows(rows: OffseasonStatRow[], yardstickSeason: string): Map
 /**
  * Every entrant's cumulative rating and week-by-week trend. `weekOfMatch`
  * maps a Riot match id to the event week it was played in; rows for other
- * matches are ignored.
+ * matches are ignored. `records` is each player's record from game results
+ * (standings.ts playerRecords); without it the record is the card's, from the
+ * rated games alone.
  */
 export function rateEntrants({
   entrants,
   rows,
   weekOfMatch,
   yardstickSeason,
+  records,
 }: {
   entrants: OffseasonEntrant[];
   rows: OffseasonStatRow[];
   weekOfMatch: Map<string, number>;
   yardstickSeason: string;
+  records?: Map<string, { wins: number; losses: number }>;
 }): Map<string, EntrantRating> {
   const eventRows = rows.filter((row) => weekOfMatch.has(row.match_id));
   const cumulative = rateRows(eventRows, yardstickSeason);
@@ -125,8 +131,8 @@ export function rateEntrants({
       card,
       overall: card?.overall ?? null,
       games: card ? card.wins + card.losses : 0,
-      wins: card?.wins ?? 0,
-      losses: card?.losses ?? 0,
+      wins: records ? (records.get(entrant.id)?.wins ?? 0) : (card?.wins ?? 0),
+      losses: records ? (records.get(entrant.id)?.losses ?? 0) : (card?.losses ?? 0),
       weekly: key
         ? weeks
             .map((week) => ({

@@ -1,6 +1,7 @@
 // The event, indexed and rated, as every offseason page reads it.
 
 import { rateEntrants, type EntrantRating, type OffseasonStatRow } from "./ratings";
+import { playerRecords } from "./standings";
 import { attributeSubs, type SubAppearance } from "./subs";
 import type {
   OffseasonEntrant,
@@ -63,6 +64,7 @@ export function buildOffseasonView(data: OffseasonEventData, ingested: Offseason
       rows,
       weekOfMatch,
       yardstickSeason: data.event.yardstick_season,
+      records: playerRecords(data.members, data.matches, data.games),
     }),
     entrantsById: new Map(data.entrants.map((entrant) => [entrant.id, entrant])),
     teamsById,

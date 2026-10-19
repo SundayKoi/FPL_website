@@ -73,6 +73,12 @@ export default async function OffseasonPlayerPage({ params }: { params: Promise<
     >
       <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_2fr]">
         <Panel title="Overall" aside={card ? `${card.tier.label} · ${card.archetype}` : undefined}>
+          <div className="flex items-baseline justify-between gap-3 rounded-md border border-border-subtle bg-canvas/60 px-3 py-2">
+            <span className="text-xs font-bold uppercase tracking-wide text-muted">Season record</span>
+            <span className="font-display text-xl font-bold tabular-nums text-white">
+              {rating?.wins ?? 0}–{rating?.losses ?? 0}
+            </span>
+          </div>
           {card ? (
             <>
               <div className="card-cell self-center">
@@ -80,7 +86,7 @@ export default async function OffseasonPlayerPage({ params }: { params: Promise<
               </div>
               <p className="type-display text-6xl text-white">{card.overall}</p>
               <p className="text-sm text-muted">
-                {rating!.games} game{rating!.games === 1 ? "" : "s"} · {rating!.wins}–{rating!.losses}
+                Rated on {rating!.games} game{rating!.games === 1 ? "" : "s"}. Tied Overalls go to the better record.
               </p>
               <ul className="flex flex-col gap-2">
                 {card.subStats.map((stat) => (
