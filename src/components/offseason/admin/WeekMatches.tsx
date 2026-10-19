@@ -2,10 +2,18 @@
 
 import { useState } from "react";
 import { ROLE_LABELS_SHORT, ROLE_ORDER } from "@/lib/draft/types";
-import { createMatchesAction, deleteMatchAction, setGameAction, setTeamEliminatedAction } from "@/lib/offseason/actions";
+import { createMatchesAction, deleteMatchAction, removeMatchCodeAction, setGameAction, setTeamEliminatedAction } from "@/lib/offseason/actions";
 import { eliminationPairings, roundRobinPairings } from "@/lib/offseason/schedule";
 import { suggestedEliminations } from "@/lib/offseason/standings";
-import { STAGE_LABELS, type MatchStage, type OffseasonGame, type OffseasonMatch, type OffseasonTeam, type OffseasonWeek } from "@/lib/offseason/types";
+import {
+  STAGE_LABELS,
+  type MatchStage,
+  type OffseasonGame,
+  type OffseasonMatch,
+  type OffseasonMatchCode,
+  type OffseasonTeam,
+  type OffseasonWeek,
+} from "@/lib/offseason/types";
 import {
   ActionMessage,
   buttonClass,
@@ -29,7 +37,19 @@ function BestOfSelect({ value, onChange }: { value: BestOf; onChange: (value: Be
   );
 }
 
-function GameRow({ match, game, number, teams }: { match: OffseasonMatch; game: OffseasonGame | undefined; number: number; teams: Map<string, OffseasonTeam> }) {
+function GameRow({
+  match,
+  game,
+  code,
+  number,
+  teams,
+}: {
+  match: OffseasonMatch;
+  game: OffseasonGame | undefined;
+  code: OffseasonMatchCode | undefined;
+  number: number;
+  teams: Map<string, OffseasonTeam>;
+}) {
   const [riotId, setRiotId] = useState(game?.riot_match_id ?? "");
   const [winner, setWinner] = useState(game?.winner_team_id ?? "");
   const { pending, message, run } = useOffseasonAction();
@@ -42,27 +62,47 @@ function GameRow({ match, game, number, teams }: { match: OffseasonMatch; game: 
         ? <span className="text-success">Stats in</span>
         : <span className="text-muted">Waiting for ingest</span>;
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs">
-      <span className="w-12 font-semibold text-muted">Game {number}</span>
-      <input value={riotId} onChange={(e) => setRiotId(e.target.value)} placeholder="NA1_1234567890" className={`${smallInputClass} w-40 font-mono`} />
-      <select value={winner} onChange={(e) => setWinner(e.target.value)} className={smallInputClass}>
-        <option value="">Winner (or from stats)</option>
-        {[match.team_a_id, match.team_b_id].map((id) => (
-          <option key={id} value={id}>
-            {teams.get(id)?.name ?? "?"}
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
-        disabled={pending || !dirty}
-        className={buttonClass}
-        onClick={() => run(() => setGameAction(match.id, number, riotId.trim(), winner || null), "Saved.")}
-      >
-        {riotId.trim() || winner ? "Save" : "Clear"}
-      </button>
-      {status}
-      <ActionMessage message={message} />
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="w-12 font-semibold text-muted">Game {number}</span>
+        <input value={riotId} onChange={(e) => setRiotId(e.target.value)} placeholder="NA1_1234567890" className={`${smallInputClass} w-40 font-mono`} />
+        <select value={winner} onChange={(e) => setWinner(e.target.value)} className={smallInputClass}>
+          <option value="">Winner (or from stats)</option>
+          {[match.team_a_id, match.team_b_id].map((id) => (
+            <option key={id} value={id}>
+              {teams.get(id)?.name ?? "?"}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          disabled={pending || !dirty}
+          className={buttonClass}
+          onClick={() => run(() => setGameAction(match.id, number, riotId.trim(), winner || null), "Saved.")}
+        >
+          {riotId.trim() || winner ? "Save" : "Clear"}
+        </button>
+        {status}
+        <ActionMessage message={message} />
+      </div>
+      {code ? (
+        <div className="flex flex-wrap items-center gap-2 pl-14 text-xs">
+          <span className="text-muted">Code</span>
+          <code className="break-all font-mono text-content">{code.code}</code>
+          <button
+            type="button"
+            disabled={pending}
+            className={buttonClass}
+            onClick={() => {
+              if (window.confirm("Remove this code? The game takes the next code waiting.")) run(() => removeMatchCodeAction(code.id), "Code removed.");
+            }}
+          >
+            Remove
+          </button>
+        </div>
+      ) : !game && !match.winner_team_id ? (
+        <p className="pl-14 text-xs text-muted">No code yet: add more under Tournament codes.</p>
+      ) : null}
     </div>
   );
 }
@@ -99,6 +139,7 @@ function MatchEditor({ data, match, teams }: { data: OffseasonAdminData; match: 
             match={match}
             number={index + 1}
             game={game}
+            code={data.codes.find((code) => code.match_id === match.id && code.game_number === index + 1)}
             teams={teams}
           />
         );

@@ -14,8 +14,8 @@ Everything here is built to be deleted when the event is over. See
 
 | Piece | Where |
 | --- | --- |
-| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql`, `20261113000001_offseason_card_signing.sql`, `20261113000002_offseason_mvp_votes.sql`, `20261114000001_offseason_captain_costs.sql`, `20261115000001_offseason_mvp_after_week.sql`, `20261116000001_offseason_draft_igns.sql` |
-| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql`, `0143_offseason_packs_test.sql`, `0144_offseason_card_signing_test.sql`, `0145_offseason_mvp_votes_test.sql`, `0146_offseason_captain_costs_test.sql`, `0147_offseason_draft_igns_test.sql` |
+| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql`, `20261113000001_offseason_card_signing.sql`, `20261113000002_offseason_mvp_votes.sql`, `20261114000001_offseason_captain_costs.sql`, `20261115000001_offseason_mvp_after_week.sql`, `20261116000001_offseason_draft_igns.sql`, `20261117000001_offseason_match_codes.sql` |
+| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql`, `0143_offseason_packs_test.sql`, `0144_offseason_card_signing_test.sql`, `0145_offseason_mvp_votes_test.sql`, `0146_offseason_captain_costs_test.sql`, `0147_offseason_draft_igns_test.sql`, `0148_offseason_match_codes_test.sql` |
 | Logic, reads, server actions | `src/lib/offseason/` |
 | Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/packs`, `/offseason/card`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
 | Components | `src/components/offseason/` |
@@ -58,6 +58,7 @@ It touches the rest of the site in four ways:
 - Anyone signed in, premium or not, opens offseason packs (`offseason_open_pack`) and sees only their own copies. Staff publish the card sets (`offseason_publish_card_set`).
 - A player in the event signs their own card (`offseason_sign_card`). A player with no account yet claims their row by Riot ID in the same step, like lock-in. Signatures are public.
 - Anyone signed in votes for the open week's MVP (`offseason_vote_mvp`), never for their own entry. Votes are private; everyone reads the totals through `offseason_mvp_results`, and only once a week's voting closes.
+- A match's tournament codes are private to the players on its two teams, through the account their entry is linked to, and to staff (`offseason_match_codes`). Staff add and remove codes (`offseason_add_match_codes`, `offseason_remove_match_code`).
 - Admins and owners do everything else, from `/offseason/admin`. The page only
   hides controls. The RLS policies and the staff check in each RPC are what enforce access.
 - The ingest writes with the service role only, through `offseason_record_ingest`.
@@ -175,6 +176,8 @@ created (`offseason_set_week_times`). The week then goes:
 7. **Schedule.** Every match gets random sides: the first team listed plays blue.
    `/offseason/schedule` shows each week's matchups lane by lane. If importing
    could not schedule a tier, use "Generate". Use "Add match" for anything else.
+   New matches take their tournament codes from the pool straight away (see
+   [Tournament codes](#tournament-codes)).
 8. **Results.** Enter each game's Riot match ID, such as `NA1_5012345678`, and
    the winner if known. Then run **Ingest offseason games** from GitHub Actions →
    workflows. It is manual only: leave it blank to ingest everything pending, or give
@@ -184,6 +187,28 @@ created (`offseason_set_week_times`). The week then goes:
    the losing elimination teams and offers to eliminate them. This marks their players
    out, with the week number. **Restore** undoes it.
 10. **Complete week.** Its games keep counting toward ratings.
+
+### Tournament codes
+
+Paste Riot tournament codes, one per line, under **Tournament codes** in the
+admin. Every game on the schedule takes the next code, in schedule order:
+weeks in order, then each week's matches, then game by game. Codes nothing
+needs yet wait in the event's pool, oldest first, and matches scheduled later
+take theirs from it as soon as they are made. The panel says how many games
+still need a code and how many are waiting. Each game's code also shows under
+its row in Results, with **Remove** for a code that doesn't work; that game
+then takes the next code waiting.
+
+- **Series.** Every game of a Bo3 or Bo5 gets a code up front. Once the match
+  is decided, the codes of the games it didn't play go back to the pool, so a
+  3-0 doesn't waste two. A game with a result keeps its code.
+- **Who sees them.** Players see their team's matches this week, with a code
+  and a copy button for each game, under **Your matches** on `/offseason`. Only
+  the players on a match's two teams can read its codes, through the account
+  their entry is linked to, so a player who hasn't claimed their entry sees
+  nothing until they do. Nobody else, signed in or not, reads them.
+- **Complete weeks** take no new codes, and neither does a complete event.
+  Deleting a match puts its codes back in the pool.
 
 ### The last weeks and the final
 
@@ -278,6 +303,7 @@ proposed for the elimination tier automatically.
 
    ```sql
    drop table if exists
+     public.offseason_match_codes,
      public.offseason_mvp_votes, public.offseason_signatures,
      public.offseason_card_copies, public.offseason_pack_openings, public.offseason_cards,
      public.offseason_card_sets,
@@ -294,6 +320,10 @@ proposed for the elimination tier automatically.
      public.offseason_set_week_entries(uuid, jsonb),
      public.offseason_create_week_draft(uuid, text, int, int, int[], int, jsonb),
      public._offseason_ign(text),
+     public.offseason_add_match_codes(uuid, text[]),
+     public.offseason_remove_match_code(uuid),
+     public._offseason_fill_match_codes(uuid),
+     public._offseason_match_codes_on_schedule(),
      public.offseason_import_week_draft(uuid, text),
      public.offseason_set_week_times(uuid, timestamptz, timestamptz),
      public.offseason_publish_card_set(uuid, int, jsonb),
@@ -323,8 +353,9 @@ proposed for the elimination tier automatically.
    `supabase/tests/0143_offseason_packs_test.sql`,
    `supabase/tests/0144_offseason_card_signing_test.sql`,
    `supabase/tests/0145_offseason_mvp_votes_test.sql`,
-   `supabase/tests/0146_offseason_captain_costs_test.sql` and
-   `supabase/tests/0147_offseason_draft_igns_test.sql` in the same change.
+   `supabase/tests/0146_offseason_captain_costs_test.sql`,
+   `supabase/tests/0147_offseason_draft_igns_test.sql` and
+   `supabase/tests/0148_offseason_match_codes_test.sql` in the same change.
    Dropping the tables also removes everyone's offseason card copies; export
    `offseason_card_copies` first if you want to keep a record.
 3. Remove the homepage banner: `OffseasonHomeBanner` and
