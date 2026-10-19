@@ -295,6 +295,20 @@ cumulative. Player pages also show each week rated on its own. A player has no
 rating until they have an ingested game, and a player with no rating is never
 proposed for the elimination tier automatically.
 
+**Subs.** A game's stats name whoever was in it. Anyone on neither team's
+roster for that game, another entrant included, is a sub. A sub's row counts
+for the rostered player missing from that game:
+- the one in the same role, by Riot's position;
+- or the only player missing, if Riot reported no role.
+
+That player's stats, Overall, weekly trend and card all include the game.
+Their player page marks the game "(sub: Name#TAG)", and the game's row in
+admin Results names the sub. Nothing is stored: it's worked out from the
+rosters every time the page loads (`attributeSubs`,
+`src/lib/offseason/subs.ts`). Fixing a roster or ingesting late re-credits
+the game on its own. If two subs on one team have no role from Riot, they
+can't be told apart and their games count for nobody.
+
 ## Removing it
 
 1. Optional: delete the `Offseason W…` drafts from the admin draft list if you

@@ -1,6 +1,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LolRole } from "@/lib/draft/types";
+import type { OffseasonStatRow } from "@/lib/offseason/ratings";
 import type { OffseasonEntrant, OffseasonEventData } from "@/lib/offseason/types";
 import { buildOffseasonView } from "@/lib/offseason/view";
 
@@ -270,6 +271,17 @@ describe("offseason pages", () => {
 
     render(await OffseasonPlayerPage({ params: Promise.resolve({ id: "Red mid" }) }));
     expect(screen.queryByRole("link", { name: /sign your card/i })).toBeNull();
+  });
+
+  it("credits a sub's game to the player they replaced, and says who played", async () => {
+    const row = (name: string, role: string) =>
+      ({ summoner_name: name, tag: name === "Ringer" ? "XYZ" : "OS1", role, champion: "Ahri", win: true, game_date: "2026-10-20", match_id: "NA1_1000000001", team_name: "Team Blue", team_side: "Blue", game_duration_min: 30, kills: 4, deaths: 1, assists: 9, cs: 200 }) as OffseasonStatRow;
+    const view = buildOffseasonView(fixture(), [row("Blue top", "TOP"), row("Ringer", "MIDDLE")]);
+    loadOffseasonPage.mockResolvedValue({ view, userId: null, isStaff: false, ownEntry: null });
+    render(await OffseasonPlayerPage({ params: Promise.resolve({ id: "Blue mid" }) }));
+    const games = screen.getByRole("heading", { name: "Games" }).closest("section")!;
+    expect(within(games).getByText("(sub: Ringer#XYZ)")).toBeTruthy();
+    expect(within(games).getByText("4 / 1 / 9")).toBeTruthy();
   });
 
   it("404s an unknown player", async () => {

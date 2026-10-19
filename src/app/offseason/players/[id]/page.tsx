@@ -199,7 +199,10 @@ export default async function OffseasonPlayerPage({ params }: { params: Promise<
                 {games.map((row) => (
                   <tr key={row.match_id}>
                     <td className={`${tdClass} text-muted`}>{row.game_date ? row.game_date.slice(0, 10) : "—"}</td>
-                    <td className={tdClass}>{row.champion ?? "—"}</td>
+                    <td className={tdClass}>
+                      {row.champion ?? "—"}
+                      {row.played_by ? <span className="ml-1 text-xs text-muted">(sub: {row.played_by})</span> : null}
+                    </td>
                     <td className={`${tdClass} text-muted`}>{row.team_name ?? "—"}</td>
                     <td className={`${tdClass} text-right tabular-nums`}>
                       {row.kills ?? 0} / {row.deaths ?? 0} / {row.assists ?? 0}

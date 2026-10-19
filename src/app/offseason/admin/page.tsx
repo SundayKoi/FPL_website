@@ -57,6 +57,7 @@ export default async function OffseasonAdminPage() {
     ),
     drafts,
     codes,
+    subs: view.subs,
   };
 
   return (

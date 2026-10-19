@@ -8,6 +8,7 @@ import { useState, useTransition } from "react";
 import type { DraftStatus } from "@/lib/draft/types";
 import type { OffseasonActionResult } from "@/lib/offseason/actions";
 import type { RatingSummary } from "@/lib/offseason/order";
+import type { SubAppearance } from "@/lib/offseason/subs";
 import type { OffseasonEventData, OffseasonMatchCode } from "@/lib/offseason/types";
 
 /** The event as the admin console receives it: plain data, ratings summarised. */
@@ -16,6 +17,8 @@ export interface OffseasonAdminData extends OffseasonEventData {
   drafts: Record<string, { name: string; status: DraftStatus }>;
   /** Every tournament code in the event, the pool included. */
   codes: OffseasonMatchCode[];
+  /** Games subs played, credited to the players they replaced. */
+  subs: SubAppearance[];
 }
 
 export type ActionMessageState = { kind: "error" | "done"; text: string } | null;
