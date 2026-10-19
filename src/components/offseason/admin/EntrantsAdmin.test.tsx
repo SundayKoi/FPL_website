@@ -53,6 +53,7 @@ function data(entrants: OffseasonEntrant[]): OffseasonAdminData {
     ratings: {},
     drafts: {},
     codes: [],
+    subs: [],
   };
 }
 
