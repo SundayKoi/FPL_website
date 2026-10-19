@@ -161,6 +161,31 @@ describe("rateEntrants", () => {
     expect(sorted.map((player) => player.id)).toEqual(["Blue mid", "Red mid", "Never Played"]);
   });
 
+  it("breaks a tie on Overall by the better record, then sign-up order", () => {
+    const first = entrant("First", "mid");
+    const second = entrant("Second", "mid");
+    const third = entrant("Third", "mid");
+    const tied = new Map([
+      [first.id, { overall: 80, wins: 4, losses: 2 }],
+      [second.id, { overall: 80, wins: 5, losses: 1 }],
+      [third.id, { overall: 80, wins: 4, losses: 1 }],
+    ]);
+    expect([first, second, third].sort(compareByRating(tied)).map((player) => player.id)).toEqual(["Second", "Third", "First"]);
+    // Nobody rated yet: still the better record first.
+    const unrated = new Map([
+      [first.id, { overall: null, wins: 0, losses: 1 }],
+      [second.id, { overall: null, wins: 1, losses: 0 }],
+    ]);
+    expect([first, second, third].sort(compareByRating(unrated)).map((player) => player.id)).toEqual(["Second", "Third", "First"]);
+  });
+
+  it("takes the record from game results when given them", () => {
+    const records = new Map([["Blue mid", { wins: 3, losses: 0 }]]);
+    const rated = rateEntrants({ entrants, rows: game("NA1_1000000001"), weekOfMatch: new Map([["NA1_1000000001", 1]]), yardstickSeason: "S6", records });
+    expect(rated.get("Blue mid")).toMatchObject({ wins: 3, losses: 0, games: 1 });
+    expect(rated.get("Red mid")).toMatchObject({ wins: 0, losses: 0, games: 1 });
+  });
+
   it("builds per-role leaderboards without withdrawn players", () => {
     const boards = leaderboards(
       [...entrants, entrant("Gone", "mid", { status: "withdrawn" }), entrant("Unplaced", "top", { assigned_role: null })],

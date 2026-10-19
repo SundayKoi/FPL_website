@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { standings, suggestedEliminations } from "./standings";
-import type { MatchStage, OffseasonGame, OffseasonMatch, OffseasonTeam, Tier } from "./types";
+import { playerRecords, standings, suggestedEliminations } from "./standings";
+import type { MatchStage, OffseasonGame, OffseasonMatch, OffseasonTeam, OffseasonTeamMember, Tier } from "./types";
 
 const team = (id: string, tier: Tier = "main"): OffseasonTeam => ({
   id,
@@ -56,5 +56,21 @@ describe("suggestedEliminations", () => {
 
   it("suggests nothing without elimination matches", () => {
     expect(suggestedEliminations(teams, [match("M1", "E1", "M1")], [])).toEqual([]);
+  });
+});
+
+describe("playerRecords", () => {
+  it("gives everyone on a roster each decided game their team played, across weeks", () => {
+    const member = (teamId: string, entrantId: string): OffseasonTeamMember => ({ team_id: teamId, entrant_id: entrantId, role: "mid", price: 1 });
+    // Week 1: Ann and Bo are teammates (A); Cy plays for B. Week 2: Ann is on C against Bo's D.
+    const members = [member("A", "Ann"), member("A", "Bo"), member("B", "Cy"), member("C", "Ann"), member("D", "Bo")];
+    const ab = { ...match("A", "B", "A"), best_of: 3 as const };
+    const cd = match("C", "D", null);
+    const records = playerRecords(members, [ab, cd], [game(ab, 1, "A"), game(ab, 2, "B"), game(ab, 3, "A"), game(cd, 1, "C"), game(cd, 2, null)]);
+    expect(Object.fromEntries(records)).toEqual({
+      Ann: { wins: 3, losses: 1 },
+      Bo: { wins: 2, losses: 2 },
+      Cy: { wins: 1, losses: 2 },
+    });
   });
 });

@@ -307,6 +307,16 @@ describe("offseason pages", () => {
     expect(within(games).getByText("4 / 1 / 9")).toBeTruthy();
   });
 
+  it("shows a player's season record before they have an Overall", async () => {
+    // Week 1's one game went to Team Blue; nothing is ingested, so nobody is rated.
+    loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(fixture(), []), userId: null, isStaff: false, ownEntry: null });
+    render(await OffseasonPlayerPage({ params: Promise.resolve({ id: "Red top" }) }));
+    const overall = screen.getByRole("heading", { name: "Overall" }).closest("section")!;
+    expect(within(overall).getByText("Season record")).toBeTruthy();
+    expect(within(overall).getByText("0–1")).toBeTruthy();
+    expect(within(overall).getByText(/No rated games yet/)).toBeTruthy();
+  });
+
   it("404s an unknown player", async () => {
     loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(fixture(), []), userId: null, isStaff: false, ownEntry: null });
     await expect(OffseasonPlayerPage({ params: Promise.resolve({ id: "nobody" }) })).rejects.toThrow("NOT_FOUND");

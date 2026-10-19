@@ -314,6 +314,16 @@ cumulative. Player pages also show each week rated on its own. A player has no
 rating until they have an ingested game, and a player with no rating is never
 proposed for the elimination tier automatically.
 
+**Records.** Every player has a record for the whole event. It shows on
+their player page, even before they have a rating, and in the leaderboards.
+Each decided game their team played counts as a win or a loss for everyone on
+that week's roster, whether the winner came from the ingest or from staff, and a
+sub's games count for the player they replaced
+(`playerRecords`, `src/lib/offseason/standings.ts`). Wherever players are
+ranked by Overall, a tie goes to the better record: more wins, then fewer
+losses, then the earlier sign-up. That covers the leaderboards, the captain
+suggestions and who is proposed for the elimination tier.
+
 **Subs.** A game's stats name whoever was in it. Anyone on neither team's
 roster for that game, another entrant included, is a sub. A sub's row counts
 for the rostered player missing from that game:

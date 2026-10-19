@@ -1,6 +1,6 @@
-// Team records from match and game results.
+// Team and player records from match and game results.
 
-import type { OffseasonGame, OffseasonMatch, OffseasonTeam } from "./types";
+import type { OffseasonGame, OffseasonMatch, OffseasonTeam, OffseasonTeamMember } from "./types";
 
 export interface TeamStanding {
   team: OffseasonTeam;
@@ -65,4 +65,37 @@ export function suggestedEliminations(
   return standings(eliminationTeams, eliminationMatches, games)
     .filter((row) => row.losses > row.wins)
     .map((row) => row.team);
+}
+
+export interface PlayerRecord {
+  wins: number;
+  losses: number;
+}
+
+/**
+ * Every player's record for the whole event: each decided game their team
+ * played that week counts as a win or a loss for everyone on its roster,
+ * whether the winner came from the ingest or staff. A sub's games count for
+ * the rostered player they stood in for, as their stats do.
+ */
+export function playerRecords(members: OffseasonTeamMember[], matches: OffseasonMatch[], games: OffseasonGame[]): Map<string, PlayerRecord> {
+  const roster = new Map<string, string[]>();
+  for (const member of members) roster.set(member.team_id, [...(roster.get(member.team_id) ?? []), member.entrant_id]);
+  const matchById = new Map(matches.map((match) => [match.id, match]));
+  const records = new Map<string, PlayerRecord>();
+  const add = (teamId: string, won: boolean) => {
+    for (const entrantId of roster.get(teamId) ?? []) {
+      const record = records.get(entrantId) ?? { wins: 0, losses: 0 };
+      if (won) record.wins += 1;
+      else record.losses += 1;
+      records.set(entrantId, record);
+    }
+  };
+  for (const game of games) {
+    const match = matchById.get(game.match_id);
+    if (!match || !game.winner_team_id) continue;
+    add(game.winner_team_id, true);
+    add(game.winner_team_id === match.team_a_id ? match.team_b_id : match.team_a_id, false);
+  }
+  return records;
 }
