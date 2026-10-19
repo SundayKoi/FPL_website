@@ -7,7 +7,7 @@ import { ROLE_LABELS_SHORT, type LolRole } from "@/lib/draft/types";
 import { formatWeekTime } from "@/lib/offseason/times";
 import type { OffseasonWeek } from "@/lib/offseason/types";
 
-type NavKey = "overview" | "schedule" | "packs" | "card" | "signup" | "admin";
+type NavKey = "overview" | "schedule" | "stats" | "packs" | "card" | "signup" | "admin";
 
 export function OffseasonShell({
   eyebrow = "FPL Offseason",
@@ -27,6 +27,7 @@ export function OffseasonShell({
   const links: { key: NavKey; href: string; label: string }[] = [
     { key: "overview", href: "/offseason", label: "Overview" },
     { key: "schedule", href: "/offseason/schedule", label: "Schedule" },
+    { key: "stats", href: "/offseason/stats", label: "Stats" },
     { key: "packs", href: "/offseason/packs", label: "Packs" },
     { key: "card", href: "/offseason/card", label: "Your card" },
     { key: "signup", href: "/offseason/signup", label: "Sign up" },
