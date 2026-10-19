@@ -14,7 +14,7 @@ Everything here is built to be deleted when the event is over. See
 
 | Piece | Where |
 | --- | --- |
-| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql`, `20261113000001_offseason_card_signing.sql`, `20261113000002_offseason_mvp_votes.sql`, `20261114000001_offseason_captain_costs.sql` |
+| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql`, `20261113000001_offseason_card_signing.sql`, `20261113000002_offseason_mvp_votes.sql`, `20261114000001_offseason_captain_costs.sql`, `20261115000001_offseason_mvp_after_week.sql` |
 | pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql`, `0143_offseason_packs_test.sql`, `0144_offseason_card_signing_test.sql`, `0145_offseason_mvp_votes_test.sql`, `0146_offseason_captain_costs_test.sql` |
 | Logic, reads, server actions | `src/lib/offseason/` |
 | Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/packs`, `/offseason/card`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
@@ -249,10 +249,12 @@ overview page.
 - **Who.** Any player on one of that week's teams, main or elimination tier.
   Nobody can vote for their own entry. A player who hasn't linked their entry
   to their account can't be told apart from a fan, so they should claim it.
-- **When.** Voting on a week opens when its status reaches **Playing** and
-  closes when the next week reaches **Playing**, or when the event is complete.
+- **When.** Voting on a week opens when staff mark it **Complete**, not while
+  its games are being played (the overview says voting opens once the week is
+  complete). It closes when the next week reaches **Playing**, or when the
+  event is complete, so mark the last week complete before the event.
   Only one week is open at a time. Members can change their vote while it's
-  open.
+  open (`_offseason_mvp_open_week`, `20261115000001_offseason_mvp_after_week.sql`).
 - **Results.** While voting is open the page shows only how many have voted.
   Once it closes, the **MVPs** panel names the winner of each week, with ties
   shared.

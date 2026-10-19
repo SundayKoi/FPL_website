@@ -1,12 +1,12 @@
--- Weekly offseason MVP (20261113000002): anyone signed in votes for one of
--- the open week's players, never themselves, and the count shows once voting
--- on that week closes.
+-- Weekly offseason MVP (20261113000002, 20261115000001): anyone signed in
+-- votes for one of the open week's players, never themselves, once the week
+-- is complete, and the count shows once voting on that week closes.
 
 begin;
 set local search_path = public, extensions;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(16);
+select plan(17);
 
 -- === fixture =================================================================
 insert into public.profiles (id, display_name) values
@@ -28,7 +28,7 @@ insert into public.offseason_team_members (team_id, entrant_id, role) values
   ('00000000-0000-0000-0000-0000000d0145', '00000000-0000-0000-0000-0000000a0145', 'mid'),
   ('00000000-0000-0000-0000-0000000d0145', '00000000-0000-0000-0000-0000000b0145', 'top');
 
--- === 1-2. voting waits for the games =========================================
+-- === 1-3. voting waits for the week to be complete ===========================
 set local role anon;
 select throws_ok($$ select public.offseason_vote_mvp('00000000-0000-0000-0000-0000000f0145', '00000000-0000-0000-0000-0000000b0145') $$,
                  '42501', null, 'a visitor cannot vote');
@@ -37,12 +37,19 @@ reset role;
 select tests.acting_as(tests.cap(2));
 set local role authenticated;
 select throws_like($$ select public.offseason_vote_mvp('00000000-0000-0000-0000-0000000f0145', '00000000-0000-0000-0000-0000000a0145') $$,
-                   'VOTING_CLOSED%', 'voting opens once the week''s games start');
+                   'VOTING_CLOSED%', 'voting is closed while the week drafts');
 reset role;
 
 update public.offseason_weeks set status = 'playing' where id = '00000000-0000-0000-0000-0000000f0145';
+select tests.acting_as(tests.cap(2));
+set local role authenticated;
+select throws_like($$ select public.offseason_vote_mvp('00000000-0000-0000-0000-0000000f0145', '00000000-0000-0000-0000-0000000a0145') $$,
+                   'VOTING_CLOSED%', 'and while its games are being played');
+reset role;
 
--- === 3-6. a player votes, never for themselves ===============================
+update public.offseason_weeks set status = 'complete' where id = '00000000-0000-0000-0000-0000000f0145';
+
+-- === 4-7. a player votes, never for themselves ===============================
 select tests.acting_as(tests.cap(1));
 set local role authenticated;
 select throws_like($$ select public.offseason_vote_mvp('00000000-0000-0000-0000-0000000f0145', '00000000-0000-0000-0000-0000000a0145') $$,
@@ -55,7 +62,7 @@ select throws_ok($$ insert into public.offseason_mvp_votes (week_id, voter_id, e
                  '42501', null, 'nobody writes votes directly');
 reset role;
 
--- === 7-10. fans vote and change their minds ==================================
+-- === 8-11. fans vote and change their minds ==================================
 select tests.acting_as(tests.cap(2));
 set local role authenticated;
 select lives_ok($$ select public.offseason_vote_mvp('00000000-0000-0000-0000-0000000f0145', '00000000-0000-0000-0000-0000000b0145') $$,
@@ -71,7 +78,7 @@ select lives_ok($$ select public.offseason_vote_mvp('00000000-0000-0000-0000-000
                 'another fan votes');
 reset role;
 
--- === 11-12. the count is hidden while voting is open =========================
+-- === 12-13. the count is hidden while voting is open =========================
 set local role anon;
 select results_eq($$ select entrant_id, votes, final from public.offseason_mvp_results('00000000-0000-0000-0000-0000000e0145') $$,
                   $$ values (null::uuid, 3, false) $$, 'an open week shows only how many have voted');
@@ -79,7 +86,7 @@ reset role;
 select is((select count(*)::int from public.offseason_mvp_votes where week_id = '00000000-0000-0000-0000-0000000f0145'), 3,
           'one vote per voter, however often they change it');
 
--- === 13-16. the next week's games close it ===================================
+-- === 14-17. the next week's games close it ===================================
 insert into public.offseason_weeks (id, event_id, week_number, status) values
   ('00000000-0000-0000-0000-0000000f1145', '00000000-0000-0000-0000-0000000e0145', 2, 'drafting');
 select tests.acting_as(tests.cap(3));
