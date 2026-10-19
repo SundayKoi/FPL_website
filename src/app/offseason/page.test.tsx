@@ -11,16 +11,27 @@ const { loadOffseasonPage, notFound } = vi.hoisted(() => ({
   }),
 }));
 vi.mock("@/lib/offseason/page", () => ({ loadOffseasonPage }));
-// What the pages read beyond the event: MVP results, the viewer's own votes
-// and card signatures.
-const db = vi.hoisted(() => ({ mvpRows: [] as unknown[], myVotes: [] as unknown[], signatures: [] as unknown[] }));
+// What the pages read beyond the event: MVP results, the viewer's own votes,
+// card signatures and the tournament codes the viewer may read.
+const db = vi.hoisted(() => ({
+  mvpRows: [] as unknown[],
+  myVotes: [] as unknown[],
+  signatures: [] as unknown[],
+  codes: [] as unknown[],
+  codesFail: false,
+}));
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabase: async () => ({
     rpc: async () => ({ data: db.mvpRows, error: null }),
     from: (table: string) => ({
       select: () => ({
         eq: async () => ({ data: db.myVotes, error: null }),
-        in: async () => ({ data: table === "offseason_signatures" ? db.signatures : [], error: null }),
+        in: async () =>
+          table === "offseason_match_codes"
+            ? db.codesFail
+              ? { data: null, error: { message: "boom" } }
+              : { data: db.codes, error: null }
+            : { data: table === "offseason_signatures" ? db.signatures : [], error: null },
       }),
     }),
   }),
@@ -37,6 +48,8 @@ afterEach(() => {
   db.mvpRows = [];
   db.myVotes = [];
   db.signatures = [];
+  db.codes = [];
+  db.codesFail = false;
 });
 
 const ROLES: LolRole[] = ["top", "jungle", "mid", "adc", "support"];
@@ -209,6 +222,42 @@ describe("offseason pages", () => {
     const panel = screen.getByRole("heading", { name: "MVPs" }).closest("section")!;
     expect(within(panel).getAllByRole("link").map((link) => link.textContent)).toEqual(["Blue top", "Red adc"]);
     expect(within(panel).getByText(/4 of 9 votes each/)).toBeTruthy();
+  });
+
+  it("shows a player their own matches with a code for each game", async () => {
+    const data = fixture();
+    data.entrants = data.entrants.map((player) => (player.id === "Blue mid" ? { ...player, profile_id: "me" } : player));
+    data.matches = data.matches.map((match) => ({ ...match, winner_team_id: null }));
+    data.games = [];
+    const view = buildOffseasonView(data, []);
+    db.codes = [{ id: "c1", event_id: "event", seq: 1, code: "NA05109-abc", match_id: "m1", game_number: 1 }];
+    loadOffseasonPage.mockResolvedValue({ view, userId: "me", isStaff: false, ownEntry: view.entrantsById.get("Blue mid") });
+    render(await OffseasonPage());
+    const panel = screen.getByRole("heading", { name: "Your matches" }).closest("section")!;
+    expect(within(panel).getByText("Team Blue")).toBeTruthy();
+    expect(within(panel).getByText("Team Red")).toBeTruthy();
+    expect(within(panel).getByText("Round robin · Game 1")).toBeTruthy();
+    expect(within(panel).getByText("NA05109-abc")).toBeTruthy();
+    expect(within(panel).getByRole("button", { name: "Copy code for Team Red" })).toBeTruthy();
+  });
+
+  it("shows no codes to anyone who isn't playing, and says so when the codes fail to load", async () => {
+    const data = fixture();
+    data.matches = data.matches.map((match) => ({ ...match, winner_team_id: null }));
+    data.games = [];
+    const view = buildOffseasonView(data, []);
+    db.codes = [{ id: "c1", event_id: "event", seq: 1, code: "NA05109-abc", match_id: "m1", game_number: 1 }];
+    loadOffseasonPage.mockResolvedValue({ view, userId: "me", isStaff: true, ownEntry: null });
+    const { unmount } = render(await OffseasonPage());
+    expect(screen.queryByRole("heading", { name: "Your matches" })).toBeNull();
+    expect(screen.queryByText("NA05109-abc")).toBeNull();
+    unmount();
+
+    db.codesFail = true;
+    loadOffseasonPage.mockResolvedValue({ view, userId: "me", isStaff: false, ownEntry: view.entrantsById.get("Red top") });
+    render(await OffseasonPage());
+    const panel = screen.getByRole("heading", { name: "Your matches" }).closest("section")!;
+    expect(within(panel).getByText(/didn't load/)).toBeTruthy();
   });
 
   it("offers a player the signing page from their own page", async () => {

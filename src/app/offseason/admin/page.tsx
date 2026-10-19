@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import EntrantsAdmin from "@/components/offseason/admin/EntrantsAdmin";
 import EventSettings, { CreateEventForm } from "@/components/offseason/admin/EventSettings";
+import MatchCodesAdmin from "@/components/offseason/admin/MatchCodesAdmin";
 import WeeksAdmin from "@/components/offseason/admin/WeeksAdmin";
 import type { OffseasonAdminData } from "@/components/offseason/admin/shared";
 import { OffseasonShell, Panel } from "@/components/offseason/ui";
 import type { DraftStatus } from "@/lib/draft/types";
 import { loadOffseasonPage } from "@/lib/offseason/page";
+import { fetchEventMatchCodes } from "@/lib/offseason/queries";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -30,14 +32,15 @@ export default async function OffseasonAdminPage() {
     );
   }
 
+  const supabase = await createServerSupabase();
   const draftIds = view.weeks.flatMap((week) => [week.main_draft_id, week.elimination_draft_id]).filter((id): id is string => Boolean(id));
   const drafts: OffseasonAdminData["drafts"] = {};
-  if (draftIds.length > 0) {
-    const supabase = await createServerSupabase();
-    const { data: rows } = await supabase.from("drafts").select("id, name, status").in("id", draftIds);
-    for (const row of (rows ?? []) as { id: string; name: string; status: DraftStatus }[]) {
-      drafts[row.id] = { name: row.name, status: row.status };
-    }
+  const [draftRows, codes] = await Promise.all([
+    draftIds.length > 0 ? supabase.from("drafts").select("id, name, status").in("id", draftIds).then(({ data: rows }) => rows ?? []) : [],
+    fetchEventMatchCodes(supabase, view.event.id),
+  ]);
+  for (const row of draftRows as { id: string; name: string; status: DraftStatus }[]) {
+    drafts[row.id] = { name: row.name, status: row.status };
   }
 
   const data: OffseasonAdminData = {
@@ -53,6 +56,7 @@ export default async function OffseasonAdminPage() {
       [...view.ratings].map(([id, rating]) => [id, { overall: rating.overall, games: rating.games, wins: rating.wins, losses: rating.losses }]),
     ),
     drafts,
+    codes,
   };
 
   return (
@@ -68,6 +72,9 @@ export default async function OffseasonAdminPage() {
       </Panel>
       <Panel title="Players" aside={`${view.entrants.length} sign-ups, in sign-up order`}>
         <EntrantsAdmin data={data} />
+      </Panel>
+      <Panel title="Tournament codes" aside={`${codes.filter((code) => !code.match_id).length} waiting`}>
+        <MatchCodesAdmin data={data} />
       </Panel>
       <Panel title="Weeks">
         <WeeksAdmin data={data} />

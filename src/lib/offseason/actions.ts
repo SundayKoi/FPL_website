@@ -391,6 +391,28 @@ export async function setGameAction(
   );
 }
 
+// === Staff: tournament codes =================================================
+
+export type AddMatchCodesResult =
+  | { ok: true; added: number; skipped: number; assigned: number; pooled: number }
+  | { ok: false; error: string };
+
+/** Adds codes to the event's pool. Any game still without a code takes one straight away. */
+export async function addMatchCodesAction(eventId: string, codes: string[]): Promise<AddMatchCodesResult> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("offseason_add_match_codes", { p_event_id: eventId, p_codes: codes });
+  if (error) return failure(error);
+  revalidatePath("/offseason", "layout");
+  const counts = data as { added: number; skipped: number; assigned: number; pooled: number };
+  return { ok: true, added: counts.added, skipped: counts.skipped, assigned: counts.assigned, pooled: counts.pooled };
+}
+
+/** Throws a code away; a game it was on takes the next code waiting. */
+export async function removeMatchCodeAction(codeId: string): Promise<OffseasonActionResult> {
+  const supabase = await createServerSupabase();
+  return done(await supabase.rpc("offseason_remove_match_code", { p_code_id: codeId }));
+}
+
 export async function setTeamEliminatedAction(teamId: string, eliminated: boolean): Promise<OffseasonActionResult> {
   const supabase = await createServerSupabase();
   return done(await supabase.rpc("offseason_set_team_eliminated", { p_team_id: teamId, p_eliminated: eliminated }));
