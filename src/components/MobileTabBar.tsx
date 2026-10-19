@@ -21,7 +21,32 @@ function under(pathname: string, prefixes: string[]): boolean {
 
 type Tab = { label: string; href: string; active: boolean; icon: string };
 
-export function mobileTabs(pathname: string): Tab[] {
+const CARD_ICON = "M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z";
+
+/** While an offseason event runs: home and the offseason's own pages. The
+ *  league's tabs below stay as they are for the next season. */
+function offseasonTabs(pathname: string): Tab[] {
+  return [
+    { label: "Home", href: "/", active: pathname === "/", icon: "M3 11 12 4l9 7M5 10v10h14V10" },
+    {
+      label: "Offseason",
+      href: "/offseason",
+      active: pathname === "/offseason" || under(pathname, ["/offseason/players", "/offseason/signup"]),
+      icon: "M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4ZM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4",
+    },
+    {
+      label: "Schedule",
+      href: "/offseason/schedule",
+      active: under(pathname, ["/offseason/schedule"]),
+      icon: "M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z",
+    },
+    { label: "Packs", href: "/offseason/packs", active: under(pathname, ["/offseason/packs"]), icon: CARD_ICON },
+    { label: "Your card", href: "/offseason/card", active: under(pathname, ["/offseason/card"]), icon: "M4 20h4L19 9l-4-4L4 16v4ZM14 6l4 4" },
+  ];
+}
+
+export function mobileTabs(pathname: string, offseasonOnly = false): Tab[] {
+  if (offseasonOnly) return offseasonTabs(pathname);
   const league = resolveLeagueFromPath(pathname);
   const prefix = league === "academy" ? "/academy" : "";
   const home = leaguePath("home", league);
@@ -38,7 +63,7 @@ export function mobileTabs(pathname: string): Tab[] {
       label: "Cards",
       href: `${prefix}/cards`,
       active: under(pathname, [`${prefix}/cards`, "/card", "/binder"]),
-      icon: "M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z",
+      icon: CARD_ICON,
     },
     {
       label: "Games",
@@ -55,7 +80,7 @@ export function mobileTabs(pathname: string): Tab[] {
   ];
 }
 
-export default function MobileTabBar() {
+export default function MobileTabBar({ offseasonOnly = false }: { offseasonOnly?: boolean }) {
   const pathname = usePathname() ?? "/";
   if (under(pathname, HIDDEN_ON)) return null;
   return (
@@ -67,7 +92,7 @@ export default function MobileTabBar() {
         className="fixed inset-x-0 bottom-0 z-40 border-t border-gold/30 bg-[rgba(0,18,31,0.97)] pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       >
         <ul className="grid grid-cols-5">
-          {mobileTabs(pathname).map((tab) => (
+          {mobileTabs(pathname, offseasonOnly).map((tab) => (
             <li key={tab.label}>
               <Link
                 href={tab.href}

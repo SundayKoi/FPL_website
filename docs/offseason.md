@@ -21,7 +21,7 @@ Everything here is built to be deleted when the event is over. See
 | Components | `src/components/offseason/` |
 | Stats ingest | `scripts/offseason_ingest.py`, `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml` |
 
-It touches the rest of the site in three ways:
+It touches the rest of the site in four ways:
 
 - Each weekly auction is an ordinary row in `drafts`, `teams` and `players`,
   named `Offseason W{n}` or `Offseason W{n} Elimination`. Those drafts appear
@@ -39,6 +39,12 @@ It touches the rest of the site in three ways:
   weeks are played. When the latest week has times, it also names the next
   one, its draft and then its games. It hides itself when the event is
   complete or the read fails.
+- While the newest event is not complete, the site navigation leads to the
+  offseason alone (`fetchOffseasonRunning`, `src/lib/offseason/home.ts`): the
+  header shows one Offseason link instead of My Team and the League, Cards,
+  Play and About menus, and the phone tab bar shows Home, Offseason, Schedule,
+  Packs and Your card. The league navigation is untouched underneath and comes
+  back as soon as the event is marked complete.
 - The draft setup page (`/admin/{draftId}`) checks whether the draft is an
   offseason week's auction and, if so, hides the league point values in the
   pool table. Those values match players by name, so an offseason player who
@@ -319,7 +325,9 @@ proposed for the elimination tier automatically.
    `fetchHomeOffseasonEvent` in `src/components/home/PreseasonHomePage.tsx`,
    `RegularSeasonHomePage.tsx` and `AcademyHomePage.tsx`, the
    `offseasonEvent` prop in `HomeDashboard.tsx`, and its case in
-   `RegularSeasonHomePage.test.tsx`. Remove the `offseason_weeks` read and the
+   `RegularSeasonHomePage.test.tsx`. Remove `fetchOffseasonRunning` and the
+   `offseasonOnly` prop from `src/app/layout.tsx`, `SiteNavigation.tsx` and
+   `MobileTabBar.tsx` (with their offseason test cases). Remove the `offseason_weeks` read and the
    `leaguePoints` prop it sets in `src/app/admin/[draftId]/page.tsx`. Then delete `src/app/offseason/`, `src/components/offseason/`,
    `src/lib/offseason/`, `scripts/offseason_ingest.py`,
    `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml`

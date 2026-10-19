@@ -122,6 +122,7 @@ export default function SiteNavigation({
   showAdmin = false,
   showBroadcaster = false,
   isGuessTheCardAdmin = false,
+  offseasonOnly = false,
 }: {
   authSlot: ReactNode;
   /** Renders the Admin hub link — set server-side for signed-in admins/owners
@@ -132,6 +133,9 @@ export default function SiteNavigation({
   showBroadcaster?: boolean;
   /** Guess the Card is currently an admin-only testing surface. */
   isGuessTheCardAdmin?: boolean;
+  /** While an offseason event runs, the header leads to it alone. The
+   *  league menus below stay as they are for the next season. */
+  offseasonOnly?: boolean;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -142,13 +146,17 @@ export default function SiteNavigation({
   const cardsHref = league === "academy" ? "/academy/cards" : "/cards";
   // My Team stays at the top level: it is the one personal page, and the
   // one a captain opens most. Everything else is in one of four menus.
-  const directLinks = leagueNavigationLinks(league).filter((link) => link.label === "My Team");
-  const dropdowns = [
-    { key: "league" as const, label: "League", links: leagueDropdownLinks(league, showBroadcaster) },
-    { key: "cards" as const, label: "Cards", links: cardsDropdownLinks(cardsHref) },
-    { key: "play" as const, label: "Play", links: playDropdownLinks(league, isGuessTheCardAdmin) },
-    ...SHARED_DROPDOWNS,
-  ];
+  const directLinks = offseasonOnly
+    ? [{ href: "/offseason", label: "Offseason" }]
+    : leagueNavigationLinks(league).filter((link) => link.label === "My Team");
+  const dropdowns = offseasonOnly
+    ? []
+    : [
+        { key: "league" as const, label: "League", links: leagueDropdownLinks(league, showBroadcaster) },
+        { key: "cards" as const, label: "Cards", links: cardsDropdownLinks(cardsHref) },
+        { key: "play" as const, label: "Play", links: playDropdownLinks(league, isGuessTheCardAdmin) },
+        ...SHARED_DROPDOWNS,
+      ];
   const [open, setOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<DropdownKey | null>(null);
   const menuId = useId();

@@ -9,7 +9,7 @@ vi.mock("@/lib/supabase/server", () => {
 });
 vi.mock("./queries", () => ({ fetchLatestEvent }));
 
-import { fetchHomeOffseasonEvent } from "./home";
+import { fetchHomeOffseasonEvent, fetchOffseasonRunning } from "./home";
 
 const event = (overrides: Partial<OffseasonEvent>): OffseasonEvent => ({
   id: "event",
@@ -56,5 +56,21 @@ describe("fetchHomeOffseasonEvent", () => {
     fetchLatestEvent.mockResolvedValue(event({}));
     latestWeek.mockResolvedValue({ data: null, error: { message: "offline" } });
     await expect(fetchHomeOffseasonEvent()).resolves.toBeNull();
+  });
+});
+
+describe("fetchOffseasonRunning", () => {
+  it("is true while the newest event runs", async () => {
+    fetchLatestEvent.mockResolvedValue(event({ status: "signups" }));
+    await expect(fetchOffseasonRunning()).resolves.toBe(true);
+  });
+
+  it("is false once the event is complete, with no event, or when the read fails", async () => {
+    fetchLatestEvent.mockResolvedValue(event({ status: "complete" }));
+    await expect(fetchOffseasonRunning()).resolves.toBe(false);
+    fetchLatestEvent.mockResolvedValue(null);
+    await expect(fetchOffseasonRunning()).resolves.toBe(false);
+    fetchLatestEvent.mockRejectedValue(new Error("offline"));
+    await expect(fetchOffseasonRunning()).resolves.toBe(false);
   });
 });
