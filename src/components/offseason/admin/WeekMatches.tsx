@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { ROLE_LABELS_SHORT, ROLE_ORDER } from "@/lib/draft/types";
 import { createMatchesAction, deleteMatchAction, removeMatchCodeAction, setGameAction, setTeamEliminatedAction } from "@/lib/offseason/actions";
+import { draftHref } from "@/lib/offseason/drafts";
 import { eliminationPairings, roundRobinPairings } from "@/lib/offseason/schedule";
 import { suggestedEliminations } from "@/lib/offseason/standings";
 import {
@@ -131,12 +133,15 @@ function MatchEditor({ data, match, teams }: { data: OffseasonAdminData; match: 
         <span className="text-xs uppercase tracking-wide text-muted">
           {STAGE_LABELS[match.stage]} · Bo{match.best_of}
         </span>
+        <Link href={draftHref(match.id)} className="ml-auto text-xs font-semibold uppercase tracking-wide text-action-text hover:underline">
+          Draft room
+        </Link>
         <button
           type="button"
           disabled={pending}
-          className={`${dangerButtonClass} ml-auto`}
+          className={dangerButtonClass}
           onClick={() => {
-            if (window.confirm("Delete this match and its games?")) run(() => deleteMatchAction(match.id));
+            if (window.confirm("Delete this match, its games and its drafts?")) run(() => deleteMatchAction(match.id));
           }}
         >
           Delete

@@ -6,6 +6,7 @@ import { Empty, OffseasonShell, Overall, Panel, RoleTag, safeLink, tableClass, t
 import { matchScore } from "@/components/offseason/WeekBoard";
 import { cardPlayerKey } from "@/lib/cards/cardKeys";
 import { ROLE_LABELS } from "@/lib/draft/types";
+import { matchHref } from "@/lib/offseason/drafts";
 import { loadOffseasonPage } from "@/lib/offseason/page";
 import { fetchSignatures } from "@/lib/offseason/queries";
 import { entrantKey } from "@/lib/offseason/ratings";
@@ -40,6 +41,8 @@ export default async function OffseasonPlayerPage({ params }: { params: Promise<
         .filter((row) => cardPlayerKey(row.summoner_name, row.tag) === key)
         .sort((a, b) => (b.game_date ?? "").localeCompare(a.game_date ?? ""))
     : [];
+  // Each game's offseason match, by its Riot match id, for the match history link.
+  const matchOf = new Map(view.games.flatMap((game) => (game.riot_match_id ? [[game.riot_match_id, game.match_id] as const] : [])));
 
   const memberships = view.members
     .filter((member) => member.entrant_id === entrant.id)
@@ -199,6 +202,7 @@ export default async function OffseasonPlayerPage({ params }: { params: Promise<
                   <th className={`${thClass} text-right`}>K / D / A</th>
                   <th className={`${thClass} text-right`}>CS</th>
                   <th className={`${thClass} text-right`}>Result</th>
+                  <th className={`${thClass} text-right`}>Match</th>
                 </tr>
               </thead>
               <tbody>
@@ -215,6 +219,15 @@ export default async function OffseasonPlayerPage({ params }: { params: Promise<
                     </td>
                     <td className={`${tdClass} text-right tabular-nums`}>{row.cs ?? 0}</td>
                     <td className={`${tdClass} text-right ${row.win ? "text-success" : "text-danger"}`}>{row.win ? "Win" : "Loss"}</td>
+                    <td className={`${tdClass} text-right`}>
+                      {matchOf.has(row.match_id) ? (
+                        <Link href={matchHref(matchOf.get(row.match_id)!)} className="text-action-text hover:underline">
+                          Draft &amp; result
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

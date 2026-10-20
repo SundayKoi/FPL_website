@@ -9,7 +9,8 @@ import {
   type LiveConnectionStatus,
 } from "@/lib/realtime/connection";
 import { emptyDraftState, formatFromSettings, stateFromDraftRow } from "@/lib/match-draft/sync";
-import type { MatchDraftRow, MatchDraftSeriesFormat, MatchDraftState, OpenDraftLobbyHandle } from "@/lib/match-draft/types";
+import type { DraftSource } from "@/lib/match-draft/source";
+import type { MatchDraftRow, MatchDraftSeriesFormat, MatchDraftState } from "@/lib/match-draft/types";
 import { saveErrorMessage } from "@/components/match-draft/draftBoardHelpers";
 
 export type MatchDraftClient = ReturnType<typeof createClient>;
@@ -25,7 +26,7 @@ export type DraftIntent = { gameNumber: number; revision?: number; stepIndex: nu
  */
 export function useMatchDraftChannel({
   supabase,
-  lobby,
+  source,
   initialState,
   viewerTeamName,
   preview,
@@ -34,7 +35,8 @@ export function useMatchDraftChannel({
   setLiveSeriesFormat,
 }: {
   supabase: MatchDraftClient | null;
-  lobby: OpenDraftLobbyHandle | null;
+  /** Where the games live; memoized by the board so the channel stays put. */
+  source: DraftSource;
   initialState: MatchDraftState;
   viewerTeamName: string | null | undefined;
   /** Preview mode (onSave) has no realtime and reports itself connected. */
@@ -67,12 +69,10 @@ export function useMatchDraftChannel({
         do {
           catchupRequestedRef.current = false;
           const startedAt = Date.now();
-          const table = lobby ? "open_drafts" : "match_drafts";
-          const scopeColumn = lobby ? "lobby_id" : "fixture_id";
-          const scopeValue = lobby?.lobbyId ?? initialState.fixtureId;
           try {
-            const rowsPromise = supabase.from(table).select("*").eq(scopeColumn, scopeValue).order("game_number");
-            const settingsPromise = lobby
+            const rowsPromise = supabase.from(source.table).select("*").eq(source.scopeColumn, source.scopeId).order("game_number");
+            // Only fixtures have a stored format; lobbies and offseason matches fix theirs.
+            const settingsPromise = source.kind !== "fixture"
               ? Promise.resolve({ data: null, error: null })
               : supabase.from("match_draft_settings").select("fixture_id, best_of, fearless, revision").eq("fixture_id", initialState.fixtureId).maybeSingle();
             const serverTimePromise = supabase.rpc("match_draft_server_time");
@@ -126,7 +126,7 @@ export function useMatchDraftChannel({
     })();
     catchupInFlightRef.current = request;
     return request;
-  }, [initialState, lobby, seriesFormatRef, setLiveSeriesFormat, setStatesByGame, supabase]);
+  }, [initialState, source, seriesFormatRef, setLiveSeriesFormat, setStatesByGame, supabase]);
 
   const announceDraftChange = useCallback(() => {
     // Keep the notification payload-free: subscribers refetch through their
@@ -149,7 +149,7 @@ export function useMatchDraftChannel({
   useEffect(() => {
     if (!supabase) return;
     const channel = supabase
-      .channel(`${lobby ? "open-draft" : "match-draft"}-${initialState.fixtureId}`)
+      .channel(source.channel)
       .on("presence", { event: "sync" }, () => {
         const present = new Set<string>();
         for (const entries of Object.values(channel.presenceState<{ team?: string }>())) {
@@ -170,9 +170,7 @@ export function useMatchDraftChannel({
       })
       .on(
         "postgres_changes",
-        lobby
-          ? { event: "*", schema: "public", table: "open_drafts", filter: `lobby_id=eq.${lobby.lobbyId}` }
-          : { event: "*", schema: "public", table: "match_drafts", filter: `fixture_id=eq.${initialState.fixtureId}` },
+        { event: "*", schema: "public", table: source.table, filter: `${source.scopeColumn}=eq.${source.scopeId}` },
         (payload) => {
           if (payload.eventType === "DELETE") {
             const deleted = payload.old as { game_number?: number; revision?: number };
@@ -228,7 +226,7 @@ export function useMatchDraftChannel({
       channelRef.current = null;
       void supabase.removeChannel(channel);
     };
-  }, [initialState, lobby, refreshSnapshot, setLiveSeriesFormat, setStatesByGame, supabase, viewerTeamName]);
+  }, [initialState, source, refreshSnapshot, setLiveSeriesFormat, setStatesByGame, supabase, viewerTeamName]);
 
   useEffect(() => {
     const resync = () => {

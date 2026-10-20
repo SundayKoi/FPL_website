@@ -21,28 +21,32 @@ const db = vi.hoisted(() => ({
   codes: [] as unknown[],
   codesFail: false,
   nominees: [] as unknown[],
+  drafts: [] as unknown[],
 }));
+/** What `.in()` reads for each table; awaited directly or after `.order()`. */
+function inResult(table: string) {
+  if (table === "offseason_match_codes") return db.codesFail ? { data: null, error: { message: "boom" } } : { data: db.codes, error: null };
+  const data = { offseason_signatures: db.signatures, offseason_mvp_nominees: db.nominees, offseason_match_drafts: db.drafts }[table] ?? [];
+  return { data, error: null };
+}
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabase: async () => ({
     rpc: async () => ({ data: db.mvpRows, error: null }),
     from: (table: string) => ({
       select: () => ({
         eq: async () => ({ data: db.myVotes, error: null }),
-        in: async () =>
-          table === "offseason_match_codes"
-            ? db.codesFail
-              ? { data: null, error: { message: "boom" } }
-              : { data: db.codes, error: null }
-            : {
-                data: table === "offseason_signatures" ? db.signatures : table === "offseason_mvp_nominees" ? db.nominees : [],
-                error: null,
-              },
+        in: () => {
+          const read = Promise.resolve(inResult(table));
+          return { order: () => read, then: read.then.bind(read) };
+        },
       }),
     }),
   }),
 }));
 vi.mock("next/navigation", () => ({ notFound, useRouter: () => ({ refresh: vi.fn() }) }));
 
+import OffseasonDraftPage from "./draft/[matchId]/page";
+import OffseasonMatchPage from "./matches/[matchId]/page";
 import OffseasonPage from "./page";
 import OffseasonPlayerPage from "./players/[id]/page";
 import OffseasonSchedulePage from "./schedule/page";
@@ -57,6 +61,7 @@ afterEach(() => {
   db.codes = [];
   db.codesFail = false;
   db.nominees = [];
+  db.drafts = [];
 });
 
 const ROLES: LolRole[] = ["top", "jungle", "mid", "adc", "support"];
@@ -264,6 +269,7 @@ describe("offseason pages", () => {
     expect(within(panel).getByText("Round robin · Game 1")).toBeTruthy();
     expect(within(panel).getByText("NA05109-abc")).toBeTruthy();
     expect(within(panel).getByRole("button", { name: "Copy code for Team Red" })).toBeTruthy();
+    expect(within(panel).getByRole("link", { name: "Draft room" }).getAttribute("href")).toBe("/offseason/draft/m1");
   });
 
   it("shows no codes to anyone who isn't playing, and says so when the codes fail to load", async () => {
@@ -342,5 +348,64 @@ describe("offseason pages", () => {
   it("404s an unknown player", async () => {
     loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(fixture(), []), userId: null, isStaff: false, ownEntry: null });
     await expect(OffseasonPlayerPage({ params: Promise.resolve({ id: "nobody" }) })).rejects.toThrow("NOT_FOUND");
+  });
+
+  it("links each scheduled match to its history and draft room", async () => {
+    const data = fixture();
+    data.matches.push({ id: "m2", week_id: "w1", stage: "round_robin", sort_order: 2, team_a_id: "tr", team_b_id: "tb", best_of: 1, winner_team_id: null });
+    loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(data, []), userId: null, isStaff: false, ownEntry: null });
+    render(await OffseasonSchedulePage());
+    expect(screen.getAllByRole("link", { name: "Match history" }).map((link) => link.getAttribute("href"))).toEqual([
+      "/offseason/matches/m1",
+      "/offseason/matches/m2",
+    ]);
+    // A decided match's room holds its drafts; one still to play is where the captains draft.
+    expect(screen.getByRole("link", { name: "Drafts" }).getAttribute("href")).toBe("/offseason/draft/m1");
+    expect(screen.getByRole("link", { name: "Draft room" }).getAttribute("href")).toBe("/offseason/draft/m2");
+  });
+
+  it("shows a match's history with each game's result and its pick and ban", async () => {
+    loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(fixture(), []), userId: null, isStaff: false, ownEntry: null });
+    db.drafts = [
+      {
+        id: "d1",
+        match_id: "m1",
+        game_number: 1,
+        status: "complete",
+        blue_team_name: null,
+        red_team_name: null,
+        winner_team: null,
+        positions: null,
+        actions: [
+          { stepIndex: 0, side: "blue", kind: "ban", slot: 1, champion: "Zed" },
+          { stepIndex: 6, side: "blue", kind: "pick", slot: 1, champion: "Ahri", playerName: "Blue top" },
+        ],
+      },
+    ];
+    render(await OffseasonMatchPage({ params: Promise.resolve({ matchId: "m1" }) }));
+    expect(screen.getByRole("heading", { name: "Team Blue vs Team Red" })).toBeTruthy();
+    expect(screen.getByText("Week 1 · Round robin · Bo1")).toBeTruthy();
+    const game = screen.getByText("Team Blue won").closest("li")!;
+    expect(within(game).getByText("Game 1")).toBeTruthy();
+    expect(within(game).getByText("Drafted")).toBeTruthy();
+    expect(within(game).getByRole("link", { name: "Open draft" }).getAttribute("href")).toBe("/offseason/draft/m1?game=1");
+    expect(screen.getByRole("region", { name: "Pick and ban phase" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Match history" })).toBeNull();
+  });
+
+  it("says when a match hasn't been drafted, and 404s an unknown one", async () => {
+    loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(fixture(), []), userId: null, isStaff: false, ownEntry: null });
+    render(await OffseasonMatchPage({ params: Promise.resolve({ matchId: "m1" }) }));
+    expect(screen.getByText(/The captains haven.t drafted yet/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "draft room" }).getAttribute("href")).toBe("/offseason/draft/m1");
+    expect(screen.queryByRole("region", { name: "Pick and ban phase" })).toBeNull();
+    await expect(OffseasonMatchPage({ params: Promise.resolve({ matchId: "nope" }) })).rejects.toThrow("NOT_FOUND");
+  });
+
+  it("says a draft link is wrong when the match doesn't exist", async () => {
+    loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(fixture(), []), userId: null, isStaff: false, ownEntry: null });
+    render(await OffseasonDraftPage({ params: Promise.resolve({ matchId: "nope" }), searchParams: Promise.resolve({}) }));
+    expect(screen.getByRole("heading", { name: "Match not found" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Back to the schedule" }).getAttribute("href")).toBe("/offseason/schedule");
   });
 });
