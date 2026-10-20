@@ -46,6 +46,7 @@ vi.mock("next/navigation", () => ({ notFound, useRouter: () => ({ refresh: vi.fn
 import OffseasonPage from "./page";
 import OffseasonPlayerPage from "./players/[id]/page";
 import OffseasonSchedulePage from "./schedule/page";
+import OffseasonStatsPage from "./stats/page";
 
 afterEach(() => {
   cleanup();
@@ -315,6 +316,27 @@ describe("offseason pages", () => {
     expect(within(overall).getByText("Season record")).toBeTruthy();
     expect(within(overall).getByText("0–1")).toBeTruthy();
     expect(within(overall).getByText(/No rated games yet/)).toBeTruthy();
+  });
+
+  it("says the stats are waiting on ingested games", async () => {
+    loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(fixture(), []), userId: null, isStaff: false, ownEntry: null });
+    render(await OffseasonStatsPage({ searchParams: Promise.resolve({}) }));
+    expect(screen.getByRole("link", { name: "Stats" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByText(/No games from the event have been ingested yet/)).toBeTruthy();
+  });
+
+  it("shows a week's players, leaders and best games", async () => {
+    const row = (name: string, kills: number, win: boolean) =>
+      ({ summoner_name: name, tag: "OS1", role: "MIDDLE", champion: "Ahri", win, game_date: "2026-10-20", match_id: "NA1_1000000001", team_name: name.startsWith("Blue") ? "Team Blue" : "Team Red", team_side: name.startsWith("Blue") ? "Blue" : "Red", game_duration_min: 30, kills, deaths: 2, assists: 5, cs: 200 }) as OffseasonStatRow;
+    const view = buildOffseasonView(fixture(), [row("Blue mid", 9, true), row("Red mid", 3, false)]);
+    loadOffseasonPage.mockResolvedValue({ view, userId: null, isStaff: false, ownEntry: null });
+    render(await OffseasonStatsPage({ searchParams: Promise.resolve({ week: "1" }) }));
+    expect(screen.getByRole("link", { name: "Week 1" }).getAttribute("aria-current")).toBe("page");
+    const table = screen.getByRole("heading", { name: "Players" }).closest("section")!;
+    expect(within(table).getByText("2 with games in week 1")).toBeTruthy();
+    expect(within(table).getAllByText("Team Blue").length).toBeGreaterThan(0);
+    const best = screen.getByRole("heading", { name: "Best games" }).closest("section")!;
+    expect(within(best).getAllByText("9 / 2 / 5").length).toBe(2);
   });
 
   it("404s an unknown player", async () => {

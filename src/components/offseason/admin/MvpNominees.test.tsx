@@ -17,7 +17,7 @@ afterEach(() => {
 const week: OffseasonWeek = { id: "w1", event_id: "event", week_number: 1, status: "complete", elimination_per_role: 0, main_draft_id: null, elimination_draft_id: null, draft_at: null, games_at: null, created_at: "" };
 
 function line(overall: number | null, games: number): WeekLine {
-  return { overall, games, wins: 0, losses: 0, kills: 0, deaths: 0, assists: 0, kda: 0, csPerMin: null, damagePerMin: null, visionPerMin: null, champions: [] };
+  return { overall, games, wins: 0, losses: 0, kills: 0, deaths: 0, assists: 0, kda: 0, csPerMin: null, damagePerMin: null, visionPerMin: null, killParticipation: null, champions: [] };
 }
 
 function data(nominees: string[] = []): OffseasonAdminData {

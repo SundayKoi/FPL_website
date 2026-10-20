@@ -10,6 +10,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { cardPlayerKey } from "@/lib/cards/cardKeys";
 import type { LolRole } from "@/lib/draft/types";
 import { entrantKey } from "./ratings";
+import { rowsOf, summarizeRows, type StatLine } from "./stats";
 import type { OffseasonView } from "./view";
 
 export interface MvpResultRow {
@@ -26,23 +27,9 @@ export interface MvpNomineeRow {
 }
 
 /** A player's week in numbers, from their ingested games (subs' games included). */
-export interface WeekLine {
+export interface WeekLine extends StatLine {
   /** Their Overall for the week alone; null before an ingested game. */
   overall: number | null;
-  games: number;
-  wins: number;
-  losses: number;
-  /** Per game. */
-  kills: number;
-  deaths: number;
-  assists: number;
-  /** (kills + assists) / deaths, deaths counted as at least one. */
-  kda: number;
-  csPerMin: number | null;
-  damagePerMin: number | null;
-  visionPerMin: number | null;
-  /** Most played first. */
-  champions: string[];
 }
 
 export interface MvpNominee {
@@ -80,42 +67,19 @@ export interface MvpState {
   winners: MvpWinner[];
 }
 
-const perMinute = (total: number, minutes: number) => (minutes > 0 ? total / minutes : null);
-
 /** Every player on the week's teams, with their numbers for that week. */
 export function weekLines(view: OffseasonView, weekId: string): Map<string, WeekLine> {
   const week = view.weekById.get(weekId);
-  const matchIds = new Set(view.matches.filter((match) => match.week_id === weekId).map((match) => match.id));
-  const riotIds = new Set(view.games.filter((game) => matchIds.has(game.match_id) && game.riot_match_id).map((game) => game.riot_match_id!));
-  const rows = view.stats.filter((row) => riotIds.has(row.match_id));
-
+  const rows = week ? rowsOf(view, week.week_number) : [];
   const lines = new Map<string, WeekLine>();
   for (const team of view.teams.filter((candidate) => candidate.week_id === weekId)) {
     for (const member of view.membersByTeam.get(team.id) ?? []) {
       const entrant = view.entrantsById.get(member.entrant_id);
       const key = entrant ? entrantKey(entrant.riot_id) : null;
       const own = key ? rows.filter((row) => cardPlayerKey(row.summoner_name, row.tag) === key) : [];
-      const sum = (pick: (row: (typeof own)[number]) => number | null | undefined) => own.reduce((total, row) => total + (Number(pick(row)) || 0), 0);
-      const games = own.length;
-      const minutes = sum((row) => row.game_duration_min);
-      const kills = sum((row) => row.kills);
-      const deaths = sum((row) => row.deaths);
-      const assists = sum((row) => row.assists);
-      const played = new Map<string, number>();
-      for (const row of own) if (row.champion) played.set(row.champion, (played.get(row.champion) ?? 0) + 1);
       lines.set(member.entrant_id, {
         overall: (week && view.ratings.get(member.entrant_id)?.weekly.find((line) => line.week === week.week_number)?.overall) ?? null,
-        games,
-        wins: own.filter((row) => row.win).length,
-        losses: own.filter((row) => row.win === false).length,
-        kills: games ? kills / games : 0,
-        deaths: games ? deaths / games : 0,
-        assists: games ? assists / games : 0,
-        kda: (kills + assists) / Math.max(deaths, 1),
-        csPerMin: perMinute(sum((row) => row.cs), minutes),
-        damagePerMin: perMinute(sum((row) => row.total_damage_to_champions), minutes),
-        visionPerMin: perMinute(sum((row) => row.vision_score), minutes),
-        champions: [...played].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([champion]) => champion),
+        ...summarizeRows(own),
       });
     }
   }

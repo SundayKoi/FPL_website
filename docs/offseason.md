@@ -17,7 +17,7 @@ Everything here is built to be deleted when the event is over. See
 | Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql`, `20261113000001_offseason_card_signing.sql`, `20261113000002_offseason_mvp_votes.sql`, `20261114000001_offseason_captain_costs.sql`, `20261115000001_offseason_mvp_after_week.sql`, `20261116000001_offseason_draft_igns.sql`, `20261117000001_offseason_match_codes.sql`, `20261118000001_offseason_mvp_nominees.sql` |
 | pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql`, `0143_offseason_packs_test.sql`, `0144_offseason_card_signing_test.sql`, `0145_offseason_mvp_votes_test.sql`, `0146_offseason_captain_costs_test.sql`, `0147_offseason_draft_igns_test.sql`, `0148_offseason_match_codes_test.sql`, `0149_offseason_mvp_nominees_test.sql` |
 | Logic, reads, server actions | `src/lib/offseason/` |
-| Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/packs`, `/offseason/card`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
+| Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/stats`, `/offseason/packs`, `/offseason/card`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
 | Components | `src/components/offseason/` |
 | Stats ingest | `scripts/offseason_ingest.py`, `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml` |
 
@@ -304,6 +304,28 @@ signed in votes for one of them as the week's MVP, on the overview page.
 - **Results.** While voting is open the page shows only how many have voted.
   Once it closes, the **MVPs** panel names the winner of each week, with ties
   shared.
+
+## Stats
+
+`/offseason/stats` lays out every player's numbers from their ingested
+games, for the whole event or one week (`?week=N`). A sub's games count for
+the player they replaced (`src/lib/offseason/stats.ts`).
+
+- **Leaders.** The top three for KDA, damage, CS and vision per minute.
+  Over the whole event a player needs two games to qualify.
+- **Players.** One table, sortable by any column, with a role filter. It
+  shows:
+  - games, record and Overall;
+  - kills, deaths and assists per game, and KDA;
+  - kill participation;
+  - CS, damage and vision per minute;
+  - most-played champions.
+
+  For a single week it also shows that week's team. The record and Overall
+  follow the choice: the season record and the cumulative Overall for the
+  whole event, or that week's.
+- **Best games.** The five biggest single games by kills and by KDA, with
+  who really played them when it was a sub.
 
 ## Ratings
 

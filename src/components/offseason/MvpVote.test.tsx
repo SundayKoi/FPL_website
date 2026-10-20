@@ -38,6 +38,7 @@ function line(overrides: Partial<WeekLine> = {}): WeekLine {
     csPerMin: 7.4,
     damagePerMin: 612.4,
     visionPerMin: 1.1,
+    killParticipation: 60,
     champions: [],
     ...overrides,
   };
