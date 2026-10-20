@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { createServerSupabase, revalidatePath, loadOffseason } = vi.hoisted(() => ({
   createServerSupabase: vi.fn(),
@@ -10,14 +10,24 @@ vi.mock("@/lib/supabase/server", () => ({ createServerSupabase }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 vi.mock("./queries", () => ({ loadOffseason }));
 
+const ingestRun = vi.hoisted(() => ({
+  latestIngestRun: vi.fn(),
+  startIngest: vi.fn(),
+  IngestError: class IngestError extends Error {},
+  INGEST_WORKFLOW_URL: "https://github.com/workflow",
+}));
+vi.mock("./ingestRun", () => ingestRun);
+
 import {
   addMatchCodesAction,
   createMatchesAction,
   createWeekDraftAction,
   importWeekDraftAction,
+  ingestStatusAction,
   lockInAction,
   openOffseasonPackAction,
   removeMatchCodeAction,
+  runIngestAction,
   setMvpNomineesAction,
   setGameAction,
   setLockInAction,
@@ -333,5 +343,61 @@ describe("offseason MVP nominees", () => {
 
     client({ rpc: { error: { message: "NOMINEES_INVALID: nominate two to five players" } } });
     expect(await setMvpNomineesAction("week", ["a"])).toEqual({ ok: false, error: "nominate two to five players" });
+  });
+});
+
+describe("offseason Ingest now", () => {
+  const finished = { id: 1, status: "completed", conclusion: "success", createdAt: "2026-10-20T03:00:00Z", url: "https://github.com/run/1" };
+
+  beforeEach(() => {
+    vi.stubEnv("GITHUB_ACTIONS_TOKEN", "tok");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("checks the caller is staff before touching GitHub", async () => {
+    const { rpcFn } = client({ rpc: { data: false, error: null } });
+    expect(await runIngestAction()).toEqual({ ok: false, error: "Only offseason staff can do that." });
+    expect(await ingestStatusAction()).toEqual({ ok: false, error: "Only offseason staff can do that." });
+    expect(rpcFn).toHaveBeenCalledWith("offseason_is_staff");
+
+    client({ rpc: { data: null, error: { message: "boom" } } });
+    expect(await runIngestAction()).toEqual({ ok: false, error: "Only offseason staff can do that." });
+    expect(ingestRun.latestIngestRun).not.toHaveBeenCalled();
+    expect(ingestRun.startIngest).not.toHaveBeenCalled();
+  });
+
+  it("starts a run with the server's token, but not while one is going", async () => {
+    client({ rpc: { data: true, error: null } });
+    ingestRun.latestIngestRun.mockResolvedValue(finished);
+    expect(await runIngestAction()).toEqual({ ok: true });
+    expect(ingestRun.startIngest).toHaveBeenCalledWith("tok");
+
+    ingestRun.startIngest.mockClear();
+    ingestRun.latestIngestRun.mockResolvedValue({ ...finished, id: 2, status: "queued", conclusion: null });
+    expect(await runIngestAction()).toEqual({ ok: false, error: "An ingest is already running." });
+    expect(ingestRun.startIngest).not.toHaveBeenCalled();
+  });
+
+  it("reports the latest run, or that the button has no token", async () => {
+    client({ rpc: { data: true, error: null } });
+    ingestRun.latestIngestRun.mockResolvedValue(finished);
+    expect(await ingestStatusAction()).toEqual({ ok: true, configured: true, run: finished, workflowUrl: "https://github.com/workflow" });
+
+    vi.stubEnv("GITHUB_ACTIONS_TOKEN", "");
+    expect(await ingestStatusAction()).toEqual({ ok: true, configured: false, run: null, workflowUrl: "https://github.com/workflow" });
+    expect(await runIngestAction()).toEqual({
+      ok: false,
+      error: "The Ingest now button isn't set up yet: the site needs GITHUB_ACTIONS_TOKEN.",
+    });
+  });
+
+  it("words GitHub's refusals and lost connections", async () => {
+    client({ rpc: { data: true, error: null } });
+    ingestRun.latestIngestRun.mockRejectedValue(new ingestRun.IngestError("GitHub refused the token (401)."));
+    expect(await ingestStatusAction()).toEqual({ ok: false, error: "GitHub refused the token (401)." });
+    ingestRun.latestIngestRun.mockRejectedValue(new TypeError("fetch failed"));
+    expect(await runIngestAction()).toEqual({ ok: false, error: "Couldn't reach GitHub. Try again in a minute." });
   });
 });

@@ -16,7 +16,7 @@ const STEP: Record<OffseasonWeek["status"], string> = {
   complete: "Done. Its games still count toward everyone's ratings, and its card set is in the packs.",
 };
 
-function WeekPanel({ data, week }: { data: OffseasonAdminData; week: OffseasonWeek }) {
+function WeekPanel({ data, week, ingest }: { data: OffseasonAdminData; week: OffseasonWeek; ingest: boolean }) {
   const { pending, message, run } = useOffseasonAction();
   return (
     <div className="flex flex-col gap-5">
@@ -47,7 +47,7 @@ function WeekPanel({ data, week }: { data: OffseasonAdminData; week: OffseasonWe
       {week.status === "complete" ? null : <WeekTimesEditor week={week} />}
       {week.status === "setup" ? <WeekSetup data={data} week={week} /> : null}
       <WeekDrafts data={data} week={week} />
-      <WeekMatches data={data} week={week} />
+      <WeekMatches data={data} week={week} ingest={ingest} />
       {data.teams.some((team) => team.week_id === week.id) ? (
         // Keyed by the saved nominees so a save resets the picker.
         <MvpNominees key={savedNominees(data, week.id).join()} data={data} week={week} />
@@ -63,6 +63,8 @@ export default function WeeksAdmin({ data }: { data: OffseasonAdminData }) {
   const nextNumber = (latest?.week_number ?? 0) + 1;
   const canOpen = !latest || latest.status === "complete";
   const active = data.entrants.filter((entrant) => entrant.status === "active" && entrant.assigned_role).length;
+  // The latest week with matches carries the Ingest now button.
+  const ingestWeek = weeks.find((week) => data.matches.some((match) => match.week_id === week.id));
 
   return (
     <div className="flex flex-col gap-4">
@@ -90,7 +92,7 @@ export default function WeeksAdmin({ data }: { data: OffseasonAdminData }) {
             Week {week.week_number} <span className="text-xs font-normal uppercase tracking-wide text-muted">· {week.status}</span>
           </summary>
           <div className="mt-4">
-            <WeekPanel data={data} week={week} />
+            <WeekPanel data={data} week={week} ingest={week.id === ingestWeek?.id} />
           </div>
         </details>
       ))}

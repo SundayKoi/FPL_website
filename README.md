@@ -438,6 +438,9 @@ service's dashboard in a browser.
    - `CRON_SECRET` (any random string) so the Vercel cron in `vercel.json`
      can call the expeditions sweep every five minutes; without it the
      sweep refuses to run and a run only resolves when someone opens it
+   - `GITHUB_ACTIONS_TOKEN` (server-only) for the offseason admin's Ingest now
+     button: a fine-grained token for this repository with Actions read and
+     write. Without it the button links to the workflow instead
 3. Deploy.
 4. Go back to Step 2's URL Configuration and set **Site URL** to the
    resulting Vercel production URL.

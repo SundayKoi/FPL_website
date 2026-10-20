@@ -19,7 +19,7 @@ Everything here is built to be deleted when the event is over. See
 | Logic, reads, server actions | `src/lib/offseason/` |
 | Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/stats`, `/offseason/packs`, `/offseason/card`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
 | Components | `src/components/offseason/` |
-| Stats ingest | `scripts/offseason_ingest.py`, `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml` |
+| Stats ingest | `scripts/offseason_ingest.py`, `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml`; the admin's Ingest now button, `src/lib/offseason/ingestRun.ts` |
 
 It touches the rest of the site in four ways:
 
@@ -62,6 +62,9 @@ It touches the rest of the site in four ways:
 - Admins and owners do everything else, from `/offseason/admin`. The page only
   hides controls. The RLS policies and the staff check in each RPC are what enforce access.
 - The ingest writes with the service role only, through `offseason_record_ingest`.
+- Ingest now starts the ingest workflow with `GITHUB_ACTIONS_TOKEN`, which stays on the
+  server. Its server actions check `offseason_is_staff` themselves, since GitHub, not the
+  database, takes the call.
 
 ## Releasing it
 
@@ -76,6 +79,11 @@ node scripts/supabase-migrations.mjs push
 The ingest workflow reads `RIOT_API_KEY`, `SUPABASE_URL` and
 `SUPABASE_SERVICE_ROLE_KEY` from the repository's `Production` environment,
 the same secrets the league ingest uses.
+
+The admin's **Ingest now** button starts that workflow. It needs
+`GITHUB_ACTIONS_TOKEN` in the site's Vercel environment: a fine-grained GitHub
+token for `SundayKoi/FPL_website` with **Actions: Read and write**, and nothing
+else. Without it the button says so and links to the workflow instead.
 
 ## Running the event
 
@@ -179,10 +187,12 @@ created (`offseason_set_week_times`). The week then goes:
    New matches take their tournament codes from the pool straight away (see
    [Tournament codes](#tournament-codes)).
 8. **Results.** Enter each game's Riot match ID, such as `NA1_5012345678`, and
-   the winner if known. Then run **Ingest offseason games** from GitHub Actions →
-   workflows. It is manual only: leave it blank to ingest everything pending, or give
-   one game's ID. The ingest fills in winners it can tell apart and records
-   any error on the game. Ratings update on the next page load.
+   the winner if known. Then press **Ingest now** under the latest week's
+   results. It runs **Ingest offseason games** on GitHub for every pending game,
+   follows the run, and reloads the page when it is done. You can also run the
+   workflow from GitHub Actions: leave it blank to ingest everything pending, or
+   give one game's ID. The ingest fills in winners it can tell apart and records
+   any error on the game, and a failed game fails the run.
 9. **Eliminate.** Once every elimination match has a winner, the week lists
    the losing elimination teams and offers to eliminate them. This marks their players
    out, with the week number. **Restore** undoes it.
