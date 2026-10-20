@@ -14,14 +14,15 @@ Everything here is built to be deleted when the event is over. See
 
 | Piece | Where |
 | --- | --- |
-| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql`, `20261113000001_offseason_card_signing.sql`, `20261113000002_offseason_mvp_votes.sql`, `20261114000001_offseason_captain_costs.sql`, `20261115000001_offseason_mvp_after_week.sql`, `20261116000001_offseason_draft_igns.sql`, `20261117000001_offseason_match_codes.sql`, `20261118000001_offseason_mvp_nominees.sql` |
-| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql`, `0143_offseason_packs_test.sql`, `0144_offseason_card_signing_test.sql`, `0145_offseason_mvp_votes_test.sql`, `0146_offseason_captain_costs_test.sql`, `0147_offseason_draft_igns_test.sql`, `0148_offseason_match_codes_test.sql`, `0149_offseason_mvp_nominees_test.sql` |
+| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql`, `20261113000001_offseason_card_signing.sql`, `20261113000002_offseason_mvp_votes.sql`, `20261114000001_offseason_captain_costs.sql`, `20261115000001_offseason_mvp_after_week.sql`, `20261116000001_offseason_draft_igns.sql`, `20261117000001_offseason_match_codes.sql`, `20261118000001_offseason_mvp_nominees.sql`, `20261119000001_offseason_match_drafts.sql` |
+| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql`, `0143_offseason_packs_test.sql`, `0144_offseason_card_signing_test.sql`, `0145_offseason_mvp_votes_test.sql`, `0146_offseason_captain_costs_test.sql`, `0147_offseason_draft_igns_test.sql`, `0148_offseason_match_codes_test.sql`, `0149_offseason_mvp_nominees_test.sql`, `0150_offseason_match_drafts_test.sql` |
 | Logic, reads, server actions | `src/lib/offseason/` |
-| Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/stats`, `/offseason/packs`, `/offseason/card`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/admin`) |
+| Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/stats`, `/offseason/packs`, `/offseason/card`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/matches/[matchId]`, `/offseason/draft/[matchId]`, `/offseason/admin`) |
 | Components | `src/components/offseason/` |
+| Champion drafts | The league's pick/ban board (`src/components/match-draft/`), pointed at offseason matches by `src/lib/match-draft/source.ts`; `src/lib/offseason/drafts.ts` |
 | Stats ingest | `scripts/offseason_ingest.py`, `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml`; the admin's Ingest now button, `src/lib/offseason/ingestRun.ts` |
 
-It touches the rest of the site in four ways:
+It touches the rest of the site in five ways:
 
 - Each weekly auction is an ordinary row in `drafts`, `teams` and `players`,
   named `Offseason W{n}` or `Offseason W{n} Elimination`. Those drafts appear
@@ -49,6 +50,12 @@ It touches the rest of the site in four ways:
   offseason week's auction and, if so, hides the league point values in the
   pool table. Those values match players by name, so an offseason player who
   shares a name with a league player would otherwise show that player's points.
+- The match draft board (`MatchDraftBoard`, `useMatchDraftChannel`) reads
+  where its games live from `draftSource` (`src/lib/match-draft/source.ts`):
+  a fixture, a public lobby, or an offseason match (`offseasonMatchId`). The
+  offseason's games are in `offseason_match_drafts`, so league team pages,
+  scouting and the broadcaster, which read `match_drafts`, never see them.
+  `MatchDraftSummary` takes optional short team names for the same reason.
 
 ## Access
 
@@ -58,6 +65,10 @@ It touches the rest of the site in four ways:
 - Anyone signed in, premium or not, opens offseason packs (`offseason_open_pack`) and sees only their own copies. Staff publish the card sets (`offseason_publish_card_set`).
 - A player in the event signs their own card (`offseason_sign_card`). A player with no account yet claims their row by Riot ID in the same step, like lock-in. Signatures are public.
 - Staff nominate each week's MVP candidates (`offseason_set_mvp_nominees`). Anyone signed in votes for one of the open week's nominees (`offseason_vote_mvp`), never for their own entry. Votes are private; everyone reads the totals through `offseason_mvp_results`, and only once a week's voting closes.
+- A match's champion draft is public to watch (`offseason_match_drafts`). Only
+  the two teams' captains draft, by the account their captain entry is linked
+  to, each for their own side; staff act for either side, undo and reset
+  (`apply_offseason_draft_action` and the other `*_offseason_draft_*` functions).
 - A match's tournament codes are private to the players on its two teams, through the account their entry is linked to, and to staff (`offseason_match_codes`). Staff add and remove codes (`offseason_add_match_codes`, `offseason_remove_match_code`).
 - Admins and owners do everything else, from `/offseason/admin`. The page only
   hides controls. The RLS policies and the staff check in each RPC are what enforce access.
@@ -220,6 +231,37 @@ then takes the next code waiting.
 - **Complete weeks** take no new codes, and neither does a complete event.
   Deleting a match puts its codes back in the pool.
 
+### Champion drafts
+
+Each match has a draft room at `/offseason/draft/{matchId}`, the league's
+pick/ban board. The two captains draft every game; their teammates and anyone
+else can watch live there.
+
+- **Getting there.** Players open it from **Draft room** on their match under
+  **Your matches**. Anyone can open it from the match on the schedule. Staff
+  have a **Draft room** link on each match in Results.
+- **Who drafts.** Each team's captain entry, through the account it is linked
+  to. A captain who hasn't claimed their entry watches until they do. Staff
+  can act for either side, and can **Undo last**, **Reset game** and **Reset
+  series**.
+- **How it runs.** As in the league: both captains ready up, then the LCS
+  order with 30-second turns. A pick's overtime comes off that side's next
+  pick, and an expired ban is skipped. Captains can pass their own ban, ask to
+  redo a step (the other captain approves), and confirm roles once the draft
+  is done. The captains' tournament code for the game shows when the draft
+  finishes.
+- **Series.** A match has as many games as it is long (Bo1, Bo3, Bo5), and it
+  is always fearless: a champion picked in an earlier game of the match can't
+  be picked again; bans don't carry over. Team A is blue in game 1; before
+  each later game a captain chooses sides (the previous game's loser picks).
+- **Result.** Captains can mark who won in the draft room, for the series
+  tally there. The match's real result is still the ingest's or staff's.
+- **History.** `/offseason/matches/{matchId}` shows the teams lane by lane,
+  each game's result and draft status, and every drafted game's picks and
+  bans, with the game's real winner once it is in. The schedule, **Your
+  matches** (once the match is decided) and each game on a player's page link
+  there. Deleting a match deletes its drafts.
+
 ### The last weeks and the final
 
 With eight teams' worth of players, weeks 1 and 2 are all main tier. From week
@@ -378,7 +420,7 @@ can't be told apart and their games count for nobody.
 
    ```sql
    drop table if exists
-     public.offseason_match_codes, public.offseason_mvp_nominees,
+     public.offseason_match_drafts, public.offseason_match_codes, public.offseason_mvp_nominees,
      public.offseason_mvp_votes, public.offseason_signatures,
      public.offseason_card_copies, public.offseason_pack_openings, public.offseason_cards,
      public.offseason_card_sets,
@@ -395,6 +437,23 @@ can't be told apart and their games count for nobody.
      public.offseason_set_week_entries(uuid, jsonb),
      public.offseason_create_week_draft(uuid, text, int, int, int[], int, jsonb),
      public._offseason_ign(text),
+     public.apply_offseason_draft_action(uuid, int, int, text, text),
+     public.set_offseason_draft_ready(uuid, int, text, boolean),
+     public.choose_offseason_draft_blue(uuid, int, text),
+     public.skip_offseason_draft_step(uuid, int),
+     public.pass_offseason_draft_step(uuid, int),
+     public.request_offseason_draft_change(uuid, int, int),
+     public.respond_offseason_draft_change(uuid, int, boolean),
+     public.undo_offseason_draft_last(uuid, int),
+     public.set_offseason_draft_positions(uuid, int, text, jsonb),
+     public.set_offseason_draft_winner(uuid, int, text),
+     public.reset_offseason_draft(uuid, int),
+     public._offseason_draft_row(uuid, int),
+     public._offseason_draft_caller_side(uuid, int),
+     public._offseason_draft_advance(uuid, jsonb, timestamptz, int, int, boolean),
+     public._offseason_draft_side(int),
+     public._offseason_draft_kind(int),
+     public._offseason_draft_slot(int),
      public.offseason_add_match_codes(uuid, text[]),
      public.offseason_remove_match_code(uuid),
      public._offseason_fill_match_codes(uuid),
@@ -431,8 +490,9 @@ can't be told apart and their games count for nobody.
    `supabase/tests/0145_offseason_mvp_votes_test.sql`,
    `supabase/tests/0146_offseason_captain_costs_test.sql`,
    `supabase/tests/0147_offseason_draft_igns_test.sql`,
-   `supabase/tests/0148_offseason_match_codes_test.sql` and
-   `supabase/tests/0149_offseason_mvp_nominees_test.sql` in the same change.
+   `supabase/tests/0148_offseason_match_codes_test.sql`,
+   `supabase/tests/0149_offseason_mvp_nominees_test.sql` and
+   `supabase/tests/0150_offseason_match_drafts_test.sql` in the same change.
    Dropping the tables also removes everyone's offseason card copies; export
    `offseason_card_copies` first if you want to keep a record.
 3. Remove the homepage banner: `OffseasonHomeBanner` and
@@ -442,7 +502,9 @@ can't be told apart and their games count for nobody.
    `RegularSeasonHomePage.test.tsx`. Remove `fetchOffseasonRunning` and the
    `offseasonOnly` prop from `src/app/layout.tsx`, `SiteNavigation.tsx` and
    `MobileTabBar.tsx` (with their offseason test cases). Remove the `offseason_weeks` read and the
-   `leaguePoints` prop it sets in `src/app/admin/[draftId]/page.tsx`. Then delete `src/app/offseason/`, `src/components/offseason/`,
+   `leaguePoints` prop it sets in `src/app/admin/[draftId]/page.tsx`. Remove the
+   offseason branch of `draftSource` (`src/lib/match-draft/source.ts`, with its
+   test case) and the `offseasonMatchId` prop of `MatchDraftBoard`. Then delete `src/app/offseason/`, `src/components/offseason/`,
    `src/lib/offseason/`, `scripts/offseason_ingest.py`,
    `scripts/test_offseason_ingest.py`, `.github/workflows/offseason-ingest.yml`
    and this file.

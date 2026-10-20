@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { ROLE_ORDER } from "@/lib/draft/types";
+import { draftHref, matchHref } from "@/lib/offseason/drafts";
 import { matchRounds } from "@/lib/offseason/schedule";
 import { STAGE_LABELS, type MatchStage, type OffseasonMatch, type OffseasonWeek } from "@/lib/offseason/types";
 import type { OffseasonView } from "@/lib/offseason/view";
@@ -23,7 +24,8 @@ function PlayerLink({ view, entrantId, captain }: { view: OffseasonView; entrant
   );
 }
 
-export function ScheduleMatch({ view, match }: { view: OffseasonView; match: OffseasonMatch }) {
+/** `links` adds the match's history and draft room; the history page itself leaves them off. */
+export function ScheduleMatch({ view, match, links = true }: { view: OffseasonView; match: OffseasonMatch; links?: boolean }) {
   const blue = view.teamsById.get(match.team_a_id);
   const red = view.teamsById.get(match.team_b_id);
   const [blueWins, redWins] = matchScore(view, match);
@@ -70,6 +72,16 @@ export function ScheduleMatch({ view, match }: { view: OffseasonView; match: Off
           </li>
         ))}
       </ul>
+      {links ? (
+        <p className="flex justify-end gap-4 border-t border-border-subtle pt-2 text-xs font-semibold uppercase tracking-wide">
+          <Link href={matchHref(match.id)} className="text-action-text hover:underline">
+            Match history
+          </Link>
+          <Link href={draftHref(match.id)} className="text-action-text hover:underline">
+            {match.winner_team_id ? "Drafts" : "Draft room"}
+          </Link>
+        </p>
+      ) : null}
     </li>
   );
 }
