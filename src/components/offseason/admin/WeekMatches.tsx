@@ -14,6 +14,7 @@ import {
   type OffseasonTeam,
   type OffseasonWeek,
 } from "@/lib/offseason/types";
+import IngestNow from "./IngestNow";
 import {
   ActionMessage,
   buttonClass,
@@ -308,8 +309,11 @@ function TeamList({ data, teams }: { data: OffseasonAdminData; teams: OffseasonT
   );
 }
 
-/** A drafted week: teams, schedule, results and eliminations. */
-export default function WeekMatches({ data, week }: { data: OffseasonAdminData; week: OffseasonWeek }) {
+/**
+ * A drafted week: teams, schedule, results and eliminations. The latest week
+ * (`ingest`) carries the Ingest now button, which pulls every week's pending games.
+ */
+export default function WeekMatches({ data, week, ingest = false }: { data: OffseasonAdminData; week: OffseasonWeek; ingest?: boolean }) {
   const weekTeams = data.teams.filter((team) => team.week_id === week.id);
   const { pending, message, run } = useOffseasonAction();
   if (weekTeams.length === 0) return null;
@@ -335,14 +339,15 @@ export default function WeekMatches({ data, week }: { data: OffseasonAdminData; 
         <div className="flex flex-col gap-1">
           <p className="text-xs font-bold uppercase tracking-wide text-muted">Results</p>
           <p className="text-xs text-muted">
-            Enter each game&apos;s Riot match id (and the winner if you know it), then run the &ldquo;Ingest offseason games&rdquo; workflow in
-            GitHub Actions to pull the stats. A match is decided once one team wins a majority.
+            Enter each game&apos;s Riot match id (and the winner if you know it), then press Ingest now
+            {ingest ? "" : " under the latest week's results"} to pull the stats. A match is decided once one team wins a majority.
           </p>
           <ul>
             {matches.map((match) => (
               <MatchEditor key={match.id} data={data} match={match} teams={teamsById} />
             ))}
           </ul>
+          {ingest ? <IngestNow data={data} /> : null}
         </div>
       ) : null}
 

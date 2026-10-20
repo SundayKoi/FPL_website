@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { validSignatureDataUrl } from "@/lib/cards/signing";
 import type { LolRole } from "@/lib/draft/types";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { INGEST_WORKFLOW_URL, IngestError, latestIngestRun, startIngest, type IngestRun } from "./ingestRun";
 import { buildCardSet, type OffseasonCopy } from "./packs";
 import { loadOffseason } from "./queries";
 import { assignSides, tierSchedule } from "./schedule";
@@ -424,4 +425,52 @@ export async function removeMatchCodeAction(codeId: string): Promise<OffseasonAc
 export async function setTeamEliminatedAction(teamId: string, eliminated: boolean): Promise<OffseasonActionResult> {
   const supabase = await createServerSupabase();
   return done(await supabase.rpc("offseason_set_team_eliminated", { p_team_id: teamId, p_eliminated: eliminated }));
+}
+
+// === Staff: stats ingest =====================================================
+// These two call GitHub with a server-held token, not the database, so they
+// check here that the caller is staff (offseason_is_staff) before anything else.
+
+const STAFF_ONLY = { ok: false, error: "Only offseason staff can do that." } as const;
+const NOT_SET_UP = "The Ingest now button isn't set up yet: the site needs GITHUB_ACTIONS_TOKEN.";
+
+async function callerIsStaff(): Promise<boolean> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.rpc("offseason_is_staff");
+  return !error && data === true;
+}
+
+function ingestFailure(error: unknown): { ok: false; error: string } {
+  return { ok: false, error: error instanceof IngestError ? error.message : "Couldn't reach GitHub. Try again in a minute." };
+}
+
+export type IngestStatusResult =
+  | { ok: true; configured: boolean; run: IngestRun | null; workflowUrl: string }
+  | { ok: false; error: string };
+
+/** How the latest ingest run went, or that the button has no token to start one. */
+export async function ingestStatusAction(): Promise<IngestStatusResult> {
+  if (!(await callerIsStaff())) return STAFF_ONLY;
+  const token = process.env.GITHUB_ACTIONS_TOKEN;
+  if (!token) return { ok: true, configured: false, run: null, workflowUrl: INGEST_WORKFLOW_URL };
+  try {
+    return { ok: true, configured: true, run: await latestIngestRun(token), workflowUrl: INGEST_WORKFLOW_URL };
+  } catch (error) {
+    return ingestFailure(error);
+  }
+}
+
+/** Starts the ingest for every pending game, unless a run is already going. */
+export async function runIngestAction(): Promise<OffseasonActionResult> {
+  if (!(await callerIsStaff())) return STAFF_ONLY;
+  const token = process.env.GITHUB_ACTIONS_TOKEN;
+  if (!token) return { ok: false, error: NOT_SET_UP };
+  try {
+    const latest = await latestIngestRun(token);
+    if (latest && latest.status !== "completed") return { ok: false, error: "An ingest is already running." };
+    await startIngest(token);
+    return { ok: true };
+  } catch (error) {
+    return ingestFailure(error);
+  }
 }
