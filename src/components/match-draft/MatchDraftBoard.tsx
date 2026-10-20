@@ -7,6 +7,7 @@ import ConnectionBanner from "@/components/system/ConnectionBanner";
 import { CHAMPIONS, championLookup, type ChampionRole, type MatchDraftChampion } from "@/lib/match-draft/champions";
 import { actionForStep, DRAFT_TURN_SECONDS, isChampionUnavailable, LCS_DRAFT_STEPS, nextEmptyStepIndex, normalizeChampionName } from "@/lib/match-draft/rules";
 import { overtimeSecondsForDeadline } from "@/lib/match-draft/timing";
+import { draftSource } from "@/lib/match-draft/source";
 import { emptyDraftState } from "@/lib/match-draft/sync";
 import { draftMatchupViewFromState } from "@/lib/match-draft/presentation";
 import { DraftMatchupBoard, sideClass } from "@/components/match-draft/DraftMatchupBoard";
@@ -43,6 +44,7 @@ export default function MatchDraftBoard({
   seriesFormat = { bestOf: 3, fearless: true },
   canReset = false,
   lobby = null,
+  offseasonMatchId = null,
   followLive = false,
   overlayTransparent = false,
   overlaySlotWidth = DEFAULT_OVERLAY_SLOT_WIDTH,
@@ -50,6 +52,7 @@ export default function MatchDraftBoard({
   reportHref = null,
   league,
   season,
+  eyebrow,
   onSave,
 }: {
   initialState: MatchDraftState;
@@ -78,6 +81,10 @@ export default function MatchDraftBoard({
    *  open_draft_* RPCs and realtime follows open_drafts instead of
    *  match_drafts. state.fixtureId holds the lobby id in this mode. */
   lobby?: OpenDraftLobbyHandle | null;
+  /** Offseason match draft: mutations go through the offseason_draft_*
+   *  RPCs and realtime follows offseason_match_drafts. state.fixtureId holds
+   *  the match id in this mode. */
+  offseasonMatchId?: string | null;
   /** Overlay only: auto-follow the latest active game so one OBS link covers
    *  the whole series. Pages set it when the URL has no explicit ?game=. */
   followLive?: boolean;
@@ -96,9 +103,15 @@ export default function MatchDraftBoard({
   /** Resolved from the fixture season; token lobbies omit league context. */
   league?: LeagueView;
   season?: string;
+  /** The header's label when the board has no league, e.g. the offseason's week. */
+  eyebrow?: string;
   onSave?: (state: MatchDraftState) => void | Promise<void>;
 }) {
   const supabase = useMemo(() => (onSave ? null : createClient()), [onSave]);
+  const source = useMemo(
+    () => draftSource({ fixtureId: initialState.fixtureId, lobby, offseasonMatchId }),
+    [initialState.fixtureId, lobby, offseasonMatchId],
+  );
   // One entry per game so the tabs switch instantly without a navigation.
   const [statesByGame, setStatesByGame] = useState<Record<number, MatchDraftState>>(() =>
     Object.fromEntries((initialStates?.length ? initialStates : [initialState]).map((game) => [game.gameNumber, game])),
@@ -136,11 +149,11 @@ export default function MatchDraftBoard({
       const number = index + 1;
       return existing.get(number) ?? {
         gameNumber: number,
-        href: lobby ? `/drafter/${lobby.token}?game=${number}` : `/match-draft/${initialState.fixtureId}?game=${number}`,
+        href: source.gameHref(number),
         status: null,
       };
     });
-  }, [games, initialState.fixtureId, liveSeriesFormat.bestOf, liveSeriesFormat.fearless, lobby, seriesFormat.bestOf, seriesFormat.fearless]);
+  }, [games, liveSeriesFormat.bestOf, liveSeriesFormat.fearless, source, seriesFormat.bestOf, seriesFormat.fearless]);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<ChampionRole | null>(null);
   // Two-step drafting: clicking a champion only SELECTS it (broadcast to the
@@ -242,7 +255,7 @@ export default function MatchDraftBoard({
     broadcastIntent,
   } = useMatchDraftChannel({
     supabase,
-    lobby,
+    source,
     initialState,
     viewerTeamName,
     preview: Boolean(onSave),
@@ -301,17 +314,15 @@ export default function MatchDraftBoard({
     pendingPick.stepIndex === state.currentStepIndex ? pendingPick : null;
 
   /** Fixture drafts call the match_draft_* RPCs keyed by fixture; public
-   *  lobbies call their token-checked open_draft_* twins (same names with
-   *  "match_draft" swapped for "open_draft", p_token instead of p_fixture). */
+   *  lobbies and offseason matches call their twins (see draftSource). */
   const draftRpc = useCallback(
     async (client: NonNullable<typeof supabase>, name: string, params: Record<string, unknown>) => {
-      const result = await (lobby
-        ? client.rpc(name.replace("match_draft", "open_draft"), { p_token: lobby.token, ...params })
-        : client.rpc(name, { p_fixture: state.fixtureId, ...params }));
+      const call = source.rpc(name, params);
+      const result = await client.rpc(call.name, call.params);
       if (!result.error) announceDraftChange();
       return result;
     },
-    [announceDraftChange, lobby, state.fixtureId],
+    [announceDraftChange, source],
   );
 
   const sendIntent = (champion: string | null) => {
@@ -635,12 +646,8 @@ export default function MatchDraftBoard({
     setSaving(true);
     setError(null);
     try {
-      const { error: rpcError } = await supabase.rpc("undo_match_draft_last", {
-        p_fixture: state.fixtureId,
-        p_game: state.gameNumber,
-      });
+      const { error: rpcError } = await draftRpc(supabase, "undo_match_draft_last", { p_game: state.gameNumber });
       if (rpcError) throw rpcError;
-      announceDraftChange();
       void refreshSnapshot();
     } catch (err) {
       setError(saveErrorMessage(err, "Undo failed."));
@@ -716,20 +723,10 @@ export default function MatchDraftBoard({
     setSaving(true);
     setError(null);
     try {
-      if (lobby) {
-        const { error: rpcError } = await supabase.rpc("reset_open_draft", {
-          p_token: lobby.token,
-          p_game: scope === "game" ? state.gameNumber : null,
-        });
-        if (rpcError) throw rpcError;
-      } else {
-        const { error: resetError } = await supabase.rpc("reset_match_draft", {
-          p_fixture: state.fixtureId,
-          p_game: scope === "game" ? state.gameNumber : null,
-        });
-        if (resetError) throw resetError;
-      }
-      announceDraftChange();
+      const { error: resetError } = await draftRpc(supabase, "reset_match_draft", {
+        p_game: scope === "game" ? state.gameNumber : null,
+      });
+      if (resetError) throw resetError;
       // Realtime delivers the scoped delete; the snapshot also catches a
       // delete committed during the subscription gap.
       await refreshSnapshot();
@@ -949,9 +946,10 @@ export default function MatchDraftBoard({
       <header className="card-brand flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div>
           {league ? <span className="label-dash">{league === "academy" ? "FPL Academy" : "Premier League"}{season ? ` · ${season}` : ""}</span> : null}
+          {!league && eyebrow ? <span className="label-dash">{eyebrow}</span> : null}
           <span className="label-dash">
             Bo{liveSeriesFormat.bestOf}{liveSeriesFormat.fearless ? " fearless" : ""} · Game {state.gameNumber}
-            {lobby && winsA + winsB > 0
+            {source.kind !== "fixture" && winsA + winsB > 0
               ? ` · ${state.scheduledTeams[0].abbreviation} ${winsA}–${winsB} ${state.scheduledTeams[1].abbreviation}`
               : ""}
           </span>
@@ -1011,16 +1009,16 @@ export default function MatchDraftBoard({
       {readyCheck}
 
       <section className="card-brand flex flex-wrap items-end gap-3 p-3">
-        {!onSave && !lobby ? (
+        {!onSave && source.kind === "fixture" ? (
           <SeriesFormatControls format={liveSeriesFormat} saving={saving} onChange={saveSeriesFormat} />
         ) : null}
-        {!lobby && !onSave ? (
+        {source.spectatorPath && !onSave ? (
           // Public lobbies hand out their three secret links at creation;
-          // fixture drafts share one URL for everyone, plus the OBS source.
+          // fixture and offseason drafts share one URL for everyone, plus the OBS source.
           <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Share links">
             <span className="label-dash">Share</span>
-            <CopyLinkButton label="Spectator link" path={`/match-draft/${state.fixtureId}`} />
-            <CopyLinkButton label="OBS overlay" path={`/match-draft/${state.fixtureId}?overlay=1&bg=transparent`} />
+            <CopyLinkButton label="Spectator link" path={source.spectatorPath} />
+            <CopyLinkButton label="OBS overlay" path={`${source.spectatorPath}?overlay=1&bg=transparent`} />
           </div>
         ) : null}
         <ImageSizeStepper index={imageSizeIndex} onIndexChange={setImageSizeIndex} />

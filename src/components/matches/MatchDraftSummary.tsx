@@ -8,6 +8,9 @@ export interface DraftSummaryGame {
   gameNumber: number;
   blueTeamName: string | null;
   redTeamName: string | null;
+  /** Short names for the board; derived from the names when absent. */
+  blueAbbreviation?: string | null;
+  redAbbreviation?: string | null;
   winnerTeam: string | null;
   actions: MatchDraftAction[];
   positions: MatchDraftPositions | null;
@@ -75,8 +78,8 @@ export default function MatchDraftSummary({ games }: { games: DraftSummaryGame[]
           key={game.gameNumber}
           view={createDraftMatchupView({
             gameNumber: game.gameNumber,
-            blueTeam: { name: game.blueTeamName },
-            redTeam: { name: game.redTeamName },
+            blueTeam: { name: game.blueTeamName, abbreviation: game.blueAbbreviation },
+            redTeam: { name: game.redTeamName, abbreviation: game.redAbbreviation },
             actions: game.actions,
             positions: game.positions,
             winnerTeam: game.winnerTeam,

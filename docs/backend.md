@@ -381,6 +381,7 @@ Postgres database and public schema:
 | Banger Board settings | `banger_board_settings` | Public title reads; authenticated admin/owner-only updates enforced by RLS using `is_admin()` / `is_owner()`. |
 | Fixture match drafts | `match_drafts`, `match_draft_settings` | Captains draft champions for scheduled fixtures; actions, ready checks, side choice, change requests, winners, role positions, and server-authoritative signed deadlines are database-backed. Pick overtime is stored as side-local debt and consumed only by that side's next pick; bans retain their existing timeout/skip behavior. |
 | Public match-draft lobbies | `open_draft_lobbies`, `open_drafts` | Token-scoped champion drafts for external/public links, with a premium-gated creation path. Lobby rows persist the same signed deadline and side-local pick overtime, while only bans can be skipped after the grace period. |
+| Offseason match drafts | `offseason_match_drafts` | The same champion drafter for offseason tournament matches, kept apart from `match_drafts` so league readers never see it. Public read; the `*_offseason_draft_*` RPCs resolve the caller through the captain entry's linked account (staff via `offseason_is_staff()`), bound games by the match's `best_of`, and are always fearless. See [Offseason tournament](offseason.md). |
 | Player cards | `card_art_prefs`, `card_snapshots`, `card_rating_history` | User/admin art and motto preferences plus service-written weekly rating baselines/history. |
 | FPL'dle | `fpldle_daily_candidates`, `fpldle_daily_puzzles`, `fpldle_daily_progress`, `daily_game_rewards` | Public candidate labels come from the latest frozen `card_editions` week; service-role RPCs lazily snapshot and select one stable answer per Eastern calendar date and league, record each signed-in wallet's guesses, and claim the shared puzzle reward when solved within five guesses. `daily_game_rewards` pays one 200 betting-dollar base reward per profile, Eastern puzzle date, and league (300 for an active patron), regardless of which eligible puzzle is completed first in that league; Premier and Academy claims are independent. FPL'dle `reward_amount` records the shared amount. Answer and progress rows have no `anon`/`authenticated` read grant. |
 | Guess the Card | `box_score_daily_candidates`, `box_score_daily_puzzles`, `box_score_daily_progress`, `daily_game_rewards` | Admin-testing daily puzzle at `/guess-the-card` and `/academy/guess-the-card`. Trusted server actions fetch complete current-season `raw_stats` rows, use a transaction advisory lock to freeze one eligible game per Eastern calendar date and league, return only the progressive reveal DTO, record at most five distinct guesses through service-role RPCs, and claim the shared puzzle reward on a correct answer. It uses the same per-member, per-league, per-puzzle-date claim as FPL'dle and Higher or Lower. Candidate, target, and progress tables have RLS with service-role-only grants; the final target JSON is an explicit allowlist of game-stat fields rather than the full raw row. |
@@ -514,8 +515,9 @@ Important RPC families include:
   DST half, supports a chosen Monday and dry-run preview, and relies on the
   settlement RPC's idempotency for the second trigger.
 - Match drafts: `apply_match_draft_action`, `set_match_draft_ready`,
-  `choose_match_draft_blue`, change/undo/reset functions, and their
-  `open_draft_*` token equivalents. The action RPCs lock the draft row, use
+  `choose_match_draft_blue`, change/undo/reset functions, their
+  `open_draft_*` token equivalents and their `*_offseason_draft_*` offseason
+  equivalents. The action RPCs lock the draft row, use
   database time to calculate pick overtime, and write the next adjusted
   deadline atomically; a retry sees the advanced step and cannot charge twice.
 - Player identity: `player_identity_state` is the neutral public roster-state
@@ -701,7 +703,8 @@ change and update their local state.
   deletes.
 - `src/components/match-draft/useMatchDraftChannel.ts` (used by
   `MatchDraftBoard.tsx`) combines presence, broadcast intent messages, and
-  Postgres changes for fixture and public-lobby draft state.
+  Postgres changes for fixture, public-lobby and offseason draft state; the
+  table and channel come from `draftSource` (`src/lib/match-draft/source.ts`).
 - Realtime tests should assert both the mutation and the other client seeing
   the resulting state. Avoid relying on optimistic UI as proof that a write
   succeeded.

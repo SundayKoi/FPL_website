@@ -1,11 +1,14 @@
 "use client";
 
-// A player's own matches this week, with the tournament code for each game.
-// The database shows a match's codes only to the players on its two teams
-// (and staff); this lays them out with a copy button each.
+// A player's own matches this week, with the tournament code for each game
+// and the way into the match's draft room. The database shows a match's codes
+// only to the players on its two teams (and staff); this lays them out with a
+// copy button each.
 
+import Link from "next/link";
 import { useState } from "react";
 import type { TeamMatchCodes } from "@/lib/offseason/codes";
+import { draftHref, matchHref } from "@/lib/offseason/drafts";
 import { SideTag } from "./ui";
 
 function CopyCode({ code, label }: { code: string; label: string }) {
@@ -71,6 +74,17 @@ function MatchCard({ match }: { match: TeamMatchCodes }) {
           })}
         </ul>
       )}
+      <p className="flex gap-4 text-xs font-semibold uppercase tracking-wide">
+        {match.result ? (
+          <Link href={matchHref(match.matchId)} className="text-action-text hover:underline">
+            Match history
+          </Link>
+        ) : (
+          <Link href={draftHref(match.matchId)} className="text-action-text hover:underline">
+            Draft room
+          </Link>
+        )}
+      </p>
     </li>
   );
 }
@@ -80,7 +94,10 @@ export default function MatchCodes({ matches }: { matches: TeamMatchCodes[] | nu
   if (!matches) return <p className="text-sm text-danger">Your tournament codes didn&apos;t load. Refresh the page to try again.</p>;
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted">Tournament codes for your games. Only your team and the team you play can see them.</p>
+      <p className="text-sm text-muted">
+        Tournament codes for your games. Only your team and the team you play can see them. Captains pick and ban in the draft room;
+        everyone else can watch there.
+      </p>
       <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {matches.map((match) => (
           <MatchCard key={match.matchId} match={match} />
