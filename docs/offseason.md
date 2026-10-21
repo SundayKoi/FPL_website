@@ -14,8 +14,8 @@ Everything here is built to be deleted when the event is over. See
 
 | Piece | Where |
 | --- | --- |
-| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql`, `20261113000001_offseason_card_signing.sql`, `20261113000002_offseason_mvp_votes.sql`, `20261114000001_offseason_captain_costs.sql`, `20261115000001_offseason_mvp_after_week.sql`, `20261116000001_offseason_draft_igns.sql`, `20261117000001_offseason_match_codes.sql`, `20261118000001_offseason_mvp_nominees.sql`, `20261119000001_offseason_match_drafts.sql` |
-| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql`, `0143_offseason_packs_test.sql`, `0144_offseason_card_signing_test.sql`, `0145_offseason_mvp_votes_test.sql`, `0146_offseason_captain_costs_test.sql`, `0147_offseason_draft_igns_test.sql`, `0148_offseason_match_codes_test.sql`, `0149_offseason_mvp_nominees_test.sql`, `0150_offseason_match_drafts_test.sql` |
+| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql`, `20261113000001_offseason_card_signing.sql`, `20261113000002_offseason_mvp_votes.sql`, `20261114000001_offseason_captain_costs.sql`, `20261115000001_offseason_mvp_after_week.sql`, `20261116000001_offseason_draft_igns.sql`, `20261117000001_offseason_match_codes.sql`, `20261118000001_offseason_mvp_nominees.sql`, `20261119000001_offseason_match_drafts.sql`, `20261120000001_offseason_overall_adjustment.sql` |
+| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql`, `0143_offseason_packs_test.sql`, `0144_offseason_card_signing_test.sql`, `0145_offseason_mvp_votes_test.sql`, `0146_offseason_captain_costs_test.sql`, `0147_offseason_draft_igns_test.sql`, `0148_offseason_match_codes_test.sql`, `0149_offseason_mvp_nominees_test.sql`, `0150_offseason_match_drafts_test.sql`, `0151_offseason_overall_adjustment_test.sql` |
 | Logic, reads, server actions | `src/lib/offseason/` |
 | Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/stats`, `/offseason/packs`, `/offseason/card`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/matches/[matchId]`, `/offseason/draft/[matchId]`, `/offseason/admin`) |
 | Components | `src/components/offseason/` |
@@ -388,6 +388,18 @@ cumulative. Player pages also show each week rated on its own. A player has no
 rating until they have an ingested game, and a player with no rating is never
 proposed for the elimination tier automatically.
 
+**Adjustments.** Staff can add up to 20 points to a player's Overall, or take
+them off, under **Overall ±** when editing the player in the admin, e.g. for
+a player who took over a spot after a sub played its first games badly
+(`offseason_entrants.overall_adjustment`). It is added after the games are
+rated (`adjustCard`, `src/lib/offseason/ratings.ts`), kept within 1 to 99,
+and the card's tier follows it. So it counts wherever the Overall does: the
+leaderboards, the stats page, captain suggestions, ties and the card. The
+week-by-week Overalls stay as rated. The player's page says "+5 from staff".
+A player with no rated games still has no Overall. Published card sets keep
+the Overall they were published with; **Publish cards** brings a week's set
+up to date.
+
 **Records.** Every player has a record for the whole event. It shows on
 their player page, even before they have a rating, and in the leaderboards.
 Each decided game their team played counts as a win or a loss for everyone on
@@ -491,8 +503,9 @@ can't be told apart and their games count for nobody.
    `supabase/tests/0146_offseason_captain_costs_test.sql`,
    `supabase/tests/0147_offseason_draft_igns_test.sql`,
    `supabase/tests/0148_offseason_match_codes_test.sql`,
-   `supabase/tests/0149_offseason_mvp_nominees_test.sql` and
-   `supabase/tests/0150_offseason_match_drafts_test.sql` in the same change.
+   `supabase/tests/0149_offseason_mvp_nominees_test.sql`,
+   `supabase/tests/0150_offseason_match_drafts_test.sql` and
+   `supabase/tests/0151_offseason_overall_adjustment_test.sql` in the same change.
    Dropping the tables also removes everyone's offseason card copies; export
    `offseason_card_copies` first if you want to keep a record.
 3. Remove the homepage banner: `OffseasonHomeBanner` and

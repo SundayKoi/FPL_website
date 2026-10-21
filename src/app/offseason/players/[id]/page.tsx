@@ -89,7 +89,9 @@ export default async function OffseasonPlayerPage({ params }: { params: Promise<
               </div>
               <p className="type-display text-6xl text-white">{card.overall}</p>
               <p className="text-sm text-muted">
-                Rated on {rating!.games} game{rating!.games === 1 ? "" : "s"}. Tied Overalls go to the better record.
+                Rated on {rating!.games} game{rating!.games === 1 ? "" : "s"}
+                {rating!.adjustment ? `, ${rating!.adjustment > 0 ? "+" : "−"}${Math.abs(rating!.adjustment)} from staff` : ""}. Tied Overalls go
+                to the better record.
               </p>
               <ul className="flex flex-col gap-2">
                 {card.subStats.map((stat) => (

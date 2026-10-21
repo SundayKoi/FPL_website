@@ -175,6 +175,7 @@ export async function updateEntrantAction(
     primary_role?: LolRole;
     secondary_role?: LolRole | null;
     status?: Extract<EntrantStatus, "active" | "benched" | "withdrawn">;
+    overall_adjustment?: number;
   },
 ): Promise<OffseasonActionResult> {
   const supabase = await createServerSupabase();

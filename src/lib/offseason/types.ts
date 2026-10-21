@@ -47,6 +47,8 @@ export interface OffseasonEntrant {
   /** The role the player confirmed; see lockIn.ts. */
   locked_in_role: LolRole | null;
   locked_in_at: string | null;
+  /** Staff's points on top of the rated Overall, -20 to 20; 0 (or absent) for none. */
+  overall_adjustment?: number;
 }
 
 export interface OffseasonWeek {
