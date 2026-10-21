@@ -314,6 +314,18 @@ describe("offseason pages", () => {
     expect(within(games).getByText("4 / 1 / 9")).toBeTruthy();
   });
 
+  it("says when staff have adjusted a player's Overall", async () => {
+    const row = (name: string, role: string) =>
+      ({ summoner_name: name, tag: "OS1", role, champion: "Ahri", win: true, game_date: "2026-10-20", match_id: "NA1_1000000001", team_name: "Team Blue", team_side: "Blue", game_duration_min: 30, kills: 4, deaths: 1, assists: 9, cs: 200 }) as OffseasonStatRow;
+    const data = fixture();
+    data.entrants = data.entrants.map((player) => (player.id === "Blue mid" ? { ...player, overall_adjustment: 5 } : player));
+    const view = buildOffseasonView(data, [row("Blue mid", "MIDDLE"), row("Blue top", "TOP")]);
+    loadOffseasonPage.mockResolvedValue({ view, userId: null, isStaff: false, ownEntry: null });
+    render(await OffseasonPlayerPage({ params: Promise.resolve({ id: "Blue mid" }) }));
+    expect(screen.getByText(/Rated on 1 game, \+5 from staff\./)).toBeTruthy();
+    expect(view.ratings.get("Blue mid")!.overall).toBe(buildOffseasonView(fixture(), [row("Blue mid", "MIDDLE"), row("Blue top", "TOP")]).ratings.get("Blue mid")!.overall! + 5);
+  });
+
   it("shows a player's season record before they have an Overall", async () => {
     // Week 1's one game went to Team Blue; nothing is ingested, so nobody is rated.
     loadOffseasonPage.mockResolvedValue({ view: buildOffseasonView(fixture(), []), userId: null, isStaff: false, ownEntry: null });

@@ -3,13 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OffseasonEntrant } from "@/lib/offseason/types";
 import type { OffseasonAdminData } from "./shared";
 
-const { setLockInAction } = vi.hoisted(() => ({ setLockInAction: vi.fn() }));
+const { setLockInAction, updateEntrantAction } = vi.hoisted(() => ({ setLockInAction: vi.fn(), updateEntrantAction: vi.fn() }));
 vi.mock("@/lib/offseason/actions", () => ({
   setLockInAction,
   addEntrantAction: vi.fn(),
   applyRolesAction: vi.fn(),
   deleteEntrantAction: vi.fn(),
-  updateEntrantAction: vi.fn(),
+  updateEntrantAction,
 }));
 
 import EntrantsAdmin from "./EntrantsAdmin";
@@ -17,6 +17,7 @@ import EntrantsAdmin from "./EntrantsAdmin";
 beforeEach(() => {
   vi.clearAllMocks();
   setLockInAction.mockResolvedValue({ ok: true });
+  updateEntrantAction.mockResolvedValue({ ok: true });
 });
 
 function entrant(id: string, overrides: Partial<OffseasonEntrant> = {}): OffseasonEntrant {
@@ -86,5 +87,20 @@ describe("EntrantsAdmin lock-in", () => {
     await waitFor(() => expect(clear.disabled).toBe(false));
     fireEvent.click(clear);
     await waitFor(() => expect(setLockInAction).toHaveBeenCalledWith("Locked", null));
+  });
+});
+
+describe("EntrantsAdmin Overall adjustment", () => {
+  it("saves staff's points on top of a player's Overall, within 20 either way", async () => {
+    render(<EntrantsAdmin data={data([entrant("Boulder", { overall_adjustment: 0 })])} />);
+    fireEvent.click(within(row("Boulder")).getByRole("button", { name: "Edit" }));
+    const adjust = screen.getByLabelText("Overall ±") as HTMLInputElement;
+    const save = screen.getByRole("button", { name: "Save" }) as HTMLButtonElement;
+    fireEvent.change(adjust, { target: { value: "25" } });
+    expect(save.disabled).toBe(true);
+    fireEvent.change(adjust, { target: { value: "5" } });
+    expect(save.disabled).toBe(false);
+    fireEvent.click(save);
+    await waitFor(() => expect(updateEntrantAction).toHaveBeenCalledWith("Boulder", expect.objectContaining({ overall_adjustment: 5 })));
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { LolRole } from "@/lib/draft/types";
-import { compareByRating, entrantKey, leaderboards, rateEntrants, rateRows, type OffseasonStatRow } from "./ratings";
+import { tierFor } from "@/lib/cards/cardKeys";
+import { adjustCard, compareByRating, entrantKey, leaderboards, rateEntrants, rateRows, type OffseasonStatRow } from "./ratings";
 import type { OffseasonEntrant } from "./types";
 
 const RIOT_ROLE: Record<LolRole, string> = { top: "TOP", jungle: "JUNGLE", mid: "MIDDLE", adc: "BOTTOM", support: "UTILITY" };
@@ -154,6 +155,33 @@ describe("rateEntrants", () => {
 
   it("leaves a player without games unrated", () => {
     expect(ratings.get("Never Played")).toMatchObject({ card: null, overall: null, games: 0, weekly: [] });
+  });
+
+  it("adds staff's adjustment to the Overall and the card, not to the weeks", () => {
+    const adjusted = rateEntrants({
+      entrants: entrants.map((player) => ({ ...player, overall_adjustment: player.id === "Red mid" ? 5 : player.id === "Never Played" ? 5 : 0 })),
+      rows,
+      weekOfMatch,
+      yardstickSeason: "S6",
+    });
+    const before = ratings.get("Red mid")!;
+    const after = adjusted.get("Red mid")!;
+    expect(after.overall).toBe(before.overall! + 5);
+    expect(after.adjustment).toBe(5);
+    expect(after.card!.overall).toBe(after.overall);
+    expect(after.card!.tier).toEqual(tierFor(after.overall!));
+    expect(after.weekly).toEqual(before.weekly);
+    expect(adjusted.get("Blue mid")!.overall).toBe(ratings.get("Blue mid")!.overall);
+    // No games, no rating: an adjustment doesn't make one.
+    expect(adjusted.get("Never Played")).toMatchObject({ overall: null, adjustment: 5 });
+  });
+
+  it("keeps an adjusted card within 1 to 99", () => {
+    const card = ratings.get("Blue mid")!.card!;
+    expect(adjustCard({ ...card, overall: 97 }, 5)!.overall).toBe(99);
+    expect(adjustCard({ ...card, overall: 3 }, -5)!.overall).toBe(1);
+    expect(adjustCard(card, 0)).toBe(card);
+    expect(adjustCard(null, 5)).toBeNull();
   });
 
   it("sorts best first with unrated players last", () => {
