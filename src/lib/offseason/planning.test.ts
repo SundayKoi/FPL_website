@@ -31,7 +31,7 @@ function rated(overalls: Record<string, number | null>): Map<string, EntrantRati
   return new Map(
     Object.entries(overalls).map(([id, overall]) => [
       id,
-      { entrantId: id, card: null, overall, games: overall === null ? 0 : 3, wins: 0, losses: 0, weekly: [] },
+      { entrantId: id, card: null, overall, adjustment: 0, games: overall === null ? 0 : 3, wins: 0, losses: 0, weekly: [] },
     ]),
   );
 }

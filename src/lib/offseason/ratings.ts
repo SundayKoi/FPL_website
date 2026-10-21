@@ -9,7 +9,7 @@
 // rated on its own for the player pages' trend.
 
 import { buildSeasonCards, type CardGameMeta, type CardGameRow, type PlayerCardData } from "@/lib/cards/build";
-import { cardPlayerKey } from "@/lib/cards/cardKeys";
+import { cardPlayerKey, tierFor } from "@/lib/cards/cardKeys";
 import { styleYardstickFor } from "@/lib/cards/styleYardsticks";
 import type { LolRole } from "@/lib/draft/types";
 import { aggregateWeeklyPlayerRows, type WeeklyRawStatRow } from "@/lib/stats/weekly";
@@ -35,7 +35,10 @@ export interface EntrantRating {
   entrantId: string;
   /** The cumulative card; null until the player has an ingested game. */
   card: PlayerCardData | null;
+  /** The card's Overall, staff's adjustment included. */
   overall: number | null;
+  /** Staff's points on top of the rated Overall (OffseasonEntrant.overall_adjustment). */
+  adjustment: number;
   /** Games rated into the Overall. */
   games: number;
   /** The player's record for the whole event; see `records` below. */
@@ -125,11 +128,13 @@ export function rateEntrants({
   const ratings = new Map<string, EntrantRating>();
   for (const entrant of entrants) {
     const key = entrantKey(entrant.riot_id);
-    const card = key ? cumulative.get(key) ?? null : null;
+    const adjustment = entrant.overall_adjustment ?? 0;
+    const card = adjustCard(key ? cumulative.get(key) ?? null : null, adjustment);
     ratings.set(entrant.id, {
       entrantId: entrant.id,
       card,
       overall: card?.overall ?? null,
+      adjustment,
       games: card ? card.wins + card.losses : 0,
       wins: records ? (records.get(entrant.id)?.wins ?? 0) : (card?.wins ?? 0),
       losses: records ? (records.get(entrant.id)?.losses ?? 0) : (card?.losses ?? 0),
@@ -145,6 +150,16 @@ export function rateEntrants({
     });
   }
   return ratings;
+}
+
+/**
+ * A card with staff's adjustment on its Overall, kept within the engine's
+ * 1-99 and with the tier it now reaches. Week-by-week Overalls stay as rated.
+ */
+export function adjustCard(card: PlayerCardData | null, adjustment: number): PlayerCardData | null {
+  if (!card || !adjustment) return card;
+  const overall = Math.max(1, Math.min(99, card.overall + adjustment));
+  return { ...card, overall, tier: tierFor(overall) };
 }
 
 /** Each role's players, best rated first — the event's leaderboards. */

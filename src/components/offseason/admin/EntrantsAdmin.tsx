@@ -116,8 +116,10 @@ function EntrantEditor({ entrant, onClose }: { entrant: OffseasonEntrant; onClos
     riot_id: entrant.riot_id,
     primary_role: entrant.primary_role,
     secondary_role: entrant.secondary_role,
+    overall_adjustment: entrant.overall_adjustment ?? 0,
   });
   const { pending, message, run } = useOffseasonAction();
+  const adjustmentValid = Number.isInteger(form.overall_adjustment) && Math.abs(form.overall_adjustment) <= 20;
   return (
     <div className="flex flex-wrap items-end gap-2 bg-canvas/60 p-3">
       <label className={labelClass}>
@@ -136,9 +138,21 @@ function EntrantEditor({ entrant, onClose }: { entrant: OffseasonEntrant; onClos
         Secondary
         <RoleSelect value={form.secondary_role} onChange={(role) => setForm({ ...form, secondary_role: role })} allowNone className={inputClass} />
       </label>
+      <label className={labelClass} title="Points added to the Overall the games give, -20 to 20">
+        Overall ±
+        <input
+          type="number"
+          min={-20}
+          max={20}
+          step={1}
+          value={form.overall_adjustment}
+          onChange={(e) => setForm({ ...form, overall_adjustment: e.target.value === "" ? 0 : Number(e.target.value) })}
+          className={`${inputClass} w-20`}
+        />
+      </label>
       <button
         type="button"
-        disabled={pending || form.secondary_role === form.primary_role}
+        disabled={pending || form.secondary_role === form.primary_role || !adjustmentValid}
         className={buttonClass}
         onClick={() => run(() => updateEntrantAction(entrant.id, { ...form, display_name: form.display_name.trim(), riot_id: form.riot_id.trim() }), undefined, onClose)}
       >
