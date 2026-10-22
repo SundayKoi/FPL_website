@@ -7,7 +7,7 @@ begin;
 set local search_path = public, extensions;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(17);
+select plan(18);
 
 -- === fixture =================================================================
 insert into public.profiles (id, display_name) values
@@ -91,7 +91,7 @@ reset role;
 select is((select count(*)::int from public.offseason_mvp_votes where week_id = '00000000-0000-0000-0000-0000000f0145'), 3,
           'one vote per voter, however often they change it');
 
--- === 14-17. the next week's games close it ===================================
+-- === 14-18. the next week's completion closes it (20261121000001) ===========
 insert into public.offseason_weeks (id, event_id, week_number, status) values
   ('00000000-0000-0000-0000-0000000f1145', '00000000-0000-0000-0000-0000000e0145', 2, 'drafting');
 select tests.acting_as(tests.cap(3));
@@ -103,8 +103,15 @@ reset role;
 update public.offseason_weeks set status = 'playing' where id = '00000000-0000-0000-0000-0000000f1145';
 select tests.acting_as(tests.cap(3));
 set local role authenticated;
+select lives_ok($$ select public.offseason_vote_mvp('00000000-0000-0000-0000-0000000f0145', '00000000-0000-0000-0000-0000000b0145') $$,
+                'and while the next week''s games are played');
+reset role;
+
+update public.offseason_weeks set status = 'complete' where id = '00000000-0000-0000-0000-0000000f1145';
+select tests.acting_as(tests.cap(3));
+set local role authenticated;
 select throws_like($$ select public.offseason_vote_mvp('00000000-0000-0000-0000-0000000f0145', '00000000-0000-0000-0000-0000000a0145') $$,
-                   'VOTING_CLOSED%', 'and closes when the next week''s games start');
+                   'VOTING_CLOSED%', 'it closes when the next week is complete');
 reset role;
 
 set local role anon;
