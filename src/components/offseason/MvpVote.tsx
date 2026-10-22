@@ -130,7 +130,7 @@ export default function MvpVote({ week, signedIn }: { week: MvpOpenWeek; signedI
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted">
-        Who was the best player of week {week.weekNumber}? You can change your vote until week {week.weekNumber + 1}&apos;s games start.
+        Who was the best player of week {week.weekNumber}? You can change your vote until week {week.weekNumber + 1} is complete.
         The result shows once voting closes. {week.total} {week.total === 1 ? "vote" : "votes"} so far.
       </p>
       {!signedIn ? (
