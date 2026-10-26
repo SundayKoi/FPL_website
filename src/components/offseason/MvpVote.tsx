@@ -11,6 +11,7 @@ import { useState, useTransition } from "react";
 import { ROLE_LABELS_SHORT } from "@/lib/draft/types";
 import { voteMvpAction } from "@/lib/offseason/actions";
 import type { MvpNominee, MvpOpenWeek, WeekLine } from "@/lib/offseason/mvp";
+import { formatWeekTime } from "@/lib/offseason/times";
 
 /** One column per nominee, wrapping on narrow screens. */
 const COLUMNS: Record<number, string> = {
@@ -130,7 +131,8 @@ export default function MvpVote({ week, signedIn }: { week: MvpOpenWeek; signedI
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted">
-        Who was the best player of week {week.weekNumber}? You can change your vote until week {week.weekNumber + 1} is complete.
+        Who was the best player of week {week.weekNumber}? You can change your vote until{" "}
+        {week.closesAt ? formatWeekTime(week.closesAt) : `week ${week.weekNumber + 1} is complete`}.
         The result shows once voting closes. {week.total} {week.total === 1 ? "vote" : "votes"} so far.
       </p>
       {!signedIn ? (
