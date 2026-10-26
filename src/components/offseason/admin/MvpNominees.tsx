@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { formatEasternInputValue, parseEasternInputValue } from "@/lib/draft/schedule";
 import { ROLE_LABELS_SHORT, ROLE_ORDER } from "@/lib/draft/types";
-import { setMvpNomineesAction } from "@/lib/offseason/actions";
+import { setMvpClosesAtAction, setMvpNomineesAction } from "@/lib/offseason/actions";
 import type { OffseasonWeek } from "@/lib/offseason/types";
-import { ActionMessage, buttonClass, primaryButtonClass, useOffseasonAction, type OffseasonAdminData } from "./shared";
+import { ActionMessage, buttonClass, inputClass, labelClass, primaryButtonClass, useOffseasonAction, type OffseasonAdminData } from "./shared";
 
 const SUGGESTED = 3;
 const MOST = 5;
@@ -15,6 +16,35 @@ export function savedNominees(data: OffseasonAdminData, weekId: string): string[
     .filter((row) => row.week_id === weekId)
     .sort((a, b) => a.position - b.position)
     .map((row) => row.entrant_id);
+}
+
+/** When the week's vote ends, in Eastern Time; left empty it runs until the next week is complete. */
+function MvpDeadline({ week }: { week: OffseasonWeek }) {
+  const { pending, message, setMessage, run } = useOffseasonAction();
+  const [value, setValue] = useState(() => formatEasternInputValue(week.mvp_closes_at ?? null));
+  const save = () => {
+    const parsed = value ? parseEasternInputValue(value) : { iso: null };
+    if ("error" in parsed) {
+      setMessage({ kind: "error", text: parsed.error });
+      return;
+    }
+    run(
+      () => setMvpClosesAtAction(week.id, parsed.iso),
+      parsed.iso ? "Voting deadline saved." : "Deadline cleared: voting runs until the next week is complete.",
+    );
+  };
+  return (
+    <div className="flex flex-wrap items-end gap-3">
+      <label className={labelClass}>
+        Voting closes (Eastern)
+        <input type="datetime-local" value={value} onChange={(e) => setValue(e.target.value)} className={inputClass} />
+      </label>
+      <button type="button" disabled={pending} className={buttonClass} onClick={save}>
+        Save deadline
+      </button>
+      <ActionMessage message={message} />
+    </div>
+  );
 }
 
 /** Pick the two to five players a week's MVP vote is between. */
@@ -44,8 +74,10 @@ export default function MvpNominees({ data, week }: { data: OffseasonAdminData; 
       <p className="text-xs font-bold uppercase tracking-wide text-muted">MVP nominees</p>
       <p className="text-xs text-muted">
         Pick two to five players; three is the usual. Voters see them side by side, in the order you tick them, with their numbers for
-        the week. Voting opens when the week is complete. Taking someone off drops the votes they had.
+        the week. Voting opens when the week is complete and runs until the next week is complete, or until the deadline below if you
+        set one. Taking someone off drops the votes they had.
       </p>
+      <MvpDeadline week={week} />
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" disabled={pending} className={buttonClass} onClick={suggest}>
           Suggest top {SUGGESTED}

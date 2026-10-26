@@ -22,6 +22,7 @@ const week = (overrides: Partial<MvpOpenWeek> = {}): MvpOpenWeek => ({
     { entrantId: "a", name: "Ace", role: "mid", teamName: "Team One", self: false, line: line({ overall: 88, games: 3, wins: 2, losses: 1, champions: ["Ahri", "Syndra"] }) },
     { entrantId: "me", name: "Myself", role: "top", teamName: "Team One", self: true, line: line() },
   ],
+  closesAt: null,
   ...overrides,
 });
 
@@ -83,5 +84,13 @@ describe("MvpVote", () => {
     render(<MvpVote week={week()} signedIn={false} />);
     expect(screen.getByRole("link", { name: "Sign in to vote" }).getAttribute("href")).toBe("/login?redirect=/offseason");
     expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("says when voting ends: staff's deadline, or the next week's completion", () => {
+    const { unmount } = render(<MvpVote week={week()} signedIn />);
+    expect(screen.getByText(/You can change your vote until week 3 is complete\./)).toBeTruthy();
+    unmount();
+    render(<MvpVote week={week({ closesAt: "2026-10-26T04:00:00Z" })} signedIn />);
+    expect(screen.getByText(/You can change your vote until Mon, Oct 26, 12:00 AM EDT\./)).toBeTruthy();
   });
 });

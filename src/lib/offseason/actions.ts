@@ -401,6 +401,12 @@ export async function setMvpNomineesAction(weekId: string, entrantIds: string[])
   return done(await supabase.rpc("offseason_set_mvp_nominees", { p_week_id: weekId, p_entrant_ids: entrantIds }));
 }
 
+/** Ends a week's MVP vote at `closesAt` (an ISO instant), or with null when the next week is complete. */
+export async function setMvpClosesAtAction(weekId: string, closesAt: string | null): Promise<OffseasonActionResult> {
+  const supabase = await createServerSupabase();
+  return done(await supabase.from("offseason_weeks").update({ mvp_closes_at: closesAt }).eq("id", weekId));
+}
+
 // === Staff: tournament codes =================================================
 
 export type AddMatchCodesResult =

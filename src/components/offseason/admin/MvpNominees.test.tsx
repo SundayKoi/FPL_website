@@ -4,8 +4,8 @@ import type { WeekLine } from "@/lib/offseason/mvp";
 import type { OffseasonEntrant, OffseasonWeek } from "@/lib/offseason/types";
 import type { OffseasonAdminData } from "./shared";
 
-const { setMvpNomineesAction } = vi.hoisted(() => ({ setMvpNomineesAction: vi.fn() }));
-vi.mock("@/lib/offseason/actions", () => ({ setMvpNomineesAction }));
+const { setMvpNomineesAction, setMvpClosesAtAction } = vi.hoisted(() => ({ setMvpNomineesAction: vi.fn(), setMvpClosesAtAction: vi.fn() }));
+vi.mock("@/lib/offseason/actions", () => ({ setMvpNomineesAction, setMvpClosesAtAction }));
 
 import MvpNominees from "./MvpNominees";
 
@@ -64,5 +64,18 @@ describe("MvpNominees", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Nominate Ace" }));
     fireEvent.click(screen.getByRole("button", { name: "Clear nominees" }));
     await waitFor(() => expect(setMvpNomineesAction).toHaveBeenCalledWith("w1", []));
+  });
+
+  it("sets the week's voting deadline in Eastern Time, and clears it", async () => {
+    setMvpClosesAtAction.mockResolvedValue({ ok: true });
+    render(<MvpNominees data={data()} week={{ ...week, mvp_closes_at: "2026-10-26T04:00:00Z" }} />);
+    const input = screen.getByLabelText("Voting closes (Eastern)") as HTMLInputElement;
+    expect(input.value).toBe("2026-10-26T00:00");
+    fireEvent.change(input, { target: { value: "2026-11-02T00:00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save deadline" }));
+    await waitFor(() => expect(setMvpClosesAtAction).toHaveBeenCalledWith("w1", "2026-11-02T05:00:00.000Z"));
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save deadline" }));
+    await waitFor(() => expect(setMvpClosesAtAction).toHaveBeenLastCalledWith("w1", null));
   });
 });

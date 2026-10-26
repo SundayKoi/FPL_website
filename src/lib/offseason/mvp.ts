@@ -51,6 +51,8 @@ export interface MvpOpenWeek {
   myVote: string | null;
   /** In staff's order; empty until staff nominate. */
   nominees: MvpNominee[];
+  /** Staff's deadline for the vote; null when it runs until the next week is complete. */
+  closesAt: string | null;
 }
 
 export interface MvpWinner {
@@ -128,6 +130,7 @@ export function buildMvpState(
           total: openRow.votes,
           myVote: myVotes.find((vote) => vote.week_id === openWeek.id)?.entrant_id ?? null,
           nominees: mvpNominees(view, openWeek.id, nominees, userId),
+          closesAt: openWeek.mvp_closes_at ?? null,
         }
       : null;
 
