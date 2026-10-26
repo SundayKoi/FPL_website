@@ -14,8 +14,8 @@ Everything here is built to be deleted when the event is over. See
 
 | Piece | Where |
 | --- | --- |
-| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql`, `20261113000001_offseason_card_signing.sql`, `20261113000002_offseason_mvp_votes.sql`, `20261114000001_offseason_captain_costs.sql`, `20261115000001_offseason_mvp_after_week.sql`, `20261116000001_offseason_draft_igns.sql`, `20261117000001_offseason_match_codes.sql`, `20261118000001_offseason_mvp_nominees.sql`, `20261119000001_offseason_match_drafts.sql`, `20261120000001_offseason_overall_adjustment.sql`, `20261121000001_offseason_mvp_until_next_complete.sql` |
-| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql`, `0143_offseason_packs_test.sql`, `0144_offseason_card_signing_test.sql`, `0145_offseason_mvp_votes_test.sql`, `0146_offseason_captain_costs_test.sql`, `0147_offseason_draft_igns_test.sql`, `0148_offseason_match_codes_test.sql`, `0149_offseason_mvp_nominees_test.sql`, `0150_offseason_match_drafts_test.sql`, `0151_offseason_overall_adjustment_test.sql` |
+| Tables, RLS, RPCs | `supabase/migrations/20261107000001_offseason_tournament.sql` (all `offseason_*`), `20261108000001_offseason_lock_in.sql`, `20261109000001_offseason_elimination_only_week.sql`, `20261110000001_offseason_captain_cost.sql`, `20261111000001_offseason_week_times.sql`, `20261112000001_offseason_packs.sql`, `20261113000001_offseason_card_signing.sql`, `20261113000002_offseason_mvp_votes.sql`, `20261114000001_offseason_captain_costs.sql`, `20261115000001_offseason_mvp_after_week.sql`, `20261116000001_offseason_draft_igns.sql`, `20261117000001_offseason_match_codes.sql`, `20261118000001_offseason_mvp_nominees.sql`, `20261119000001_offseason_match_drafts.sql`, `20261120000001_offseason_overall_adjustment.sql`, `20261121000001_offseason_mvp_until_next_complete.sql`, `20261122000001_offseason_mvp_closes_at.sql` |
+| pgTAP | `supabase/tests/0138_offseason_tournament_test.sql`, `0139_offseason_lock_in_test.sql`, `0140_offseason_elimination_only_week_test.sql`, `0141_offseason_captain_cost_test.sql`, `0142_offseason_week_times_test.sql`, `0143_offseason_packs_test.sql`, `0144_offseason_card_signing_test.sql`, `0145_offseason_mvp_votes_test.sql`, `0146_offseason_captain_costs_test.sql`, `0147_offseason_draft_igns_test.sql`, `0148_offseason_match_codes_test.sql`, `0149_offseason_mvp_nominees_test.sql`, `0150_offseason_match_drafts_test.sql`, `0151_offseason_overall_adjustment_test.sql`, `0152_offseason_mvp_closes_at_test.sql` |
 | Logic, reads, server actions | `src/lib/offseason/` |
 | Pages | `src/app/offseason/` (`/offseason`, `/offseason/schedule`, `/offseason/stats`, `/offseason/packs`, `/offseason/card`, `/offseason/signup`, `/offseason/players/[id]`, `/offseason/matches/[matchId]`, `/offseason/draft/[matchId]`, `/offseason/admin`) |
 | Components | `src/components/offseason/` |
@@ -355,6 +355,12 @@ signed in votes for one of them as the week's MVP, on the overview page.
   Only one week is open at a time: the newest complete one. Members can change
   their vote while it's open (`_offseason_mvp_open_week`,
   `20261121000001_offseason_mvp_until_next_complete.sql`).
+- **Deadline.** To end a week's vote sooner, e.g. at midnight Sunday, set
+  **Voting closes (Eastern)** in that week's MVP nominees panel
+  (`offseason_weeks.mvp_closes_at`, `20261122000001_offseason_mvp_closes_at.sql`).
+  The vote closes then, the ballot says so, and the result shows. An older
+  week never reopens; the next week's vote still opens when it is complete.
+  Clear the field to run until the next week is complete again.
 - **Results.** While voting is open the page shows only how many have voted.
   Once it closes, the **MVPs** panel names the winner of each week, with ties
   shared.
@@ -506,8 +512,9 @@ can't be told apart and their games count for nobody.
    `supabase/tests/0147_offseason_draft_igns_test.sql`,
    `supabase/tests/0148_offseason_match_codes_test.sql`,
    `supabase/tests/0149_offseason_mvp_nominees_test.sql`,
-   `supabase/tests/0150_offseason_match_drafts_test.sql` and
-   `supabase/tests/0151_offseason_overall_adjustment_test.sql` in the same change.
+   `supabase/tests/0150_offseason_match_drafts_test.sql`,
+   `supabase/tests/0151_offseason_overall_adjustment_test.sql` and
+   `supabase/tests/0152_offseason_mvp_closes_at_test.sql` in the same change.
    Dropping the tables also removes everyone's offseason card copies; export
    `offseason_card_copies` first if you want to keep a record.
 3. Remove the homepage banner: `OffseasonHomeBanner` and
