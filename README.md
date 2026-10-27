@@ -435,9 +435,14 @@ service's dashboard in a browser.
      supported as a fallback)
    - `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` if the live-channel status
      feature is used
-   - `CRON_SECRET` (any random string) so the Vercel cron in `vercel.json`
-     can call the expeditions sweep every five minutes; without it the
-     sweep refuses to run and a run only resolves when someone opens it
+   - `CRON_SECRET` (any random string) so the expeditions sweep can be
+     called; without it the sweep refuses to run and a run only resolves when
+     someone opens it. The five-minute calls come from the database's
+     `expedition-sweep` pg_cron job, which needs two Vault secrets in
+     Supabase: `expedition_sweep_url` (`https://<site>/api/expeditions/sweep`)
+     and `cron_secret` (the same value as `CRON_SECRET`). The daily cron in
+     `vercel.json` is a backstop; Vercel's Hobby plan allows no more than one
+     run a day
    - `GITHUB_ACTIONS_TOKEN` (server-only) for the offseason admin's Ingest now
      button: a fine-grained token for this repository with Actions read and
      write. Without it the button links to the workflow instead
