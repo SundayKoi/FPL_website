@@ -12,6 +12,8 @@
 #   2. Production builds only when something the site ships changed. A
 #      merge that only touched docs, migrations, scripts or workflows keeps
 #      the deployment it already has.
+#
+# A Redeploy of the live commit always builds: see below.
 set -u
 
 if [ "${VERCEL_ENV:-}" != "production" ]; then
@@ -20,6 +22,16 @@ if [ "${VERCEL_ENV:-}" != "production" ]; then
   esac
   echo "Skipping: previews are off. Push a preview/* branch to get one."
   exit 0
+fi
+
+# Redeploying the commit that is already live is someone asking for a build,
+# usually after changing an environment variable: Vercel only reads those at
+# build time. A push never deploys the same commit twice, so the last
+# deployed commit only equals this one on a Redeploy. Without this the diff
+# below is always empty and the Redeploy is cancelled.
+if [ -n "${VERCEL_GIT_PREVIOUS_SHA:-}" ] && [ "${VERCEL_GIT_PREVIOUS_SHA}" = "${VERCEL_GIT_COMMIT_SHA:-}" ]; then
+  echo "Building: a Redeploy of the live commit ${VERCEL_GIT_COMMIT_SHA}."
+  exit 1
 fi
 
 # Compare against the commit Vercel deployed last when the clone has it,
@@ -47,6 +59,9 @@ SHIPPED=(
   tsconfig.json
   postcss.config.mjs
   vercel.json
+  # This script: a change to it builds once, so the live deployment always
+  # carries the current rules and a Redeploy of it follows them.
+  scripts/vercel-ignore.sh
 )
 
 if git diff --quiet "${BASE}" HEAD -- "${SHIPPED[@]}"; then

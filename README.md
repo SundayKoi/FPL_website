@@ -342,6 +342,9 @@ Build Step at `scripts/vercel-ignore.sh`:
   only touches docs, migrations, scripts or workflows keeps the deployment
   it already has. The list of shipped paths is in the script; add to it if
   a new root config file starts feeding `next build`.
+- **A Redeploy of the live commit always builds.** Vercel reads environment
+  variables only at build time, so after changing one, redeploy the current
+  production deployment from the Vercel dashboard.
 
 ## Deploy runbook
 
