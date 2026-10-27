@@ -7,11 +7,14 @@
 // token is the whole authorization.
 //
 // One shot by design — after a successful save the pad is done, because
-// the token burned server-side. "Clear" before saving is still free.
+// the token burned server-side. The eraser, undo and "Clear" before saving
+// are still free (useSignaturePad).
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { submitInviteSignatureAction } from "@/lib/cards/signing-actions";
 import { MAX_SIGNATURE_CHARS } from "@/lib/cards/signing";
+import SignaturePadTools from "./SignaturePadTools";
+import { useSignaturePad } from "./useSignaturePad";
 
 /** Canvas size in CSS pixels; backing store scales by devicePixelRatio so
  *  a phone signature isn't a blurry upscale. Matches SignaturePad. */
@@ -20,94 +23,39 @@ const PAD_HEIGHT = 160;
 
 const INK_WIDTH = 3;
 
+const TOOL_BUTTON =
+  "rounded-full border border-border-strong bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-40";
+
 export default function InviteSignaturePad({ token }: { token: string }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const drawing = useRef(false);
-  const [dirty, setDirty] = useState(false);
   // The save is one-shot (it burns the link), so it takes two taps: the
-  // first arms, the second fires. Drawing or clearing disarms.
+  // first arms, the second fires. Any change to the drawing disarms.
   const [saveArmed, setSaveArmed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Size the backing store once — resizing a canvas clears it.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ratio = typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
-    canvas.width = PAD_WIDTH * ratio;
-    canvas.height = PAD_HEIGHT * ratio;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.scale(ratio, ratio);
-    ctx.lineWidth = INK_WIDTH;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.strokeStyle = "#ffffff";
-  }, []);
-
-  const pointAt = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    return {
-      x: ((event.clientX - rect.left) / rect.width) * PAD_WIDTH,
-      y: ((event.clientY - rect.top) / rect.height) * PAD_HEIGHT,
-    };
-  };
-
-  const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (saved || saving) return;
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
-    // Capture, so a stroke that wanders off the pad keeps drawing until
-    // the pen lifts rather than ending mid-letter.
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    const { x, y } = pointAt(event);
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    // A tap with no drag is still a mark (the dot on an i).
-    ctx.lineTo(x, y);
-    ctx.stroke();
-    drawing.current = true;
-    setDirty(true);
-    setSaveArmed(false);
-    setError(null);
-  };
-
-  const onPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!drawing.current) return;
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
-    const { x, y } = pointAt(event);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  };
-
-  const onPointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!drawing.current) return;
-    drawing.current = false;
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-  };
-
-  const clear = () => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
-    ctx.clearRect(0, 0, PAD_WIDTH, PAD_HEIGHT);
-    ctx.beginPath();
-    setDirty(false);
-    setSaveArmed(false);
-    setError(null);
-  };
+  const pad = useSignaturePad({
+    width: PAD_WIDTH,
+    height: PAD_HEIGHT,
+    inkWidth: INK_WIDTH,
+    color: "#ffffff",
+    disabled: saved || saving,
+    onChange: () => {
+      setSaveArmed(false);
+      setError(null);
+    },
+  });
 
   const save = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas || saved) return;
+    if (saved) return;
+    const signature = pad.exportPng();
+    if (!signature) {
+      setError("The pad is empty — draw your signature first.");
+      return;
+    }
     if (!saveArmed) {
       setSaveArmed(true);
       return;
     }
-    const signature = canvas.toDataURL("image/png");
     if (signature.length > MAX_SIGNATURE_CHARS) {
       setError("That signature is too detailed — try a simpler one.");
       return;
@@ -139,28 +87,19 @@ export default function InviteSignaturePad({ token }: { token: string }) {
   return (
     <div className="flex w-full max-w-md flex-col items-center gap-2">
       <canvas
-        ref={canvasRef}
+        {...pad.canvasProps}
         aria-label="Signature pad — draw your signature"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
         className="w-full max-w-full touch-none rounded border border-border-subtle bg-canvas"
-        style={{ aspectRatio: `${PAD_WIDTH} / ${PAD_HEIGHT}`, cursor: "crosshair" }}
       />
+      <SignaturePadTools tool={pad.tool} onTool={pad.setTool} canUndo={pad.canUndo} onUndo={pad.undo} disabled={saving} buttonClass={TOOL_BUTTON} />
       <div className="flex flex-wrap items-center justify-center gap-2">
-        <button
-          type="button"
-          onClick={clear}
-          disabled={saving || !dirty}
-          className="rounded-full border border-border-strong bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-40"
-        >
+        <button type="button" onClick={pad.clear} disabled={saving || !pad.dirty} className={TOOL_BUTTON}>
           Clear
         </button>
         <button
           type="button"
           onClick={() => void save()}
-          disabled={saving || !dirty}
+          disabled={saving || !pad.dirty}
           className="btn-primary px-4 py-1.5 text-xs disabled:opacity-40"
         >
           {saving ? "Saving…" : saveArmed ? "Happy with it? Tap again" : "Sign it"}
