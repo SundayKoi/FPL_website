@@ -230,6 +230,25 @@ describe("the style rating on a card", () => {
     expect(new Set(laning).size).toBe(1);
   });
 
+  it("gives no vision for control wards spammed in base, and keeps it for wards killed", () => {
+    // Buy one, drop it in base, repeat: the placed count climbs while
+    // nothing is lit. Wards killed needs an enemy ward to kill.
+    const support = (name: string, over: Partial<CardGameRow>) =>
+      ({ row: agg(name, "UTILITY"), games: [game(name, { champion: "Leona", role: "UTILITY", wards_killed: 4, detector_wards_placed: 4, ...over })] });
+    const cards = buildSeasonCards({
+      ...windowOf([
+        support("Spammer", { detector_wards_placed: 30 }),
+        support("Hunter", { wards_killed: 12 }),
+        support("C", {}),
+        support("D", {}),
+      ]),
+      yardstick: YARDSTICK,
+    });
+    const vision = (name: string) => cards.find((card) => card.name === name)!.subStats.find((stat) => stat.key === "vision")!.value;
+    expect(vision("Spammer")).toBe(vision("C"));
+    expect(vision("Hunter")).toBeGreaterThan(vision("C"));
+  });
+
   it("sits a player it cannot grade at the middle, under a neutral label", () => {
     const window = windowOf([
       { row: agg("Mystery", "MIDDLE"), games: [game("Mystery", { champion: "NotAChampion", role: "MIDDLE" })] },

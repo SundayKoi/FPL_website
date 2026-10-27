@@ -79,8 +79,18 @@ export function barsForRole(roleMode: string | null | undefined): MeasureKey[] {
 
 export interface GameTotals {
   /** Wards killed + control wards PLACED, per minute played. The denial
-   *  half of vision, which vision_score barely separates from provision. */
+   *  half of vision, which vision_score barely separates from provision.
+   *  Legacy rating only (S1-S5, A1): see wardsKilled. */
   visionWork: number;
+  /**
+   * Wards killed per minute played: the style rating's denial half of
+   * vision (S6 and A2 on). Control wards placed are left out because they
+   * can be farmed: buy one, drop it in your own base, repeat. Each new one
+   * replaces the last, so the count climbs while nothing is lit, and the
+   * match data does not say where a ward went. A ward killed needs an
+   * enemy ward to kill.
+   */
+  wardsKilled: number;
   /** Damage absorbed by armour, MR and shields, per minute played. */
   mitigated: number;
   /** Objective takedowns + objective damage per 1k, per minute played. */
@@ -114,11 +124,12 @@ const num = (value: number | null | undefined): number => (typeof value === "num
  * behaviour for that game rather than a zero that would erase it.
  */
 export function gameTotals(games: CardGameRow[], durations?: Map<string, number>): GameTotals {
-  if (games.length === 0) return { objectives: 0, turrets: 0, visionWork: 0, mitigated: 0 };
+  if (games.length === 0) return { objectives: 0, turrets: 0, visionWork: 0, wardsKilled: 0, mitigated: 0 };
   let objectives = 0;
   let turrets = 0;
   let plates = 0;
   let visionWork = 0;
+  let wardsKilled = 0;
   let mitigated = 0;
   let minutes = 0;
   for (const game of games) {
@@ -136,6 +147,7 @@ export function gameTotals(games: CardGameRow[], durations?: Map<string, number>
     const controlWards =
       game.detector_wards_placed == null ? num(game.control_wards_bought) : num(game.detector_wards_placed);
     visionWork += num(game.wards_killed) + controlWards;
+    wardsKilled += num(game.wards_killed);
     mitigated += num(game.damage_mitigated);
     minutes += durations?.get(game.match_id) ?? 0;
   }
@@ -147,6 +159,7 @@ export function gameTotals(games: CardGameRow[], durations?: Map<string, number>
     objectives: objectives / divisor,
     turrets: turrets / divisor + plates / games.length,
     visionWork: visionWork / divisor,
+    wardsKilled: wardsKilled / divisor,
     mitigated: mitigated / divisor,
   };
 }

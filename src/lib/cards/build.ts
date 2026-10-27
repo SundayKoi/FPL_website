@@ -467,7 +467,7 @@ function measureValues(
   percentile: CardPercentile,
 ): Record<MeasureKey, number> {
   const rc = roleCohort(cohort, row);
-  const peerTotals = rc.map((r) => totalsByKey.get(playerKey(r)) ?? { objectives: 0, turrets: 0, visionWork: 0, mitigated: 0 });
+  const peerTotals = rc.map((r) => totalsByKey.get(playerKey(r)) ?? { objectives: 0, turrets: 0, visionWork: 0, wardsKilled: 0, mitigated: 0 });
   return {
     // kda and kp are already length-neutral (a ratio and a share); kills
     // and deaths are counts, so they go through perMinute.
@@ -791,7 +791,7 @@ function styleRatings(
     gameLog,
     yardstick,
     percentile,
-    totalsOf: (row) => totalsByKey.get(playerKey(row)) ?? { objectives: 0, turrets: 0, visionWork: 0, mitigated: 0 },
+    totalsOf: (row) => totalsByKey.get(playerKey(row)) ?? { objectives: 0, turrets: 0, visionWork: 0, wardsKilled: 0, mitigated: 0 },
   });
 }
 

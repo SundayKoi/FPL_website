@@ -37,7 +37,7 @@ describe("gameTotals", () => {
   });
 
   it("returns zeroes for a player with no games", () => {
-    expect(gameTotals([])).toEqual({ objectives: 0, turrets: 0, visionWork: 0, mitigated: 0 });
+    expect(gameTotals([])).toEqual({ objectives: 0, turrets: 0, visionWork: 0, wardsKilled: 0, mitigated: 0 });
   });
 });
 
@@ -198,6 +198,11 @@ describe("vision work", () => {
   it("counts denial and the control wards paid for", () => {
     const totals = gameTotals([warding("m1", 6, 4)], new Map([["m1", 20]]));
     expect(totals.visionWork).toBeCloseTo(0.5, 6);
+  });
+
+  it("keeps wards killed apart from control wards, which can be farmed in base", () => {
+    const totals = gameTotals([warding("m1", 6, 40)], new Map([["m1", 20]]));
+    expect(totals.wardsKilled).toBeCloseTo(0.3, 6);
   });
 
   it("gives a longer game no free credit for the same work", () => {
