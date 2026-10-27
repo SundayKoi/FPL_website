@@ -1,17 +1,19 @@
 "use client";
 
-// Claim and sign your offseason card. The same pad and white ink as the
-// league's SignaturePad, but the save goes through offseason_sign_card,
-// which checks the card is the caller's own (or claims a staff-added spot by
-// Riot ID first) and validates the image itself.
+// Claim and sign your offseason card. The same pad (useSignaturePad: pen,
+// eraser, undo) and white ink as the league's SignaturePad, but the save goes
+// through offseason_sign_card, which checks the card is the caller's own (or
+// claims a staff-added spot by Riot ID first) and validates the image itself.
 //
 // Transparent background on purpose: the autograph is laid over the card, so
 // only the ink may survive the export. The dark panel behind the canvas is
 // for the drawer's benefit.
 
-import { useEffect, useRef, useState, useTransition, type FormEvent, type PointerEvent } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
+import SignaturePadTools from "@/components/cards/SignaturePadTools";
+import { useSignaturePad } from "@/components/cards/useSignaturePad";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { MAX_SIGNATURE_CHARS } from "@/lib/cards/signing";
 import { signCardAction } from "@/lib/offseason/actions";
@@ -26,91 +28,45 @@ const INK_WIDTH = 5;
 type Message = { kind: "error" | "done"; text: string } | null;
 
 function Pad({ saving, onSave }: { saving: boolean; onSave: (signature: string) => void }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const drawing = useRef(false);
-  const [dirty, setDirty] = useState(false);
-
-  // Size the backing store once: resizing a canvas clears it.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ratio = window.devicePixelRatio || 1;
-    canvas.width = PAD_WIDTH * ratio;
-    canvas.height = PAD_HEIGHT * ratio;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.scale(ratio, ratio);
-    ctx.lineWidth = INK_WIDTH;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.strokeStyle = "#ffffff";
-  }, []);
-
-  const pointAt = (event: PointerEvent<HTMLCanvasElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    return { x: ((event.clientX - rect.left) / rect.width) * PAD_WIDTH, y: ((event.clientY - rect.top) / rect.height) * PAD_HEIGHT };
-  };
-
-  const down = (event: PointerEvent<HTMLCanvasElement>) => {
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx || saving) return;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    const { x, y } = pointAt(event);
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-    drawing.current = true;
-    setDirty(true);
-  };
-
-  const move = (event: PointerEvent<HTMLCanvasElement>) => {
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!drawing.current || !ctx) return;
-    const { x, y } = pointAt(event);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  };
-
-  const up = (event: PointerEvent<HTMLCanvasElement>) => {
-    if (!drawing.current) return;
-    drawing.current = false;
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-  };
-
-  const clear = () => {
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, PAD_WIDTH, PAD_HEIGHT);
-    ctx.beginPath();
-    setDirty(false);
+  const [blank, setBlank] = useState(false);
+  const pad = useSignaturePad({
+    width: PAD_WIDTH,
+    height: PAD_HEIGHT,
+    inkWidth: INK_WIDTH,
+    color: "#ffffff",
+    disabled: saving,
+    onChange: () => setBlank(false),
+  });
+  const save = () => {
+    const signature = pad.exportPng();
+    if (signature) onSave(signature);
+    else setBlank(true);
   };
 
   return (
     <div className="flex w-full max-w-md flex-col gap-2">
       <canvas
-        ref={canvasRef}
+        {...pad.canvasProps}
         aria-label="Signature pad: draw your signature"
-        onPointerDown={down}
-        onPointerMove={move}
-        onPointerUp={up}
-        onPointerCancel={up}
         className="w-full touch-none rounded border border-border-subtle bg-canvas"
-        style={{ aspectRatio: `${PAD_WIDTH} / ${PAD_HEIGHT}`, cursor: "crosshair" }}
+      />
+      <SignaturePadTools
+        tool={pad.tool}
+        onTool={pad.setTool}
+        canUndo={pad.canUndo}
+        onUndo={pad.undo}
+        disabled={saving}
+        buttonClass="btn-pill text-sm disabled:opacity-50"
       />
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={!dirty || saving}
-          onClick={() => canvasRef.current && onSave(canvasRef.current.toDataURL("image/png"))}
-          className="btn-primary px-5 py-2.5 text-sm uppercase tracking-wide disabled:opacity-50"
-        >
+        <button type="button" disabled={!pad.dirty || saving} onClick={save} className="btn-primary px-5 py-2.5 text-sm uppercase tracking-wide disabled:opacity-50">
           {saving ? "Saving…" : "Save signature"}
         </button>
-        <button type="button" onClick={clear} disabled={!dirty || saving} className="btn-pill text-sm disabled:opacity-50">
+        <button type="button" onClick={pad.clear} disabled={!pad.dirty || saving} className="btn-pill text-sm disabled:opacity-50">
           Clear
         </button>
       </div>
+      {blank ? <p className="text-sm text-muted">The pad is empty. Draw your signature first.</p> : null}
     </div>
   );
 }

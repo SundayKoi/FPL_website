@@ -84,4 +84,52 @@ describe("signing an offseason card", () => {
     await screen.findByRole("status");
     expect(signCardAction).toHaveBeenCalledWith({ eventId: "event", signature: INK, riotId: "Bleedinwolves#IlIll" });
   });
+
+  it("erases part of a signature and takes strokes back with undo", async () => {
+    // A context that logs each stroke with the blend it was drawn in.
+    const log: string[] = [];
+    const ctx = {
+      globalCompositeOperation: "source-over",
+      scale: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      clearRect: vi.fn(() => log.push("clear")),
+      stroke: vi.fn(() => log.push(ctx.globalCompositeOperation)),
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx as unknown as CanvasRenderingContext2D);
+    signCardAction.mockResolvedValue({ ok: true });
+    render(<SignOwnCard eventId="event" card={card} signature={null} />);
+    const undo = screen.getByRole("button", { name: "Undo" }) as HTMLButtonElement;
+    expect(undo.disabled).toBe(true);
+
+    draw();
+    fireEvent.click(screen.getByRole("button", { name: "Eraser" }));
+    expect(screen.getByRole("button", { name: "Eraser" }).getAttribute("aria-pressed")).toBe("true");
+    draw();
+    // The eraser cuts the ink away instead of painting over it.
+    expect(log).toEqual(["source-over", "destination-out"]);
+
+    log.length = 0;
+    fireEvent.click(undo);
+    // Undo clears and replays what's left: the pen stroke alone.
+    expect(log).toEqual(["clear", "source-over", "source-over"]);
+    fireEvent.click(undo);
+    expect(undo.disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Save signature" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("won't save a pad the eraser has emptied", () => {
+    const ctx = {
+      scale: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), clearRect: vi.fn(),
+      // Every pixel transparent: nothing left to sign with.
+      getImageData: vi.fn(() => ({ data: new Uint8ClampedArray(16) })),
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx as unknown as CanvasRenderingContext2D);
+    render(<SignOwnCard eventId="event" card={card} signature={null} />);
+    draw();
+    fireEvent.click(screen.getByRole("button", { name: "Save signature" }));
+    expect(screen.getByText(/The pad is empty/)).toBeTruthy();
+    expect(signCardAction).not.toHaveBeenCalled();
+  });
 });
