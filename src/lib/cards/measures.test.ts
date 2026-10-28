@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CardGameRow } from "./build";
-import { DEFAULT_BARS, ROLE_BARS, gameTotals, pctOf } from "./measures";
+import { CONTROL_WARDS_COUNT_BEFORE, DEFAULT_BARS, ROLE_BARS, gameTotals, pctOf } from "./measures";
 
 const game = (over: Partial<CardGameRow> = {}): CardGameRow => ({
   summoner_name: "Player",
@@ -37,7 +37,7 @@ describe("gameTotals", () => {
   });
 
   it("returns zeroes for a player with no games", () => {
-    expect(gameTotals([])).toEqual({ objectives: 0, turrets: 0, visionWork: 0, mitigated: 0 });
+    expect(gameTotals([])).toEqual({ objectives: 0, turrets: 0, visionWork: 0, styleVisionWork: 0, mitigated: 0 });
   });
 });
 
@@ -198,6 +198,18 @@ describe("vision work", () => {
   it("counts denial and the control wards paid for", () => {
     const totals = gameTotals([warding("m1", 6, 4)], new Map([["m1", 20]]));
     expect(totals.visionWork).toBeCloseTo(0.5, 6);
+  });
+
+  it("stops counting control wards for the style rating from the cutoff, since they can be farmed in base", () => {
+    const on = (day: string | null) => ({ ...warding("m1", 6, 4), game_date: day });
+    const minutes = new Map([["m1", 20]]);
+    // The day before: wards killed and control wards, as the game was rated.
+    expect(gameTotals([on("2026-10-27 21:00:00")], minutes).styleVisionWork).toBeCloseTo(0.5, 6);
+    // The cutoff day on, and an undated game: wards killed alone.
+    expect(gameTotals([on(`${CONTROL_WARDS_COUNT_BEFORE}T01:00:00`)], minutes).styleVisionWork).toBeCloseTo(0.3, 6);
+    expect(gameTotals([on(null)], minutes).styleVisionWork).toBeCloseTo(0.3, 6);
+    // The legacy figure is untouched either way.
+    expect(gameTotals([on(`${CONTROL_WARDS_COUNT_BEFORE}T01:00:00`)], minutes).visionWork).toBeCloseTo(0.5, 6);
   });
 
   it("gives a longer game no free credit for the same work", () => {
