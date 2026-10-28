@@ -79,8 +79,18 @@ export function barsForRole(roleMode: string | null | undefined): MeasureKey[] {
 
 export interface GameTotals {
   /** Wards killed + control wards PLACED, per minute played. The denial
-   *  half of vision, which vision_score barely separates from provision. */
+   *  half of vision, which vision_score barely separates from provision.
+   *  Legacy rating only (S1-S5, A1): see styleVisionWork. */
   visionWork: number;
+  /**
+   * The style rating's denial half of vision (S6 and A2 on), per minute
+   * played: wards killed, plus control wards placed only in games before
+   * CONTROL_WARDS_COUNT_BEFORE. The placed count can be farmed: buy one,
+   * drop it in your own base, repeat. Each new one replaces the last, so
+   * the count climbs while nothing is lit, and the match data does not say
+   * where a ward went. A ward killed needs an enemy ward to kill.
+   */
+  styleVisionWork: number;
   /** Damage absorbed by armour, MR and shields, per minute played. */
   mitigated: number;
   /** Objective takedowns + objective damage per 1k, per minute played. */
@@ -91,6 +101,22 @@ export interface GameTotals {
 }
 
 const num = (value: number | null | undefined): number => (typeof value === "number" ? value : 0);
+
+/**
+ * The first game day whose control wards placed no longer count toward the
+ * style rating's Vision: the offseason's week 3, when players learned the
+ * count could be farmed in base. Earlier games keep the credit they were
+ * rated with, so weeks already played do not move. Compared as a
+ * YYYY-MM-DD prefix of game_date, which raw_stats and offseason_stats keep
+ * as league-local time without a zone.
+ */
+export const CONTROL_WARDS_COUNT_BEFORE = "2026-10-28";
+
+/** A game whose control wards still count; an undated one does not. */
+function controlWardsCount(game: CardGameRow): boolean {
+  const day = game.game_date?.slice(0, 10);
+  return Boolean(day) && day! < CONTROL_WARDS_COUNT_BEFORE;
+}
 
 /**
  * Per-minute objective and turret work for one player.
@@ -114,11 +140,12 @@ const num = (value: number | null | undefined): number => (typeof value === "num
  * behaviour for that game rather than a zero that would erase it.
  */
 export function gameTotals(games: CardGameRow[], durations?: Map<string, number>): GameTotals {
-  if (games.length === 0) return { objectives: 0, turrets: 0, visionWork: 0, mitigated: 0 };
+  if (games.length === 0) return { objectives: 0, turrets: 0, visionWork: 0, styleVisionWork: 0, mitigated: 0 };
   let objectives = 0;
   let turrets = 0;
   let plates = 0;
   let visionWork = 0;
+  let styleVisionWork = 0;
   let mitigated = 0;
   let minutes = 0;
   for (const game of games) {
@@ -136,6 +163,7 @@ export function gameTotals(games: CardGameRow[], durations?: Map<string, number>
     const controlWards =
       game.detector_wards_placed == null ? num(game.control_wards_bought) : num(game.detector_wards_placed);
     visionWork += num(game.wards_killed) + controlWards;
+    styleVisionWork += num(game.wards_killed) + (controlWardsCount(game) ? controlWards : 0);
     mitigated += num(game.damage_mitigated);
     minutes += durations?.get(game.match_id) ?? 0;
   }
@@ -147,6 +175,7 @@ export function gameTotals(games: CardGameRow[], durations?: Map<string, number>
     objectives: objectives / divisor,
     turrets: turrets / divisor + plates / games.length,
     visionWork: visionWork / divisor,
+    styleVisionWork: styleVisionWork / divisor,
     mitigated: mitigated / divisor,
   };
 }
