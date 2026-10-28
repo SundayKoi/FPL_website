@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PlayerAggRow } from "@/lib/stats/types";
 import { buildSeasonCards, cardPlayerKey, seasonStyleRatings, type CardGameMeta, type CardGameRow } from "./build";
+import { CONTROL_WARDS_COUNT_BEFORE } from "./measures";
 import { gradeAgainst, gradeGame, indexGames, styleStat, type StyleYardstick } from "./styleRating";
 
 /** Quantiles spread evenly from lo to hi: grade = where the value sits. */
@@ -230,23 +231,31 @@ describe("the style rating on a card", () => {
     expect(new Set(laning).size).toBe(1);
   });
 
-  it("gives no vision for control wards spammed in base, and keeps it for wards killed", () => {
+  it("gives no vision for control wards spammed in base from the cutoff, and keeps it for wards killed", () => {
     // Buy one, drop it in base, repeat: the placed count climbs while
     // nothing is lit. Wards killed needs an enemy ward to kill.
-    const support = (name: string, over: Partial<CardGameRow>) =>
-      ({ row: agg(name, "UTILITY"), games: [game(name, { champion: "Leona", role: "UTILITY", wards_killed: 4, detector_wards_placed: 4, ...over })] });
-    const cards = buildSeasonCards({
-      ...windowOf([
-        support("Spammer", { detector_wards_placed: 30 }),
-        support("Hunter", { wards_killed: 12 }),
-        support("C", {}),
-        support("D", {}),
-      ]),
-      yardstick: YARDSTICK,
-    });
-    const vision = (name: string) => cards.find((card) => card.name === name)!.subStats.find((stat) => stat.key === "vision")!.value;
-    expect(vision("Spammer")).toBe(vision("C"));
-    expect(vision("Hunter")).toBeGreaterThan(vision("C"));
+    const visionOf = (day: string) => {
+      const support = (name: string, over: Partial<CardGameRow>) => ({
+        row: agg(name, "UTILITY"),
+        games: [game(name, { champion: "Leona", role: "UTILITY", game_date: day, wards_killed: 4, detector_wards_placed: 4, ...over })],
+      });
+      const cards = buildSeasonCards({
+        ...windowOf([
+          support("Spammer", { detector_wards_placed: 30 }),
+          support("Hunter", { wards_killed: 12 }),
+          support("C", {}),
+          support("D", {}),
+        ]),
+        yardstick: YARDSTICK,
+      });
+      return (name: string) => cards.find((card) => card.name === name)!.subStats.find((stat) => stat.key === "vision")!.value;
+    };
+    const after = visionOf(`${CONTROL_WARDS_COUNT_BEFORE}T01:00:00`);
+    expect(after("Spammer")).toBe(after("C"));
+    expect(after("Hunter")).toBeGreaterThan(after("C"));
+    // A game before the cutoff keeps the control-ward credit it was rated with.
+    const before = visionOf("2026-10-20T01:00:00");
+    expect(before("Spammer")).toBeGreaterThan(before("C"));
   });
 
   it("sits a player it cannot grade at the middle, under a neutral label", () => {

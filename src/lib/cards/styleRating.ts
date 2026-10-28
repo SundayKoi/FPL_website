@@ -437,11 +437,12 @@ export function rateByStyle(input: RateByStyleInput): Map<PlayerAggRow, StyleRat
       farming: mean(farmLane),
       teamplay: percentile(row, "avg_kp_pct"),
       survival: percentile(row, "deathsPerMinute", true),
-      // Wards killed, not the legacy visionWork: its control-ward count can
-      // be farmed in base (see GameTotals.wardsKilled).
+      // Not the legacy visionWork: control wards placed stop counting from
+      // CONTROL_WARDS_COUNT_BEFORE, because they can be farmed in base (see
+      // GameTotals.styleVisionWork).
       vision: mean([
         percentile(row, "avg_vision_per_min"),
-        pctOf(peersOf(cohort, row, (r) => totalsOf(r).wardsKilled), totals.wardsKilled),
+        pctOf(peersOf(cohort, row, (r) => totalsOf(r).styleVisionWork), totals.styleVisionWork),
       ]),
       objectives: pctOf(peersOf(cohort, row, (r) => totalsOf(r).objectives), totals.objectives),
     };
