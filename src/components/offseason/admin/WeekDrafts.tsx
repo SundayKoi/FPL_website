@@ -44,19 +44,25 @@ function DraftRow({ data, week, tier, draftId }: { data: OffseasonAdminData; wee
   );
 }
 
-/** A week's auctions: links into the ordinary draft tools, and importing the result. */
+/**
+ * A week's auctions: links into the ordinary draft tools, and importing the
+ * result. Creating either tier's draft takes the week out of setup, so the
+ * other tier's draft is created here, whichever came first.
+ */
 export default function WeekDrafts({ data, week }: { data: OffseasonAdminData; week: OffseasonWeek }) {
-  const hasEliminationTier = data.entries.some((entry) => entry.week_id === week.id && entry.tier === "elimination");
+  const hasTier = (tier: Tier) => data.entries.some((entry) => entry.week_id === week.id && entry.tier === tier);
   if (!week.main_draft_id && !week.elimination_draft_id) return null;
+  const draft = (tier: Tier, draftId: string | null) =>
+    draftId ? (
+      <DraftRow data={data} week={week} tier={tier} draftId={draftId} />
+    ) : hasTier(tier) && week.status !== "complete" ? (
+      <DraftCreator data={data} week={week} tier={tier} disabled={false} />
+    ) : null;
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs font-bold uppercase tracking-wide text-muted">Drafts</p>
-      {week.main_draft_id ? <DraftRow data={data} week={week} tier="main" draftId={week.main_draft_id} /> : null}
-      {week.elimination_draft_id ? (
-        <DraftRow data={data} week={week} tier="elimination" draftId={week.elimination_draft_id} />
-      ) : hasEliminationTier && week.status !== "complete" ? (
-        <DraftCreator data={data} week={week} tier="elimination" disabled={false} />
-      ) : null}
+      {draft("main", week.main_draft_id)}
+      {draft("elimination", week.elimination_draft_id)}
     </div>
   );
 }
