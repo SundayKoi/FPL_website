@@ -162,7 +162,11 @@ export function adjustCard(card: PlayerCardData | null, adjustment: number): Pla
   return { ...card, overall, tier: tierFor(overall) };
 }
 
-/** Each role's players, best rated first — the event's leaderboards. */
+/**
+ * Each role's players, best rated first — the event's leaderboards. Players
+ * still in the event come first whatever their Overall; the eliminated
+ * follow, those who lasted longest first, then by rating.
+ */
 export function leaderboards(
   entrants: OffseasonEntrant[],
   ratings: Map<string, Pick<EntrantRating, "overall">>,
@@ -171,7 +175,12 @@ export function leaderboards(
   for (const entrant of entrants) {
     if (entrant.assigned_role && entrant.status !== "withdrawn") boards[entrant.assigned_role].push(entrant);
   }
-  const order = compareByRating(ratings);
+  const byRating = compareByRating(ratings);
+  const out = (entrant: OffseasonEntrant) => entrant.status === "eliminated";
+  const order = (a: OffseasonEntrant, b: OffseasonEntrant) =>
+    Number(out(a)) - Number(out(b)) ||
+    (out(a) ? (b.eliminated_week ?? 0) - (a.eliminated_week ?? 0) : 0) ||
+    byRating(a, b);
   for (const role of Object.keys(boards) as LolRole[]) boards[role].sort(order);
   return boards;
 }
