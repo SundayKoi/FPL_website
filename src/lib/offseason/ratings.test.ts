@@ -222,4 +222,24 @@ describe("rateEntrants", () => {
     expect(boards.mid.map((player) => player.id)).toEqual(["Blue mid", "Red mid", "Never Played"]);
     expect(boards.top).toEqual([]);
   });
+
+  it("puts eliminated players at the bottom whatever their Overall, the longest lasting first", () => {
+    const boards = leaderboards(
+      [
+        entrant("Star", "top", { status: "eliminated", eliminated_week: 3 }),
+        entrant("Later out", "top", { status: "eliminated", eliminated_week: 4 }),
+        entrant("Low", "top"),
+        entrant("Mid", "top"),
+        entrant("Also W3", "top", { status: "eliminated", eliminated_week: 3 }),
+      ],
+      new Map([
+        ["Star", { overall: 90 }],
+        ["Later out", { overall: 40 }],
+        ["Low", { overall: 50 }],
+        ["Mid", { overall: 70 }],
+        ["Also W3", { overall: 60 }],
+      ]),
+    );
+    expect(boards.top.map((player) => player.id)).toEqual(["Mid", "Low", "Later out", "Star", "Also W3"]);
+  });
 });
